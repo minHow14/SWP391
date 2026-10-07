@@ -1,17 +1,17 @@
-import { useState } from "react";
-import { Link } from "react-router";
+import { useState } from 'react';
+import { Link } from 'react-router';
 
 export default function AuthForm({ isRegister = false }) {
   const [showPassword, setShowPassword] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
 
   function handleSubmit(event) {
     event.preventDefault();
 
     setMessage(
       isRegister
-        ? "Thông tin hợp lệ. Bản mẫu chưa tạo tài khoản thật."
-        : "Bản mẫu giao diện, chưa xác thực đăng nhập."
+        ? 'Thông tin hợp lệ. Bản mẫu chưa tạo tài khoản thật.'
+        : 'Bản mẫu giao diện, chưa xác thực đăng nhập.'
     );
   }
 
@@ -24,10 +24,7 @@ export default function AuthForm({ isRegister = false }) {
               {/* Phần đầu */}
               <header className="bg-success bg-gradient text-white text-center p-4">
                 <div className="d-inline-flex bg-white bg-opacity-25 rounded-4 p-3 mb-3">
-                  <i
-                    className="bi bi-flower1 fs-2"
-                    aria-hidden="true"
-                  ></i>
+                  <i className="bi bi-flower1 fs-2" aria-hidden="true"></i>
                 </div>
 
                 <h1 className="h3 fw-bold">Cộng Đồng Chay Xanh</h1>
@@ -43,11 +40,9 @@ export default function AuthForm({ isRegister = false }) {
                   <Link
                     to="/dang-nhap"
                     className={`btn fw-semibold flex-fill ${
-                      !isRegister
-                        ? "bg-white text-success"
-                        : "text-white"
+                      !isRegister ? 'bg-white text-success' : 'text-white'
                     }`}
-                    aria-current={!isRegister ? "page" : undefined}
+                    aria-current={!isRegister ? 'page' : undefined}
                   >
                     Đăng Nhập
                   </Link>
@@ -55,11 +50,9 @@ export default function AuthForm({ isRegister = false }) {
                   <Link
                     to="/dang-ky"
                     className={`btn fw-semibold flex-fill ${
-                      isRegister
-                        ? "bg-white text-success"
-                        : "text-white"
+                      isRegister ? 'bg-white text-success' : 'text-white'
                     }`}
-                    aria-current={isRegister ? "page" : undefined}
+                    aria-current={isRegister ? 'page' : undefined}
                   >
                     Đăng Ký
                   </Link>
@@ -68,10 +61,7 @@ export default function AuthForm({ isRegister = false }) {
 
               {/* Nội dung form */}
               <div className="card-body p-4">
-                <form
-                  onSubmit={handleSubmit}
-                  onChange={() => setMessage("")}
-                >
+                <form onSubmit={handleSubmit} onChange={() => setMessage('')}>
                   {/* Họ tên chỉ xuất hiện khi đăng ký */}
                   {isRegister && (
                     <div className="mb-4">
@@ -108,7 +98,7 @@ export default function AuthForm({ isRegister = false }) {
                       htmlFor="account"
                       className="form-label small fw-semibold"
                     >
-                      {isRegister ? "Email" : "Email hoặc Tên đăng nhập"}
+                      Email
                     </label>
 
                     <div className="input-group border rounded-3 overflow-hidden">
@@ -118,13 +108,12 @@ export default function AuthForm({ isRegister = false }) {
 
                       <input
                         id="account"
-                        name={isRegister ? "email" : "username"}
-                        type={isRegister ? "email" : "text"}
+                        name="email"
+                        type="email"
                         className="form-control border-0 py-3"
                         placeholder="nhapemail@gmail.com"
-                        autoComplete={isRegister ? "email" : "username"}
-                        pattern={isRegister ? undefined : ".*\\S.*"}
-                        title="Vui lòng nhập email hoặc tên đăng nhập."
+                        autoComplete={isRegister ? 'email' : 'username'}
+                        title="Vui lòng nhập email hợp lệ."
                         required
                       />
                     </div>
@@ -145,9 +134,7 @@ export default function AuthForm({ isRegister = false }) {
                           type="button"
                           className="btn btn-link text-success text-decoration-none p-0 small"
                           onClick={() =>
-                            setMessage(
-                              "Chưa kết nối chức năng quên mật khẩu."
-                            )
+                            setMessage('Chưa kết nối chức năng quên mật khẩu.')
                           }
                         >
                           Quên mật khẩu?
@@ -163,13 +150,13 @@ export default function AuthForm({ isRegister = false }) {
                       <input
                         id="password"
                         name="password"
-                        type={showPassword ? "text" : "password"}
+                        type={showPassword ? 'text' : 'password'}
                         className="form-control border-0 py-3"
                         placeholder={
-                          isRegister ? "Ít nhất 6 ký tự" : "Nhập mật khẩu"
+                          isRegister ? 'Ít nhất 6 ký tự' : 'Nhập mật khẩu'
                         }
                         autoComplete={
-                          isRegister ? "new-password" : "current-password"
+                          isRegister ? 'new-password' : 'current-password'
                         }
                         minLength={isRegister ? 6 : undefined}
                         required
@@ -180,15 +167,13 @@ export default function AuthForm({ isRegister = false }) {
                         className="btn bg-white border-0 text-secondary"
                         onClick={() => setShowPassword(!showPassword)}
                         aria-label={
-                          showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"
+                          showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'
                         }
                         aria-pressed={showPassword}
                       >
                         <i
                           className={
-                            showPassword
-                              ? "bi bi-eye-slash"
-                              : "bi bi-eye"
+                            showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'
                           }
                           aria-hidden="true"
                         ></i>
@@ -200,7 +185,7 @@ export default function AuthForm({ isRegister = false }) {
                   <div className="form-check mb-4">
                     <input
                       id="agreement"
-                      name={isRegister ? "agreement" : "remember"}
+                      name={isRegister ? 'agreement' : 'remember'}
                       type="checkbox"
                       className="form-check-input"
                       required={isRegister}
@@ -212,25 +197,25 @@ export default function AuthForm({ isRegister = false }) {
                     >
                       {isRegister ? (
                         <>
-                          Tôi đồng ý với{" "}
+                          Tôi đồng ý với{' '}
                           <button
                             type="button"
                             className="btn btn-link text-success text-decoration-none fw-semibold p-0 small"
                             onClick={() =>
                               setMessage(
-                                "Điều khoản dịch vụ sẽ được bổ sung sau."
+                                'Điều khoản dịch vụ sẽ được bổ sung sau.'
                               )
                             }
                           >
                             Điều khoản dịch vụ
                           </button>
-                          {" & "}
+                          {' & '}
                           <button
                             type="button"
                             className="btn btn-link text-success text-decoration-none fw-semibold p-0 small"
                             onClick={() =>
                               setMessage(
-                                "Chính sách bảo mật sẽ được bổ sung sau."
+                                'Chính sách bảo mật sẽ được bổ sung sau.'
                               )
                             }
                           >
@@ -238,7 +223,7 @@ export default function AuthForm({ isRegister = false }) {
                           </button>
                         </>
                       ) : (
-                        "Ghi nhớ đăng nhập"
+                        'Ghi nhớ đăng nhập'
                       )}
                     </label>
                   </div>
@@ -253,15 +238,13 @@ export default function AuthForm({ isRegister = false }) {
                     type="submit"
                     className="btn btn-success bg-gradient w-100 py-3 rounded-3 fw-semibold shadow-sm"
                   >
-                    {isRegister
-                      ? "Đăng Ký Tài Khoản"
-                      : "Đăng Nhập Ngay"}
+                    {isRegister ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}
                   </button>
                 </form>
               </div>
 
               <footer className="text-center bg-success bg-opacity-10 p-3 small">
-                Trở về{" "}
+                Trở về{' '}
                 <Link
                   to="/"
                   className="text-success fw-semibold text-decoration-none"

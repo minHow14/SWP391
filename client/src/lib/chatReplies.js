@@ -13,7 +13,7 @@ export function getDemoReply(question, dietName) {
       items: Array.from(
         { length: 7 },
         (_, index) =>
-          `${index === 6 ? 'Chủ nhật' : `Thứ ${index + 2}`}: ${meals[index % meals.length].name}`
+          `${index === 6 ? 'Chủ nhật' : `Thứ ${index + 2}`}: ${meals[index % meals.length].recipe_name}`
       ),
     };
   }
@@ -46,16 +46,16 @@ export function getDemoReply(question, dietName) {
   }
   if (/salad|bo/.test(text)) {
     return {
-      title: meals[1].name,
+      title: meals[1].recipe_name,
       text: `Nguyên liệu: ${meals[1].ingredients.join(', ')}.`,
-      items: meals[1].steps,
+      items: meals[1].instructions.split('\n'),
     };
   }
   if (/dau hu|cong thuc|mon|nau/.test(text)) {
     return {
-      title: meals[0].name,
+      title: meals[0].recipe_name,
       text: `Nguyên liệu: ${meals[0].ingredients.join(', ')}.`,
-      items: meals[0].steps,
+      items: meals[0].instructions.split('\n'),
     };
   }
   return {

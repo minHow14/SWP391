@@ -1,18 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, NavLink } from 'react-router';
 
-export default function Header({
-  dietName = 'Chọn chế độ ăn',
-  onChangeDiet,
-}) {
+export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDiet }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   const menuItems = [
     { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check' },
     { name: 'Đổi Món Chay', icon: 'bi-magic' },
     { name: 'Từ Điển Chay', icon: 'bi-book-fill' },
-    { name: 'Công Thức', icon: 'bi-book-half' },
-    { name: 'Cộng Đồng', icon: 'bi-people-fill' },
+    { name: 'Công Thức', icon: 'bi-book-half', path: '/cong-thuc' },
+    { name: 'Cộng Đồng', icon: 'bi-people-fill', path: '/cong-dong' },
     { name: 'Quán Chay', icon: 'bi-geo-alt-fill' },
     { name: 'Nhật Ký', icon: 'bi-pie-chart-fill' },
   ];
@@ -56,16 +53,29 @@ export default function Header({
             <ul className="navbar-nav main-menu">
               {menuItems.map((item) => (
                 <li className="nav-item" key={item.name}>
-                  <button
-                    type="button"
-                    className="nav-link"
-                    disabled
-                    title="Chức năng sẽ được bổ sung sau"
-                  >
-                    <i className={`bi ${item.icon}`} aria-hidden="true"></i>
+                  {item.path ? (
+                    <NavLink
+                      to={item.path}
+                      className={({ isActive }) =>
+                        `nav-link ${isActive ? 'cx-nav-active' : ''}`
+                      }
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <i className={`bi ${item.icon}`} aria-hidden="true" />
+                      <span>{item.name}</span>
+                    </NavLink>
+                  ) : (
+                    <button
+                      type="button"
+                      className="nav-link"
+                      disabled
+                      title="Chức năng sẽ được bổ sung sau"
+                    >
+                      <i className={`bi ${item.icon}`} aria-hidden="true"></i>
 
-                    <span>{item.name}</span>
-                  </button>
+                      <span>{item.name}</span>
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -84,8 +94,12 @@ export default function Header({
               </button>
 
               <div className="account-buttons">
-                <Link to="/dang-nhap" className="btn btn-outline-success">Đăng nhập</Link>
-                <Link to="/dang-ky" className="btn btn-success">Đăng ký</Link>
+                <Link to="/dang-nhap" className="btn btn-outline-success">
+                  Đăng nhập
+                </Link>
+                <Link to="/dang-ky" className="btn btn-success">
+                  Đăng ký
+                </Link>
               </div>
             </div>
           </div>

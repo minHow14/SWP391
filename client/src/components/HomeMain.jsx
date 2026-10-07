@@ -1,6 +1,10 @@
+import {
+  createDemoId,
+  formatDuration,
+  DEMO_USER_ID,
+} from '../lib/modelFields.js';
 import { useEffect, useRef, useState } from 'react';
 import { meals, videos, articles, places } from '../data/homeData.js';
-import ChatBox from './ChatBox.jsx';
 import heroPhoto from '../assets/chayxanh-bowl.webp';
 import '../Home.css';
 
@@ -86,7 +90,7 @@ function TipsList({ compact = false, onOpen, liked, onLike }) {
     >
       {articles.map((article, index) => (
         <article
-          key={article.id}
+          key={article.post_id}
           className={index ? 'border-top pt-3 mt-3' : ''}
         >
           <span
@@ -105,16 +109,17 @@ function TipsList({ compact = false, onOpen, liked, onLike }) {
             </button>
           </h3>
           <div className="d-flex justify-content-between align-items-center gap-2 small text-secondary">
-            <span>Đăng bởi {article.author}</span>
+            <span>Đăng bởi {article.author_full_name}</span>
             <button
               type="button"
-              className={`btn btn-sm p-0 text-nowrap ${liked.includes(article.id) ? 'text-success' : 'text-secondary'}`}
+              className={`btn btn-sm p-0 text-nowrap ${liked.includes(article.post_id) ? 'text-success' : 'text-secondary'}`}
               aria-label={`Thích bài ${article.title}`}
-              aria-pressed={liked.includes(article.id)}
-              onClick={() => onLike(article.id)}
+              aria-pressed={liked.includes(article.post_id)}
+              onClick={() => onLike(article.post_id)}
             >
               <Icon name="hand-thumbs-up" />{' '}
-              {article.votes + Number(liked.includes(article.id))} vote
+              {article.vote_count + Number(liked.includes(article.post_id))}{' '}
+              vote
             </button>
           </div>
         </article>
@@ -123,9 +128,7 @@ function TipsList({ compact = false, onOpen, liked, onLike }) {
   );
 }
 
-export default function HomeMain({
-  dietName = 'Chưa chọn chế độ ăn',
-}) {
+export default function HomeMain() {
   const [dialog, setDialog] = useState(null);
   const [journal, setJournal] = useState([]);
   const [liked, setLiked] = useState([]);
@@ -134,7 +137,7 @@ export default function HomeMain({
   const fileInput = useRef(null);
   const closeDialog = () => setDialog(null);
   const openRecipe = (meal) =>
-    setDialog({ type: 'recipe', title: meal.name, data: meal });
+    setDialog({ type: 'recipe', title: meal.recipe_name, data: meal });
   const openArticle = (article) =>
     setDialog({ type: 'article', title: article.title, data: article });
   const toggleLike = (id) =>
@@ -146,9 +149,17 @@ export default function HomeMain({
   function addMeal(meal) {
     setJournal((previous) => [
       ...previous,
-      { ...meal, entryId: `${meal.id}-${Date.now()}-${previous.length}` },
+      {
+        ...meal,
+        diary_id: createDemoId(),
+        user_id: DEMO_USER_ID,
+        consumed_date: new Date().toLocaleDateString('en-CA', {
+          timeZone: 'Asia/Bangkok',
+        }),
+        calories: meal.total_calories,
+      },
     ]);
-    setNotice(`Đã thêm “${meal.name}” vào nhật ký bữa ăn.`);
+    setNotice(`Đã thêm “${meal.recipe_name}” vào nhật ký bữa ăn.`);
   }
 
   return (
@@ -266,15 +277,15 @@ export default function HomeMain({
           </SectionTitle>
           <div className="row g-3">
             {meals.map((meal) => (
-              <div key={meal.id} className="col-12 col-sm-6 col-xl-3">
+              <div key={meal.recipe_id} className="col-12 col-sm-6 col-xl-3">
                 <article className="card cx-food-card h-100 rounded-4 border-0 overflow-hidden">
                   <div className="position-relative">
-                    <FoodImage src={meal.image} alt={meal.name} />
+                    <FoodImage src={meal.image} alt={meal.recipe_name} />
                     <span className="badge bg-success position-absolute top-0 start-0 m-2">
-                      <Icon name="fire" /> {meal.calories} kcal
+                      <Icon name="fire" /> {meal.total_calories} kcal
                     </span>
                     <span className="badge bg-dark bg-opacity-75 position-absolute top-0 end-0 m-2">
-                      {meal.minutes} phút
+                      {meal.prep_time} phút
                     </span>
                   </div>
                   <div className="card-body d-flex flex-column p-3">
@@ -289,7 +300,7 @@ export default function HomeMain({
                         <Icon name="star-fill" /> {meal.rating}
                       </span>
                     </div>
-                    <h3 className="h6 fw-bold text-dark">{meal.name}</h3>
+                    <h3 className="h6 fw-bold text-dark">{meal.recipe_name}</h3>
                     <p className="small text-secondary flex-grow-1">
                       {meal.description}
                     </p>
@@ -333,7 +344,7 @@ export default function HomeMain({
             </SectionTitle>
             <div className="row g-3">
               {videos.map((video) => (
-                <div key={video.id} className="col-md-6">
+                <div key={video.post_id} className="col-md-6">
                   <article className="card cx-food-card h-100 rounded-4 border-0 overflow-hidden">
                     <button
                       type="button"
@@ -347,7 +358,7 @@ export default function HomeMain({
                         })
                       }
                     >
-                      <FoodImage src={video.image} alt={video.title} />
+                      <FoodImage src={video.thumbnail_url} alt={video.title} />
                       <span
                         className="position-absolute top-50 start-50 translate-middle rounded-circle bg-danger text-white d-flex align-items-center justify-content-center"
                         style={{ width: 52, height: 52 }}
@@ -355,7 +366,7 @@ export default function HomeMain({
                         <Icon name="play-fill" className="fs-2" />
                       </span>
                       <span className="badge bg-dark bg-opacity-75 position-absolute bottom-0 end-0 m-2">
-                        {video.duration}
+                        {formatDuration(video.duration)}
                       </span>
                     </button>
                     <div className="card-body p-3">
@@ -369,7 +380,7 @@ export default function HomeMain({
                       <p className="small text-secondary bg-light rounded-3 p-2 mb-0">
                         <Icon name="quote" className="text-success" />
                         <strong>Tóm tắt 3 bước: </strong>
-                        {video.summary}
+                        {video.transcript}
                       </p>
                     </div>
                   </article>
@@ -414,7 +425,7 @@ export default function HomeMain({
           </SectionTitle>
           <div className="row g-3">
             {places.map((place) => (
-              <div className="col-md-6 col-lg-4" key={place.id}>
+              <div className="col-md-6 col-lg-4" key={place.restaurant_id}>
                 <article className="card cx-place-card border-0 rounded-4 h-100 p-4">
                   <div className="d-flex justify-content-between align-items-start gap-2 mb-2">
                     <div>
@@ -461,14 +472,13 @@ export default function HomeMain({
         </section>
       </div>
       <div className="py-4" aria-hidden="true" />
-      <ChatBox dietName={dietName} />
 
       {dialog && (
         <DetailDialog title={dialog.title} onClose={closeDialog}>
           {dialog.type === 'recipe' && (
             <>
               <p className="small text-secondary">
-                Công thức tham khảo · {dialog.data.minutes} phút
+                Công thức tham khảo · {dialog.data.prep_time} phút
               </p>
               <h3 className="h6 fw-bold">Nguyên liệu</h3>
               <ul>
@@ -478,7 +488,7 @@ export default function HomeMain({
               </ul>
               <h3 className="h6 fw-bold">Cách làm</h3>
               <ol>
-                {dialog.data.steps.map((step) => (
+                {dialog.data.instructions.split('\n').map((step) => (
                   <li key={step} className="mb-2">
                     {step}
                   </li>
@@ -500,12 +510,12 @@ export default function HomeMain({
             <div className="list-group">
               {meals.map((meal) => (
                 <button
-                  key={meal.id}
+                  key={meal.recipe_id}
                   type="button"
                   className="list-group-item list-group-item-action d-flex justify-content-between gap-3 py-3"
                   onClick={() => openRecipe(meal)}
                 >
-                  <span>{meal.name}</span>
+                  <span>{meal.recipe_name}</span>
                   <Icon name="arrow-right" />
                 </button>
               ))}
@@ -522,23 +532,23 @@ export default function HomeMain({
                   <ul className="list-group mb-3">
                     {journal.map((meal) => (
                       <li
-                        key={meal.entryId}
+                        key={meal.diary_id}
                         className="list-group-item d-flex justify-content-between align-items-center gap-3"
                       >
                         <span>
-                          {meal.name}
+                          {meal.recipe_name}
                           <small className="d-block text-secondary">
-                            {meal.calories} kcal tham khảo
+                            {meal.total_calories} kcal tham khảo
                           </small>
                         </span>
                         <button
                           type="button"
                           className="btn btn-sm btn-outline-danger"
-                          aria-label={`Xóa ${meal.name} khỏi nhật ký`}
+                          aria-label={`Xóa ${meal.recipe_name} khỏi nhật ký`}
                           onClick={() =>
                             setJournal((previous) =>
                               previous.filter(
-                                (entry) => entry.entryId !== meal.entryId
+                                (entry) => entry.diary_id !== meal.diary_id
                               )
                             )
                           }
@@ -550,7 +560,10 @@ export default function HomeMain({
                   </ul>
                   <p className="fw-bold text-success mb-0">
                     Tổng năng lượng tham khảo:{' '}
-                    {journal.reduce((total, meal) => total + meal.calories, 0)}{' '}
+                    {journal.reduce(
+                      (total, meal) => total + meal.total_calories,
+                      0
+                    )}{' '}
                     kcal
                   </p>
                 </>
@@ -571,13 +584,13 @@ export default function HomeMain({
               </span>
               <p>{dialog.data.content}</p>
               <p className="small text-secondary mb-0">
-                Bài viết mẫu · {dialog.data.author}
+                Bài viết mẫu · {dialog.data.author_full_name}
               </p>
             </>
           )}
           {dialog.type === 'video' && (
             <>
-              <p>{dialog.data.summary}</p>
+              <p>{dialog.data.transcript}</p>
               <p className="small text-secondary">
                 Giao diện đang dùng nội dung mẫu. Tìm video hướng dẫn tương ứng
                 trên YouTube.

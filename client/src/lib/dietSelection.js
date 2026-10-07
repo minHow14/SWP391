@@ -1,39 +1,41 @@
+import { DIET_TYPE_IDS } from './modelFields.js';
+
 export const dietOptions = [
   {
-    id: "vegan",
-    name: "Thuần chay (Vegan)",
-    description: "100% thực vật, không thịt, cá, trứng, sữa, mật ong.",
-    emoji: "🌱",
+    diet_type_id: 1,
+    name: 'Thuần chay (Vegan)',
+    description: '100% thực vật, không thịt, cá, trứng, sữa, mật ong.',
+    emoji: '🌱',
   },
   {
-    id: "lacto",
-    name: "Chay có sữa (Lacto)",
-    description: "Dùng thực vật và sữa, sản phẩm từ sữa.",
-    emoji: "🥛",
+    diet_type_id: 2,
+    name: 'Chay có sữa (Lacto)',
+    description: 'Dùng thực vật và sữa, sản phẩm từ sữa.',
+    emoji: '🥛',
   },
   {
-    id: "ovo",
-    name: "Chay có trứng (Ovo)",
-    description: "Dùng thực vật và trứng gà/vịt.",
-    emoji: "🥚",
+    diet_type_id: 3,
+    name: 'Chay có trứng (Ovo)',
+    description: 'Dùng thực vật và trứng gà/vịt.',
+    emoji: '🥚',
   },
   {
-    id: "lacto-ovo",
-    name: "Chay trứng & sữa",
-    description: "Dùng thực vật, trứng và sữa.",
-    emoji: "🍳",
+    diet_type_id: 4,
+    name: 'Chay trứng & sữa',
+    description: 'Dùng thực vật, trứng và sữa.',
+    emoji: '🍳',
   },
   {
-    id: "buddhist",
-    name: "Chay Phật giáo",
-    description: "Không thịt, cá và ngũ vị tân.",
-    emoji: "☸️",
+    diet_type_id: 5,
+    name: 'Chay Phật giáo',
+    description: 'Không thịt, cá và ngũ vị tân.',
+    emoji: '☸️',
   },
   {
-    id: "explore",
-    name: "Tham khảo thêm",
-    description: "Hiển thị các món chay nổi bật tổng hợp.",
-    emoji: "🔍",
+    diet_type_id: 6,
+    name: 'Tham khảo thêm',
+    description: 'Hiển thị các món chay nổi bật tổng hợp.',
+    emoji: '🔍',
   },
 ];
 
@@ -44,12 +46,15 @@ export function getSavedDiet() {
   if (currentSelection) return currentSelection;
 
   try {
-    const saved = sessionStorage.getItem("dietSelection");
+    const saved = sessionStorage.getItem('dietSelection');
     if (saved) {
       try {
         const selection = JSON.parse(saved);
         const diet = dietOptions.find(
-          (item) => item.id === selection?.id || item.name === selection?.name
+          (item) =>
+            item.diet_type_id ===
+              (selection?.diet_type_id ?? DIET_TYPE_IDS[selection?.id]) ||
+            item.name === selection?.name
         );
         if (diet) return diet;
       } catch {
@@ -57,7 +62,7 @@ export function getSavedDiet() {
       }
     }
 
-    const legacyName = sessionStorage.getItem("selectedDiet");
+    const legacyName = sessionStorage.getItem('selectedDiet');
     return dietOptions.find((item) => item.name === legacyName) || null;
   } catch {
     return null;
@@ -65,16 +70,22 @@ export function getSavedDiet() {
 }
 
 export function saveDiet(diet) {
-  const selection = dietOptions.find((item) => item.id === diet?.id);
+  const selection = dietOptions.find(
+    (item) =>
+      item.diet_type_id === (diet?.diet_type_id ?? DIET_TYPE_IDS[diet?.id])
+  );
   if (!selection) return;
   currentSelection = selection;
 
   try {
     sessionStorage.setItem(
-      "dietSelection",
-      JSON.stringify({ id: selection.id, name: selection.name })
+      'dietSelection',
+      JSON.stringify({
+        diet_type_id: selection.diet_type_id,
+        name: selection.name,
+      })
     );
-    sessionStorage.removeItem("selectedDiet");
+    sessionStorage.removeItem('selectedDiet');
   } catch {
     // The in-memory choice still lets the user continue in this page session.
   }

@@ -1,16 +1,9 @@
 import bowlPhoto from '../assets/chayxanh-bowl.webp';
 
-const photo = (id) =>
-  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=800&q=80`;
-
 export const meals = [
   {
-    id: 'tofu',
-    name: 'Đậu Hũ Áp Chảo & Rau Củ Ngũ Sắc',
     category: 'MÓN NGON MÙA THU',
     tone: 'success',
-    calories: 320,
-    minutes: 15,
     rating: '4.9',
     image: bowlPhoto,
     description:
@@ -20,21 +13,21 @@ export const meals = [
       'Cà rốt, bông cải, bắp ngọt',
       'Dầu ăn, nước tương, tiêu',
     ],
-    steps: [
-      'Rửa rau củ, cắt đậu hũ vừa ăn.',
-      'Áp chảo đậu hũ vàng hai mặt.',
-      'Xào rau củ, thêm đậu hũ và nêm nước tương.',
-    ],
+    recipe_id: 201,
+    post_id: 301,
+    recipe_name: 'Đậu Hũ Áp Chảo & Rau Củ Ngũ Sắc',
+    prep_time: 15,
+    total_calories: 320,
+    instructions:
+      'Rửa rau củ, cắt đậu hũ vừa ăn.\nÁp chảo đậu hũ vàng hai mặt.\nXào rau củ, thêm đậu hũ và nêm nước tương.',
+    diet_type_id: 1,
   },
   {
-    id: 'salad',
-    name: 'Salad Bơ & Hạt Óc Chó Sốt Chanh Dây',
     category: 'TƯƠI MÁT MỖI NGÀY',
     tone: 'success',
-    calories: 280,
-    minutes: 10,
     rating: '4.8',
-    image: photo('photo-1511690743698-d9d85f2fbf38'),
+    image:
+      'https://images.unsplash.com/photo-1511690743698-d9d85f2fbf38?auto=format&fit=crop&w=800&q=80',
     description:
       'Bơ béo mềm, rau xanh giòn và hạt óc chó hòa cùng sốt chanh dây thanh mát.',
     ingredients: [
@@ -43,21 +36,21 @@ export const meals = [
       '20g hạt óc chó',
       'Chanh dây, dầu ô liu, muối',
     ],
-    steps: [
-      'Rửa rau, để ráo và cắt bơ.',
-      'Trộn chanh dây, dầu ô liu và muối.',
-      'Xếp rau, bơ, hạt ra đĩa và rưới sốt.',
-    ],
+    recipe_id: 202,
+    post_id: 302,
+    recipe_name: 'Salad Bơ & Hạt Óc Chó Sốt Chanh Dây',
+    prep_time: 10,
+    total_calories: 280,
+    instructions:
+      'Rửa rau, để ráo và cắt bơ.\nTrộn chanh dây, dầu ô liu và muối.\nXếp rau, bơ, hạt ra đĩa và rưới sốt.',
+    diet_type_id: 1,
   },
   {
-    id: 'colorful',
-    name: 'Salad Ngũ Sắc Sốt Tương Đậu Phộng',
     category: 'MÓN NHẸ BUỔI CHIỀU',
     tone: 'warning',
-    calories: 210,
-    minutes: 20,
     rating: '4.9',
-    image: photo('photo-1540420773420-3366772f4999'),
+    image:
+      'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
     description:
       'Rau củ tươi kết hợp sốt đậu phộng thơm bùi, dễ chuẩn bị cho những ngày bận rộn.',
     ingredients: [
@@ -65,19 +58,18 @@ export const meals = [
       'Đậu hũ',
       'Bơ đậu phộng, nước tương, chanh',
     ],
-    steps: [
-      'Rửa sạch và thái rau củ.',
-      'Pha bơ đậu phộng với nước tương, chanh và nước ấm.',
-      'Trộn rau cùng đậu hũ, thêm sốt và dùng ngay.',
-    ],
+    recipe_id: 203,
+    post_id: 303,
+    recipe_name: 'Salad Ngũ Sắc Sốt Tương Đậu Phộng',
+    prep_time: 20,
+    total_calories: 210,
+    instructions:
+      'Rửa sạch và thái rau củ.\nPha bơ đậu phộng với nước tương, chanh và nước ấm.\nTrộn rau cùng đậu hũ, thêm sốt và dùng ngay.',
+    diet_type_id: 1,
   },
   {
-    id: 'rice',
-    name: 'Cơm Gạo Lứt Rau Củ & Hạt Điều',
     category: 'BỮA TỐI ẤM BỤNG',
     tone: 'primary',
-    calories: 350,
-    minutes: 25,
     rating: '4.7',
     image: bowlPhoto,
     description:
@@ -88,73 +80,80 @@ export const meals = [
       '20g hạt điều',
       'Nước tương, dầu ăn',
     ],
-    steps: [
-      'Nấu gạo lứt theo hướng dẫn trên bao bì.',
-      'Xào rau củ với dầu và nước tương.',
-      'Cho cơm, rau vào bát và rắc hạt điều rang.',
-    ],
+    recipe_id: 204,
+    post_id: 304,
+    recipe_name: 'Cơm Gạo Lứt Rau Củ & Hạt Điều',
+    prep_time: 25,
+    total_calories: 350,
+    instructions:
+      'Nấu gạo lứt theo hướng dẫn trên bao bì.\nXào rau củ với dầu và nước tương.\nCho cơm, rau vào bát và rắc hạt điều rang.',
+    diet_type_id: 1,
   },
 ];
 
 export const videos = [
   {
-    id: 'salad',
     title: 'Salad Rau Củ Tươi Mát Với Sốt Đậu Phộng',
-    image: meals[2].image,
-    duration: '08:45',
     views: '12,4k',
-    summary:
-      '1. Rửa và thái rau củ. 2. Pha sốt đậu phộng với chanh và nước tương. 3. Trộn đều, thêm hạt rang và thưởng thức.',
     query: 'cách làm salad chay sốt đậu phộng',
+    post_id: 401,
+    thumbnail_url:
+      'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
+    transcript:
+      '1. Rửa và thái rau củ. 2. Pha sốt đậu phộng với chanh và nước tương. 3. Trộn đều, thêm hạt rang và thưởng thức.',
+    duration: 525,
   },
   {
-    id: 'rice',
     title: 'Bữa Cơm Gạo Lứt Rau Củ Dễ Làm Tại Nhà',
-    image: meals[3].image,
-    duration: '05:20',
     views: '8,9k',
-    summary:
-      '1. Chuẩn bị cơm gạo lứt. 2. Xào rau củ vừa chín tới. 3. Xếp vào bát, thêm hạt điều và nước sốt.',
     query: 'cách làm cơm gạo lứt rau củ chay',
+    post_id: 402,
+    thumbnail_url: bowlPhoto,
+    transcript:
+      '1. Chuẩn bị cơm gạo lứt. 2. Xào rau củ vừa chín tới. 3. Xếp vào bát, thêm hạt điều và nước sốt.',
+    duration: 320,
   },
 ];
 
 export const articles = [
   {
-    id: 'nutrition',
     category: 'Dinh Dưỡng Chay',
     tone: 'success',
     title: 'Thêm Đa Dạng Rau Củ Vào Bữa Ăn Mỗi Ngày',
-    author: 'ChayXanh',
-    votes: 142,
     content:
       'Kết hợp rau xanh, củ và các loại đậu để bữa ăn phong phú hơn. Chuẩn bị rau từ trước, bảo quản riêng nước sốt và thay đổi cách chế biến giữa luộc, hấp, xào hoặc làm salad.',
+    post_id: 501,
+    author_id: 7001,
+    author_full_name: 'ChayXanh',
+    vote_count: 142,
   },
   {
-    id: 'planning',
     category: 'Kinh Nghiệm',
     tone: 'warning',
     title: 'Kinh Nghiệm Chuẩn Bị Thực Đơn Chay Cho Gia Đình',
-    author: 'Thanh Tâm',
-    votes: 98,
     content:
       'Lên danh sách món ăn cho vài ngày, kiểm tra nguyên liệu còn trong bếp và mua vừa đủ. Sơ chế nguyên liệu dùng chung, chia phần để dễ nấu. Hỏi sở thích từng thành viên và luân phiên món chính.',
+    post_id: 502,
+    author_id: 7002,
+    author_full_name: 'Thanh Tâm',
+    vote_count: 98,
   },
   {
-    id: 'mushrooms',
     category: 'Nguyên Liệu',
     tone: 'primary',
     title: 'Cách Làm Gia Vị Chay Từ Nấm Tại Nhà',
-    author: 'Chay An Lạc',
-    votes: 215,
     content:
       'Dùng nấm khô sạch, rang nhẹ cho thơm rồi để nguội hoàn toàn. Xay thành bột và đựng trong lọ khô, kín. Thêm một lượng nhỏ vào món canh hoặc món xào; dùng thìa sạch, khô mỗi khi lấy gia vị.',
+    post_id: 503,
+    author_id: 7003,
+    author_full_name: 'Chay An Lạc',
+    vote_count: 215,
   },
 ];
 
 export const places = [
   {
-    id: 'hum',
+    restaurant_id: 601,
     category: 'Nhà hàng chay',
     tone: 'success',
     name: 'Nhà Hàng Chay Hum Vegetarian',
@@ -164,7 +163,7 @@ export const places = [
     price: '150k - 300k/người',
   },
   {
-    id: 'bistro',
+    restaurant_id: 602,
     category: 'Cơm chay bình dân',
     tone: 'primary',
     name: 'Quán Cơm Chay Pi Bistro',
@@ -174,7 +173,7 @@ export const places = [
     price: '35k - 70k/người',
   },
   {
-    id: 'aulac',
+    restaurant_id: 603,
     category: 'Cửa hàng thực phẩm',
     tone: 'secondary',
     name: 'Siêu Thị Thực Phẩm Chay Âu Lạc',

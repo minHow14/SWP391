@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import { dietOptions, saveDiet } from '../lib/dietSelection.js';
 
 const icons = {
-  vegan: 'leaf',
-  lacto: 'cup-straw',
-  ovo: 'egg',
-  'lacto-ovo': 'egg-fried',
-  buddhist: 'flower1',
-  explore: 'compass',
+  1: 'leaf',
+  2: 'cup-straw',
+  3: 'egg',
+  4: 'egg-fried',
+  5: 'flower1',
+  6: 'compass',
 };
 
 export default function WelcomeModal({ onConfirm }) {
@@ -33,7 +33,7 @@ export default function WelcomeModal({ onConfirm }) {
 
   function handleConfirm(event) {
     event.preventDefault();
-    const diet = dietOptions.find((item) => item.id === selectedDiet);
+    const diet = dietOptions.find((item) => item.diet_type_id === selectedDiet);
     if (!diet) return;
     saveDiet(diet);
     onConfirm(diet);
@@ -51,34 +51,36 @@ export default function WelcomeModal({ onConfirm }) {
         <span className="cx-icon-tile">
           <i className="bi bi-leaf" aria-hidden="true" />
         </span>
-        <span className="badge bg-success-subtle text-success">Bắt buộc chọn</span>
+        <span className="badge bg-success-subtle text-success">
+          Bắt buộc chọn
+        </span>
       </div>
       <p className="cx-eyebrow mt-4">BỮA ĂN THEO CÁCH CỦA BẠN</p>
       <h2 id="welcomeTitle">Bạn chọn kiểu ăn chay nào?</h2>
       <p id="welcomeDescription" className="text-secondary">
-        Vui lòng chọn loại ăn chay và xác nhận trước khi vào ChayXanh.
-        Bạn có thể đổi lựa chọn sau khi vào trang chủ.
+        Vui lòng chọn loại ăn chay và xác nhận trước khi vào ChayXanh. Bạn có
+        thể đổi lựa chọn sau khi vào trang chủ.
       </p>
       <form onSubmit={handleConfirm}>
         <fieldset className="border-0 p-0">
           <legend className="visually-hidden">Chọn loại ăn chay</legend>
           <div className="row g-3 mt-1">
             {dietOptions.map((diet) => (
-              <div className="col-12 col-sm-6" key={diet.id}>
+              <div className="col-12 col-sm-6" key={diet.diet_type_id}>
                 <label
-                  className={`diet-option ${selectedDiet === diet.id ? 'is-selected' : ''}`}
+                  className={`diet-option ${selectedDiet === diet.diet_type_id ? 'is-selected' : ''}`}
                 >
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <i
-                      className={`bi bi-${icons[diet.id]} fs-4`}
+                      className={`bi bi-${icons[diet.diet_type_id]} fs-4`}
                       aria-hidden="true"
                     />
                     <input
                       type="radio"
                       name="dietType"
-                      value={diet.id}
-                      checked={selectedDiet === diet.id}
-                      onChange={() => setSelectedDiet(diet.id)}
+                      value={diet.diet_type_id}
+                      checked={selectedDiet === diet.diet_type_id}
+                      onChange={() => setSelectedDiet(diet.diet_type_id)}
                       className="form-check-input"
                       required
                     />
