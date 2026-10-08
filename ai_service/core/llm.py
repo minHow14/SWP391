@@ -5,7 +5,7 @@ from core.config import settings
 
 load_dotenv()
 
-def get_llm_text() -> ChatOpenAI:
+def get_llm_text(timeout: float = 60.0) -> ChatOpenAI:
     """
     Initializes and returns the ChatOpenAI client configured for DeepSeek API.
     """
@@ -15,4 +15,5 @@ def get_llm_text() -> ChatOpenAI:
         base_url="https://api.deepseek.com",
         max_tokens=4096,
         temperature=0.7,
+        request_timeout=timeout,
     )
