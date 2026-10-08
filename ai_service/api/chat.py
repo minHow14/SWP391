@@ -1,8 +1,10 @@
+import json
 import logging
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
 from core.config import settings
 from core.security import (
@@ -19,22 +21,40 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
 
+
 # Pydantic Schemas
+class ChatMessage(BaseModel):
+    role: str = Field(..., description="Vai trò: 'user' hoặc 'assistant'")
+    content: str = Field(..., description="Nội dung tin nhắn")
+
+
 class ChatRequest(BaseModel):
-    message: str = Field(..., description="Message from the user to the vegetarian chatbot")
+    message: str = Field(..., description="Nội dung câu hỏi hoặc yêu cầu tư vấn dinh dưỡng chay")
+    history: Optional[List[ChatMessage]] = Field(
+        default_factory=list,
+        description="Lịch sử trao đổi trước đó giữa người dùng và trợ lý",
+    )
+    dietary_type: Optional[str] = Field(
+        None,
+        description="Trường phái ăn chay của người dùng (ví dụ: vegan, lacto, ovo, lacto_ovo)",
+    )
+
 
 class ChatData(BaseModel):
     reply: str
     remaining_questions: Optional[int] = None
 
+
 class ChatResponse(BaseModel):
     success: bool = True
     data: ChatData
+
 
 class ChatUsageData(BaseModel):
     daily_limit: int
     used_questions: int
     remaining_questions: int
+
 
 class ChatUsageResponse(BaseModel):
     success: bool = True
@@ -65,6 +85,7 @@ async def send_chat_message(
 ):
     """
     Sends a question to the vegetarian chatbot and receives nutrition/recipe guidance.
+    Hỗ trợ hội thoại nhiều lượt (history) và ngữ cảnh trường phái ăn chay (dietary_type).
     """
     # 1. Validate message
     clean_message = body.message.strip() if body.message else ""
@@ -98,7 +119,11 @@ async def send_chat_message(
 
     # 3. Call ChatbotAgent to generate AI response
     try:
-        reply = await chatbot_agent.answer(clean_message)
+        reply = await chatbot_agent.answer(
+            clean_message,
+            history=body.history,
+            dietary_type=body.dietary_type,
+        )
 
         # 4. Update usage and record log
         if not identity.is_authenticated:
@@ -140,3 +165,93 @@ async def send_chat_message(
                 },
             },
         )
+
+
+@router.post("/stream")
+async def stream_chat_message(
+    body: ChatRequest,
+    identity: RequestIdentity = Depends(resolve_identity),
+):
+    """
+    Streams the response from the vegetarian chatbot chunk by chunk via Server-Sent Events (SSE).
+    """
+    clean_message = body.message.strip() if body.message else ""
+    if not clean_message:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "error": {
+                    "code": "INVALID_MESSAGE",
+                    "message": "Message cannot be empty.",
+                },
+            },
+        )
+
+    # Check guest limit if not authenticated
+    if not identity.is_authenticated:
+        guest_id = identity.guest_id or "default-guest"
+        if not can_guest_ask(guest_id):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "CHAT_LIMIT_REACHED",
+                        "message": "Guest users can ask up to 3 questions per day.",
+                        "remaining_questions": 0,
+                    },
+                },
+            )
+
+    async def event_generator():
+        try:
+            async for chunk in chatbot_agent.answer_stream(
+                clean_message,
+                history=body.history,
+                dietary_type=body.dietary_type,
+            ):
+                yield {
+                    "event": "token",
+                    "data": json.dumps({"token": chunk}, ensure_ascii=False),
+                }
+
+            # Update usage and record log on stream completion
+            if not identity.is_authenticated:
+                guest_id = identity.guest_id or "default-guest"
+                remaining = increment_guest_usage(guest_id)
+                record_ai_log(
+                    model_name=settings.DEEPSEEK_MODEL,
+                    action="CHAT_STREAM_GUEST",
+                    status="SUCCESS",
+                )
+            else:
+                remaining = None
+                record_ai_log(
+                    model_name=settings.DEEPSEEK_MODEL,
+                    action=f"CHAT_STREAM_USER_{identity.user_id}",
+                    status="SUCCESS",
+                )
+
+            yield {
+                "event": "done",
+                "data": json.dumps({
+                    "status": "completed",
+                    "remaining_questions": remaining,
+                }, ensure_ascii=False),
+            }
+
+        except Exception as e:
+            logger.error(f"Error streaming response from LLM: {e}", exc_info=True)
+            record_ai_log(
+                model_name=settings.DEEPSEEK_MODEL,
+                action="CHAT_STREAM_ERROR",
+                status="ERROR",
+                error_feedback=str(e),
+            )
+            yield {
+                "event": "error",
+                "data": json.dumps({"error": str(e)}, ensure_ascii=False),
+            }
+
+    return EventSourceResponse(event_generator())
