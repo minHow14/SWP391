@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List, Optional, Literal
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from core.llm import get_llm_text
+from core.llm import get_llm_json
 
 logger = logging.getLogger(__name__)
 PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "meal_planner.md"
@@ -123,7 +123,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
 """
 
         system_prompt = self.load_prompt()
-        llm = get_llm_text()
+        llm = get_llm_json(timeout=90.0)
 
         # Bind structured output or parse JSON
         structured_llm = llm.with_structured_output(GeneratedMealPlan)
@@ -134,8 +134,38 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         ]
 
         logger.info(f"Generating personalized meal plan with BMI={bmi}, goal={goal}")
-        result: GeneratedMealPlan = await structured_llm.ainvoke(messages)
-        return result
+        
+        last_error = None
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = await structured_llm.ainvoke(messages)
+                if isinstance(result, GeneratedMealPlan):
+                    return result
+                if isinstance(result, dict):
+                    return GeneratedMealPlan.model_validate(result)
+                raise ValueError("Kết quả từ LLM không đúng định dạng schema GeneratedMealPlan")
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    f"Attempt {attempt}/{max_retries} to generate meal plan failed: {e}. "
+                    f"Retrying..."
+                )
+                if attempt < max_retries:
+                    # Bổ sung chỉ dẫn sửa lỗi vào lượt retry kế tiếp
+                    messages.append(
+                        HumanMessage(
+                            content=(
+                                f"LƯU Ý QUAN TRỌNG: Lần sinh trước bị lỗi định dạng hoặc thiếu trường: {e}. "
+                                f"Hãy chắc chắn trả về một đối tượng JSON thuần túy, đầy đủ tất cả các trường "
+                                f"theo schema GeneratedMealPlan, không bị cắt ngắn đoạn cuối."
+                            )
+                        )
+                    )
+
+        raise RuntimeError(
+            f"Không thể tạo thực đơn chay tự động sau {max_retries} lần thử: {last_error}"
+        )
 
 
 meal_planner_agent = MealPlannerAgent()
