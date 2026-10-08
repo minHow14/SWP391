@@ -1,7 +1,19 @@
+# Visual Studio / IDE temporary files
+.vs/
+*.user
+*.suo
+
+# Node.js dependencies
+node_modules/
+.env
+
+# Build outputs
+dist/
+build/
 node_modules/
 .env
 .DS_Store
 .venv/
 __pycache__/
 *.pyc
-.pytest_cache/
+.pytest_cache/
