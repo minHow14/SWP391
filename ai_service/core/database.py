@@ -1,30 +1,35 @@
 import logging
 from typing import Generator, Optional
-from sqlalchemy import create_engine, Column, Integer, String, Text, Enum
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
+try:
+    from sqlalchemy import create_engine, Column, Integer, String, Text, Enum
+    from sqlalchemy.orm import declarative_base, sessionmaker, Session
+    Base = declarative_base()
 
-class AILog(Base):
-    """
-    Represents the existing AILog table in PostgreSQL.
-    Schema source of truth:
-      - log_id: INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-      - model_name: VARCHAR(255)
-      - action: VARCHAR(255)
-      - status: ai_log_status ('SUCCESS', 'ERROR')
-      - error_feedback: TEXT
-    """
-    __tablename__ = "ailog"
+    class AILog(Base):
+        """
+        Represents the existing AILog table in PostgreSQL.
+        Schema source of truth:
+          - log_id: INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+          - model_name: VARCHAR(255)
+          - action: VARCHAR(255)
+          - status: ai_log_status ('SUCCESS', 'ERROR')
+          - error_feedback: TEXT
+        """
+        __tablename__ = "ailog"
 
-    log_id = Column(Integer, primary_key=True, autoincrement=True)
-    model_name = Column(String(255), nullable=True)
-    action = Column(String(255), nullable=True)
-    status = Column(Enum("SUCCESS", "ERROR", name="ai_log_status"), nullable=False)
-    error_feedback = Column(Text, nullable=True)
+        log_id = Column(Integer, primary_key=True, autoincrement=True)
+        model_name = Column(String(255), nullable=True)
+        action = Column(String(255), nullable=True)
+        status = Column(Enum("SUCCESS", "ERROR", name="ai_log_status"), nullable=False)
+        error_feedback = Column(Text, nullable=True)
+except Exception as e:
+    Base = None
+    AILog = None
+    Session = None
 
 
 engine = None

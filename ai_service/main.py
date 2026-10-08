@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
 from api.chat import router as chat_router
+from api.meal_planner import router as meal_planner_router
 
 
 @asynccontextmanager
@@ -46,6 +47,7 @@ async def health_check():
 
 # Include API Routers under /api
 app.include_router(chat_router, prefix="/api")
+app.include_router(meal_planner_router, prefix="/api")
 
 
 if __name__ == "__main__":
