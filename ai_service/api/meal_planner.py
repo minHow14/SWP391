@@ -1,11 +1,17 @@
 import logging
-from typing import List, Optional, Literal
+from typing import List, Optional
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from core.config import settings
-from core.security import RequestIdentity, resolve_identity
+from core.security import (
+    RequestIdentity,
+    resolve_identity,
+    get_guest_meal_plan_usage,
+    can_guest_generate_meal_plan,
+    increment_guest_meal_plan_usage,
+)
 from core.database import record_ai_log
 from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
 
@@ -43,6 +49,52 @@ class MealPlanResponse(BaseModel):
     data: GeneratedMealPlan
 
 
+class MealPlanUsageData(BaseModel):
+    is_authenticated: bool
+    daily_limit: Optional[int] = Field(None, description="Hạn mức số lần tạo/ngày (None nếu không giới hạn)")
+    used_plans: int = Field(..., description="Số lần đã tạo hôm nay")
+    remaining_plans: Optional[int] = Field(None, description="Số lần còn lại hôm nay (None nếu không giới hạn)")
+    unlimited: bool = Field(False, description="True nếu là thành viên đăng nhập không giới hạn")
+
+
+class MealPlanUsageResponse(BaseModel):
+    success: bool = True
+    data: MealPlanUsageData
+
+
+@router.get("/usage", response_model=MealPlanUsageResponse)
+async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
+    """
+    Kiểm tra số lượt tạo thực đơn còn lại trong ngày.
+    Khách (guest): tối đa 3 lần/ngày.
+    Người dùng đã đăng nhập: không giới hạn (unlimited).
+    """
+    if identity.is_authenticated:
+        return MealPlanUsageResponse(
+            success=True,
+            data=MealPlanUsageData(
+                is_authenticated=True,
+                daily_limit=None,
+                used_plans=0,
+                remaining_plans=None,
+                unlimited=True,
+            ),
+        )
+
+    guest_id = identity.guest_id or "default-guest"
+    used, remaining, limit = get_guest_meal_plan_usage(guest_id)
+    return MealPlanUsageResponse(
+        success=True,
+        data=MealPlanUsageData(
+            is_authenticated=False,
+            daily_limit=limit,
+            used_plans=used,
+            remaining_plans=remaining,
+            unlimited=False,
+        ),
+    )
+
+
 @router.post("/generate", response_model=MealPlanResponse)
 async def generate_meal_plan(
     body: MealPlanRequest,
@@ -51,7 +103,26 @@ async def generate_meal_plan(
     """
     Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner)
     dựa trên BMI, mục tiêu sức khỏe, dị ứng thực phẩm và nguyên liệu có sẵn.
+    - Khách: giới hạn 3 lần/ngày.
+    - Người dùng đã đăng nhập: không giới hạn.
     """
+    # 1. Kiểm tra hạn mức đối với khách
+    if not identity.is_authenticated:
+        guest_id = identity.guest_id or "default-guest"
+        if not can_guest_generate_meal_plan(guest_id):
+            return JSONResponse(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "MEAL_PLAN_LIMIT_REACHED",
+                        "message": "Khách chỉ được tạo thực đơn 3 lần mỗi ngày. Vui lòng đăng nhập để tạo thực đơn không giới hạn.",
+                        "remaining_plans": 0,
+                    },
+                },
+            )
+
+    # 2. Gọi MealPlannerAgent để tạo thực đơn
     try:
         plan: GeneratedMealPlan = await meal_planner_agent.generate_plan(
             height_cm=body.height_cm,
@@ -65,7 +136,14 @@ async def generate_meal_plan(
             days=body.days or 7,
         )
 
-        user_tag = identity.user_id if identity.is_authenticated else (identity.guest_id or "guest")
+        # 3. Cập nhật lượt dùng và ghi log
+        if not identity.is_authenticated:
+            guest_id = identity.guest_id or "default-guest"
+            increment_guest_meal_plan_usage(guest_id)
+            user_tag = guest_id
+        else:
+            user_tag = f"USER_{identity.user_id}"
+
         record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
             action=f"MEAL_PLANNER_{user_tag}",

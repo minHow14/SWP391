@@ -36,5 +36,6 @@ class Settings:
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in _origins_str.split(",") if origin.strip()]
     
     GUEST_DAILY_LIMIT: int = int(os.getenv("GUEST_DAILY_LIMIT", "3"))
+    GUEST_MEAL_PLAN_LIMIT: int = int(os.getenv("GUEST_MEAL_PLAN_LIMIT", "3"))
 
 settings = Settings()
