@@ -13,6 +13,7 @@ from core.security import (
     get_quota_reset_iso,
 )
 from core.database import record_ai_log
+from core.ratelimit import rate_limit
 from core.llm import get_json_model_name
 from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
 
@@ -109,6 +110,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
 
 
 @router.post("/generate", response_model=MealPlanResponse)
+@rate_limit()
 async def generate_meal_plan(
     request: Request,
     body: MealPlanRequest,

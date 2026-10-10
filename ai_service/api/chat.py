@@ -15,6 +15,7 @@ from core.security import (
     get_quota_reset_iso,
 )
 from core.database import record_ai_log
+from core.ratelimit import rate_limit
 from agents.chatbot_agent import chatbot_agent
 
 logger = logging.getLogger(__name__)
@@ -130,6 +131,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
 
 
 @router.post("", response_model=ChatResponse)
+@rate_limit()
 async def send_chat_message(
     request: Request,
     body: ChatRequest,
@@ -200,6 +202,7 @@ async def send_chat_message(
 
 
 @router.post("/stream")
+@rate_limit()
 async def stream_chat_message(
     request: Request,
     body: ChatRequest,
