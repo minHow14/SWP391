@@ -1,0 +1,108 @@
+import { z } from 'zod';
+import { ok, fail } from '../utils/response.js';
+import {
+  PlacesProviderError,
+  findNearbyLocal,
+  mergePlaces,
+  normalize,
+  searchGoogle,
+  searchLocal,
+} from '../services/PlacesService.js';
+
+// Chuỗi rỗng ("?lat=") coi như không gửi
+const optionalNumber = (min, max) =>
+  z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.coerce.number().min(min).max(max).optional()
+  );
+
+const coordinates = {
+  lat: optionalNumber(-90, 90),
+  lng: optionalNumber(-180, 180),
+};
+
+const nearbySchema = z.object({
+  ...coordinates,
+  radius_km: optionalNumber(0.1, 50).default(5),
+  limit: optionalNumber(1, 20).default(10),
+});
+
+const searchSchema = z.object({
+  q: z.string().trim().min(1).max(100),
+  ...coordinates,
+  radius_km: optionalNumber(0.1, 50).default(10),
+  limit: optionalNumber(1, 20).default(10),
+});
+
+const invalid = (res, error) =>
+  fail(res, 400, 'INVALID_INPUT', 'Dữ liệu đầu vào không hợp lệ.', error.issues.map((i) => ({
+    field: i.path.join('.'),
+    message: i.message,
+  })));
+
+// Gọi Google để bổ sung kết quả; lỗi Google không làm hỏng kết quả đã có trong DB
+async function withGoogle({ query, lat, lng, radiusKm, limit }, local) {
+  let google = { places: [], skipped: false, cached: false };
+  let providerError = null;
+  try {
+    google = await searchGoogle({ query, lat, lng, radiusKm, limit });
+  } catch (error) {
+    if (!(error instanceof PlacesProviderError)) throw error;
+    providerError = error;
+  }
+  const places = mergePlaces(local, google.places).slice(0, limit);
+  return { places, google, providerError };
+}
+
+const sourcesMeta = (google, providerError) => ({
+  google: providerError ? 'unavailable' : google.skipped ? 'not_configured' : google.cached ? 'cached' : 'used',
+});
+
+export async function getNearby(req, res) {
+  const parsed = nearbySchema.safeParse(req.query);
+  if (!parsed.success) return invalid(res, parsed.error);
+  const { lat, lng, radius_km: radiusKm, limit } = parsed.data;
+  if (lat === undefined || lng === undefined) {
+    return fail(res, 400, 'INVALID_INPUT', 'Cần cung cấp cả lat và lng.');
+  }
+
+  const local = findNearbyLocal({ lat, lng, radiusKm });
+  // DB đã đủ kết quả thì không gọi Google để tiết kiệm phí
+  if (local.length >= limit) {
+    return ok(res, { places: local.slice(0, limit) }, 200, { google: 'not_needed' });
+  }
+
+  const { places, google, providerError } = await withGoogle(
+    { query: 'quán chay', lat, lng, radiusKm, limit },
+    local
+  );
+  if (providerError && places.length === 0) {
+    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'Google Maps tạm thời không phản hồi.');
+  }
+  return ok(res, { places }, 200, sourcesMeta(google, providerError));
+}
+
+export async function searchPlaces(req, res) {
+  const parsed = searchSchema.safeParse(req.query);
+  if (!parsed.success) return invalid(res, parsed.error);
+  const { q, lat, lng, radius_km: radiusKm, limit } = parsed.data;
+  if ((lat === undefined) !== (lng === undefined)) {
+    return fail(res, 400, 'INVALID_INPUT', 'lat và lng phải đi cùng nhau.');
+  }
+
+  const local = searchLocal({ query: q, lat, lng }).slice(0, limit);
+  // Chỉ hỏi Google khi DB không có quán phù hợp và biết vị trí người dùng
+  if (local.length > 0 || lat === undefined) {
+    return ok(res, { places: local }, 200, { google: 'not_needed' });
+  }
+
+  const query = normalize(q).includes('chay') ? q : `${q} chay`;
+  const { places, google, providerError } = await withGoogle(
+    { query, lat, lng, radiusKm, limit },
+    local
+  );
+  if (providerError && places.length === 0) {
+    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'Google Maps tạm thời không phản hồi.');
+  }
+  return ok(res, { places }, 200, sourcesMeta(google, providerError));
+}
