@@ -1,17 +1,17 @@
 import json
 import logging
-from typing import Optional, List
+from typing import Any, Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sse_starlette.sse import EventSourceResponse
 
 from core.config import settings
 from core.security import (
     RequestIdentity,
     resolve_identity,
-    can_guest_ask,
     get_guest_usage,
-    increment_guest_usage,
+    reserve_guest_question,
+    release_guest_question,
     get_quota_reset_iso,
 )
 from core.database import record_ai_log
@@ -20,6 +20,8 @@ from agents.chatbot_agent import chatbot_agent
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chat", tags=["Chatbot"])
+
+MAX_MENU_CONTEXT_CHARS = 8000
 
 
 # Pydantic Schemas
@@ -38,6 +40,23 @@ class ChatRequest(BaseModel):
         None,
         description="Trường phái ăn chay của người dùng (ví dụ: vegan, lacto, ovo, lacto_ovo)",
     )
+    menu_context: Optional[Any] = Field(
+        None,
+        description="Thực đơn người dùng vừa được tạo (JSON hoặc văn bản) để chatbot giải thích",
+    )
+
+    @field_validator("menu_context")
+    @classmethod
+    def menu_context_to_text(cls, value: Any) -> Optional[str]:
+        if value is None:
+            return None
+        text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+        text = text.strip()
+        if not text:
+            return None
+        if len(text) > MAX_MENU_CONTEXT_CHARS:
+            raise ValueError(f"menu_context không được vượt quá {MAX_MENU_CONTEXT_CHARS} ký tự")
+        return text
 
 
 class ChatData(BaseModel):
@@ -61,6 +80,28 @@ class ChatUsageResponse(BaseModel):
     success: bool = True
     data: ChatUsageData
     meta: dict
+
+
+def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optional[int]]:
+    """
+    Reserves one question for a guest (no-op for authenticated users).
+    Returns (guest_id, remaining_questions); guest_id is None for authenticated users.
+    Raises HTTP 429 CHAT_QUOTA_EXCEEDED when the daily limit is used up.
+    """
+    if identity.is_authenticated:
+        return None, None
+    guest_id = identity.guest_id or "default-guest"
+    remaining = reserve_guest_question(guest_id)
+    if remaining is None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "CHAT_QUOTA_EXCEEDED",
+                "message": "Bạn đã sử dụng hết lượt hỏi trong ngày.",
+                "details": {"resetAt": get_quota_reset_iso()},
+            },
+        )
+    return guest_id, remaining
 
 
 @router.get("/usage", response_model=ChatUsageResponse)
@@ -99,18 +140,8 @@ async def send_chat_message(
             detail={"code": "INVALID_INPUT", "message": "Nội dung câu hỏi không được để trống."},
         )
 
-    # 2. Check guest limit if not authenticated
-    if not identity.is_authenticated:
-        guest_id = identity.guest_id or "default-guest"
-        if not can_guest_ask(guest_id):
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "code": "CHAT_QUOTA_EXCEEDED",
-                    "message": "Bạn đã sử dụng hết lượt hỏi trong ngày.",
-                    "details": {"resetAt": get_quota_reset_iso()},
-                },
-            )
+    # 2. Reserve a guest question atomically before calling the AI
+    guest_id, remaining = reserve_guest_quota(identity)
 
     # 3. Call ChatbotAgent to generate AI response
     try:
@@ -118,19 +149,17 @@ async def send_chat_message(
             clean_message,
             history=body.history,
             dietary_type=body.dietary_type,
+            menu_context=body.menu_context,
         )
 
-        # 4. Update usage and record log
+        # 4. Record log
         if not identity.is_authenticated:
-            guest_id = identity.guest_id or "default-guest"
-            remaining = increment_guest_usage(guest_id)
             record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action="CHAT_GUEST",
                 status="SUCCESS",
             )
         else:
-            remaining = None
             record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action=f"CHAT_USER_{identity.user_id}",
@@ -145,6 +174,8 @@ async def send_chat_message(
 
     except Exception as e:
         logger.error(f"Error invoking DeepSeek LLM: {e}", exc_info=True)
+        if guest_id:
+            release_guest_question(guest_id)
         record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
             action="CHAT_ERROR",
@@ -177,18 +208,8 @@ async def stream_chat_message(
             detail={"code": "INVALID_INPUT", "message": "Nội dung câu hỏi không được để trống."},
         )
 
-    # Check guest limit if not authenticated
-    if not identity.is_authenticated:
-        guest_id = identity.guest_id or "default-guest"
-        if not can_guest_ask(guest_id):
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "code": "CHAT_QUOTA_EXCEEDED",
-                    "message": "Bạn đã sử dụng hết lượt hỏi trong ngày.",
-                    "details": {"resetAt": get_quota_reset_iso()},
-                },
-            )
+    # Reserve a guest question atomically before streaming starts
+    guest_id, remaining = reserve_guest_quota(identity)
 
     async def event_generator():
         try:
@@ -196,23 +217,21 @@ async def stream_chat_message(
                 clean_message,
                 history=body.history,
                 dietary_type=body.dietary_type,
+                menu_context=body.menu_context,
             ):
                 yield {
                     "event": "token",
                     "data": json.dumps({"token": chunk}, ensure_ascii=False),
                 }
 
-            # Update usage and record log on stream completion
+            # Record log on stream completion
             if not identity.is_authenticated:
-                guest_id = identity.guest_id or "default-guest"
-                remaining = increment_guest_usage(guest_id)
                 record_ai_log(
                     model_name=settings.DEEPSEEK_MODEL,
                     action="CHAT_STREAM_GUEST",
                     status="SUCCESS",
                 )
             else:
-                remaining = None
                 record_ai_log(
                     model_name=settings.DEEPSEEK_MODEL,
                     action=f"CHAT_STREAM_USER_{identity.user_id}",
@@ -229,6 +248,8 @@ async def stream_chat_message(
 
         except Exception as e:
             logger.error(f"Error streaming response from LLM: {e}", exc_info=True)
+            if guest_id:
+                release_guest_question(guest_id)
             record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action="CHAT_STREAM_ERROR",
