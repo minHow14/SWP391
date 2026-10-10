@@ -184,8 +184,8 @@ def test_animal_terms_ignore_egg_milk_chickpea_and_vegan_substitutes():
     assert len(find_diet_violations(bad, "lacto_ovo")) == 2
 
 
-def test_real_gemini_false_alarms_are_accepted():
-    """Ba trường hợp nhận nhầm gặp khi chạy thật với Gemini 3.5 Flash."""
+def test_real_llm_false_alarms_are_accepted():
+    """Ba trường hợp nhận nhầm gặp khi chạy thật."""
     from core.nutrition import find_diet_violations
 
     meals = [
@@ -223,7 +223,7 @@ def test_english_plant_based_names_are_vegan():
     assert find_diet_violations([("Phụ", "Snack", ["Greek yogurt 100g"])], "vegan")
 
 
-def test_gemini_37_false_alarms_and_their_limits():
+def test_seed_butter_and_soy_free_sauce_false_alarms_and_their_limits():
     from core.nutrition import find_diet_violations
 
     seed_butter = [("Phụ", "Sinh tố bơ hạt hướng dương", ["20g bơ hạt hướng dương (sunflower seed butter)"])]
