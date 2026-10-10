@@ -1,18 +1,11 @@
-from fastapi import Request
 from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from core.config import settings
 
 
-def client_ip(request: Request) -> str:
-    """IP người gọi; ưu tiên X-Forwarded-For khi đứng sau proxy (ví dụ backend Express)."""
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
-limiter = Limiter(key_func=client_ip)
+# request.client đã được ProxyHeadersMiddleware (main.py) thay bằng IP thật khi đi qua proxy tin cậy
+limiter = Limiter(key_func=get_remote_address)
 
 
 def rate_limit():

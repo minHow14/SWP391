@@ -44,15 +44,18 @@ class Settings(BaseSettings):
     AUTH_DEV_MODE: bool = True  # cho phép nhận danh tính qua header X-User-Id (chỉ để phát triển)
 
     ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000", "http://localhost:5173"]
+    # Chỉ tin X-Forwarded-For khi request đến từ các proxy này (ví dụ backend Express cùng máy);
+    # client gọi thẳng không thể tự khai IP để lách giới hạn tần suất.
+    TRUSTED_PROXIES: Annotated[list[str], NoDecode] = ["127.0.0.1", "::1"]
 
     # Hạn mức chung của khách mỗi ngày: câu hỏi chatbot + lần tạo thực đơn tuần
     GUEST_DAILY_LIMIT: int = 3
     # Giới hạn tần suất theo IP (chống spam), cú pháp của slowapi, ví dụ "30/minute"
     RATE_LIMIT: str = "30/minute"
 
-    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @field_validator("ALLOWED_ORIGINS", "TRUSTED_PROXIES", mode="before")
     @classmethod
-    def split_origins(cls, value):
+    def split_comma_list(cls, value):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
