@@ -1,26 +1,43 @@
 {
   "name": "server",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "SWP391 Backend API Server",
+  "main": "src/server.js",
   "scripts": {
+<<<<<<< HEAD
     "test": "node --test",
     "start": "node index.js",
     "dev": "nodemon index.js"
+=======
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:pull": "prisma db pull",
+    "prisma:push": "prisma db push",
+    "prisma:studio": "prisma studio"
+>>>>>>> main
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^18.0.6",
     "express": "^5.2.1",
+<<<<<<< HEAD
     "express-rate-limit": "^8.7.1",
     "fuse.js": "^7.5.0",
     "geolib": "^4.0.0",
     "lru-cache": "^11.5.3",
     "zod": "^4.6.5"
+=======
+    "jsonwebtoken": "^9.0.3",
+    "prisma": "^6.19.3"
+>>>>>>> main
   },
   "devDependencies": {
     "nodemon": "^3.1.14",

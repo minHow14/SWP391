@@ -1,0 +1,317 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id          Int             @id @default(autoincrement())
+  email            String          @unique @db.VarChar(255)
+  password_hash    String          @db.VarChar(255)
+  full_name        String          @db.VarChar(255)
+  role             Int             @default(2) @db.SmallInt
+  status           String          @default("ACTIVE") @db.VarChar(20)
+  created_at       DateTime?       @default(now()) @db.Timestamptz(6)
+  comments         Comment[]
+  food_diaries     FoodDiary[]
+  health_histories HealthHistory[]
+  health_profile   HealthProfile?
+  meal_plans       MealPlan[]
+  notifications    Notification[]
+  votes            PostVote[]
+  posts            Post[]
+  reports          Report[]
+  allergies        UserAllergy[]
+
+  @@index([email], map: "idx_users_email")
+  @@map("users")
+}
+
+model DietType {
+  diet_type_id    Int             @id @default(autoincrement()) @db.SmallInt
+  name            String          @unique @db.VarChar(100)
+  description     String?
+  health_profiles HealthProfile[]
+  recipes         Recipe[]
+  restaurants     Restaurant[]
+
+  @@map("diet_types")
+}
+
+model HealthProfile {
+  profile_id   Int       @id @default(autoincrement())
+  user_id      Int       @unique
+  diet_type_id Int?      @db.SmallInt
+  height       Float?    @db.Real
+  weight       Float?    @db.Real
+  dob          DateTime? @db.Date
+  gender       String?   @db.VarChar(20)
+  health_goal  String?   @db.VarChar(255)
+  diet_type    DietType? @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
+  user         User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("health_profiles")
+}
+
+model HealthHistory {
+  history_id    Int       @id @default(autoincrement())
+  user_id       Int
+  recorded_date DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  weight        Float     @db.Real
+  bmi           Float?    @db.Real
+  user          User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("health_histories")
+}
+
+model UserAllergy {
+  user_id       Int
+  ingredient_id Int
+  ingredient    Ingredient @relation(fields: [ingredient_id], references: [ingredient_id], onDelete: Cascade, onUpdate: NoAction)
+  user          User       @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, ingredient_id])
+  @@map("user_allergies")
+}
+
+model Category {
+  category_id     Int            @id @default(autoincrement())
+  name            String         @unique @db.VarChar(100)
+  post_categories PostCategory[]
+  recipes         Recipe[]
+
+  @@map("categories")
+}
+
+model Post {
+  post_id         Int            @id @default(autoincrement())
+  author_id       Int
+  post_type       String         @db.VarChar(20)
+  status          String         @default("PUBLISHED") @db.VarChar(30)
+  created_at      DateTime?      @default(now()) @db.Timestamptz(6)
+  blog            Blog?
+  comments        Comment[]
+  post_categories PostCategory[]
+  post_votes      PostVote[]
+  author          User           @relation(fields: [author_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  recipe          Recipe[]
+  reports         Report[]
+  video           Video?
+
+  @@index([author_id], map: "idx_posts_author")
+  @@index([status], map: "idx_posts_status")
+  @@map("posts")
+}
+
+model Video {
+  post_id           Int     @id
+  title             String  @db.VarChar(255)
+  video_url         String  @db.VarChar(500)
+  thumbnail_url     String? @db.VarChar(500)
+  duration          Int?    @default(0)
+  transcript        String?
+  attached_in_blogs Blog[]
+  post              Post    @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("videos")
+}
+
+model Blog {
+  post_id           Int    @id
+  title             String @db.VarChar(255)
+  content           String
+  attached_video_id Int?
+  attached_video    Video? @relation(fields: [attached_video_id], references: [post_id], onUpdate: NoAction)
+  post              Post   @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("blogs")
+}
+
+model PostCategory {
+  post_id     Int
+  category_id Int
+  category    Category @relation(fields: [category_id], references: [category_id], onDelete: Cascade, onUpdate: NoAction)
+  post        Post     @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([post_id, category_id])
+  @@map("post_categories")
+}
+
+model Comment {
+  comment_id       Int       @id @default(autoincrement())
+  post_id          Int
+  user_id          Int
+  content          String
+  is_flagged_by_ai Boolean?  @default(false)
+  status           String    @default("ACTIVE") @db.VarChar(30)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  post             Post      @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+  user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  reports          Report[]
+
+  @@index([post_id], map: "idx_comments_post")
+  @@index([user_id], map: "idx_comments_user")
+  @@map("comments")
+}
+
+model PostVote {
+  user_id   Int
+  post_id   Int
+  vote_type String @db.VarChar(20)
+  post      Post   @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+  user      User   @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([user_id, post_id])
+  @@map("post_votes")
+}
+
+model Ingredient {
+  ingredient_id      Int                @id @default(autoincrement())
+  name               String             @unique @db.VarChar(150)
+  calories_per_100g  Float?             @default(0) @db.Real
+  protein            Float?             @default(0) @db.Real
+  fat                Float?             @default(0) @db.Real
+  carbs              Float?             @default(0) @db.Real
+  recipe_ingredients RecipeIngredient[]
+  allergies          UserAllergy[]
+
+  @@map("ingredients")
+}
+
+model Recipe {
+  recipe_id          Int                @id @default(autoincrement())
+  post_id            Int?
+  category_id        Int?
+  diet_type_id       Int?               @db.SmallInt
+  recipe_name        String             @db.VarChar(255)
+  description        String?
+  image_url          String?            @db.VarChar(500)
+  prep_time          Int?               @default(0)
+  total_calories     Float?             @default(0) @db.Real
+  instructions       String?
+  food_diaries       FoodDiary[]
+  meal_plan_details  MealPlanDetail[]
+  recipe_ingredients RecipeIngredient[]
+  categories         Category?          @relation(fields: [category_id], references: [category_id], onUpdate: NoAction)
+  diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
+  post               Post?              @relation(fields: [post_id], references: [post_id], onUpdate: NoAction)
+  restaurant_recipes RestaurantRecipe[]
+
+  @@map("recipes")
+}
+
+model RecipeIngredient {
+  recipe_id     Int
+  ingredient_id Int
+  quantity      Float      @db.Real
+  unit          String     @db.VarChar(50)
+  ingredient    Ingredient @relation(fields: [ingredient_id], references: [ingredient_id], onDelete: Cascade, onUpdate: NoAction)
+  recipe        Recipe     @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([recipe_id, ingredient_id])
+  @@map("recipe_ingredients")
+}
+
+model MealPlan {
+  plan_id         Int              @id @default(autoincrement())
+  user_id         Int
+  title           String           @default("Thực đơn tuần") @db.VarChar(255)
+  start_date      DateTime         @db.Date
+  end_date        DateTime         @db.Date
+  target_calories Float?           @db.Real
+  details         MealPlanDetail[]
+  user            User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("meal_plans")
+}
+
+model MealPlanDetail {
+  plan_detail_id Int      @id @default(autoincrement())
+  plan_id        Int
+  recipe_id      Int?
+  meal_type      String   @db.VarChar(30)
+  day_of_week    Int      @db.SmallInt
+  meal_plan      MealPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade, onUpdate: NoAction)
+  recipe         Recipe?  @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("meal_plan_details")
+}
+
+model FoodDiary {
+  diary_id         Int       @id @default(autoincrement())
+  user_id          Int
+  consumed_date    DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  meal_type        String    @db.VarChar(30)
+  recipe_id        Int?
+  custom_food_name String?   @db.VarChar(255)
+  calories         Float?    @default(0) @db.Real
+  recipe           Recipe?   @relation(fields: [recipe_id], references: [recipe_id], onUpdate: NoAction)
+  user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("food_diaries")
+}
+
+model Restaurant {
+  restaurant_id      Int                @id @default(autoincrement())
+  name               String             @db.VarChar(255)
+  address            String             @db.VarChar(255)
+  phone              String?            @db.VarChar(50)
+  image_url          String?            @db.VarChar(500)
+  rating             Float?             @default(4.5) @db.Real
+  latitude           Decimal?           @db.Decimal(10, 7)
+  longitude          Decimal?           @db.Decimal(10, 7)
+  diet_type_id       Int?               @db.SmallInt
+  restaurant_recipes RestaurantRecipe[]
+  diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
+
+  @@map("restaurants")
+}
+
+model RestaurantRecipe {
+  restaurant_id Int
+  recipe_id     Int
+  recipe        Recipe     @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
+  restaurant    Restaurant @relation(fields: [restaurant_id], references: [restaurant_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([restaurant_id, recipe_id])
+  @@map("restaurant_recipes")
+}
+
+model Report {
+  report_id   Int       @id @default(autoincrement())
+  reporter_id Int
+  post_id     Int?
+  comment_id  Int?
+  reason      String
+  status      String    @default("PENDING") @db.VarChar(30)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  comment     Comment?  @relation(fields: [comment_id], references: [comment_id], onDelete: Cascade, onUpdate: NoAction)
+  post        Post?     @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+  reporter    User      @relation(fields: [reporter_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("reports")
+}
+
+model Notification {
+  notification_id Int       @id @default(autoincrement())
+  user_id         Int
+  content         String    @db.VarChar(500)
+  is_read         Boolean?  @default(false)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+  user            User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("notifications")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+model ai_logs {
+  log_id         Int       @id @default(autoincrement())
+  model_name     String    @db.VarChar(100)
+  action         String    @db.VarChar(100)
+  status         String    @db.VarChar(20)
+  error_feedback String?
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+}
