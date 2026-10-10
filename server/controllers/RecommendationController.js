@@ -1,5 +1,6 @@
 // JavaScript source code
-import { videos, restaurants, recipes, restaurantRecipes, posts } from '../data/mockStore.js';
+import { videos, posts } from '../data/mockStore.js';
+import { searchLocal } from '../services/PlacesService.js';
 
 export const suggestByKeyword = (req, res) => {
     const keyword = req.query.keyword ? req.query.keyword.toLowerCase().trim() : '';
@@ -23,27 +24,8 @@ export const suggestByKeyword = (req, res) => {
         .filter(Boolean)
         .sort((a, b) => b.matchScore - a.matchScore);
 
-    // 2. Suggest Restaurants (Shops) based on name or recipe offerings
-    const suggestedShops = restaurants
-        .map(shop => {
-            let score = 0;
-            if (shop.name.toLowerCase().includes(keyword)) score += 5;
-
-            // Find recipes offered by this restaurant
-            const shopRecipeIds = restaurantRecipes
-                .filter(rr => rr.restaurant_id === shop.restaurant_id)
-                .map(rr => rr.recipe_id);
-
-            const matchingRecipes = recipes.filter(
-                r => shopRecipeIds.includes(r.recipe_id) && r.recipe_name.toLowerCase().includes(keyword)
-            );
-
-            score += matchingRecipes.length * 3;
-
-            return score > 0 ? { ...shop, matchScore: score, matchedRecipes: matchingRecipes.map(r => r.recipe_name) } : null;
-        })
-        .filter(Boolean)
-        .sort((a, b) => b.matchScore - a.matchScore);
+    // 2. Suggest Restaurants (Shops) theo tên quán hoặc món quán phục vụ (dùng chung với /api/places)
+    const suggestedShops = searchLocal({ query: keyword });
 
     return res.status(200).json({
         keyword,
