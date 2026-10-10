@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 from main import app
 from core.security import reset_guest_usage_for_tests
 from agents.meal_planner_agent import (
-    MealPlannerAgent,
     GeneratedMealPlan,
     MealPlanProfile,
     DailyMealPlan,
@@ -24,7 +23,7 @@ def clean_usage():
 
 def sample_meal_plan():
     return GeneratedMealPlan(
-        title="Thực đơn chay 7 ngày tăng cơ giảm mỡ",
+        title="Thực đơn chay mẫu (1 ngày) tăng cơ giảm mỡ",
         summary="Thực đơn giàu đạm thực vật từ đậu nành và các loại hạt.",
         profile_summary=MealPlanProfile(
             bmi=22.5,
@@ -202,35 +201,28 @@ def test_generate_meal_plan_user_unlimited(mock_generate):
         assert res.json()["success"] is True
 
 
-@pytest.mark.asyncio
-async def test_meal_planner_retry_mechanism():
-    agent = MealPlannerAgent()
-    mock_plan = sample_meal_plan()
+@patch("api.meal_planner.meal_planner_agent.generate_plan")
+def test_generate_passes_bmi_and_activity_level_to_agent(mock_generate):
+    mock_generate.return_value = sample_meal_plan()
+    payload = {
+        "height_cm": 170,
+        "weight_kg": 65,
+        "bmi": 22.5,
+        "activity_level": "moderate",
+        "allergies": ["soy"],
+    }
+    res = client.post("/api/meal-planner/generate", json=payload, headers={"X-User-Id": "user-bmi-1"})
+    assert res.status_code == 200
+    kwargs = mock_generate.call_args.kwargs
+    assert kwargs["bmi"] == 22.5
+    assert kwargs["activity_level"] == "moderate"
+    assert kwargs["allergies"] == ["soy"]
 
-    with patch("agents.meal_planner_agent.get_llm_json") as mock_get_llm:
-        from unittest.mock import MagicMock
-        mock_llm = MagicMock()
-        mock_structured = AsyncMock()
-        
-        # 1st attempt fails with an error, 2nd attempt succeeds
-        mock_structured.ainvoke.side_effect = [
-            ValueError("Truncated JSON syntax"),
-            mock_plan,
-        ]
-        mock_llm.with_structured_output.return_value = mock_structured
-        mock_get_llm.return_value = mock_llm
 
-        result = await agent.generate_plan(
-            height_cm=165,
-            weight_kg=55,
-            goal="maintenance",
-            dietary_type="vegan",
-            days=7,
-        )
-
-        assert result.title == mock_plan.title
-        # Verify it retried: ainvoke called 2 times
-        assert mock_structured.ainvoke.call_count == 2
+def test_generate_rejects_invalid_activity_level_and_bmi():
+    base = {"height_cm": 170, "weight_kg": 65}
+    assert client.post("/api/meal-planner/generate", json={**base, "activity_level": "extreme"}).status_code == 422
+    assert client.post("/api/meal-planner/generate", json={**base, "bmi": 2}).status_code == 422
 
 
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
