@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
-from core.llm import get_llm_json
+from core.llm import get_structured_llm
 from core.nutrition import (
     NutritionTargets,
     bmi_category,
@@ -226,10 +226,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         )
 
         system_prompt = self.load_prompt()
-        llm = get_llm_json(timeout=90.0)
-
-        # Bind structured output or parse JSON
-        structured_llm = llm.with_structured_output(GeneratedMealPlan, method="function_calling")
+        structured_llm = get_structured_llm(GeneratedMealPlan, timeout=90.0)
 
         messages = [
             SystemMessage(content=system_prompt),

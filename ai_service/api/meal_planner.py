@@ -13,6 +13,7 @@ from core.security import (
     get_quota_reset_iso,
 )
 from core.database import record_ai_log
+from core.llm import get_json_model_name
 from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
 
 logger = logging.getLogger(__name__)
@@ -153,7 +154,7 @@ async def generate_meal_plan(
         user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
 
         record_ai_log(
-            model_name=settings.DEEPSEEK_MODEL,
+            model_name=get_json_model_name(),
             action=f"MEAL_PLANNER_{user_tag}",
             status="SUCCESS",
         )
@@ -169,7 +170,7 @@ async def generate_meal_plan(
         if guest_id:
             release_guest_question(guest_id)
         record_ai_log(
-            model_name=settings.DEEPSEEK_MODEL,
+            model_name=get_json_model_name(),
             action="MEAL_PLANNER_ERROR",
             status="ERROR",
             error_feedback=str(e),
