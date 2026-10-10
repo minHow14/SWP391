@@ -2,24 +2,25 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import app from '../app.js';
-import { clearGoogleCache, normalize } from '../services/PlacesService.js';
+import { clearZiomapCache, normalize } from '../services/PlacesService.js';
 
 const DISTRICT_1 = { lat: 10.7769, lng: 106.7009 };
 const FAR_AWAY = { lat: 21.0285, lng: 105.8542 }; // Hà Nội, ngoài vùng có quán trong DB
+const TEST_KEY = 'test-ziomap-key';
 
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
-  clearGoogleCache();
-  delete process.env.GOOGLE_MAPS_API_KEY;
+  clearZiomapCache();
+  delete process.env.ZIOMAP_API_KEY;
 });
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
-  delete process.env.GOOGLE_MAPS_API_KEY;
+  delete process.env.ZIOMAP_API_KEY;
 });
 
-const googleReply = (places) => async () => ({ ok: true, status: 200, json: async () => ({ places }) });
+const ziomapReply = (places) => async () => ({ ok: true, status: 200, json: async () => ({ places }) });
 
 test('normalize bỏ dấu tiếng Việt', () => {
   assert.equal(normalize('Phở Chay Đặc Biệt'), 'pho chay dac biet');
@@ -31,7 +32,7 @@ test('nearby trả quán trong bán kính, xếp từ gần đến xa, theo enve
   assert.equal(res.body.success, true);
   assert.match(res.body.meta.requestId, /^req_/);
   assert.equal(res.headers['x-request-id'], res.body.meta.requestId);
-  assert.equal(res.body.meta.google, 'not_configured');
+  assert.equal(res.body.meta.ziomap, 'not_configured');
 
   const places = res.body.data.places;
   assert.ok(places.length > 3);
@@ -41,17 +42,17 @@ test('nearby trả quán trong bán kính, xếp từ gần đến xa, theo enve
   assert.ok(places.every((p) => p.maps_url.startsWith('https://www.google.com/maps/search/')));
 });
 
-test('nearby không gọi Google khi DB đã đủ kết quả', async () => {
-  process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+test('nearby không gọi ZIOMAP khi DB đã đủ kết quả', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
   let calls = 0;
   globalThis.fetch = async () => {
     calls += 1;
-    return googleReply([])();
+    return ziomapReply([])();
   };
   const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 10, limit: 2 });
   assert.equal(res.status, 200);
   assert.equal(res.body.data.places.length, 2);
-  assert.equal(res.body.meta.google, 'not_needed');
+  assert.equal(res.body.meta.ziomap, 'not_needed');
   assert.equal(calls, 0);
 });
 
@@ -91,45 +92,61 @@ test('search thiếu q hoặc chỉ có lat trả 400', async () => {
   assert.equal(res.body.error.code, 'INVALID_INPUT');
 });
 
-test('bổ sung từ Google khi DB không có quán gần, kết quả được cache', async () => {
-  process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+test('bổ sung từ ZIOMAP khi DB không có quán gần, kết quả được cache', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
   let calls = 0;
   let sent;
   globalThis.fetch = async (url, options) => {
     calls += 1;
-    sent = { url, headers: options.headers, body: JSON.parse(options.body) };
-    return googleReply([
+    sent = { url: new URL(url), headers: options.headers, method: options.method ?? 'GET' };
+    return ziomapReply([
       {
         id: 'ChIJ_abc',
         displayName: { text: 'Quán Chay Hà Nội' },
         formattedAddress: '1 Hàng Bài, Hà Nội',
         location: { latitude: 21.0281, longitude: 105.8524 },
-        rating: 4.5,
       },
     ])();
   };
 
   const first = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
   assert.equal(first.status, 200);
-  assert.equal(first.body.meta.google, 'used');
+  assert.equal(first.body.meta.ziomap, 'used');
   const [place] = first.body.data.places;
-  assert.equal(place.source, 'google');
-  assert.equal(place.rating, 4.5);
+  assert.equal(place.source, 'ziomap');
   assert.match(place.maps_url, /query_place_id=ChIJ_abc/);
 
-  // Chỉ xin các trường cần thiết và gửi key qua header, không qua URL
-  assert.ok(sent.headers['X-Goog-FieldMask'].includes('places.displayName'));
-  assert.equal(sent.headers['X-Goog-Api-Key'], 'test-key');
-  assert.ok(!String(sent.url).includes('test-key'));
-  assert.equal(sent.body.languageCode, 'vi');
+  // Key gửi qua header x-api-key (không nằm trong URL), chỉ xin các trường cần thiết
+  assert.equal(sent.method, 'GET');
+  assert.equal(sent.url.pathname, '/api/place/text-search');
+  assert.equal(sent.headers['x-api-key'], TEST_KEY);
+  assert.ok(!sent.url.href.includes(TEST_KEY));
+  assert.ok(sent.url.searchParams.get('fieldMask').includes('places.displayName'));
+  assert.equal(sent.url.searchParams.get('languageCode'), 'vi');
+  assert.equal(sent.url.searchParams.get('query'), 'quán chay');
 
   const second = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
-  assert.equal(second.body.meta.google, 'cached');
+  assert.equal(second.body.meta.ziomap, 'cached');
   assert.equal(calls, 1);
 });
 
-test('Google lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR', async () => {
-  process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB (tính phí theo kết quả)', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
+  let requested;
+  globalThis.fetch = async (url) => {
+    requested = new URL(url).searchParams.get('maxResultCount');
+    return ziomapReply([])();
+  };
+  // Bán kính 0.5 km quanh Quận 1 chỉ có vài quán trong DB
+  const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 0.5, limit: 10 });
+  assert.equal(res.status, 200);
+  const local = res.body.data.places.length;
+  assert.ok(local > 0 && local < 10);
+  assert.equal(Number(requested), 10 - local);
+});
+
+test('ZIOMAP lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({}) });
   const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
   assert.equal(res.status, 502);
@@ -137,23 +154,23 @@ test('Google lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_
   assert.ok(res.body.meta.requestId);
 });
 
-test('Google lỗi nhưng DB có kết quả thì vẫn trả 200 và báo unavailable', async () => {
-  process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+test('ZIOMAP lỗi nhưng DB có kết quả thì vẫn trả 200 và báo unavailable', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => {
     throw new Error('network down');
   };
   const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 5, limit: 20 });
   assert.equal(res.status, 200);
-  assert.equal(res.body.meta.google, 'unavailable');
+  assert.equal(res.body.meta.ziomap, 'unavailable');
   assert.ok(res.body.data.places.length > 0);
 });
 
-test('search không có trong DB thì hỏi Google kèm từ "chay"', async () => {
-  process.env.GOOGLE_MAPS_API_KEY = 'test-key';
+test('search không có trong DB thì hỏi ZIOMAP kèm từ "chay"', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
   let textQuery;
-  globalThis.fetch = async (url, options) => {
-    textQuery = JSON.parse(options.body).textQuery;
-    return googleReply([])();
+  globalThis.fetch = async (url) => {
+    textQuery = new URL(url).searchParams.get('query');
+    return ziomapReply([])();
   };
   const res = await request(app).get('/api/places/search').query({ q: 'lẩu thái', ...FAR_AWAY });
   assert.equal(res.status, 200);
