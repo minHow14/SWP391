@@ -31,7 +31,7 @@ def json_provider() -> str:
 def get_json_model_name() -> str:
     """Tên model đang dùng cho câu trả lời JSON (dùng để ghi AILog)."""
     if json_provider() == "gemini":
-        return settings.GEMINI_MODEL or "gemini-3.5-flash"
+        return settings.GEMINI_MODEL or "gemini-3.7-flash"
     return settings.DEEPSEEK_MODEL or "deepseek-chat"
 
 
