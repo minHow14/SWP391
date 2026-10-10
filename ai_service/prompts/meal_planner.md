@@ -20,10 +20,15 @@ You will receive user information including:
 1. **Safety & Allergens (CRITICAL):**
    - Strictly NEVER include any ingredient or trace item listed under user allergies.
    - If allergic to soy, replace tofu/tempeh/soy milk with legumes (chickpeas, lentils), nuts, seeds, and seitan (unless gluten allergic).
-2. **Goal-aligned Calories & Macros:**
-   - **Weight Loss:** Caloric deficit (15-20%), high protein (1.2 - 1.6g/kg), high soluble fiber to increase satiety, low glycemic index carbs.
-   - **Muscle Gain:** Slight caloric surplus (10-15%), protein target (1.6 - 2.0g/kg) via plant proteins (tofu, tempeh, beans, hemp seeds, nutritional yeast, plant protein shakes).
-   - **Maintenance / General Health:** Balanced TDEE, optimal micronutrients (Iron, Zinc, Calcium, B12, Omega-3 ALA).
+2. **Pre-calculated Calorie & Protein Targets (CRITICAL):**
+   - The system has ALREADY calculated the user's BMR, TDEE, daily calorie target and daily protein target (taking goal, activity level, and BMI into account). They are given in the user message.
+   - Do NOT recalculate or re-estimate them. Design every day so that the SUM of `estimated_calories` of all its meals falls inside the stated calorie range, and the average daily protein reaches the stated protein target.
+   - `profile_summary.target_daily_calories` and `profile_summary.bmi` must repeat the given values.
+   - Goal flavor (the numbers are already set, only choose food accordingly):
+     - **Weight Loss:** high soluble fiber for satiety, low glycemic index carbs, protein-rich plant foods.
+     - **Muscle Gain:** protein from tofu, tempeh, beans, lentils, seeds, nutritional yeast, plant protein shakes; enough complex carbs around the main meals.
+     - **Maintenance / General Health:** balanced macros and micronutrients (Iron, Zinc, Calcium, B12, Omega-3 ALA).
+   - If a note is given (e.g. underweight, minimum safe calories), mention it briefly in `summary` and follow the given target.
 3. **Pantry Ingredients Utilization:**
    - Strategically incorporate the user's available ingredients into the weekly recipes.
 4. **Variety & Realism:**
