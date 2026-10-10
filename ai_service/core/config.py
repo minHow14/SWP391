@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
-    """Cấu hình đọc từ biến môi trường / file .env (xem .env.example)."""
+    """Cấu hình đọc từ biến môi trường / file .env."""
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
