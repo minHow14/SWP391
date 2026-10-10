@@ -8,16 +8,16 @@ import {
   recipes,
 } from '../data/mockStore.js';
 
-const GOOGLE_TEXT_SEARCH_URL = 'https://places.googleapis.com/v1/places:searchText';
-// Chỉ xin các trường cần dùng để giữ chi phí Places API ở mức thấp nhất
-const GOOGLE_FIELD_MASK =
+const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
+// Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
+const FIELD_MASK =
   'places.id,places.displayName,places.formattedAddress,places.location,places.rating';
-const GOOGLE_TIMEOUT_MS = 8000;
+const PROVIDER_TIMEOUT_MS = 8000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class PlacesProviderError extends Error {}
 
-const googleCache = new LRUCache({ max: 500, ttl: CACHE_TTL_MS });
+const ziomapCache = new LRUCache({ max: 500, ttl: CACHE_TTL_MS });
 
 // Bỏ dấu tiếng Việt để "pho chay" khớp "Phở chay"
 export const normalize = (text) =>
@@ -118,54 +118,56 @@ export function searchLocal({ query, lat, lng }) {
     .sort((a, b) => b.match_score - a.match_score || byDistance(a, b));
 }
 
-/**
- * Tìm quán qua Google Places (New) Text Search. Chỉ gọi khi có GOOGLE_MAPS_API_KEY; kết quả được
- * cache 24 giờ theo ô toạ độ (~100 m) để tránh gọi lặp và tiết kiệm phí.
- */
-export async function searchGoogle({ query, lat, lng, radiusKm, limit }) {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return { places: [], skipped: true, cached: false };
-
-  const cacheKey = [normalize(query), lat.toFixed(3), lng.toFixed(3), radiusKm, limit].join('|');
-  const hit = googleCache.get(cacheKey);
-  if (hit) return { places: hit, skipped: false, cached: true };
-
+async function fetchZiomap(url, init) {
   let response;
   try {
-    response = await fetch(GOOGLE_TEXT_SEARCH_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': key,
-        'X-Goog-FieldMask': GOOGLE_FIELD_MASK,
-      },
-      body: JSON.stringify({
-        textQuery: query,
-        languageCode: 'vi',
-        maxResultCount: limit,
-        locationBias: {
-          circle: {
-            center: { latitude: lat, longitude: lng },
-            radius: Math.min(radiusKm * 1000, 50000),
-          },
-        },
-      }),
-      signal: AbortSignal.timeout(GOOGLE_TIMEOUT_MS),
-    });
+    response = await fetch(url, { ...init, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
   } catch (error) {
-    throw new PlacesProviderError(`Không gọi được Google Places: ${error.name}`);
+    throw new PlacesProviderError(`Không gọi được ZIOMAP: ${error.name}`);
   }
   if (!response.ok) {
-    throw new PlacesProviderError(`Google Places trả về HTTP ${response.status}`);
+    throw new PlacesProviderError(`ZIOMAP trả về HTTP ${response.status}`);
   }
+  return response.json();
+}
 
+// Tính phí theo số kết quả nên chỉ xin đúng số cần. Key (Base64 JSON) gửi qua header, không qua URL.
+function requestZiomap({ query, lat, lng, radiusKm, limit }) {
+  const params = new URLSearchParams({
+    query,
+    languageCode: 'vi',
+    maxResultCount: String(limit),
+    fieldMask: FIELD_MASK,
+    locationBias: JSON.stringify({
+      circle: {
+        center: { latitude: lat, longitude: lng },
+        radius: Math.min(radiusKm * 1000, 50000),
+      },
+    }),
+  });
+  return fetchZiomap(`${ZIOMAP_TEXT_SEARCH_URL}?${params}`, {
+    headers: { 'x-api-key': process.env.ZIOMAP_API_KEY },
+  });
+}
+
+/**
+ * Tìm quán qua ZIOMAP (tương thích Places API v1, tính phí theo số kết quả). Chỉ gọi khi có
+ * ZIOMAP_API_KEY; kết quả cache 24 giờ theo ô toạ độ (~100 m) để tránh gọi lặp và tiết kiệm phí.
+ */
+export async function searchZiomap({ query, lat, lng, radiusKm, limit }) {
+  if (!process.env.ZIOMAP_API_KEY) return { places: [], skipped: true, cached: false };
+
+  const cacheKey = [normalize(query), lat.toFixed(3), lng.toFixed(3), radiusKm, limit].join('|');
+  const hit = ziomapCache.get(cacheKey);
+  if (hit) return { places: hit, skipped: false, cached: true };
+
+  const body = await requestZiomap({ query, lat, lng, radiusKm, limit });
   const origin = { latitude: lat, longitude: lng };
-  const body = await response.json();
   const places = (body.places ?? []).map((p) => {
     const location = { latitude: p.location.latitude, longitude: p.location.longitude };
     return {
-      id: `google_${p.id}`,
-      source: 'google',
+      id: `ziomap_${p.id}`,
+      source: 'ziomap',
       restaurant_id: null,
       name: p.displayName?.text ?? '',
       address: p.formattedAddress ?? '',
@@ -178,15 +180,15 @@ export async function searchGoogle({ query, lat, lng, radiusKm, limit }) {
       maps_url: mapsUrl({ ...location, place_id: p.id }),
     };
   });
-  googleCache.set(cacheKey, places);
+  ziomapCache.set(cacheKey, places);
   return { places, skipped: false, cached: false };
 }
 
-/** Gộp kết quả DB và Google, bỏ trùng theo place_id hoặc tên + vị trí, xếp theo khoảng cách. */
-export function mergePlaces(local, google) {
+/** Gộp kết quả DB và ZIOMAP, bỏ trùng theo place_id hoặc tên + vị trí, xếp theo khoảng cách. */
+export function mergePlaces(local, ziomap) {
   const seen = new Set(local.map((p) => p.place_id).filter(Boolean));
   const merged = [...local];
-  for (const place of google) {
+  for (const place of ziomap) {
     const duplicate =
       seen.has(place.place_id) ||
       local.some(
@@ -197,6 +199,6 @@ export function mergePlaces(local, google) {
   return merged.sort(byDistance);
 }
 
-export function clearGoogleCache() {
-  googleCache.clear();
+export function clearZiomapCache() {
+  ziomapCache.clear();
 }
