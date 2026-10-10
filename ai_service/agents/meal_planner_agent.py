@@ -10,6 +10,7 @@ from core.nutrition import (
     calculate_bmi,
     calculate_targets,
     find_allergen_violations,
+    find_used_ingredients,
 )
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "meal_planner
 
 CALORIE_TOLERANCE = 0.10   # tổng calo mỗi ngày được lệch tối đa 10% so với mục tiêu
 PROTEIN_MIN_RATIO = 0.8    # protein trung bình mỗi ngày tối thiểu 80% mục tiêu
+PANTRY_MIN_USED_RATIO = 0.5  # cần dùng ít nhất một nửa số nguyên liệu người dùng đã có sẵn
 MAX_ATTEMPTS = 3
 
 
@@ -73,11 +75,12 @@ def validate_plan(
     targets: NutritionTargets,
     days: int,
     allergies: List[str],
+    available_ingredients: Optional[List[str]] = None,
 ) -> tuple[List[str], List[str]]:
     """
     Hậu kiểm thực đơn do LLM sinh. Trả về (lỗi nghiêm trọng, lỗi nhẹ).
     - Nghiêm trọng (không được trả cho người dùng): sai số ngày, chứa nguyên liệu dị ứng.
-    - Nhẹ (chấp nhận nếu hết lượt thử): lệch calo, thiếu protein.
+    - Nhẹ (chấp nhận nếu hết lượt thử): lệch calo, thiếu protein, ít dùng nguyên liệu có sẵn.
     Calo và protein được cộng từ các bữa, không tin các trường tổng do LLM tự điền.
     """
     hard: List[str] = []
@@ -110,6 +113,15 @@ def validate_plan(
             )
 
     hard.extend(find_allergen_violations(meals_for_allergy, allergies))
+
+    if available_ingredients:
+        used = find_used_ingredients(available_ingredients, meals_for_allergy)
+        needed = max(1, round(len(available_ingredients) * PANTRY_MIN_USED_RATIO))
+        if len(used) < needed:
+            soft.append(
+                f"Mới dùng {len(used)}/{len(available_ingredients)} nguyên liệu có sẵn, "
+                f"hãy tận dụng ít nhất {needed}: {', '.join(available_ingredients)}."
+            )
     return hard, soft
 
 
@@ -187,11 +199,21 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
 """
 
     @staticmethod
-    def _finalize(plan: GeneratedMealPlan, targets: NutritionTargets) -> GeneratedMealPlan:
+    def _finalize(
+        plan: GeneratedMealPlan,
+        targets: NutritionTargets,
+        available_ingredients: List[str],
+    ) -> GeneratedMealPlan:
         """Ghi đè các chỉ số hồ sơ bằng giá trị server đã tính, không tin số LLM tự sinh."""
         plan.profile_summary.bmi = targets.bmi
         plan.profile_summary.bmi_category = targets.bmi_category
         plan.profile_summary.target_daily_calories = targets.target_calories
+        meals = [
+            (day_label, meal.name, meal.ingredients)
+            for day in plan.weekly_plan
+            for day_label, meal in _day_meals(day)
+        ]
+        plan.profile_summary.used_available_ingredients = find_used_ingredients(available_ingredients, meals)
         return plan
 
     async def generate_plan(
@@ -248,7 +270,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                 if not isinstance(result, GeneratedMealPlan):
                     raise ValueError("Kết quả từ LLM không đúng định dạng schema GeneratedMealPlan")
 
-                hard, soft = validate_plan(result, targets, days, allergies)
+                hard, soft = validate_plan(result, targets, days, allergies, available_ingredients)
                 if hard:
                     last_error = ValueError("; ".join(hard))
                     feedback = (
@@ -266,7 +288,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                         + " Hãy điều chỉnh khẩu phần và sinh lại toàn bộ thực đơn."
                     )
                 else:
-                    return self._finalize(result, targets)
+                    return self._finalize(result, targets, available_ingredients)
             except Exception as e:
                 last_error = e
                 feedback = (
@@ -282,7 +304,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         # Hết lượt thử: chỉ trả thực đơn lệch nhẹ (không vi phạm dị ứng / số ngày)
         if best_plan is not None:
             logger.warning("Returning the closest meal plan that still misses calorie/protein targets.")
-            return self._finalize(best_plan, targets)
+            return self._finalize(best_plan, targets, available_ingredients)
 
         raise RuntimeError(
             f"Không thể tạo thực đơn chay hợp lệ sau {MAX_ATTEMPTS} lần thử: {last_error}"
