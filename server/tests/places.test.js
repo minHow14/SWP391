@@ -145,6 +145,25 @@ test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB (tính phí th
   assert.equal(Number(requested), 10 - local);
 });
 
+test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không giới hạn vùng)', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
+  globalThis.fetch = ziomapReply([
+    {
+      id: 'near',
+      displayName: { text: 'Quán gần' },
+      location: { latitude: 21.0281, longitude: 105.8524 }, // ~200 m
+    },
+    {
+      id: 'far',
+      displayName: { text: 'Quán xa' },
+      location: { latitude: 21.2, longitude: 106.0 }, // ~25 km
+    },
+  ]);
+  const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.places.map((p) => p.place_id), ['near']);
+});
+
 test('ZIOMAP lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({}) });

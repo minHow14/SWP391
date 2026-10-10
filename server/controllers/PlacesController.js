@@ -51,7 +51,9 @@ async function withZiomap({ query, lat, lng, radiusKm, limit }, local) {
     if (!(error instanceof PlacesProviderError)) throw error;
     providerError = error;
   }
-  const places = mergePlaces(local, ziomap.places).slice(0, limit);
+  // locationBias chỉ ưu tiên chứ không giới hạn vùng, nên tự loại các quán ngoài bán kính
+  const withinRadius = ziomap.places.filter((place) => place.distance_m <= radiusKm * 1000);
+  const places = mergePlaces(local, withinRadius).slice(0, limit);
   return { places, ziomap, providerError };
 }
 
