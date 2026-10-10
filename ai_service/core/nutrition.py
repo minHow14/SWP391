@@ -172,8 +172,24 @@ def _lower(text: str) -> str:
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text).lower()).strip()
 
 
-# Tên món hay ghi "(không đậu phộng)", "không chứa sữa", "gluten-free": bỏ phần phủ định này
-_NEGATION = re.compile(r"\b(?:không|khong|no|without)\s+(?:có\s+|co\s+|chứa\s+|chua\s+)?\w+(?:\s+\w+)?|\b\w+-free\b")
+# LLM hay ghi "(không đậu phộng)", "Bột đạm không đậu nành", "thay cho sữa bò", "gluten-free"
+# để cho thấy đã tránh nguyên liệu: bỏ phần phủ định này ở cả tên món và nguyên liệu.
+_NEGATION = re.compile(
+    r"\b(?:không|khong|no|without|thay cho|thay vì|thay thế cho|instead of)\s+"
+    r"(?:có\s+|co\s+|chứa\s+|chua\s+|dùng\s+|dung\s+)?\w+(?:\s+\w+)?"
+    r"|\b\w+-free\b"
+)
+
+# Đồ làm từ thực vật mang tên đồ động vật: "sữa chua thuần chay", "bò lát chay", "nước mắm chay"
+# (dấu hiệu trong 2 từ tiếp theo) và "sữa chua dừa", "thịt dừa", "phô mai hạt điều" (ngay sau).
+# Nguồn thực vật chỉ tính khi đứng NGAY sau, để "thịt heo xào hạt điều" vẫn bị chặn.
+_PLANT_MARKERS = {True: r"(?:chay|thuần chay|thực vật|giả|vegan)", False: r"(?:chay|thuan chay|thuc vat|vegan)"}
+_PLANT_SOURCES = {
+    True: r"(?:dừa|hạt|yến mạch|hạnh nhân|đậu nành|gạo|oat)",
+    False: r"(?:dua|hat|yen mach|hanh nhan|dau nanh|oat|coconut|almond|soy|plant)",
+}
+# Tên rau/đậu có chứa từ chỉ động vật (chỉ bỏ khi kiểm tra thịt/cá, không bỏ khi kiểm tra dị ứng)
+_PLANT_NAMES = ["rau chân vịt", "chân vịt", "đậu gà", "bánh tai heo", "cỏ mực"]
 
 
 def _allergen_terms(allergy: str) -> List[str]:
@@ -187,11 +203,13 @@ Meal = tuple[str, str, List[str]]  # (nhãn bữa, tên món, nguyên liệu)
 TermPattern = tuple[bool, re.Pattern]  # (so khớp giữ dấu?, pattern)
 
 
-def _term_patterns(terms: Iterable[str], allow_vegan_suffix: bool = False) -> List[TermPattern]:
+def _term_patterns(
+    terms: Iterable[str], plant_based_ok: bool = False, animal: bool = False
+) -> List[TermPattern]:
     """
-    So khớp nguyên từ. allow_vegan_suffix (dùng cho từ chỉ động vật): bỏ qua đồ chay giả trong
-    2 từ tiếp theo ('thịt chay', 'bò lát chay', 'nước mắm chay') và các cụm không phải thịt
-    như 'trứng gà', 'sữa bò', 'đậu gà' (đậu chickpea).
+    So khớp nguyên từ.
+    - plant_based_ok: bỏ qua bản làm từ thực vật (xem _PLANT_MARKERS, _PLANT_SOURCES).
+    - animal: từ chỉ thịt/cá; bỏ qua 'trứng gà', 'sữa bò' (đã kiểm tra riêng ở nhóm trứng/sữa).
     """
     patterns = []
     for term in terms:
@@ -199,20 +217,26 @@ def _term_patterns(terms: Iterable[str], allow_vegan_suffix: bool = False) -> Li
         accented = not term.isascii()
         word = r"\w" if accented else r"[a-z0-9]"
         prefix = suffix = ""
-        if allow_vegan_suffix:
-            vegan = r"(?:chay|thực vật|giả)" if accented else r"(?:chay|thuc vat)"
-            suffix = rf"(?!(?:\s+{word}+){{0,2}}\s+{vegan}(?!{word}))"
-            if accented:
-                prefix = r"(?<!trứng )(?<!sữa )(?<!đậu )"
+        if plant_based_ok:
+            marker, source = _PLANT_MARKERS[accented], _PLANT_SOURCES[accented]
+            suffix = (
+                rf"(?!(?:\s+{word}+){{0,2}}\s+{marker}(?!{word}))"
+                rf"(?!\s+{source}(?!{word}))"
+            )
+        if animal and accented:
+            prefix = r"(?<!trứng )(?<!sữa )"
         patterns.append(
             (accented, re.compile(rf"{prefix}(?<!{word}){re.escape(term)}(?!{word}){suffix}"))
         )
     return patterns
 
 
-def _first_match(meal: Meal, patterns: List[TermPattern]) -> Optional[str]:
+def _first_match(meal: Meal, patterns: List[TermPattern], strip_plant_names: bool = False) -> Optional[str]:
     _, name, ingredients = meal
-    accented_text = " ; ".join([_NEGATION.sub(" ", _lower(name)), *(_lower(i) for i in ingredients)])
+    accented_text = " ; ".join(_NEGATION.sub(" ", _lower(part)) for part in [name, *ingredients])
+    if strip_plant_names:
+        for plant in _PLANT_NAMES:
+            accented_text = accented_text.replace(plant, " ")
     ascii_text = unidecode(accented_text)
     for accented, pattern in patterns:
         match = pattern.search(accented_text if accented else ascii_text)
@@ -222,7 +246,10 @@ def _first_match(meal: Meal, patterns: List[TermPattern]) -> Optional[str]:
 
 
 def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> List[str]:
-    """Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ)."""
+    """
+    Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ). Không chấp nhận
+    ngoại lệ "bản thực vật": tofu chay vẫn là đậu nành.
+    """
     meals = list(meals)
     violations = []
     for allergy in allergies:
@@ -237,7 +264,7 @@ def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> Lis
 
 
 # Mọi trường phái chay đều không dùng thịt, cá, hải sản và nước mắm; đồ chay giả
-# ('gà chay', 'bò lát chay', 'nước mắm chay') được chấp nhận nhờ allow_vegan_suffix.
+# ('gà chay', 'bò lát chay', 'nước mắm chay') được chấp nhận.
 ANIMAL_TERMS = [
     "meat", "chicken", "beef", "pork", "fish", "shrimp", "prawn", "squid", "gelatin", "lard",
     "thit", "heo", "hai san", "nuoc mam", "mam tom", "mo heo", "mo lon",
@@ -270,13 +297,13 @@ def find_diet_violations(meals: Iterable[Meal], dietary_type: Optional[str]) -> 
     """Danh sách mô tả các món không hợp trường phái chay (thịt/cá, hoặc trứng/sữa/mật ong với vegan)."""
     diet = diet_key(dietary_type)
     checks = [
-        (_term_patterns(ANIMAL_TERMS, allow_vegan_suffix=True), "không phải món chay"),
-        (_term_patterns(DIET_FORBIDDEN[diet]), f"không phù hợp chế độ '{diet}'"),
+        (_term_patterns(ANIMAL_TERMS, plant_based_ok=True, animal=True), True, "không phải món chay"),
+        (_term_patterns(DIET_FORBIDDEN[diet], plant_based_ok=True), False, f"không phù hợp chế độ '{diet}'"),
     ]
     violations = []
     for meal in meals:
-        for patterns, reason in checks:
-            found = _first_match(meal, patterns) if patterns else None
+        for patterns, strip_plants, reason in checks:
+            found = _first_match(meal, patterns, strip_plants) if patterns else None
             if found:
                 violations.append(f"{meal[0]} '{meal[1]}' chứa '{found}' ({reason})")
                 break

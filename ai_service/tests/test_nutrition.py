@@ -182,3 +182,34 @@ def test_animal_terms_ignore_egg_milk_chickpea_and_vegan_substitutes():
     assert not find_diet_violations(ok_meals, "lacto_ovo")
     bad = [("Trưa", "Cơm gà", ["Gà luộc 100g"]), ("Tối", "Canh chua", ["Cá basa 100g"])]
     assert len(find_diet_violations(bad, "lacto_ovo")) == 2
+
+
+def test_real_gemini_false_alarms_are_accepted():
+    """Ba trường hợp nhận nhầm gặp khi chạy thật với Gemini 3.5 Flash."""
+    from core.nutrition import find_diet_violations
+
+    meals = [
+        ("Thứ Ba - Bữa phụ", "Sữa Chua Dừa Ăn Kèm Hạt Hướng Dương",
+         ["Sữa chua thuần chay (từ dừa/yến mạch): 100g", "Hạt hướng dương: 15g"]),
+        ("Thứ Tư - Bữa tối", "Súp Đậu Lăng Đỏ Cà Chua",
+         ["Đậu lăng đỏ: 70g", "Bột đạm thực vật không đậu nành: 20g", "Rau bina (chân vịt): 100g"]),
+    ]
+    assert not find_allergen_violations(meals, ["soy", "peanuts", "mushroom"])
+    assert not find_diet_violations(meals, "vegan")
+
+
+def test_negation_and_plant_based_rules_do_not_hide_real_violations():
+    from core.nutrition import find_diet_violations
+
+    assert find_allergen_violations([("Trưa", "Bún", ["Đậu nành rang 20g"])], ["soy"])
+    # "thay cho" bỏ đúng phần bị thay, nguyên liệu thật vẫn bị bắt
+    assert not find_allergen_violations([("Sáng", "Sinh tố", ["Sữa yến mạch (thay cho sữa bò)"])], ["dairy"])
+    # Đậu nành vẫn là đậu nành dù là đồ chay
+    assert find_allergen_violations([("Trưa", "Đậu phụ chay", ["Tofu chay 100g"])], ["soy"])
+    # Thịt thật đi kèm hạt điều vẫn bị chặn; thịt dừa / phô mai hạt điều thì không
+    assert find_diet_violations([("Trưa", "Xào", ["Thịt heo xào hạt điều"])], "vegan")
+    assert not find_diet_violations([("Phụ", "Chè", ["Thịt dừa 50g", "Phô mai hạt điều 20g"])], "vegan")
+    # Sữa chua động vật vẫn sai với vegan
+    assert find_diet_violations([("Phụ", "Sữa chua", ["Sữa chua có đường 100g"])], "vegan")
+    # Nấm gà vẫn là nấm với người dị ứng nấm
+    assert find_allergen_violations([("Trưa", "Canh", ["Nấm gà 50g"])], ["mushroom"])
