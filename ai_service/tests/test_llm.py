@@ -18,6 +18,8 @@ def test_json_provider_uses_gemini_when_key_is_set(monkeypatch):
     client = llm.get_llm_json()
     assert type(client).__name__ == "ChatGoogleGenerativeAI"
     assert client.model == "gemini-test-model"
+    assert client.thinking_budget == 0
+    assert client.max_output_tokens >= 16384
 
 
 def test_structured_llm_binds_schema_for_both_providers(monkeypatch):
