@@ -69,3 +69,14 @@ def test_allergen_aliases_vietnamese_and_english():
     assert not find_allergen_violations(meals, ["nuts"])
     assert not find_allergen_violations(meals, ["dairy"])
     assert not find_allergen_violations(meals, [""])
+
+
+def test_negated_allergen_in_dish_name_is_not_a_violation():
+    meals = [
+        ("Bữa trưa", "Bún gạo lứt trộn đậu hũ (không đậu phộng)", ["Bún gạo lứt 100g", "Rau củ 150g"]),
+        ("Bữa tối", "Salad không chứa sữa", ["Xà lách 100g"]),
+    ]
+    assert not find_allergen_violations(meals, ["peanuts", "dairy"])
+    # Nhưng nếu nguyên liệu thật sự có thì vẫn bị bắt
+    meals[0] = ("Bữa trưa", "Bún trộn (không đậu phộng)", ["Đậu phộng rang 20g"])
+    assert find_allergen_violations(meals, ["peanuts"])
