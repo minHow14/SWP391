@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     SQLITE_FALLBACK_PATH: Path = BASE_DIR / "ai_agent.db"
 
     DEBUG: bool = False
-    SECRET_KEY: str = "dev-secret-key-vegetarian-ai"
+    SECRET_KEY: str = "dev-secret-key-vegetarian-ai-service-change-me-in-env"
     JWT_SECRET: str = ""  # trống thì dùng SECRET_KEY; phải trùng khoá backend Core dùng để ký JWT
     JWT_ALGORITHM: str = "HS256"
     AUTH_DEV_MODE: bool = True  # cho phép nhận danh tính qua header X-User-Id (chỉ để phát triển)
