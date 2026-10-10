@@ -78,6 +78,20 @@ test('search tìm quán theo tên món không dấu và sắp xếp theo khoản
   assert.ok(places.every((p) => p.distance_m !== null));
 });
 
+test('search bỏ từ chung "chay": chỉ trả quán thật sự có món', async () => {
+  const res = await request(app).get('/api/places/search').query({ q: 'phở chay', ...DISTRICT_1 });
+  assert.equal(res.status, 200);
+  const places = res.body.data.places;
+  assert.ok(places.length >= 2);
+  assert.ok(places.every((p) => p.matched_dishes.length > 0), JSON.stringify(places.map((p) => p.name)));
+});
+
+test('search chỉ có từ chung vẫn tìm theo tên quán', async () => {
+  const res = await request(app).get('/api/places/search').query({ q: 'chay' });
+  assert.equal(res.status, 200);
+  assert.ok(res.body.data.places.length > 0);
+});
+
 test('search chỉ cần từ khoá, không bắt buộc vị trí', async () => {
   const res = await request(app).get('/api/places/search').query({ q: 'bun rieu' });
   assert.equal(res.status, 200);
@@ -130,7 +144,7 @@ test('bổ sung từ ZIOMAP khi DB không có quán gần, kết quả được 
   assert.equal(calls, 1);
 });
 
-test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB (tính phí theo kết quả)', async () => {
+test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   let requested;
   globalThis.fetch = async (url) => {

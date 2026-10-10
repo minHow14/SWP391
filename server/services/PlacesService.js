@@ -34,6 +34,8 @@ export const mapsUrl = ({ latitude, longitude, place_id }) =>
   `&query=${latitude},${longitude}` +
   (place_id ? `&query_place_id=${encodeURIComponent(place_id)}` : '');
 
+const GENERIC_QUERY_WORDS = new Set(['chay', 'quan', 'nha', 'hang', 'mon', 'an', 'vegan', 'vegetarian']);
+
 const distanceMeters = (from, to) =>
   from ? getDistance(from, { latitude: to.latitude, longitude: to.longitude }) : null;
 
@@ -103,7 +105,9 @@ export function searchLocal({ query, lat, lng }) {
     includeScore: true,
   });
 
-  const needle = normalize(query);
+  // Bỏ các từ chung như "chay", "quán" để "phở chay" không khớp mọi quán có chữ "Chay" trong tên
+  const words = normalize(query).split(/\s+/).filter((word) => !GENERIC_QUERY_WORDS.has(word));
+  const needle = words.length > 0 ? words.join(' ') : normalize(query);
   return fuse
     .search(needle)
     .map(({ item, score }) => {
@@ -137,7 +141,7 @@ async function fetchZiomap(url, init) {
 
 const isCoordinate = (value, limit) => Number.isFinite(value) && Math.abs(value) <= limit;
 
-// Tính phí theo số kết quả nên chỉ xin đúng số cần. Key (Base64 JSON) gửi qua header, không qua URL.
+// Chỉ xin đúng số quán còn thiếu cho gọn dữ liệu. Key (Base64 JSON) gửi qua header, không qua URL.
 function requestZiomap({ query, lat, lng, radiusKm, limit }) {
   const params = new URLSearchParams({
     query,
@@ -157,7 +161,7 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
 }
 
 /**
- * Tìm quán qua ZIOMAP (tương thích Places API v1, tính phí theo số kết quả). Chỉ gọi khi có
+ * Tìm quán qua ZIOMAP (tương thích Places API v1, khoảng 5 credit mỗi lần gọi). Chỉ gọi khi có
  * ZIOMAP_API_KEY; kết quả cache 24 giờ theo ô toạ độ (~100 m) để tránh gọi lặp và tiết kiệm phí.
  */
 export async function searchZiomap({ query, lat, lng, radiusKm, limit }) {
