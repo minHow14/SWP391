@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from typing import Callable, Optional, TypeVar
 
@@ -19,6 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import SQLAlchemyError
+from starlette.concurrency import run_in_threadpool
 
 from core.config import settings
 
@@ -56,6 +58,7 @@ guest_quota = Table(
 _primary: Optional[Engine] = None
 _fallback: Optional[Engine] = None
 _primary_disabled_until = 0.0
+_init_lock = threading.Lock()  # các lệnh database chạy trong threadpool
 
 
 def _sqlite_url() -> str:
@@ -64,9 +67,15 @@ def _sqlite_url() -> str:
 
 def init_db() -> None:
     """Tạo engine (lười, chưa kết nối) và các bảng của bản SQLite dự phòng."""
-    global _primary, _fallback
     if _primary is not None:
         return
+    with _init_lock:
+        if _primary is None:
+            _create_engines()
+
+
+def _create_engines() -> None:
+    global _primary, _fallback
     url = settings.DATABASE_URL
     if url.startswith("sqlite"):
         _primary = create_engine(url)
@@ -111,16 +120,12 @@ def reset_for_tests() -> None:
     _primary_disabled_until = 0.0
 
 
-def record_ai_log(
+def _write_ai_log(
     model_name: Optional[str],
     action: str,
     status: str,
     error_feedback: Optional[str] = None,
 ) -> None:
-    """
-    Ghi một dòng vào AILog (PostgreSQL, hoặc SQLite dự phòng). Không bao giờ ném lỗi
-    để sự cố database không làm hỏng câu trả lời của chatbot.
-    """
     try:
         run_with_fallback(
             lambda conn: conn.execute(
@@ -134,3 +139,16 @@ def record_ai_log(
         )
     except Exception as e:
         logger.debug(f"AILog write notice: {e}")
+
+
+async def record_ai_log(
+    model_name: Optional[str],
+    action: str,
+    status: str,
+    error_feedback: Optional[str] = None,
+) -> None:
+    """
+    Ghi một dòng vào AILog (PostgreSQL, hoặc SQLite dự phòng) trong threadpool. Không bao giờ
+    ném lỗi để sự cố database không làm hỏng câu trả lời của chatbot.
+    """
+    await run_in_threadpool(_write_ai_log, model_name, action, status, error_feedback)

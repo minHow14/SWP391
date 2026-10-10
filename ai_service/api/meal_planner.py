@@ -95,7 +95,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
         )
 
     guest_id = identity.guest_id
-    used, remaining, limit = get_guest_usage(guest_id)
+    used, remaining, limit = await get_guest_usage(guest_id)
     return MealPlanUsageResponse(
         success=True,
         data=MealPlanUsageData(
@@ -126,7 +126,7 @@ async def generate_meal_plan(
     guest_id = None
     if not identity.is_authenticated:
         guest_id = identity.guest_id
-        if reserve_guest_question(guest_id) is None:
+        if await reserve_guest_question(guest_id) is None:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
@@ -155,7 +155,7 @@ async def generate_meal_plan(
         # 3. Ghi log
         user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
 
-        record_ai_log(
+        await record_ai_log(
             model_name=get_json_model_name(),
             action=f"MEAL_PLANNER_{user_tag}",
             status="SUCCESS",
@@ -170,8 +170,8 @@ async def generate_meal_plan(
     except Exception as e:
         logger.error(f"Error generating meal plan: {e}", exc_info=True)
         if guest_id:
-            release_guest_question(guest_id)
-        record_ai_log(
+            await release_guest_question(guest_id)
+        await record_ai_log(
             model_name=get_json_model_name(),
             action="MEAL_PLANNER_ERROR",
             status="ERROR",

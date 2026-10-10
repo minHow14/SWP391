@@ -85,7 +85,7 @@ class ChatUsageResponse(BaseModel):
     meta: dict
 
 
-def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optional[int]]:
+async def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optional[int]]:
     """
     Reserves one question for a guest (no-op for authenticated users).
     Returns (guest_id, remaining_questions); guest_id is None for authenticated users.
@@ -94,7 +94,7 @@ def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optio
     if identity.is_authenticated:
         return None, None
     guest_id = identity.guest_id
-    remaining = reserve_guest_question(guest_id)
+    remaining = await reserve_guest_question(guest_id)
     if remaining is None:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
@@ -116,7 +116,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
     if identity.is_authenticated:
         data = ChatUsageData(is_authenticated=True, unlimited=True)
     else:
-        used, remaining, limit = get_guest_usage(identity.guest_id)
+        used, remaining, limit = await get_guest_usage(identity.guest_id)
         data = ChatUsageData(
             is_authenticated=False,
             daily_limit=limit,
@@ -150,7 +150,7 @@ async def send_chat_message(
         )
 
     # 2. Reserve a guest question atomically before calling the AI
-    guest_id, remaining = reserve_guest_quota(identity)
+    guest_id, remaining = await reserve_guest_quota(identity)
 
     # 3. Call ChatbotAgent to generate AI response
     try:
@@ -163,13 +163,13 @@ async def send_chat_message(
 
         # 4. Record log
         if not identity.is_authenticated:
-            record_ai_log(
+            await record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action="CHAT_GUEST",
                 status="SUCCESS",
             )
         else:
-            record_ai_log(
+            await record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action=f"CHAT_USER_{identity.user_id}",
                 status="SUCCESS",
@@ -184,8 +184,8 @@ async def send_chat_message(
     except Exception as e:
         logger.error(f"Error invoking DeepSeek LLM: {e}", exc_info=True)
         if guest_id:
-            release_guest_question(guest_id)
-        record_ai_log(
+            await release_guest_question(guest_id)
+        await record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
             action="CHAT_ERROR",
             status="ERROR",
@@ -219,7 +219,7 @@ async def stream_chat_message(
         )
 
     # Reserve a guest question atomically before streaming starts
-    guest_id, remaining = reserve_guest_quota(identity)
+    guest_id, remaining = await reserve_guest_quota(identity)
 
     async def event_generator():
         try:
@@ -236,13 +236,13 @@ async def stream_chat_message(
 
             # Record log on stream completion
             if not identity.is_authenticated:
-                record_ai_log(
+                await record_ai_log(
                     model_name=settings.DEEPSEEK_MODEL,
                     action="CHAT_STREAM_GUEST",
                     status="SUCCESS",
                 )
             else:
-                record_ai_log(
+                await record_ai_log(
                     model_name=settings.DEEPSEEK_MODEL,
                     action=f"CHAT_STREAM_USER_{identity.user_id}",
                     status="SUCCESS",
@@ -259,8 +259,8 @@ async def stream_chat_message(
         except Exception as e:
             logger.error(f"Error streaming response from LLM: {e}", exc_info=True)
             if guest_id:
-                release_guest_question(guest_id)
-            record_ai_log(
+                await release_guest_question(guest_id)
+            await record_ai_log(
                 model_name=settings.DEEPSEEK_MODEL,
                 action="CHAT_STREAM_ERROR",
                 status="ERROR",

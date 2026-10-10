@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 import jwt
 from fastapi import Header, HTTPException, Request, status
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from core import quota
 from core.config import settings
@@ -105,30 +106,33 @@ def resolve_identity(
     return RequestIdentity(is_authenticated=False, guest_id=guest_id)
 
 
-def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:
+# Các hàm quota gọi database đồng bộ (SQLAlchemy); chạy trong threadpool để không chặn event loop,
+# kể cả khi PostgreSQL treo tới hết connect_timeout.
+
+async def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:
     """
     Returns (used, remaining, daily_limit) for a guest today.
     The quota is shared by chatbot questions and weekly meal plan generations.
     """
     limit = settings.GUEST_DAILY_LIMIT
-    used = quota.get_used(guest_id, get_today())
+    used = await run_in_threadpool(quota.get_used, guest_id, get_today())
     return used, max(0, limit - used), limit
 
 
-def reserve_guest_question(guest_id: str) -> Optional[int]:
+async def reserve_guest_question(guest_id: str) -> Optional[int]:
     """
     Atomically reserves one turn for today before the AI call (stored in the database,
     so concurrent requests and multiple workers cannot exceed the limit).
     Returns remaining turns after the reservation, or None if the daily limit is used up.
     """
     limit = settings.GUEST_DAILY_LIMIT
-    used = quota.reserve(guest_id, get_today(), limit)
+    used = await run_in_threadpool(quota.reserve, guest_id, get_today(), limit)
     return None if used is None else max(0, limit - used)
 
 
-def release_guest_question(guest_id: str) -> None:
+async def release_guest_question(guest_id: str) -> None:
     """Refunds one reserved turn (e.g. when the AI provider failed)."""
-    quota.release(guest_id, get_today())
+    await run_in_threadpool(quota.release, guest_id, get_today())
 
 
 def reset_guest_usage_for_tests() -> None:
