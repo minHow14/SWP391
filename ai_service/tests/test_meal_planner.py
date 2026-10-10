@@ -257,3 +257,25 @@ def test_meal_plan_quota_refunded_when_ai_fails(mock_generate):
     assert res.status_code == 502
     usage = client.get("/api/meal-planner/usage", headers=headers).json()["data"]
     assert usage["used_plans"] == 0
+
+
+@patch("api.meal_planner.meal_planner_agent.generate_plan")
+def test_generate_returns_chat_bubble_for_the_chat_widget(mock_generate):
+    mock_generate.return_value = sample_meal_plan()
+    res = client.post(
+        "/api/meal-planner/generate",
+        json={"height_cm": 170, "weight_kg": 65},
+        headers={"X-User-Id": "bubble-user"},
+    )
+    assert res.status_code == 200
+    data = res.json()["data"]
+    # Dữ liệu đầy đủ vẫn còn nguyên
+    assert data["weekly_plan"][0]["breakfast"]["name"]
+    # Bubble cùng cấu trúc tin nhắn trợ lý của khung chat: title, text, items, footer
+    bubble = data["chat"]
+    assert set(bubble) == {"title", "text", "items", "footer"}
+    assert bubble["title"] == data["title"]
+    assert "kcal/ngày" in bubble["text"] and "BMI" in bubble["text"]
+    assert len(bubble["items"]) == len(data["weekly_plan"])
+    assert bubble["items"][0].startswith("Thứ Hai:") and "kcal" in bubble["items"][0]
+    assert "chuyên gia dinh dưỡng" in bubble["footer"]
