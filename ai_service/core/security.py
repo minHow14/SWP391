@@ -85,6 +85,27 @@ def increment_guest_usage(guest_id: str) -> int:
     _, remaining, _ = get_guest_usage(guest_id)
     return remaining
 
+def reserve_guest_question(guest_id: str) -> Optional[int]:
+    """
+    Atomically reserves one question for today before the AI call, so concurrent
+    requests cannot all pass the check. Returns remaining questions after the
+    reservation, or None if the daily limit is already used up.
+    There is no await between check and increment, so the event loop cannot interleave.
+    """
+    key = (guest_id, get_today_str())
+    used = _guest_usage_store.get(key, 0)
+    if used >= settings.GUEST_DAILY_LIMIT:
+        return None
+    _guest_usage_store[key] = used + 1
+    return settings.GUEST_DAILY_LIMIT - used - 1
+
+def release_guest_question(guest_id: str) -> None:
+    """Refunds one reserved question (e.g. when the AI provider failed)."""
+    key = (guest_id, get_today_str())
+    used = _guest_usage_store.get(key, 0)
+    if used > 0:
+        _guest_usage_store[key] = used - 1
+
 def get_guest_meal_plan_usage(guest_id: str) -> Tuple[int, int, int]:
     """
     Returns (used_plans, remaining_plans, daily_limit) for a given guest_id today.
