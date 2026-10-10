@@ -128,8 +128,14 @@ async function fetchZiomap(url, init) {
   if (!response.ok) {
     throw new PlacesProviderError(`ZIOMAP trả về HTTP ${response.status}`);
   }
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw new PlacesProviderError('ZIOMAP trả về dữ liệu không phải JSON');
+  }
 }
+
+const isCoordinate = (value, limit) => Number.isFinite(value) && Math.abs(value) <= limit;
 
 // Tính phí theo số kết quả nên chỉ xin đúng số cần. Key (Base64 JSON) gửi qua header, không qua URL.
 function requestZiomap({ query, lat, lng, radiusKm, limit }) {
@@ -163,7 +169,12 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit }) {
 
   const body = await requestZiomap({ query, lat, lng, radiusKm, limit });
   const origin = { latitude: lat, longitude: lng };
-  const places = (body.places ?? []).map((p) => {
+  // Bỏ qua quán thiếu id hoặc toạ độ hợp lệ thay vì làm hỏng cả response
+  const raw = Array.isArray(body?.places) ? body.places : [];
+  const valid = raw.filter(
+    (p) => p?.id && isCoordinate(p.location?.latitude, 90) && isCoordinate(p.location?.longitude, 180)
+  );
+  const places = valid.map((p) => {
     const location = { latitude: p.location.latitude, longitude: p.location.longitude };
     return {
       id: `ziomap_${p.id}`,

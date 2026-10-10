@@ -164,6 +164,33 @@ test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không gi
   assert.deepEqual(res.body.data.places.map((p) => p.place_id), ['near']);
 });
 
+test('quán ZIOMAP thiếu toạ độ bị bỏ qua, không làm hỏng response', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
+  globalThis.fetch = ziomapReply([
+    { id: 'no_location', displayName: { text: 'Thiếu toạ độ' } },
+    { id: 'bad', displayName: { text: 'Sai toạ độ' }, location: { latitude: 'x', longitude: 1 } },
+    { id: 'ok', displayName: { text: 'Hợp lệ' }, location: { latitude: 21.0281, longitude: 105.8524 } },
+  ]);
+  const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.data.places.map((p) => p.place_id), ['ok']);
+});
+
+test('ZIOMAP trả trang không phải JSON thì vẫn dùng kết quả DB', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    json: async () => {
+      throw new SyntaxError('Unexpected token <');
+    },
+  });
+  const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 5, limit: 20 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.meta.ziomap, 'unavailable');
+  assert.ok(res.body.data.places.length > 0);
+});
+
 test('ZIOMAP lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({}) });
