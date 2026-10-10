@@ -3,6 +3,7 @@ from typing import Optional, Tuple
 from fastapi import Header
 from pydantic import BaseModel
 from core.config import settings
+from core import quota
 
 VN_TZ = timezone(timedelta(hours=7))
 
@@ -11,10 +12,6 @@ class RequestIdentity(BaseModel):
     user_id: Optional[str] = None
     user_role: Optional[str] = None
     guest_id: Optional[str] = None
-
-# In-memory storage for development/demo guest usage tracking.
-# Format: {(guest_id, "YYYY-MM-DD"): count}
-_guest_usage_store: dict[tuple[str, str], int] = {}
 
 def get_today_str() -> str:
     """Returns today's date in YYYY-MM-DD format based on Vietnam timezone (+07:00)."""
@@ -61,34 +58,26 @@ _guest_meal_plan_usage_store: dict[tuple[str, str], int] = {}
 
 def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:
     """
-    Returns (used_questions, remaining_questions, daily_limit) for a given guest_id today.
+    Returns (used, remaining, daily_limit) for a guest today.
+    The quota is shared by chatbot questions and weekly meal plan generations.
     """
     limit = settings.GUEST_DAILY_LIMIT
-    today = get_today_str()
-    used = _guest_usage_store.get((guest_id, today), 0)
-    remaining = max(0, limit - used)
-    return used, remaining, limit
+    used = quota.get_used(guest_id, get_today_str())
+    return used, max(0, limit - used), limit
 
 def reserve_guest_question(guest_id: str) -> Optional[int]:
     """
-    Atomically reserves one question for today before the AI call, so concurrent
-    requests cannot all pass the check. Returns remaining questions after the
-    reservation, or None if the daily limit is already used up.
-    There is no await between check and increment, so the event loop cannot interleave.
+    Atomically reserves one turn for today before the AI call (stored in the database,
+    so concurrent requests and multiple workers cannot exceed the limit).
+    Returns remaining turns after the reservation, or None if the daily limit is used up.
     """
-    key = (guest_id, get_today_str())
-    used = _guest_usage_store.get(key, 0)
-    if used >= settings.GUEST_DAILY_LIMIT:
-        return None
-    _guest_usage_store[key] = used + 1
-    return settings.GUEST_DAILY_LIMIT - used - 1
+    limit = settings.GUEST_DAILY_LIMIT
+    used = quota.reserve(guest_id, get_today_str(), limit)
+    return None if used is None else max(0, limit - used)
 
 def release_guest_question(guest_id: str) -> None:
-    """Refunds one reserved question (e.g. when the AI provider failed)."""
-    key = (guest_id, get_today_str())
-    used = _guest_usage_store.get(key, 0)
-    if used > 0:
-        _guest_usage_store[key] = used - 1
+    """Refunds one reserved turn (e.g. when the AI provider failed)."""
+    quota.release(guest_id, get_today_str())
 
 def get_guest_meal_plan_usage(guest_id: str) -> Tuple[int, int, int]:
     """
@@ -118,6 +107,6 @@ def increment_guest_meal_plan_usage(guest_id: str) -> int:
 
 def reset_guest_usage_for_tests() -> None:
     """Utility to reset usage stores during automated tests."""
-    _guest_usage_store.clear()
+    quota.clear_for_tests()
     _guest_meal_plan_usage_store.clear()
 
