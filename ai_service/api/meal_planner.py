@@ -15,6 +15,7 @@ from core.security import (
 from core.database import record_ai_log
 from core.ratelimit import rate_limit
 from core.llm import get_json_model_name
+from core.meal_chat import ChatBubble, plan_to_chat_bubble
 from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
 
 logger = logging.getLogger(__name__)
@@ -54,9 +55,14 @@ class MealPlanRequest(BaseModel):
     days: Optional[int] = Field(7, ge=1, le=7, description="Số ngày cần lập thực đơn (mặc định 7 ngày)")
 
 
+class MealPlanData(GeneratedMealPlan):
+    """Thực đơn đầy đủ kèm `chat`: bản gọn để hiện thẳng trong bubble của khung chat."""
+    chat: ChatBubble
+
+
 class MealPlanResponse(BaseModel):
     success: bool = True
-    data: GeneratedMealPlan
+    data: MealPlanData
     meta: dict
 
 
@@ -163,7 +169,7 @@ async def generate_meal_plan(
 
         return MealPlanResponse(
             success=True,
-            data=plan,
+            data=MealPlanData(**plan.model_dump(), chat=plan_to_chat_bubble(plan)),
             meta={"requestId": request.state.request_id},
         )
 
