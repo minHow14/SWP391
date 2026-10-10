@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
@@ -23,11 +23,19 @@ router = APIRouter(prefix="/meal-planner", tags=["Meal Planner"])
 class MealPlanRequest(BaseModel):
     height_cm: float = Field(..., gt=50, lt=260, description="Chiều cao (cm), ví dụ 170")
     weight_kg: float = Field(..., gt=20, lt=300, description="Cân nặng (kg), ví dụ 65")
+    bmi: Optional[float] = Field(
+        None, gt=8, lt=100,
+        description="BMI do web tính sẵn; nếu không gửi, service tự tính từ chiều cao và cân nặng",
+    )
     age: Optional[int] = Field(25, ge=10, le=120, description="Độ tuổi")
     gender: Optional[str] = Field("unspecified", description="Giới tính: male, female, other")
     goal: str = Field(
         "maintenance",
         description="Mục tiêu sức khỏe: weight_loss (giảm cân), muscle_gain (tăng cơ), maintenance (duy trì)",
+    )
+    activity_level: Literal["sedentary", "light", "moderate", "active", "very_active"] = Field(
+        "light",
+        description="Mức vận động: sedentary (ít), light (nhẹ), moderate (vừa), active (nhiều), very_active (rất nhiều)",
     )
     dietary_type: str = Field(
         "vegan",
@@ -137,6 +145,8 @@ async def generate_meal_plan(
             allergies=body.allergies,
             available_ingredients=body.available_ingredients,
             days=body.days or 7,
+            activity_level=body.activity_level,
+            bmi=body.bmi,
         )
 
         # 3. Ghi log
