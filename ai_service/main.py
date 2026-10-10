@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
@@ -7,6 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import settings
@@ -14,6 +16,8 @@ from core.database import init_db
 from core.ratelimit import limiter
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -60,13 +64,16 @@ def error_response(request: Request, status_code: int, code: str, message: str, 
     error = {"code": code, "message": message}
     if details is not None:
         error["details"] = details
+    # Lỗi chưa xử lý được trả từ lớp ngoài cùng, nằm ngoài request_id_middleware
+    request_id = getattr(request.state, "request_id", None) or f"req_{uuid4().hex[:12]}"
     return JSONResponse(
         status_code=status_code,
         content={
             "success": False,
             "error": error,
-            "meta": {"requestId": request.state.request_id},
+            "meta": {"requestId": request_id},
         },
+        headers={"X-Request-Id": request_id},
     )
 
 
@@ -96,6 +103,21 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException):
             request, exc.status_code, exc.detail["code"], exc.detail["message"], exc.detail.get("details")
         )
     return error_response(request, exc.status_code, "HTTP_ERROR", str(exc.detail))
+
+
+@app.exception_handler(SQLAlchemyError)
+async def database_error_handler(request: Request, exc: SQLAlchemyError):
+    logger.error(f"Database error: {exc}", exc_info=True)
+    return error_response(
+        request, 503, "SERVICE_UNAVAILABLE", "Hệ thống tạm thời không khả dụng. Vui lòng thử lại sau."
+    )
+
+
+@app.exception_handler(Exception)
+async def unexpected_error_handler(request: Request, exc: Exception):
+    # Không trả chi tiết lỗi nội bộ cho client; chi tiết nằm trong log
+    logger.error(f"Unhandled error: {exc}", exc_info=True)
+    return error_response(request, 500, "INTERNAL_ERROR", "Đã xảy ra lỗi khi xử lý yêu cầu.")
 
 
 # Health Check Endpoint
