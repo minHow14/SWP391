@@ -3,7 +3,7 @@ from typing import Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import jwt
-from fastapi import Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -104,6 +104,22 @@ def resolve_identity(
     if not guest_id:
         guest_id = f"ip:{request.client.host if request.client else 'unknown'}"
     return RequestIdentity(is_authenticated=False, guest_id=guest_id)
+
+
+# Giá trị claim `role` / header X-User-Role được coi là Administrator (cột users.role: 1 = Admin)
+ADMIN_ROLES = {"1", "admin", "administrator"}
+
+
+def require_admin(identity: RequestIdentity = Depends(resolve_identity)) -> RequestIdentity:
+    """Chỉ cho Administrator đi qua: chưa đăng nhập trả 401, không đủ quyền trả 403."""
+    if not identity.is_authenticated:
+        raise _unauthorized("Bạn cần đăng nhập bằng tài khoản quản trị.")
+    if (identity.user_role or "").strip().lower() not in ADMIN_ROLES:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail={"code": "FORBIDDEN", "message": "Bạn không có quyền truy cập chức năng này."},
+        )
+    return identity
 
 
 # Các hàm quota gọi database đồng bộ (SQLAlchemy); chạy trong threadpool để không chặn event loop,
