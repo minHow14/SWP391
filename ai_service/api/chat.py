@@ -71,9 +71,11 @@ class ChatResponse(BaseModel):
 
 
 class ChatUsageData(BaseModel):
-    daily_limit: int
-    used_questions: int
-    remaining_questions: int
+    is_authenticated: bool
+    daily_limit: Optional[int] = None
+    used_questions: int = 0
+    remaining_questions: Optional[int] = None
+    unlimited: bool = False
 
 
 class ChatUsageResponse(BaseModel):
@@ -107,17 +109,22 @@ def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optio
 @router.get("/usage", response_model=ChatUsageResponse)
 async def get_usage(request: Request, identity: RequestIdentity = Depends(resolve_identity)):
     """
-    Returns the daily chat usage and remaining questions for guests.
+    Returns the daily usage: unlimited for authenticated users, shared quota for guests
+    (chatbot questions and meal plan generations count together).
     """
-    guest_id = identity.guest_id or "default-guest"
-    used, remaining, limit = get_guest_usage(guest_id)
-    return ChatUsageResponse(
-        success=True,
-        data=ChatUsageData(
+    if identity.is_authenticated:
+        data = ChatUsageData(is_authenticated=True, unlimited=True)
+    else:
+        used, remaining, limit = get_guest_usage(identity.guest_id or "default-guest")
+        data = ChatUsageData(
+            is_authenticated=False,
             daily_limit=limit,
             used_questions=used,
             remaining_questions=remaining,
-        ),
+        )
+    return ChatUsageResponse(
+        success=True,
+        data=data,
         meta={"requestId": request.state.request_id},
     )
 
