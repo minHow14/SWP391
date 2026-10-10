@@ -45,7 +45,7 @@ ai_log = Table(
     Column("created_at", DateTime, server_default=func.now()),
 )
 
-# Hạn mức dùng AI trong ngày của khách; schema PostgreSQL ở sql/guest_quota.sql.
+# Hạn mức dùng AI trong ngày của khách; schema PostgreSQL nằm trong file schema đầy đủ của nhóm (bảng GuestQuota).
 guest_quota = Table(
     "guestquota",
     metadata,
