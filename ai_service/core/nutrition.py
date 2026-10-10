@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
+from rapidfuzz import fuzz
 from unidecode import unidecode
 
 ACTIVITY_FACTORS = {
@@ -178,3 +179,22 @@ def find_allergen_violations(meals: Iterable[tuple[str, str, List[str]]], allerg
                     f"{label} '{name}' chứa '{match.group(0)}' (liên quan đến dị ứng '{allergy}')"
                 )
     return violations
+
+
+PANTRY_MATCH_THRESHOLD = 88
+
+
+def find_used_ingredients(available: List[str], meals: Iterable[tuple[str, str, List[str]]]) -> List[str]:
+    """
+    Nguyên liệu sẵn có thực sự xuất hiện trong thực đơn, so khớp gần đúng (rapidfuzz) và bỏ dấu,
+    nên "cà chua" khớp "Cà chua bi 100g". Trả về đúng cách người dùng đã ghi.
+    """
+    texts = [_norm(" ; ".join([name, *ingredients])) for _, name, ingredients in meals]
+    used = []
+    for item in available:
+        needle = _norm(item)
+        if len(needle) < 3:
+            continue
+        if any(fuzz.partial_ratio(needle, text) >= PANTRY_MATCH_THRESHOLD for text in texts):
+            used.append(item)
+    return used
