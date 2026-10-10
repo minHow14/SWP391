@@ -229,7 +229,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         llm = get_llm_json(timeout=90.0)
 
         # Bind structured output or parse JSON
-        structured_llm = llm.with_structured_output(GeneratedMealPlan)
+        structured_llm = llm.with_structured_output(GeneratedMealPlan, method="function_calling")
 
         messages = [
             SystemMessage(content=system_prompt),
