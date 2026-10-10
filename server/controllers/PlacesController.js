@@ -5,7 +5,7 @@ import {
   findNearbyLocal,
   mergePlaces,
   normalize,
-  searchGoogle,
+  searchZiomap,
   searchLocal,
 } from '../services/PlacesService.js';
 
@@ -40,22 +40,29 @@ const invalid = (res, error) =>
     message: i.message,
   })));
 
-// Gọi Google để bổ sung kết quả; lỗi Google không làm hỏng kết quả đã có trong DB
-async function withGoogle({ query, lat, lng, radiusKm, limit }, local) {
-  let google = { places: [], skipped: false, cached: false };
+// Gọi ZIOMAP để bổ sung kết quả; lỗi không làm hỏng kết quả trong DB.
+// Chỉ xin đúng số quán còn thiếu vì ZIOMAP tính phí theo số kết quả.
+async function withZiomap({ query, lat, lng, radiusKm, limit }, local) {
+  let ziomap = { places: [], skipped: false, cached: false };
   let providerError = null;
   try {
-    google = await searchGoogle({ query, lat, lng, radiusKm, limit });
+    ziomap = await searchZiomap({ query, lat, lng, radiusKm, limit: limit - local.length });
   } catch (error) {
     if (!(error instanceof PlacesProviderError)) throw error;
     providerError = error;
   }
-  const places = mergePlaces(local, google.places).slice(0, limit);
-  return { places, google, providerError };
+  const places = mergePlaces(local, ziomap.places).slice(0, limit);
+  return { places, ziomap, providerError };
 }
 
-const sourcesMeta = (google, providerError) => ({
-  google: providerError ? 'unavailable' : google.skipped ? 'not_configured' : google.cached ? 'cached' : 'used',
+const sourcesMeta = (ziomap, providerError) => ({
+  ziomap: providerError
+    ? 'unavailable'
+    : ziomap.skipped
+      ? 'not_configured'
+      : ziomap.cached
+        ? 'cached'
+        : 'used',
 });
 
 export async function getNearby(req, res) {
@@ -67,19 +74,19 @@ export async function getNearby(req, res) {
   }
 
   const local = findNearbyLocal({ lat, lng, radiusKm });
-  // DB đã đủ kết quả thì không gọi Google để tiết kiệm phí
+  // DB đã đủ kết quả thì không gọi ZIOMAP để tiết kiệm phí
   if (local.length >= limit) {
-    return ok(res, { places: local.slice(0, limit) }, 200, { google: 'not_needed' });
+    return ok(res, { places: local.slice(0, limit) }, 200, { ziomap: 'not_needed' });
   }
 
-  const { places, google, providerError } = await withGoogle(
+  const { places, ziomap, providerError } = await withZiomap(
     { query: 'quán chay', lat, lng, radiusKm, limit },
     local
   );
   if (providerError && places.length === 0) {
-    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'Google Maps tạm thời không phản hồi.');
+    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
-  return ok(res, { places }, 200, sourcesMeta(google, providerError));
+  return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
 }
 
 export async function searchPlaces(req, res) {
@@ -91,18 +98,18 @@ export async function searchPlaces(req, res) {
   }
 
   const local = searchLocal({ query: q, lat, lng }).slice(0, limit);
-  // Chỉ hỏi Google khi DB không có quán phù hợp và biết vị trí người dùng
+  // Chỉ hỏi ZIOMAP khi DB không có quán phù hợp và biết vị trí người dùng
   if (local.length > 0 || lat === undefined) {
-    return ok(res, { places: local }, 200, { google: 'not_needed' });
+    return ok(res, { places: local }, 200, { ziomap: 'not_needed' });
   }
 
   const query = normalize(q).includes('chay') ? q : `${q} chay`;
-  const { places, google, providerError } = await withGoogle(
+  const { places, ziomap, providerError } = await withZiomap(
     { query, lat, lng, radiusKm, limit },
     local
   );
   if (providerError && places.length === 0) {
-    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'Google Maps tạm thời không phản hồi.');
+    return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
-  return ok(res, { places }, 200, sourcesMeta(google, providerError));
+  return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
 }
