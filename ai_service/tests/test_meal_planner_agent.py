@@ -1,6 +1,6 @@
 import copy
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 from agents.meal_planner_agent import (
     DailyMealPlan,
@@ -69,9 +69,7 @@ def mock_llm(results):
     """Trả về (patcher, structured_mock): mỗi lần ainvoke trả/ném lần lượt phần tử trong results."""
     structured = AsyncMock()
     structured.ainvoke.side_effect = results
-    llm = MagicMock()
-    llm.with_structured_output.return_value = structured
-    return patch("agents.meal_planner_agent.get_llm_json", return_value=llm), structured
+    return patch("agents.meal_planner_agent.get_structured_llm", return_value=structured), structured
 
 
 async def run_agent(results, days=7, allergies=None, **extra):
