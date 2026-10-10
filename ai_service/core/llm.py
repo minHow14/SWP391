@@ -1,12 +1,10 @@
 from typing import Type
 
-from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 
 from core.config import settings
-
-load_dotenv()
 
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
@@ -37,19 +35,18 @@ def get_json_model_name() -> str:
     return settings.DEEPSEEK_MODEL or "deepseek-chat"
 
 
-def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
+def get_llm_json(timeout: float = 90.0) -> ChatGoogleGenerativeAI | ChatOpenAI:
     """
-    Initializes and returns the client for complex structured JSON generation, with an extended
-    timeout (90s) and low temperature (0.3) for schema consistency.
+    Client cho các câu trả lời JSON phức tạp, timeout dài (90s) và temperature thấp (0.3)
+    để đầu ra ổn định theo schema.
     """
     if json_provider() == "gemini":
-        return ChatOpenAI(
+        return ChatGoogleGenerativeAI(
             model=get_json_model_name(),
-            api_key=settings.GEMINI_API_KEY,
-            base_url=settings.GEMINI_BASE_URL,
-            max_tokens=8192,
+            google_api_key=settings.GEMINI_API_KEY,
             temperature=0.3,
-            request_timeout=timeout,
+            max_output_tokens=8192,
+            timeout=timeout,
         )
     return ChatOpenAI(
         model=get_json_model_name(),
@@ -63,7 +60,11 @@ def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
 
 def get_structured_llm(schema: Type[BaseModel], timeout: float = 90.0):
     """
-    LLM trả về đối tượng Pydantic theo `schema`. Dùng function calling vì cả Gemini (endpoint
-    tương thích OpenAI) và DeepSeek đều hỗ trợ; DeepSeek từ chối response_format json_schema.
+    LLM trả về đối tượng Pydantic theo `schema`.
+    - Gemini: dùng structured output gốc của Gemini.
+    - DeepSeek: dùng function calling, vì DeepSeek từ chối response_format json_schema.
     """
-    return get_llm_json(timeout=timeout).with_structured_output(schema, method="function_calling")
+    llm = get_llm_json(timeout=timeout)
+    if json_provider() == "gemini":
+        return llm.with_structured_output(schema)
+    return llm.with_structured_output(schema, method="function_calling")

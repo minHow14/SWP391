@@ -16,8 +16,16 @@ def test_json_provider_uses_gemini_when_key_is_set(monkeypatch):
     assert llm.json_provider() == "gemini"
     assert llm.get_json_model_name() == "gemini-test-model"
     client = llm.get_llm_json()
-    assert client.model_name == "gemini-test-model"
-    assert "generativelanguage.googleapis.com" in str(client.openai_api_base)
+    assert type(client).__name__ == "ChatGoogleGenerativeAI"
+    assert client.model == "gemini-test-model"
+
+
+def test_structured_llm_binds_schema_for_both_providers(monkeypatch):
+    from agents.meal_planner_agent import GeneratedMealPlan
+
+    for key in ("", "test-key"):
+        monkeypatch.setattr(settings, "GEMINI_API_KEY", key)
+        assert llm.get_structured_llm(GeneratedMealPlan) is not None
 
 
 def test_text_llm_always_uses_deepseek(monkeypatch):
