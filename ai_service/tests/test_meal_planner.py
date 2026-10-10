@@ -231,3 +231,37 @@ async def test_meal_planner_retry_mechanism():
         assert result.title == mock_plan.title
         # Verify it retried: ainvoke called 2 times
         assert mock_structured.ainvoke.call_count == 2
+
+
+@patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
+@patch("api.meal_planner.meal_planner_agent.generate_plan")
+def test_guest_quota_shared_between_chat_and_meal_plan(mock_generate, mock_answer):
+    mock_generate.return_value = sample_meal_plan()
+    mock_answer.return_value = "ok"
+    headers = {"X-Guest-Id": "shared-quota-guest"}
+    payload = {"height_cm": 170, "weight_kg": 65}
+
+    # Turn 1: chat, turn 2: meal plan, turn 3: chat
+    assert client.post("/api/chat", json={"message": "Q1"}, headers=headers).status_code == 200
+    assert client.post("/api/meal-planner/generate", json=payload, headers=headers).status_code == 200
+    assert client.post("/api/chat", json={"message": "Q3"}, headers=headers).status_code == 200
+
+    # Both usage endpoints read the same counter and nothing is left
+    chat_usage = client.get("/api/chat/usage", headers=headers).json()["data"]
+    plan_usage = client.get("/api/meal-planner/usage", headers=headers).json()["data"]
+    assert chat_usage["used_questions"] == 3 and chat_usage["remaining_questions"] == 0
+    assert plan_usage["used_plans"] == 3 and plan_usage["remaining_plans"] == 0
+
+    # 4th turn is blocked for both features
+    assert client.post("/api/chat", json={"message": "Q4"}, headers=headers).status_code == 429
+    assert client.post("/api/meal-planner/generate", json=payload, headers=headers).status_code == 429
+
+
+@patch("api.meal_planner.meal_planner_agent.generate_plan")
+def test_meal_plan_quota_refunded_when_ai_fails(mock_generate):
+    mock_generate.side_effect = Exception("LLM upstream error")
+    headers = {"X-Guest-Id": "refund-plan-guest"}
+    res = client.post("/api/meal-planner/generate", json={"height_cm": 170, "weight_kg": 65}, headers=headers)
+    assert res.status_code == 502
+    usage = client.get("/api/meal-planner/usage", headers=headers).json()["data"]
+    assert usage["used_plans"] == 0
