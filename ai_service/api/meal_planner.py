@@ -7,9 +7,9 @@ from core.config import settings
 from core.security import (
     RequestIdentity,
     resolve_identity,
-    get_guest_meal_plan_usage,
-    can_guest_generate_meal_plan,
-    increment_guest_meal_plan_usage,
+    get_guest_usage,
+    reserve_guest_question,
+    release_guest_question,
     get_quota_reset_iso,
 )
 from core.database import record_ai_log
@@ -68,7 +68,7 @@ class MealPlanUsageResponse(BaseModel):
 async def get_usage(request: Request, identity: RequestIdentity = Depends(resolve_identity)):
     """
     Kiểm tra số lượt tạo thực đơn còn lại trong ngày.
-    Khách (guest): tối đa 3 lần/ngày.
+    Khách (guest): tối đa 3 lượt/ngày, dùng chung với lượt hỏi chatbot.
     Người dùng đã đăng nhập: không giới hạn (unlimited).
     """
     if identity.is_authenticated:
@@ -85,7 +85,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
         )
 
     guest_id = identity.guest_id or "default-guest"
-    used, remaining, limit = get_guest_meal_plan_usage(guest_id)
+    used, remaining, limit = get_guest_usage(guest_id)
     return MealPlanUsageResponse(
         success=True,
         data=MealPlanUsageData(
@@ -108,18 +108,19 @@ async def generate_meal_plan(
     """
     Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner)
     dựa trên BMI, mục tiêu sức khỏe, dị ứng thực phẩm và nguyên liệu có sẵn.
-    - Khách: giới hạn 3 lần/ngày.
+    - Khách: giới hạn 3 lượt/ngày, dùng chung với lượt hỏi chatbot (mỗi lần tạo thực đơn tính 1 lượt).
     - Người dùng đã đăng nhập: không giới hạn.
     """
-    # 1. Kiểm tra hạn mức đối với khách
+    # 1. Giữ chỗ một lượt cho khách trước khi gọi AI (nguyên tử, tránh vượt hạn mức khi gọi đồng thời)
+    guest_id = None
     if not identity.is_authenticated:
         guest_id = identity.guest_id or "default-guest"
-        if not can_guest_generate_meal_plan(guest_id):
+        if reserve_guest_question(guest_id) is None:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
                 detail={
                     "code": "MEAL_PLAN_QUOTA_EXCEEDED",
-                    "message": "Bạn đã sử dụng hết lượt tạo thực đơn trong ngày. Vui lòng đăng nhập để tạo thực đơn không giới hạn.",
+                    "message": "Bạn đã sử dụng hết lượt trong ngày (dùng chung cho hỏi chatbot và tạo thực đơn). Vui lòng đăng nhập để dùng không giới hạn.",
                     "details": {"resetAt": get_quota_reset_iso()},
                 },
             )
@@ -138,13 +139,8 @@ async def generate_meal_plan(
             days=body.days or 7,
         )
 
-        # 3. Cập nhật lượt dùng và ghi log
-        if not identity.is_authenticated:
-            guest_id = identity.guest_id or "default-guest"
-            increment_guest_meal_plan_usage(guest_id)
-            user_tag = guest_id
-        else:
-            user_tag = f"USER_{identity.user_id}"
+        # 3. Ghi log
+        user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
 
         record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
@@ -160,6 +156,8 @@ async def generate_meal_plan(
 
     except Exception as e:
         logger.error(f"Error generating meal plan: {e}", exc_info=True)
+        if guest_id:
+            release_guest_question(guest_id)
         record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
             action="MEAL_PLANNER_ERROR",
