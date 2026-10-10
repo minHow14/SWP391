@@ -1,8 +1,7 @@
 import json
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -13,6 +12,7 @@ from core.security import (
     can_guest_ask,
     get_guest_usage,
     increment_guest_usage,
+    get_quota_reset_iso,
 )
 from core.database import record_ai_log
 from agents.chatbot_agent import chatbot_agent
@@ -48,6 +48,7 @@ class ChatData(BaseModel):
 class ChatResponse(BaseModel):
     success: bool = True
     data: ChatData
+    meta: dict
 
 
 class ChatUsageData(BaseModel):
@@ -59,10 +60,11 @@ class ChatUsageData(BaseModel):
 class ChatUsageResponse(BaseModel):
     success: bool = True
     data: ChatUsageData
+    meta: dict
 
 
 @router.get("/usage", response_model=ChatUsageResponse)
-async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
+async def get_usage(request: Request, identity: RequestIdentity = Depends(resolve_identity)):
     """
     Returns the daily chat usage and remaining questions for guests.
     """
@@ -75,11 +77,13 @@ async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
             used_questions=used,
             remaining_questions=remaining,
         ),
+        meta={"requestId": request.state.request_id},
     )
 
 
 @router.post("", response_model=ChatResponse)
 async def send_chat_message(
+    request: Request,
     body: ChatRequest,
     identity: RequestIdentity = Depends(resolve_identity),
 ):
@@ -90,30 +94,21 @@ async def send_chat_message(
     # 1. Validate message
     clean_message = body.message.strip() if body.message else ""
     if not clean_message:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "success": False,
-                "error": {
-                    "code": "INVALID_MESSAGE",
-                    "message": "Message cannot be empty.",
-                },
-            },
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT", "message": "Nội dung câu hỏi không được để trống."},
         )
 
     # 2. Check guest limit if not authenticated
     if not identity.is_authenticated:
         guest_id = identity.guest_id or "default-guest"
         if not can_guest_ask(guest_id):
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={
-                    "success": False,
-                    "error": {
-                        "code": "CHAT_LIMIT_REACHED",
-                        "message": "Guest users can ask up to 3 questions per day.",
-                        "remaining_questions": 0,
-                    },
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "CHAT_QUOTA_EXCEEDED",
+                    "message": "Bạn đã sử dụng hết lượt hỏi trong ngày.",
+                    "details": {"resetAt": get_quota_reset_iso()},
                 },
             )
 
@@ -145,6 +140,7 @@ async def send_chat_message(
         return ChatResponse(
             success=True,
             data=ChatData(reply=reply, remaining_questions=remaining),
+            meta={"requestId": request.state.request_id},
         )
 
     except Exception as e:
@@ -155,20 +151,19 @@ async def send_chat_message(
             status="ERROR",
             error_feedback=str(e),
         )
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "success": False,
-                "error": {
-                    "code": "AI_SERVICE_ERROR",
-                    "message": "Unable to process the AI request.",
-                },
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "AI_PROVIDER_ERROR",
+                "message": "Nhà cung cấp AI gặp sự cố. Vui lòng thử lại sau.",
+                "details": str(e) if settings.DEBUG else None,
             },
         )
 
 
 @router.post("/stream")
 async def stream_chat_message(
+    request: Request,
     body: ChatRequest,
     identity: RequestIdentity = Depends(resolve_identity),
 ):
@@ -177,30 +172,21 @@ async def stream_chat_message(
     """
     clean_message = body.message.strip() if body.message else ""
     if not clean_message:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "success": False,
-                "error": {
-                    "code": "INVALID_MESSAGE",
-                    "message": "Message cannot be empty.",
-                },
-            },
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={"code": "INVALID_INPUT", "message": "Nội dung câu hỏi không được để trống."},
         )
 
     # Check guest limit if not authenticated
     if not identity.is_authenticated:
         guest_id = identity.guest_id or "default-guest"
         if not can_guest_ask(guest_id):
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={
-                    "success": False,
-                    "error": {
-                        "code": "CHAT_LIMIT_REACHED",
-                        "message": "Guest users can ask up to 3 questions per day.",
-                        "remaining_questions": 0,
-                    },
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "CHAT_QUOTA_EXCEEDED",
+                    "message": "Bạn đã sử dụng hết lượt hỏi trong ngày.",
+                    "details": {"resetAt": get_quota_reset_iso()},
                 },
             )
 
@@ -251,7 +237,16 @@ async def stream_chat_message(
             )
             yield {
                 "event": "error",
-                "data": json.dumps({"error": str(e)}, ensure_ascii=False),
+                "data": json.dumps({
+                    "success": False,
+                    "error": {
+                        "code": "AI_PROVIDER_ERROR",
+                        "message": "Lỗi kết nối nhà cung cấp AI khi truyền stream dữ liệu.",
+                    },
+                    "meta": {
+                        "requestId": request.state.request_id,
+                    },
+                }, ensure_ascii=False),
             }
 
     return EventSourceResponse(event_generator())

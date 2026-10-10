@@ -1,8 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Optional, Tuple
 from fastapi import Header
 from pydantic import BaseModel
 from core.config import settings
+
+VN_TZ = timezone(timedelta(hours=7))
 
 class RequestIdentity(BaseModel):
     is_authenticated: bool
@@ -15,8 +17,18 @@ class RequestIdentity(BaseModel):
 _guest_usage_store: dict[tuple[str, str], int] = {}
 
 def get_today_str() -> str:
-    """Returns today's date in YYYY-MM-DD format."""
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    """Returns today's date in YYYY-MM-DD format based on Vietnam timezone (+07:00)."""
+    return datetime.now(VN_TZ).strftime("%Y-%m-%d")
+
+def get_quota_reset_iso() -> str:
+    """Returns ISO 8601 timestamp for the next midnight reset in Vietnam timezone (+07:00)."""
+    now_vn = datetime.now(VN_TZ)
+    next_midnight = datetime.combine(
+        now_vn.date() + timedelta(days=1),
+        time.min,
+        tzinfo=VN_TZ,
+    )
+    return next_midnight.isoformat()
 
 def resolve_identity(
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),

@@ -23,6 +23,7 @@ def test_guest_usage_initial():
     assert data["data"]["daily_limit"] == 3
     assert data["data"]["used_questions"] == 0
     assert data["data"]["remaining_questions"] == 3
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 def test_chat_empty_message():
@@ -30,7 +31,8 @@ def test_chat_empty_message():
     assert response.status_code == 400
     data = response.json()
     assert data["success"] is False
-    assert data["error"]["code"] == "INVALID_MESSAGE"
+    assert data["error"]["code"] == "INVALID_INPUT"
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
@@ -47,17 +49,19 @@ def test_chat_valid_message_guest(mock_answer):
     assert data["success"] is True
     assert data["data"]["reply"] == "Đậu phụ và đậu gà là nguồn đạm thực vật rất tốt."
     assert data["data"]["remaining_questions"] == 2
+    assert "meta" in data and "requestId" in data["meta"]
+    assert response.headers.get("x-request-id") == data["meta"]["requestId"]
 
     # Verify usage was updated
     usage_res = client.get("/api/chat/usage", headers={"X-Guest-Id": "test-guest-1"})
     assert usage_res.json()["data"]["used_questions"] == 1
     assert usage_res.json()["data"]["remaining_questions"] == 2
+    assert "meta" in usage_res.json()
 
 
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
 def test_chat_with_history_and_dietary_type(mock_answer):
     mock_answer.return_value = "Với chế độ thuần chay, bạn có thể uống sữa đậu nành hoặc sữa yến mạch."
-
     payload = {
         "message": "Uống sữa gì thay sữa bò?",
         "history": [
@@ -75,6 +79,7 @@ def test_chat_with_history_and_dietary_type(mock_answer):
     data = response.json()
     assert data["success"] is True
     assert "sữa đậu nành" in data["data"]["reply"]
+    assert "meta" in data and "requestId" in data["meta"]
 
     # Verify mock was called with history and dietary_type
     mock_answer.assert_called_once()
@@ -100,8 +105,25 @@ def test_guest_chat_limit_reached(mock_answer):
     assert res_4th.status_code == 429
     data = res_4th.json()
     assert data["success"] is False
-    assert data["error"]["code"] == "CHAT_LIMIT_REACHED"
-    assert data["error"]["remaining_questions"] == 0
+    assert data["error"]["code"] == "CHAT_QUOTA_EXCEEDED"
+    assert data["error"]["message"] == "Bạn đã sử dụng hết lượt hỏi trong ngày."
+    assert "details" in data["error"] and "resetAt" in data["error"]["details"]
+    assert "meta" in data and "requestId" in data["meta"]
+
+
+@patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
+def test_chat_ai_provider_error(mock_answer):
+    mock_answer.side_effect = Exception("LLM upstream provider timeout")
+    response = client.post(
+        "/api/chat",
+        json={"message": "Gợi ý món ăn"},
+        headers={"X-Guest-Id": "provider-err-guest"},
+    )
+    assert response.status_code == 502
+    data = response.json()
+    assert data["success"] is False
+    assert data["error"]["code"] == "AI_PROVIDER_ERROR"
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
@@ -116,12 +138,12 @@ def test_authenticated_user_chat(mock_answer):
     data = response.json()
     assert data["success"] is True
     assert data["data"]["remaining_questions"] is None
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 @pytest.mark.asyncio
 async def test_chatbot_agent_caching():
     agent = ChatbotAgent()
-    # Mock LLM to return different values if called
     with patch("agents.chatbot_agent.get_llm_text") as mock_get_llm:
         mock_llm_instance = AsyncMock()
         mock_llm_instance.ainvoke.return_value.content = "Đậu gà chứa nhiều folate và sắt."
@@ -135,14 +157,14 @@ async def test_chatbot_agent_caching():
         # Call 2nd time with same message & no history -> should hit cache!
         res2 = await agent.answer("Đậu gà có chất gì?")
         assert res2 == "Đậu gà chứa nhiều folate và sắt."
-        # Call count should still be 1 because it retrieved from cache
         assert mock_llm_instance.ainvoke.call_count == 1
 
 
 def test_chat_stream_empty_message():
     response = client.post("/api/chat/stream", json={"message": ""})
     assert response.status_code == 400
-    assert response.json()["error"]["code"] == "INVALID_MESSAGE"
+    assert response.json()["error"]["code"] == "INVALID_INPUT"
+    assert "meta" in response.json()
 
 
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
@@ -157,7 +179,9 @@ def test_chat_stream_guest_limit_reached(mock_answer):
     # 4th request on stream hits 429
     res_4th = client.post("/api/chat/stream", json={"message": "Q 4"}, headers=headers)
     assert res_4th.status_code == 429
-    assert res_4th.json()["error"]["code"] == "CHAT_LIMIT_REACHED"
+    assert res_4th.json()["error"]["code"] == "CHAT_QUOTA_EXCEEDED"
+    assert "details" in res_4th.json()["error"] and "resetAt" in res_4th.json()["error"]["details"]
+    assert "meta" in res_4th.json()
 
 
 @patch("api.chat.chatbot_agent.answer_stream")

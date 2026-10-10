@@ -1,6 +1,12 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from uuid import uuid4
+
+from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import settings
 from core.database import init_db
@@ -35,6 +41,47 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def request_id_middleware(request: Request, call_next):
+    request_id = request.headers.get("X-Request-Id") or f"req_{uuid4().hex[:12]}"
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-Id"] = request_id
+    return response
+
+
+def error_response(request: Request, status_code: int, code: str, message: str, details=None):
+    error = {"code": code, "message": message}
+    if details is not None:
+        error["details"] = details
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "success": False,
+            "error": error,
+            "meta": {"requestId": request.state.request_id},
+        },
+    )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(request: Request, exc: RequestValidationError):
+    return error_response(
+        request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", jsonable_encoder(exc.errors())
+    )
+
+
+@app.exception_handler(StarletteHTTPException)
+async def http_error_handler(request: Request, exc: StarletteHTTPException):
+    # Routers raise HTTPException(detail={"code", "message", "details"})
+    if isinstance(exc.detail, dict):
+        return error_response(
+            request, exc.status_code, exc.detail["code"], exc.detail["message"], exc.detail.get("details")
+        )
+    return error_response(request, exc.status_code, "HTTP_ERROR", str(exc.detail))
+
 
 # Health Check Endpoint
 @app.get("/health", tags=["Health"])

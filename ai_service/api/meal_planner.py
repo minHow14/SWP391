@@ -1,7 +1,6 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from core.config import settings
@@ -11,6 +10,7 @@ from core.security import (
     get_guest_meal_plan_usage,
     can_guest_generate_meal_plan,
     increment_guest_meal_plan_usage,
+    get_quota_reset_iso,
 )
 from core.database import record_ai_log
 from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
@@ -47,6 +47,7 @@ class MealPlanRequest(BaseModel):
 class MealPlanResponse(BaseModel):
     success: bool = True
     data: GeneratedMealPlan
+    meta: dict
 
 
 class MealPlanUsageData(BaseModel):
@@ -60,10 +61,11 @@ class MealPlanUsageData(BaseModel):
 class MealPlanUsageResponse(BaseModel):
     success: bool = True
     data: MealPlanUsageData
+    meta: dict
 
 
 @router.get("/usage", response_model=MealPlanUsageResponse)
-async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
+async def get_usage(request: Request, identity: RequestIdentity = Depends(resolve_identity)):
     """
     Kiểm tra số lượt tạo thực đơn còn lại trong ngày.
     Khách (guest): tối đa 3 lần/ngày.
@@ -79,6 +81,7 @@ async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
                 remaining_plans=None,
                 unlimited=True,
             ),
+            meta={"requestId": request.state.request_id},
         )
 
     guest_id = identity.guest_id or "default-guest"
@@ -92,11 +95,13 @@ async def get_usage(identity: RequestIdentity = Depends(resolve_identity)):
             remaining_plans=remaining,
             unlimited=False,
         ),
+        meta={"requestId": request.state.request_id},
     )
 
 
 @router.post("/generate", response_model=MealPlanResponse)
 async def generate_meal_plan(
+    request: Request,
     body: MealPlanRequest,
     identity: RequestIdentity = Depends(resolve_identity),
 ):
@@ -110,15 +115,12 @@ async def generate_meal_plan(
     if not identity.is_authenticated:
         guest_id = identity.guest_id or "default-guest"
         if not can_guest_generate_meal_plan(guest_id):
-            return JSONResponse(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                content={
-                    "success": False,
-                    "error": {
-                        "code": "MEAL_PLAN_LIMIT_REACHED",
-                        "message": "Khách chỉ được tạo thực đơn 3 lần mỗi ngày. Vui lòng đăng nhập để tạo thực đơn không giới hạn.",
-                        "remaining_plans": 0,
-                    },
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "code": "MEAL_PLAN_QUOTA_EXCEEDED",
+                    "message": "Bạn đã sử dụng hết lượt tạo thực đơn trong ngày. Vui lòng đăng nhập để tạo thực đơn không giới hạn.",
+                    "details": {"resetAt": get_quota_reset_iso()},
                 },
             )
 
@@ -150,7 +152,11 @@ async def generate_meal_plan(
             status="SUCCESS",
         )
 
-        return MealPlanResponse(success=True, data=plan)
+        return MealPlanResponse(
+            success=True,
+            data=plan,
+            meta={"requestId": request.state.request_id},
+        )
 
     except Exception as e:
         logger.error(f"Error generating meal plan: {e}", exc_info=True)
@@ -160,14 +166,11 @@ async def generate_meal_plan(
             status="ERROR",
             error_feedback=str(e),
         )
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "success": False,
-                "error": {
-                    "code": "MEAL_PLAN_GENERATION_FAILED",
-                    "message": "Không thể tạo thực đơn chay tự động vào lúc này. Vui lòng thử lại sau.",
-                    "details": str(e) if settings.DEBUG else None,
-                },
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "AI_PROVIDER_ERROR",
+                "message": "Không thể tạo thực đơn do nhà cung cấp AI gặp sự cố. Vui lòng thử lại sau.",
+                "details": str(e) if settings.DEBUG else None,
             },
         )

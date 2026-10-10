@@ -103,6 +103,10 @@ def test_meal_planner_validation():
     # Height or weight out of range
     res = client.post("/api/meal-planner/generate", json={"height_cm": 10, "weight_kg": 60})
     assert res.status_code == 422
+    data = res.json()
+    assert data["success"] is False
+    assert data["error"]["code"] == "INVALID_INPUT"
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 def test_guest_meal_plan_usage_initial():
@@ -114,6 +118,7 @@ def test_guest_meal_plan_usage_initial():
     assert data["used_plans"] == 0
     assert data["remaining_plans"] == 3
     assert data["unlimited"] is False
+    assert "meta" in res.json() and "requestId" in res.json()["meta"]
 
 
 def test_authenticated_user_meal_plan_usage():
@@ -123,6 +128,7 @@ def test_authenticated_user_meal_plan_usage():
     assert data["is_authenticated"] is True
     assert data["unlimited"] is True
     assert data["remaining_plans"] is None
+    assert "meta" in res.json() and "requestId" in res.json()["meta"]
 
 
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
@@ -153,7 +159,26 @@ def test_generate_meal_plan_guest_rate_limiting(mock_generate):
     # 2. 4th generation hits rate limit (HTTP 429)
     res_4th = client.post("/api/meal-planner/generate", json=payload, headers=headers)
     assert res_4th.status_code == 429
-    assert res_4th.json()["error"]["code"] == "MEAL_PLAN_LIMIT_REACHED"
+    data_4th = res_4th.json()
+    assert data_4th["success"] is False
+    assert data_4th["error"]["code"] == "MEAL_PLAN_QUOTA_EXCEEDED"
+    assert "details" in data_4th["error"] and "resetAt" in data_4th["error"]["details"]
+    assert "meta" in data_4th and "requestId" in data_4th["meta"]
+
+
+@patch("api.meal_planner.meal_planner_agent.generate_plan")
+def test_generate_meal_plan_ai_provider_error(mock_generate):
+    mock_generate.side_effect = Exception("LLM upstream error")
+    payload = {
+        "height_cm": 170,
+        "weight_kg": 65,
+    }
+    res = client.post("/api/meal-planner/generate", json=payload, headers={"X-User-Id": "user-err-1"})
+    assert res.status_code == 502
+    data = res.json()
+    assert data["success"] is False
+    assert data["error"]["code"] == "AI_PROVIDER_ERROR"
+    assert "meta" in data and "requestId" in data["meta"]
 
 
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
