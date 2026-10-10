@@ -28,7 +28,7 @@ class Settings:
         encoded_pwd = quote_plus(self.DB_PASSWORD)
         return f"postgresql+psycopg://{self.DB_USER}:{encoded_pwd}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
-    DEBUG: bool = os.getenv("DEBUG", "true").lower() in ("true", "1", "yes")
+    DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-vegetarian-ai")
     AUTH_DEV_MODE: bool = os.getenv("AUTH_DEV_MODE", "true").lower() in ("true", "1", "yes")
     
