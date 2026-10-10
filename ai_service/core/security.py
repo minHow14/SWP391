@@ -40,7 +40,14 @@ def _unauthorized(message: str) -> HTTPException:
 def _identity_from_token(token: str) -> RequestIdentity:
     """Xác thực JWT do backend Core ký (claims: sub = user id, role = vai trò)."""
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.JWT_ALGORITHM])
+        # verify_sub=False: PyJWT >= 2.10 bắt `sub` phải là chuỗi, nhưng backend Node (jsonwebtoken)
+        # thường ký `sub` bằng user_id kiểu số. Chữ ký và hạn dùng vẫn được kiểm tra đầy đủ.
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret,
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"verify_sub": False},
+        )
     except jwt.ExpiredSignatureError:
         raise _unauthorized("Phiên đăng nhập đã hết hạn.") from None
     except jwt.PyJWTError:

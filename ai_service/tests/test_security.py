@@ -26,6 +26,13 @@ def test_valid_jwt_is_authenticated_without_dev_headers():
     assert res.json()["data"]["unlimited"] is True
 
 
+def test_numeric_sub_from_node_backend_is_accepted():
+    # jsonwebtoken (Node) giữ nguyên kiểu số: jwt.sign({ sub: 571 }, secret)
+    res = usage({"Authorization": f"Bearer {make_token(sub=571)}"})
+    assert res.status_code == 200
+    assert res.json()["data"]["is_authenticated"] is True
+
+
 def test_expired_jwt_returns_401_in_envelope():
     token = make_token(exp=datetime.now(timezone.utc) - timedelta(minutes=1))
     res = usage({"Authorization": f"Bearer {token}"})
