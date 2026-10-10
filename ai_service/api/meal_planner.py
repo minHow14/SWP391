@@ -1,7 +1,10 @@
+import asyncio
+import json
 import logging
 from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sse_starlette.sse import EventSourceResponse
 
 from core.config import settings
 from core.security import (
@@ -16,7 +19,7 @@ from core.database import record_ai_log
 from core.ratelimit import rate_limit
 from core.llm import get_json_model_name
 from core.meal_chat import ChatBubble, plan_to_chat_bubble
-from agents.meal_planner_agent import meal_planner_agent, GeneratedMealPlan
+from agents.meal_planner_agent import GeneratedMealPlan, ProgressCallback, meal_planner_agent
 
 logger = logging.getLogger(__name__)
 
@@ -115,34 +118,32 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
     )
 
 
-@router.post("/generate", response_model=MealPlanResponse)
-@rate_limit()
-async def generate_meal_plan(
-    request: Request,
-    body: MealPlanRequest,
-    identity: RequestIdentity = Depends(resolve_identity),
-):
-    """
-    Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner)
-    dựa trên BMI, mục tiêu sức khỏe, dị ứng thực phẩm và nguyên liệu có sẵn.
-    - Khách: giới hạn 3 lượt/ngày, dùng chung với lượt hỏi chatbot (mỗi lần tạo thực đơn tính 1 lượt).
-    - Người dùng đã đăng nhập: không giới hạn.
-    """
-    # 1. Giữ chỗ một lượt cho khách trước khi gọi AI (nguyên tử, tránh vượt hạn mức khi gọi đồng thời)
-    guest_id = None
-    if not identity.is_authenticated:
-        guest_id = identity.guest_id
-        if await reserve_guest_question(guest_id) is None:
-            raise HTTPException(
-                status.HTTP_429_TOO_MANY_REQUESTS,
-                detail={
-                    "code": "MEAL_PLAN_QUOTA_EXCEEDED",
-                    "message": "Bạn đã sử dụng hết lượt trong ngày (dùng chung cho hỏi chatbot và tạo thực đơn). Vui lòng đăng nhập để dùng không giới hạn.",
-                    "details": {"resetAt": get_quota_reset_iso()},
-                },
-            )
+async def _reserve_guest_turn(identity: RequestIdentity) -> Optional[str]:
+    """Giữ một lượt cho khách trước khi gọi AI (nguyên tử, tránh vượt hạn mức khi gọi đồng thời)."""
+    if identity.is_authenticated:
+        return None
+    guest_id = identity.guest_id
+    if await reserve_guest_question(guest_id) is None:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "MEAL_PLAN_QUOTA_EXCEEDED",
+                "message": "Bạn đã sử dụng hết lượt trong ngày (dùng chung cho hỏi chatbot và tạo thực đơn). Vui lòng đăng nhập để dùng không giới hạn.",
+                "details": {"resetAt": get_quota_reset_iso()},
+            },
+        )
+    return guest_id
 
-    # 2. Gọi MealPlannerAgent để tạo thực đơn
+
+async def _generate(
+    body: MealPlanRequest,
+    identity: RequestIdentity,
+    guest_id: Optional[str],
+    on_progress: Optional[ProgressCallback] = None,
+) -> MealPlanData:
+    """
+    Tạo thực đơn và ghi AILog. Lỗi thì hoàn lại lượt của khách rồi ném lại lỗi gốc.
+    """
     try:
         plan: GeneratedMealPlan = await meal_planner_agent.generate_plan(
             height_cm=body.height_cm,
@@ -156,23 +157,8 @@ async def generate_meal_plan(
             days=body.days or 7,
             activity_level=body.activity_level,
             bmi=body.bmi,
+            on_progress=on_progress,
         )
-
-        # 3. Ghi log
-        user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
-
-        await record_ai_log(
-            model_name=get_json_model_name(),
-            action=f"MEAL_PLANNER_{user_tag}",
-            status="SUCCESS",
-        )
-
-        return MealPlanResponse(
-            success=True,
-            data=MealPlanData(**plan.model_dump(), chat=plan_to_chat_bubble(plan)),
-            meta={"requestId": request.state.request_id},
-        )
-
     except Exception as e:
         logger.error(f"Error generating meal plan: {e}", exc_info=True)
         if guest_id:
@@ -183,11 +169,97 @@ async def generate_meal_plan(
             status="ERROR",
             error_feedback=str(e),
         )
-        raise HTTPException(
-            status.HTTP_502_BAD_GATEWAY,
-            detail={
-                "code": "AI_PROVIDER_ERROR",
-                "message": "Không thể tạo thực đơn do nhà cung cấp AI gặp sự cố. Vui lòng thử lại sau.",
-                "details": str(e) if settings.DEBUG else None,
-            },
-        )
+        raise
+
+    user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
+    await record_ai_log(
+        model_name=get_json_model_name(),
+        action=f"MEAL_PLANNER_{user_tag}",
+        status="SUCCESS",
+    )
+    return MealPlanData(**plan.model_dump(), chat=plan_to_chat_bubble(plan))
+
+
+def _provider_error(e: Exception) -> dict:
+    return {
+        "code": "AI_PROVIDER_ERROR",
+        "message": "Không thể tạo thực đơn do nhà cung cấp AI gặp sự cố. Vui lòng thử lại sau.",
+        "details": str(e) if settings.DEBUG else None,
+    }
+
+
+@router.post("/generate", response_model=MealPlanResponse)
+@rate_limit()
+async def generate_meal_plan(
+    request: Request,
+    body: MealPlanRequest,
+    identity: RequestIdentity = Depends(resolve_identity),
+):
+    """
+    Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner)
+    dựa trên BMI, mục tiêu sức khỏe, dị ứng thực phẩm và nguyên liệu có sẵn.
+    - Khách: giới hạn 3 lượt/ngày, dùng chung với lượt hỏi chatbot (mỗi lần tạo thực đơn tính 1 lượt).
+    - Người dùng đã đăng nhập: không giới hạn.
+    Mất khoảng một phút; dùng /generate/stream để nhận tiến độ trong lúc chờ.
+    """
+    guest_id = await _reserve_guest_turn(identity)
+    try:
+        data = await _generate(body, identity, guest_id)
+    except Exception as e:
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=_provider_error(e))
+    return MealPlanResponse(success=True, data=data, meta={"requestId": request.state.request_id})
+
+
+@router.post("/generate/stream")
+@rate_limit()
+async def generate_meal_plan_stream(
+    request: Request,
+    body: MealPlanRequest,
+    identity: RequestIdentity = Depends(resolve_identity),
+):
+    """
+    Như /generate nhưng trả về Server-Sent Events để hiện tiến độ trong lúc chờ:
+    - `progress`: {"success": true, "data": {"stage", "message", ...}} với stage là
+      calculating | generating | validating | retrying.
+    - `done`: envelope thành công giống /generate (data là thực đơn đầy đủ kèm `chat`).
+    - `error`: envelope lỗi (AI_PROVIDER_ERROR); lượt của khách đã được hoàn lại.
+    Lỗi hạn mức (429) và dữ liệu sai (422) trả về như bình thường, trước khi stream bắt đầu.
+    """
+    guest_id = await _reserve_guest_turn(identity)
+    request_id = request.state.request_id
+
+    async def event_generator():
+        queue: asyncio.Queue = asyncio.Queue()
+
+        async def on_progress(event: dict) -> None:
+            await queue.put(("progress", event))
+
+        async def runner() -> None:
+            try:
+                await queue.put(("done", await _generate(body, identity, guest_id, on_progress)))
+            except Exception as e:
+                await queue.put(("error", e))
+
+        task = asyncio.create_task(runner())
+        try:
+            while True:
+                kind, payload = await queue.get()
+                if kind == "progress":
+                    envelope = {"success": True, "data": payload, "meta": {"requestId": request_id}}
+                elif kind == "done":
+                    envelope = {"success": True, "data": payload.model_dump(), "meta": {"requestId": request_id}}
+                else:
+                    envelope = {
+                        "success": False,
+                        "error": _provider_error(payload),
+                        "meta": {"requestId": request_id},
+                    }
+                yield {"event": kind, "data": json.dumps(envelope, ensure_ascii=False)}
+                if kind != "progress":
+                    break
+        finally:
+            # Client ngắt kết nối giữa chừng thì dừng việc tạo thực đơn
+            if not task.done():
+                task.cancel()
+
+    return EventSourceResponse(event_generator())
