@@ -41,7 +41,7 @@ const invalid = (res, error) =>
   })));
 
 // Gọi ZIOMAP để bổ sung kết quả; lỗi không làm hỏng kết quả trong DB.
-// Chỉ xin đúng số quán còn thiếu vì ZIOMAP tính phí theo số kết quả.
+// ZIOMAP tính khoảng 5 credit mỗi lần gọi, nên chỉ gọi khi DB thiếu quán và chỉ xin số còn thiếu.
 async function withZiomap({ query, lat, lng, radiusKm, limit }, local) {
   let ziomap = { places: [], skipped: false, cached: false };
   let providerError = null;
