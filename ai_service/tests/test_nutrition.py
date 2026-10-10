@@ -213,3 +213,11 @@ def test_negation_and_plant_based_rules_do_not_hide_real_violations():
     assert find_diet_violations([("Phụ", "Sữa chua", ["Sữa chua có đường 100g"])], "vegan")
     # Nấm gà vẫn là nấm với người dị ứng nấm
     assert find_allergen_violations([("Trưa", "Canh", ["Nấm gà 50g"])], ["mushroom"])
+
+
+def test_english_plant_based_names_are_vegan():
+    from core.nutrition import find_diet_violations
+
+    plant = [("Phụ", "Sữa chua dừa & hạt hướng dương", ["Coconut yogurt 100g", "Almond milk 200ml", "Vegan cheese 20g"])]
+    assert not find_diet_violations(plant, "vegan")
+    assert find_diet_violations([("Phụ", "Snack", ["Greek yogurt 100g"])], "vegan")

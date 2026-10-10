@@ -188,6 +188,11 @@ _PLANT_SOURCES = {
     True: r"(?:dừa|hạt|yến mạch|hạnh nhân|đậu nành|gạo|oat)",
     False: r"(?:dua|hat|yen mach|hanh nhan|dau nanh|oat|coconut|almond|soy|plant)",
 }
+# Tiếng Anh đặt nguồn thực vật phía trước: "coconut yogurt", "almond milk", "vegan cheese"
+_ENGLISH_PLANT_PREFIX = "".join(
+    rf"(?<!{word} )" for word in ("coconut", "almond", "oat", "soy", "rice", "cashew", "vegan", "plant", "plant-based")
+)
+
 # Tên rau/đậu có chứa từ chỉ động vật (chỉ bỏ khi kiểm tra thịt/cá, không bỏ khi kiểm tra dị ứng)
 _PLANT_NAMES = ["rau chân vịt", "chân vịt", "đậu gà", "bánh tai heo", "cỏ mực"]
 
@@ -223,8 +228,10 @@ def _term_patterns(
                 rf"(?!(?:\s+{word}+){{0,2}}\s+{marker}(?!{word}))"
                 rf"(?!\s+{source}(?!{word}))"
             )
+            if not accented:
+                prefix = _ENGLISH_PLANT_PREFIX
         if animal and accented:
-            prefix = r"(?<!trứng )(?<!sữa )"
+            prefix += r"(?<!trứng )(?<!sữa )"
         patterns.append(
             (accented, re.compile(rf"{prefix}(?<!{word}){re.escape(term)}(?!{word}){suffix}"))
         )
