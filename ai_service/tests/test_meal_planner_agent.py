@@ -180,3 +180,19 @@ async def test_retries_when_pantry_ingredients_are_ignored():
     plan, structured = await run_agent([ignoring, using], available_ingredients=["cà chua", "đậu phụ"])
     assert structured.ainvoke.call_count == 2
     assert plan.profile_summary.used_available_ingredients == ["cà chua", "đậu phụ"]
+
+
+@pytest.mark.asyncio
+async def test_vegan_plan_with_egg_is_regenerated():
+    with_egg = make_plan(7, lunch_name="Cơm chiên trứng", lunch_ingredients=["Cơm 150g", "Trứng gà 1 quả"])
+    plan, structured = await run_agent([with_egg, make_plan(7)], dietary_type="vegan")
+    assert structured.ainvoke.call_count == 2
+    feedback = structured.ainvoke.call_args_list[1].args[0][-1].content
+    assert "vegan" in feedback
+
+
+@pytest.mark.asyncio
+async def test_lacto_ovo_plan_with_egg_is_accepted():
+    with_egg = make_plan(7, lunch_name="Cơm chiên trứng", lunch_ingredients=["Cơm 150g", "Trứng gà 1 quả"])
+    _plan, structured = await run_agent([with_egg], dietary_type="lacto_ovo")
+    assert structured.ainvoke.call_count == 1

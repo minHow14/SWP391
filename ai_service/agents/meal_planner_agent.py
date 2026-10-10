@@ -10,6 +10,7 @@ from core.nutrition import (
     calculate_bmi,
     calculate_targets,
     find_allergen_violations,
+    find_diet_violations,
     find_used_ingredients,
 )
 
@@ -76,10 +77,12 @@ def validate_plan(
     days: int,
     allergies: List[str],
     available_ingredients: Optional[List[str]] = None,
+    dietary_type: Optional[str] = None,
 ) -> tuple[List[str], List[str]]:
     """
     Hậu kiểm thực đơn do LLM sinh. Trả về (lỗi nghiêm trọng, lỗi nhẹ).
-    - Nghiêm trọng (không được trả cho người dùng): sai số ngày, chứa nguyên liệu dị ứng.
+    - Nghiêm trọng (không được trả cho người dùng): sai số ngày, chứa nguyên liệu dị ứng,
+      không hợp trường phái chay (thịt/cá; trứng, sữa, mật ong với vegan...).
     - Nhẹ (chấp nhận nếu hết lượt thử): lệch calo, thiếu protein, ít dùng nguyên liệu có sẵn.
     Calo và protein được cộng từ các bữa, không tin các trường tổng do LLM tự điền.
     """
@@ -113,6 +116,7 @@ def validate_plan(
             )
 
     hard.extend(find_allergen_violations(meals_for_allergy, allergies))
+    hard.extend(find_diet_violations(meals_for_allergy, dietary_type))
 
     if available_ingredients:
         used = find_used_ingredients(available_ingredients, meals_for_allergy)
@@ -270,7 +274,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                 if not isinstance(result, GeneratedMealPlan):
                     raise ValueError("Kết quả từ LLM không đúng định dạng schema GeneratedMealPlan")
 
-                hard, soft = validate_plan(result, targets, days, allergies, available_ingredients)
+                hard, soft = validate_plan(result, targets, days, allergies, available_ingredients, dietary_type)
                 if hard:
                     last_error = ValueError("; ".join(hard))
                     feedback = (

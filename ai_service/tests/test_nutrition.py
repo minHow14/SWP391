@@ -111,3 +111,43 @@ def test_allergen_aliases_cover_common_hidden_forms():
     # Không báo nhầm
     assert not hit("soy", "Đậu xanh 50g")
     assert not hit("gluten", "Gạo lứt 100g")
+
+
+def test_diet_key_normalizes_common_spellings():
+    from core.nutrition import diet_key
+
+    assert diet_key("vegan") == "vegan"
+    assert diet_key("Thuần chay") == "vegan"
+    assert diet_key("lacto") == "lacto"
+    assert diet_key("lacto-vegetarian") == "lacto"
+    assert diet_key("ovo") == "ovo"
+    assert diet_key("lacto_ovo") == "lacto_ovo"
+    assert diet_key(None) == "lacto_ovo"
+
+
+def test_diet_violations_by_dietary_type():
+    from core.nutrition import find_diet_violations
+
+    egg = [("Bữa sáng", "Bánh mì ốp la", ["Trứng gà 1 quả"])]
+    milk = [("Bữa phụ", "Sữa chua", ["Sữa chua 100g"])]
+    honey = [("Bữa phụ", "Trà", ["Mật ong 1 thìa"])]
+    assert find_diet_violations(egg, "vegan")
+    assert find_diet_violations(milk, "vegan")
+    assert find_diet_violations(honey, "vegan")
+    assert find_diet_violations(egg, "lacto")       # lacto: có sữa, không trứng
+    assert not find_diet_violations(milk, "lacto")
+    assert find_diet_violations(milk, "ovo")        # ovo: có trứng, không sữa
+    assert not find_diet_violations(egg, "ovo")
+    assert not find_diet_violations(egg + milk + honey, "lacto_ovo")
+
+
+def test_animal_products_rejected_for_every_diet_but_vegan_substitutes_allowed():
+    from core.nutrition import find_diet_violations
+
+    meat = [("Bữa trưa", "Cơm", ["Thịt heo 100g"])]
+    fish_sauce = [("Bữa trưa", "Rau luộc", ["Nước mắm 1 thìa"])]
+    fake = [("Bữa trưa", "Cơm tấm chay", ["Thịt chay 100g", "Nước mắm chay 1 thìa"])]
+    for diet in ("vegan", "lacto", "ovo", "lacto_ovo"):
+        assert find_diet_violations(meat, diet)
+        assert find_diet_violations(fish_sauce, diet)
+        assert not find_diet_violations(fake, diet)

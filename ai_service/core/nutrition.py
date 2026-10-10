@@ -176,23 +176,80 @@ def _allergen_terms(allergy: str) -> List[str]:
     return ALLERGEN_ALIASES[group] if group else [key]
 
 
-def find_allergen_violations(meals: Iterable[tuple[str, str, List[str]]], allergies: List[str]) -> List[str]:
-    """
-    meals: (nhãn bữa, tên món, nguyên liệu). Trả về danh sách mô tả vi phạm dị ứng,
-    so khớp theo từ nguyên vẹn sau khi bỏ dấu.
-    """
+Meal = tuple[str, str, List[str]]  # (nhãn bữa, tên món, nguyên liệu)
+
+
+def _term_patterns(terms: Iterable[str], allow_vegan_suffix: bool = False) -> List[re.Pattern]:
+    """So khớp nguyên từ. allow_vegan_suffix: bỏ qua đồ chay giả như 'thịt chay', 'nước mắm chay'."""
+    suffix = r"(?!\s+(?:chay|thuc vat)\b)" if allow_vegan_suffix else ""
+    return [re.compile(rf"(?<![a-z0-9]){re.escape(t.strip())}(?![a-z0-9]){suffix}") for t in terms]
+
+
+def _first_match(meal: Meal, patterns: List[re.Pattern]) -> Optional[str]:
+    _, name, ingredients = meal
+    haystack = " ; ".join([_name_without_negation(name), *(_norm(i) for i in ingredients)])
+    match = next((m for m in (p.search(haystack) for p in patterns) if m), None)
+    return match.group(0) if match else None
+
+
+def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> List[str]:
+    """Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ, bỏ dấu)."""
+    meals = list(meals)
     violations = []
     for allergy in allergies:
         if not allergy or not allergy.strip():
             continue
-        patterns = [re.compile(rf"(?<![a-z0-9]){re.escape(t.strip())}(?![a-z0-9])") for t in _allergen_terms(allergy)]
-        for label, name, ingredients in meals:
-            haystack = " ; ".join([_name_without_negation(name), *(_norm(i) for i in ingredients)])
-            match = next((m for m in (p.search(haystack) for p in patterns) if m), None)
-            if match:
-                violations.append(
-                    f"{label} '{name}' chứa '{match.group(0)}' (liên quan đến dị ứng '{allergy}')"
-                )
+        patterns = _term_patterns(_allergen_terms(allergy))
+        for meal in meals:
+            found = _first_match(meal, patterns)
+            if found:
+                violations.append(f"{meal[0]} '{meal[1]}' chứa '{found}' (liên quan đến dị ứng '{allergy}')")
+    return violations
+
+
+# Mọi trường phái chay đều không dùng thịt, cá, hải sản và nước mắm (trừ đồ chay giả, xem
+# allow_vegan_suffix). Từ dễ trùng khi bỏ dấu (cá/cà, bò/bơ, gà) chưa có ở đây.
+ANIMAL_TERMS = [
+    "meat", "chicken", "beef", "pork", "fish", "shrimp", "prawn", "gelatin", "lard",
+    "thit", "hai san", "nuoc mam", "mam tom", "mo heo", "mo lon",
+]
+HONEY_TERMS = ["honey", "mat ong"]
+
+DIET_FORBIDDEN = {
+    "vegan": ALLERGEN_ALIASES["egg"] + ALLERGEN_ALIASES["dairy"] + HONEY_TERMS,
+    "lacto": ALLERGEN_ALIASES["egg"],   # có sữa, không trứng
+    "ovo": ALLERGEN_ALIASES["dairy"],   # có trứng, không sữa
+    "lacto_ovo": [],
+}
+
+
+def diet_key(dietary_type: Optional[str]) -> str:
+    """Chuẩn hoá trường phái chay: vegan / thuần chay, lacto, ovo, lacto_ovo (mặc định)."""
+    key = _norm(dietary_type or "").replace("-", "_").replace(" ", "_")
+    if "vegan" in key or "thuan_chay" in key:
+        return "vegan"
+    lacto, ovo = "lacto" in key, "ovo" in key
+    if lacto and not ovo:
+        return "lacto"
+    if ovo and not lacto:
+        return "ovo"
+    return "lacto_ovo"
+
+
+def find_diet_violations(meals: Iterable[Meal], dietary_type: Optional[str]) -> List[str]:
+    """Danh sách mô tả các món không hợp trường phái chay (thịt/cá, hoặc trứng/sữa/mật ong với vegan)."""
+    diet = diet_key(dietary_type)
+    checks = [
+        (_term_patterns(ANIMAL_TERMS, allow_vegan_suffix=True), "không phải món chay"),
+        (_term_patterns(DIET_FORBIDDEN[diet]), f"không phù hợp chế độ '{diet}'"),
+    ]
+    violations = []
+    for meal in meals:
+        for patterns, reason in checks:
+            found = _first_match(meal, patterns) if patterns else None
+            if found:
+                violations.append(f"{meal[0]} '{meal[1]}' chứa '{found}' ({reason})")
+                break
     return violations
 
 
