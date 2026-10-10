@@ -12,6 +12,12 @@ load_dotenv()
 class Settings:
     DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
     DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+
+    # Gemini phụ trách các câu trả lời có cấu trúc JSON (thực đơn tuần). Để trống GEMINI_API_KEY
+    # thì quay về dùng DeepSeek. Gọi qua endpoint tương thích OpenAI của Google nên không cần thêm thư viện.
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_BASE_URL: str = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
     
     # Database configuration (support individual DB_* variables or direct DATABASE_URL)
     DB_NAME: str = os.getenv("DB_NAME", "vegetarian_db")
