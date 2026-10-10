@@ -69,22 +69,6 @@ def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:
     remaining = max(0, limit - used)
     return used, remaining, limit
 
-def can_guest_ask(guest_id: str) -> bool:
-    """Checks if a guest has any questions remaining for today."""
-    _, remaining, _ = get_guest_usage(guest_id)
-    return remaining > 0
-
-def increment_guest_usage(guest_id: str) -> int:
-    """
-    Increments the question count for today and returns remaining questions.
-    """
-    today = get_today_str()
-    key = (guest_id, today)
-    current = _guest_usage_store.get(key, 0)
-    _guest_usage_store[key] = current + 1
-    _, remaining, _ = get_guest_usage(guest_id)
-    return remaining
-
 def reserve_guest_question(guest_id: str) -> Optional[int]:
     """
     Atomically reserves one question for today before the AI call, so concurrent
