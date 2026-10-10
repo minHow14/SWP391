@@ -3,13 +3,14 @@ from typing import Optional, Tuple
 from zoneinfo import ZoneInfo
 
 import jwt
-from fastapi import Header, HTTPException, status
+from fastapi import Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from core import quota
 from core.config import settings
 
 VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # +07:00, không có giờ mùa hè
+MAX_GUEST_ID_LENGTH = 100  # bằng độ dài cột GuestQuota.guest_id
 
 
 class RequestIdentity(BaseModel):
@@ -64,6 +65,7 @@ def _identity_from_token(token: str) -> RequestIdentity:
 
 
 def resolve_identity(
+    request: Request,
     authorization: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
     x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
@@ -73,7 +75,8 @@ def resolve_identity(
     Xác định người gọi:
     1. Có `Authorization: Bearer <JWT>` -> xác thực token (sai hoặc hết hạn trả 401).
     2. Nếu AUTH_DEV_MODE bật, chấp nhận header tự khai X-User-Id (chỉ để phát triển/demo).
-    3. Còn lại là khách, định danh bằng X-Guest-Id.
+    3. Còn lại là khách, định danh bằng X-Guest-Id; thiếu header thì theo IP của khách
+       (không gộp mọi khách vào chung một hạn mức).
     """
     if authorization:
         scheme, _, token = authorization.partition(" ")
@@ -88,10 +91,18 @@ def resolve_identity(
             user_role=(x_user_role or "USER").strip(),
         )
 
-    return RequestIdentity(
-        is_authenticated=False,
-        guest_id=(x_guest_id or "default-guest").strip(),
-    )
+    guest_id = (x_guest_id or "").strip()
+    if len(guest_id) > MAX_GUEST_ID_LENGTH:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail={
+                "code": "INVALID_INPUT",
+                "message": f"X-Guest-Id không được dài quá {MAX_GUEST_ID_LENGTH} ký tự.",
+            },
+        )
+    if not guest_id:
+        guest_id = f"ip:{request.client.host if request.client else 'unknown'}"
+    return RequestIdentity(is_authenticated=False, guest_id=guest_id)
 
 
 def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:

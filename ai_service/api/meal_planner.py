@@ -94,7 +94,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
             meta={"requestId": request.state.request_id},
         )
 
-    guest_id = identity.guest_id or "default-guest"
+    guest_id = identity.guest_id
     used, remaining, limit = get_guest_usage(guest_id)
     return MealPlanUsageResponse(
         success=True,
@@ -125,7 +125,7 @@ async def generate_meal_plan(
     # 1. Giữ chỗ một lượt cho khách trước khi gọi AI (nguyên tử, tránh vượt hạn mức khi gọi đồng thời)
     guest_id = None
     if not identity.is_authenticated:
-        guest_id = identity.guest_id or "default-guest"
+        guest_id = identity.guest_id
         if reserve_guest_question(guest_id) is None:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,

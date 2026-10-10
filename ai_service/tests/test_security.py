@@ -75,3 +75,24 @@ def test_quota_reset_is_next_midnight_in_vietnam_time():
 def test_usage_endpoints_report_unlimited_for_logged_in_users(path):
     data = client.get(path, headers={"X-User-Id": "u-1"}).json()["data"]
     assert data["is_authenticated"] is True and data["unlimited"] is True
+
+
+def test_guests_without_header_get_separate_quota_per_ip():
+    from unittest.mock import AsyncMock, patch
+
+    first = TestClient(app, client=("198.51.100.1", 1000))
+    second = TestClient(app, client=("198.51.100.2", 1000))
+    with patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock) as answer:
+        answer.return_value = "ok"
+        for i in range(3):
+            assert first.post("/api/chat", json={"message": f"Q{i}"}).status_code == 200
+        assert first.post("/api/chat", json={"message": "Q4"}).status_code == 429
+        # Khách khác không gửi X-Guest-Id vẫn còn đủ lượt
+        assert second.post("/api/chat", json={"message": "Q1"}).status_code == 200
+    assert second.get("/api/chat/usage").json()["data"]["remaining_questions"] == 2
+
+
+def test_overlong_guest_id_returns_400():
+    res = usage({"X-Guest-Id": "g" * 101})
+    assert res.status_code == 400
+    assert res.json()["error"]["code"] == "INVALID_INPUT"

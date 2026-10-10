@@ -93,7 +93,7 @@ def reserve_guest_quota(identity: RequestIdentity) -> tuple[Optional[str], Optio
     """
     if identity.is_authenticated:
         return None, None
-    guest_id = identity.guest_id or "default-guest"
+    guest_id = identity.guest_id
     remaining = reserve_guest_question(guest_id)
     if remaining is None:
         raise HTTPException(
@@ -116,7 +116,7 @@ async def get_usage(request: Request, identity: RequestIdentity = Depends(resolv
     if identity.is_authenticated:
         data = ChatUsageData(is_authenticated=True, unlimited=True)
     else:
-        used, remaining, limit = get_guest_usage(identity.guest_id or "default-guest")
+        used, remaining, limit = get_guest_usage(identity.guest_id)
         data = ChatUsageData(
             is_authenticated=False,
             daily_limit=limit,
