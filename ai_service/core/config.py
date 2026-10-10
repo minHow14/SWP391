@@ -35,7 +35,7 @@ class Settings:
     _origins_str: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
     ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in _origins_str.split(",") if origin.strip()]
     
+    # Shared daily quota for guests: chatbot questions + meal plan generations
     GUEST_DAILY_LIMIT: int = int(os.getenv("GUEST_DAILY_LIMIT", "3"))
-    GUEST_MEAL_PLAN_LIMIT: int = int(os.getenv("GUEST_MEAL_PLAN_LIMIT", "3"))
 
 settings = Settings()
