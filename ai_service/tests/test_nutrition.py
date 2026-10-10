@@ -80,3 +80,14 @@ def test_negated_allergen_in_dish_name_is_not_a_violation():
     # Nhưng nếu nguyên liệu thật sự có thì vẫn bị bắt
     meals[0] = ("Bữa trưa", "Bún trộn (không đậu phộng)", ["Đậu phộng rang 20g"])
     assert find_allergen_violations(meals, ["peanuts"])
+
+
+def test_find_used_ingredients_is_fuzzy_and_accent_insensitive():
+    from core.nutrition import find_used_ingredients
+
+    meals = [
+        ("Bữa trưa", "Đậu hũ sốt cà", ["Đậu hũ non 150g", "Cà chua bi 100g"]),
+        ("Bữa tối", "Canh rau", ["Bí đao 200g"]),
+    ]
+    used = find_used_ingredients(["cà chua", "dau hu", "gạo lứt", "bí đao", "ab"], meals)
+    assert used == ["cà chua", "dau hu", "bí đao"]

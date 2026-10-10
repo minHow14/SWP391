@@ -165,3 +165,18 @@ async def test_returns_closest_plan_when_only_calories_are_off():
     assert len(plan.weekly_plan) == 7
     # Profile numbers still come from the server, not the LLM
     assert plan.profile_summary.target_daily_calories == TARGETS.target_calories
+
+
+@pytest.mark.asyncio
+async def test_used_available_ingredients_is_computed_by_server():
+    plan, _ = await run_agent([make_plan(7)], available_ingredients=["gạo lứt", "xoài"])
+    assert plan.profile_summary.used_available_ingredients == ["gạo lứt"]
+
+
+@pytest.mark.asyncio
+async def test_retries_when_pantry_ingredients_are_ignored():
+    ignoring = make_plan(7)
+    using = make_plan(7, lunch_ingredients=["Gạo lứt 100g", "Cà chua 100g", "Đậu phụ 100g"])
+    plan, structured = await run_agent([ignoring, using], available_ingredients=["cà chua", "đậu phụ"])
+    assert structured.ainvoke.call_count == 2
+    assert plan.profile_summary.used_available_ingredients == ["cà chua", "đậu phụ"]
