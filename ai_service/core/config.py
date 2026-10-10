@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     # Gemini: câu trả lời JSON có cấu trúc (thực đơn tuần). Để trống thì dùng DeepSeek.
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_THINKING_BUDGET: int = 0  # 0 = tắt suy nghĩ (nhanh, JSON không bị cụt)
 
     # Database: dùng DATABASE_URL nếu có, ngược lại ghép từ các biến DB_*
     DATABASE_URL_OVERRIDE: str = Field("", validation_alias="DATABASE_URL")

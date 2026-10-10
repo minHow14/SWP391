@@ -45,7 +45,10 @@ def get_llm_json(timeout: float = 90.0) -> ChatGoogleGenerativeAI | ChatOpenAI:
             model=get_json_model_name(),
             google_api_key=settings.GEMINI_API_KEY,
             temperature=0.3,
-            max_output_tokens=8192,
+            max_output_tokens=16384,
+            # Gemini 2.5 tính cả token "suy nghĩ" vào giới hạn đầu ra nên JSON dài bị cắt cụt;
+            # tắt suy nghĩ để thực đơn trả về đầy đủ.
+            thinking_budget=settings.GEMINI_THINKING_BUDGET,
             timeout=timeout,
         )
     return ChatOpenAI(
