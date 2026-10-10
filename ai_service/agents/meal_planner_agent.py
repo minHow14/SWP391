@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import List, Optional
+from typing import Awaitable, Callable, List, Optional
 from pydantic import BaseModel, Field
 from langchain_core.messages import SystemMessage, HumanMessage
 from core.llm import get_structured_llm
@@ -21,6 +21,9 @@ CALORIE_TOLERANCE = 0.10   # tổng calo mỗi ngày được lệch tối đa 1
 PROTEIN_MIN_RATIO = 0.8    # protein trung bình mỗi ngày tối thiểu 80% mục tiêu
 PANTRY_MIN_USED_RATIO = 0.5  # cần dùng ít nhất một nửa số nguyên liệu người dùng đã có sẵn
 MAX_ATTEMPTS = 3
+
+# Callback báo tiến độ: nhận một dict {stage, message, ...}
+ProgressCallback = Callable[[dict], Awaitable[None]]
 
 
 class MealItem(BaseModel):
@@ -233,7 +236,12 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         days: int = 7,
         activity_level: str = "light",
         bmi: Optional[float] = None,
+        on_progress: Optional[ProgressCallback] = None,
     ) -> GeneratedMealPlan:
+        async def progress(stage: str, message: str, **extra) -> None:
+            if on_progress is not None:
+                await on_progress({"stage": stage, "message": message, **extra})
+
         allergies = allergies or []
         available_ingredients = available_ingredients or []
         targets = calculate_targets(
@@ -244,6 +252,14 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
             goal=goal,
             activity_level=activity_level,
             bmi=bmi,
+        )
+
+        await progress(
+            "calculating",
+            f"Đã tính nhu cầu năng lượng: khoảng {targets.target_calories} kcal/ngày.",
+            target_calories=targets.target_calories,
+            protein_g=targets.protein_g,
+            bmi=targets.bmi,
         )
 
         user_input_prompt = self._build_user_prompt(
@@ -268,12 +284,19 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         best_soft = 0
         for attempt in range(1, MAX_ATTEMPTS + 1):
             try:
+                await progress(
+                    "generating",
+                    "Đang tạo thực đơn..." if attempt == 1 else f"Đang tạo lại thực đơn (lần {attempt}/{MAX_ATTEMPTS})...",
+                    attempt=attempt,
+                    max_attempts=MAX_ATTEMPTS,
+                )
                 result = await structured_llm.ainvoke(messages)
                 if isinstance(result, dict):
                     result = GeneratedMealPlan.model_validate(result)
                 if not isinstance(result, GeneratedMealPlan):
                     raise ValueError("Kết quả từ LLM không đúng định dạng schema GeneratedMealPlan")
 
+                await progress("validating", "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...", attempt=attempt)
                 hard, soft = validate_plan(result, targets, days, allergies, available_ingredients, dietary_type)
                 if hard:
                     last_error = ValueError("; ".join(hard))
@@ -304,6 +327,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
             logger.warning(f"Attempt {attempt}/{MAX_ATTEMPTS} of meal plan needs a retry: {feedback}")
             if attempt < MAX_ATTEMPTS:
                 messages.append(HumanMessage(content=feedback))
+                await progress("retrying", "Thực đơn chưa đạt yêu cầu, đang điều chỉnh...", attempt=attempt)
 
         # Hết lượt thử: chỉ trả thực đơn lệch nhẹ (không vi phạm dị ứng / số ngày)
         if best_plan is not None:
