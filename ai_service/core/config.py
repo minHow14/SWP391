@@ -1,47 +1,72 @@
-from urllib.parse import quote_plus
 from pathlib import Path
-import os
-from dotenv import load_dotenv
+from typing import Annotated
+from urllib.parse import quote_plus
+
+from pydantic import Field, computed_field
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
+from pydantic import field_validator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load environment variables
-load_dotenv(BASE_DIR / ".env")
-load_dotenv()
 
-class Settings:
-    DEEPSEEK_API_KEY: str = os.getenv("DEEPSEEK_API_KEY", "")
-    DEEPSEEK_MODEL: str = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+class Settings(BaseSettings):
+    """Cấu hình đọc từ biến môi trường / file .env (xem .env.example)."""
 
-    # Gemini phụ trách các câu trả lời có cấu trúc JSON (thực đơn tuần). Để trống GEMINI_API_KEY
-    # thì quay về dùng DeepSeek. Gọi qua endpoint tương thích OpenAI của Google nên không cần thêm thư viện.
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
-    GEMINI_BASE_URL: str = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta/openai/")
-    
-    # Database configuration (support individual DB_* variables or direct DATABASE_URL)
-    DB_NAME: str = os.getenv("DB_NAME", "vegetarian_db")
-    DB_USER: str = os.getenv("DB_USER", "postgres")
-    DB_PASSWORD: str = os.getenv("DB_PASSWORD", "12345")
-    DB_HOST: str = os.getenv("DB_HOST", "localhost")
-    DB_PORT: str = os.getenv("DB_PORT", "5432")
+    model_config = SettingsConfigDict(
+        env_file=BASE_DIR / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+        case_sensitive=False,
+    )
 
+    # DeepSeek: chatbot hỏi đáp (và thực đơn nếu chưa có khoá Gemini)
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_MODEL: str = "deepseek-chat"
+
+    # Gemini: câu trả lời JSON có cấu trúc (thực đơn tuần). Để trống thì dùng DeepSeek.
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    # Database: dùng DATABASE_URL nếu có, ngược lại ghép từ các biến DB_*
+    DATABASE_URL_OVERRIDE: str = Field("", validation_alias="DATABASE_URL")
+    DB_NAME: str = "vegetarian_db"
+    DB_USER: str = "postgres"
+    DB_PASSWORD: str = "12345"
+    DB_HOST: str = "localhost"
+    DB_PORT: str = "5432"
+    SQLITE_FALLBACK_PATH: Path = BASE_DIR / "ai_agent.db"
+
+    DEBUG: bool = False
+    SECRET_KEY: str = "dev-secret-key-vegetarian-ai"
+    JWT_SECRET: str = ""  # trống thì dùng SECRET_KEY; phải trùng khoá backend Core dùng để ký JWT
+    JWT_ALGORITHM: str = "HS256"
+    AUTH_DEV_MODE: bool = True  # cho phép nhận danh tính qua header X-User-Id (chỉ để phát triển)
+
+    ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000", "http://localhost:5173"]
+
+    # Hạn mức chung của khách mỗi ngày: câu hỏi chatbot + lần tạo thực đơn tuần
+    GUEST_DAILY_LIMIT: int = 3
+    # Giới hạn tần suất theo IP (chống spam), cú pháp của slowapi, ví dụ "30/minute"
+    RATE_LIMIT: str = "30/minute"
+
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
+    def split_origins(cls, value):
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        return value
+
+    @computed_field
     @property
     def DATABASE_URL(self) -> str:
-        explicit_url = os.getenv("DATABASE_URL")
-        if explicit_url and explicit_url.strip():
-            return explicit_url.strip()
+        if self.DATABASE_URL_OVERRIDE.strip():
+            return self.DATABASE_URL_OVERRIDE.strip()
         encoded_pwd = quote_plus(self.DB_PASSWORD)
         return f"postgresql+psycopg://{self.DB_USER}:{encoded_pwd}@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
 
-    DEBUG: bool = os.getenv("DEBUG", "false").lower() in ("true", "1", "yes")
-    SECRET_KEY: str = os.getenv("SECRET_KEY", "dev-secret-key-vegetarian-ai")
-    AUTH_DEV_MODE: bool = os.getenv("AUTH_DEV_MODE", "true").lower() in ("true", "1", "yes")
-    
-    _origins_str: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173")
-    ALLOWED_ORIGINS: list[str] = [origin.strip() for origin in _origins_str.split(",") if origin.strip()]
-    
-    # Shared daily quota for guests: chatbot questions + meal plan generations
-    GUEST_DAILY_LIMIT: int = int(os.getenv("GUEST_DAILY_LIMIT", "3"))
+    @property
+    def jwt_secret(self) -> str:
+        return self.JWT_SECRET or self.SECRET_KEY
+
 
 settings = Settings()
