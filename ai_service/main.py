@@ -6,10 +6,12 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from core.config import settings
 from core.database import init_db
+from core.ratelimit import limiter
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
 
@@ -32,6 +34,8 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan,
 )
+
+app.state.limiter = limiter
 
 # CORS Configuration
 app.add_middleware(
@@ -70,6 +74,17 @@ def error_response(request: Request, status_code: int, code: str, message: str, 
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     return error_response(
         request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", jsonable_encoder(exc.errors())
+    )
+
+
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_error_handler(request: Request, exc: RateLimitExceeded):
+    return error_response(
+        request,
+        429,
+        "RATE_LIMIT_EXCEEDED",
+        "Bạn gửi yêu cầu quá nhanh. Vui lòng thử lại sau ít phút.",
+        {"limit": str(exc.limit.limit)},
     )
 
 
