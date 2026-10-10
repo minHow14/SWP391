@@ -31,7 +31,7 @@ def json_provider() -> str:
 def get_json_model_name() -> str:
     """Tên model đang dùng cho câu trả lời JSON (dùng để ghi AILog)."""
     if json_provider() == "gemini":
-        return settings.GEMINI_MODEL or "gemini-2.5-flash"
+        return settings.GEMINI_MODEL or "gemini-3.5-flash"
     return settings.DEEPSEEK_MODEL or "deepseek-chat"
 
 
@@ -46,7 +46,7 @@ def get_llm_json(timeout: float = 90.0) -> ChatGoogleGenerativeAI | ChatOpenAI:
             google_api_key=settings.GEMINI_API_KEY,
             temperature=0.3,
             max_output_tokens=16384,
-            # Gemini 2.5 tính cả token "suy nghĩ" vào giới hạn đầu ra nên JSON dài bị cắt cụt;
+            # Gemini 2.5 và 3.x tính cả token "suy nghĩ" vào giới hạn đầu ra nên JSON dài bị cắt cụt;
             # tắt suy nghĩ để thực đơn trả về đầy đủ.
             thinking_budget=settings.GEMINI_THINKING_BUDGET,
             timeout=timeout,
