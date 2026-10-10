@@ -203,3 +203,73 @@ def test_chat_stream_valid(mock_stream):
     assert "token" in content
     assert "Chào " in content
     assert "done" in content
+
+
+@pytest.mark.asyncio
+async def test_guest_quota_not_exceeded_by_concurrent_requests():
+    import asyncio
+    import httpx
+
+    async def slow_answer(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return "ok"
+
+    with patch("api.chat.chatbot_agent.answer", side_effect=slow_answer):
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as ac:
+            results = await asyncio.gather(*[
+                ac.post("/api/chat", json={"message": f"Q {i}"}, headers={"X-Guest-Id": "race-guest"})
+                for i in range(6)
+            ])
+    codes = sorted(r.status_code for r in results)
+    assert codes == [200, 200, 200, 429, 429, 429]
+
+
+@patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
+def test_guest_quota_refunded_when_ai_fails(mock_answer):
+    headers = {"X-Guest-Id": "refund-guest"}
+    mock_answer.side_effect = Exception("provider down")
+    assert client.post("/api/chat", json={"message": "Q"}, headers=headers).status_code == 502
+    usage = client.get("/api/chat/usage", headers=headers).json()["data"]
+    assert usage["used_questions"] == 0
+
+
+@patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
+def test_chat_passes_menu_context(mock_answer):
+    mock_answer.return_value = "Món trưa thứ Hai có 20g protein."
+    menu = {"monday": {"lunch": "Đậu hũ sốt cà", "protein_g": 20}}
+    response = client.post(
+        "/api/chat",
+        json={"message": "Món trưa thứ Hai có bao nhiêu protein?", "menu_context": menu},
+        headers={"X-Guest-Id": "menu-guest"},
+    )
+    assert response.status_code == 200
+    kwargs = mock_answer.call_args.kwargs
+    assert "Đậu hũ sốt cà" in kwargs["menu_context"]
+
+
+def test_chat_menu_context_too_long():
+    response = client.post(
+        "/api/chat",
+        json={"message": "Giải thích menu", "menu_context": "x" * 8001},
+        headers={"X-Guest-Id": "menu-long-guest"},
+    )
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "INVALID_INPUT"
+
+
+@pytest.mark.asyncio
+async def test_chatbot_skips_cache_when_menu_context_given():
+    agent = ChatbotAgent()
+    with patch("agents.chatbot_agent.get_llm_text") as mock_get_llm:
+        mock_llm = AsyncMock()
+        mock_llm.ainvoke.return_value.content = "Trả lời"
+        mock_get_llm.return_value = mock_llm
+
+        await agent.answer("Menu này ổn không?", menu_context='{"a": 1}')
+        await agent.answer("Menu này ổn không?", menu_context='{"a": 2}')
+        assert mock_llm.ainvoke.call_count == 2
+
+        # System prompt of the call contains the menu
+        system_msg = mock_llm.ainvoke.call_args.args[0][0]
+        assert '{"a": 2}' in system_msg.content
