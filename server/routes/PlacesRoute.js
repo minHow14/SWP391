@@ -5,7 +5,7 @@ import { fail } from '../utils/response.js';
 
 const router = express.Router();
 
-// Giới hạn theo IP để tránh spam và tiêu hao hạn mức Google Places
+// Giới hạn theo IP để tránh spam và tiêu hao credit ZIOMAP
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
