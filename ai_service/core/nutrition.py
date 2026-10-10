@@ -1,4 +1,5 @@
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Iterable, List, Optional
 
@@ -120,30 +121,34 @@ def calculate_targets(
     )
 
 
-# Từ khoá tiếng Việt / Anh của các nhóm dị ứng phổ biến (đã bỏ dấu, chữ thường).
+# Từ khoá tiếng Việt / Anh của các nhóm dị ứng phổ biến, viết chữ thường.
+# - Từ KHÔNG dấu: so khớp sau khi bỏ dấu (bắt được cả khi LLM viết thiếu dấu).
+# - Từ CÓ dấu: so khớp giữ nguyên dấu, dùng cho từ dễ trùng khi bỏ dấu
+#   (lạc/lắc, mè/me chua, nấm/Nam, trứng/trung thu, vừng/vùng, mì/mi, tương/tượng).
 # Khi thiếu từ, thà báo nhầm (LLM sinh lại) còn hơn bỏ sót nguyên liệu gây dị ứng.
 ALLERGEN_ALIASES = {
-    "peanut": ["peanut", "groundnut", "dau phong", "lac", "bo dau phong"],
+    "peanut": ["peanut", "groundnut", "dau phong", "lạc", "bo dau phong"],
     "soy": [
         "soy", "soya", "soybean", "tofu", "edamame", "tempeh", "natto", "miso", "yuba", "shoyu",
-        "dau nanh", "dau tuong", "dau phu", "dau hu", "tau hu", "tau hu ky", "tuong", "xi dau",
+        "dau nanh", "dau tuong", "dau phu", "dau hu", "tau hu", "tau hu ky", "tương", "xi dau",
     ],
     "gluten": [
         "gluten", "wheat", "barley", "rye", "seitan", "soba", "udon", "ramen", "pasta", "spaghetti",
-        "couscous", "bread", "lua mi", "bot mi", "dam lua mi", "lua mach", "banh mi", "mi",
+        "couscous", "bread", "lua mi", "bot mi", "dam lua mi", "lua mach", "banh mi", "mì",
     ],
     "dairy": [
         "dairy", "milk", "cheese", "butter", "yogurt", "cream", "ghee", "whey", "casein", "lactose",
         "sua bo", "sua tuoi", "sua dac", "sua bot", "sua chua", "pho mai", "pho mat", "kem tuoi",
     ],
-    "egg": ["egg", "mayonnaise", "trung"],
-    "mushroom": ["mushroom", "shiitake", "enoki", "nam"],
-    "sesame": ["sesame", "tahini", "me", "vung"],
+    "egg": ["egg", "mayonnaise", "trứng"],
+    "mushroom": ["mushroom", "shiitake", "enoki", "nấm"],
+    "sesame": ["sesame", "tahini", "mè", "vừng"],
     "nut": [
         "almond", "walnut", "cashew", "hazelnut", "pecan", "pistachio", "macadamia",
         "hanh nhan", "oc cho", "hat dieu", "mac ca", "hat de cuoi", "hat phi",
     ],
 }
+# Tên dị ứng người dùng nhập (đã bỏ dấu) -> nhóm
 _ALLERGEN_GROUP_NAMES = {
     "peanut": "peanut", "lac": "peanut", "dau phong": "peanut",
     "soy": "soy", "soya": "soy", "dau nanh": "soy", "dau tuong": "soy", "dau phu": "soy",
@@ -158,15 +163,17 @@ _ALLERGEN_GROUP_NAMES = {
 
 
 def _norm(text: str) -> str:
+    """Chữ thường, bỏ dấu, gộp khoảng trắng."""
     return re.sub(r"\s+", " ", unidecode(text).lower()).strip()
 
 
+def _lower(text: str) -> str:
+    """Chữ thường, GIỮ dấu (NFC), gộp khoảng trắng."""
+    return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text).lower()).strip()
+
+
 # Tên món hay ghi "(không đậu phộng)", "không chứa sữa", "gluten-free": bỏ phần phủ định này
-_NEGATION = re.compile(r"\b(?:khong|no|without)\s+(?:co\s+|chua\s+)?[a-z]+(?:\s+[a-z]+)?|\b[a-z]+-free\b")
-
-
-def _name_without_negation(name: str) -> str:
-    return _NEGATION.sub(" ", _norm(name))
+_NEGATION = re.compile(r"\b(?:không|khong|no|without)\s+(?:có\s+|co\s+|chứa\s+|chua\s+)?\w+(?:\s+\w+)?|\b\w+-free\b")
 
 
 def _allergen_terms(allergy: str) -> List[str]:
@@ -177,23 +184,45 @@ def _allergen_terms(allergy: str) -> List[str]:
 
 
 Meal = tuple[str, str, List[str]]  # (nhãn bữa, tên món, nguyên liệu)
+TermPattern = tuple[bool, re.Pattern]  # (so khớp giữ dấu?, pattern)
 
 
-def _term_patterns(terms: Iterable[str], allow_vegan_suffix: bool = False) -> List[re.Pattern]:
-    """So khớp nguyên từ. allow_vegan_suffix: bỏ qua đồ chay giả như 'thịt chay', 'nước mắm chay'."""
-    suffix = r"(?!\s+(?:chay|thuc vat)\b)" if allow_vegan_suffix else ""
-    return [re.compile(rf"(?<![a-z0-9]){re.escape(t.strip())}(?![a-z0-9]){suffix}") for t in terms]
+def _term_patterns(terms: Iterable[str], allow_vegan_suffix: bool = False) -> List[TermPattern]:
+    """
+    So khớp nguyên từ. allow_vegan_suffix (dùng cho từ chỉ động vật): bỏ qua đồ chay giả trong
+    2 từ tiếp theo ('thịt chay', 'bò lát chay', 'nước mắm chay') và các cụm không phải thịt
+    như 'trứng gà', 'sữa bò', 'đậu gà' (đậu chickpea).
+    """
+    patterns = []
+    for term in terms:
+        term = term.strip()
+        accented = not term.isascii()
+        word = r"\w" if accented else r"[a-z0-9]"
+        prefix = suffix = ""
+        if allow_vegan_suffix:
+            vegan = r"(?:chay|thực vật|giả)" if accented else r"(?:chay|thuc vat)"
+            suffix = rf"(?!(?:\s+{word}+){{0,2}}\s+{vegan}(?!{word}))"
+            if accented:
+                prefix = r"(?<!trứng )(?<!sữa )(?<!đậu )"
+        patterns.append(
+            (accented, re.compile(rf"{prefix}(?<!{word}){re.escape(term)}(?!{word}){suffix}"))
+        )
+    return patterns
 
 
-def _first_match(meal: Meal, patterns: List[re.Pattern]) -> Optional[str]:
+def _first_match(meal: Meal, patterns: List[TermPattern]) -> Optional[str]:
     _, name, ingredients = meal
-    haystack = " ; ".join([_name_without_negation(name), *(_norm(i) for i in ingredients)])
-    match = next((m for m in (p.search(haystack) for p in patterns) if m), None)
-    return match.group(0) if match else None
+    accented_text = " ; ".join([_NEGATION.sub(" ", _lower(name)), *(_lower(i) for i in ingredients)])
+    ascii_text = unidecode(accented_text)
+    for accented, pattern in patterns:
+        match = pattern.search(accented_text if accented else ascii_text)
+        if match:
+            return match.group(0)
+    return None
 
 
 def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> List[str]:
-    """Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ, bỏ dấu)."""
+    """Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ)."""
     meals = list(meals)
     violations = []
     for allergy in allergies:
@@ -207,11 +236,12 @@ def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> Lis
     return violations
 
 
-# Mọi trường phái chay đều không dùng thịt, cá, hải sản và nước mắm (trừ đồ chay giả, xem
-# allow_vegan_suffix). Từ dễ trùng khi bỏ dấu (cá/cà, bò/bơ, gà) chưa có ở đây.
+# Mọi trường phái chay đều không dùng thịt, cá, hải sản và nước mắm; đồ chay giả
+# ('gà chay', 'bò lát chay', 'nước mắm chay') được chấp nhận nhờ allow_vegan_suffix.
 ANIMAL_TERMS = [
-    "meat", "chicken", "beef", "pork", "fish", "shrimp", "prawn", "gelatin", "lard",
-    "thit", "hai san", "nuoc mam", "mam tom", "mo heo", "mo lon",
+    "meat", "chicken", "beef", "pork", "fish", "shrimp", "prawn", "squid", "gelatin", "lard",
+    "thit", "heo", "hai san", "nuoc mam", "mam tom", "mo heo", "mo lon",
+    "cá", "bò", "gà", "vịt", "tôm", "mực", "lợn", "sườn", "ốc", "nghêu", "hến",
 ]
 HONEY_TERMS = ["honey", "mat ong"]
 

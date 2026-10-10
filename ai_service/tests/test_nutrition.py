@@ -151,3 +151,34 @@ def test_animal_products_rejected_for_every_diet_but_vegan_substitutes_allowed()
         assert find_diet_violations(meat, diet)
         assert find_diet_violations(fish_sauce, diet)
         assert not find_diet_violations(fake, diet)
+
+
+def test_accent_aware_matching_avoids_false_alarms():
+    def hit(allergy, name, ingredient="Rau củ 100g"):
+        return bool(find_allergen_violations([("Bữa trưa", name, [ingredient])], [allergy]))
+
+    # Từ trùng khi bỏ dấu không còn bị nhận nhầm
+    assert not hit("peanuts", "Đậu hũ lúc lắc")          # lắc ≠ lạc
+    assert not hit("sesame", "Đậu hũ sốt me")            # me (tamarind) ≠ mè
+    assert not hit("mushroom", "Canh chua Nam Bộ")       # Nam ≠ nấm
+    assert not hit("egg", "Bánh trung thu chay")         # trung ≠ trứng
+    assert not hit("sesame", "Rau củ vùng cao")          # vùng ≠ vừng
+    # Nhưng từ đúng vẫn bị bắt, kể cả khi LLM viết không dấu những từ không nhập nhằng
+    assert hit("peanuts", "Xôi", "Lạc rang 20g")
+    assert hit("sesame", "Rau trộn", "Mè rang 5g")
+    assert hit("mushroom", "Canh", "Nấm rơm 50g")
+    assert hit("egg", "Cơm chiên", "Trứng gà 1 quả")
+    assert hit("peanuts", "Goi", "dau phong rang 10g")
+
+
+def test_animal_terms_ignore_egg_milk_chickpea_and_vegan_substitutes():
+    from core.nutrition import find_diet_violations
+
+    ok_meals = [
+        ("Sáng", "Bánh mì ốp la", ["Trứng gà 1 quả", "Sữa bò 200ml"]),
+        ("Trưa", "Cà ri đậu gà", ["Đậu gà 100g", "Cà tím 100g", "Bơ 1/2 quả"]),
+        ("Tối", "Phở chay", ["Bò lát chay 50g", "Gà chay 50g", "Nước mắm chay"]),
+    ]
+    assert not find_diet_violations(ok_meals, "lacto_ovo")
+    bad = [("Trưa", "Cơm gà", ["Gà luộc 100g"]), ("Tối", "Canh chua", ["Cá basa 100g"])]
+    assert len(find_diet_violations(bad, "lacto_ovo")) == 2
