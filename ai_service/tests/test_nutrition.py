@@ -91,3 +91,23 @@ def test_find_used_ingredients_is_fuzzy_and_accent_insensitive():
     ]
     used = find_used_ingredients(["cà chua", "dau hu", "gạo lứt", "bí đao", "ab"], meals)
     assert used == ["cà chua", "dau hu", "bí đao"]
+
+
+def test_allergen_aliases_cover_common_hidden_forms():
+    def hit(allergy, ingredient):
+        return bool(find_allergen_violations([("Bữa trưa", "Món", [ingredient])], [allergy]))
+
+    # Đậu nành ở nhiều dạng
+    for ingredient in ["Tofu 150g", "Đậu edamame 100g", "Tàu hũ ky 50g", "Xì dầu 1 thìa", "Đậu tương"]:
+        assert hit("soy", ingredient), ingredient
+    # Gluten trong mì, bánh mì, mì soba, đạm lúa mì
+    for ingredient in ["Mì xào 200g", "Mì soba 100g", "Bánh mì nguyên cám", "Bò lát chay (đạm lúa mì)", "Pasta"]:
+        assert hit("gluten", ingredient), ingredient
+    # Tên dị ứng dạng số nhiều / tiếng Việt
+    assert hit("peanuts", "Bơ đậu phộng 15g")
+    assert hit("eggs", "Trứng luộc")
+    assert hit("đậu hũ", "Tofu chiên")
+    assert hit("tree nuts", "Hạt điều rang")
+    # Không báo nhầm
+    assert not hit("soy", "Đậu xanh 50g")
+    assert not hit("gluten", "Gạo lứt 100g")

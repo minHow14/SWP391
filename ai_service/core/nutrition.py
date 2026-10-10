@@ -120,26 +120,40 @@ def calculate_targets(
     )
 
 
-# Từ khoá tiếng Việt / Anh của các nhóm dị ứng phổ biến (đã bỏ dấu, chữ thường)
+# Từ khoá tiếng Việt / Anh của các nhóm dị ứng phổ biến (đã bỏ dấu, chữ thường).
+# Khi thiếu từ, thà báo nhầm (LLM sinh lại) còn hơn bỏ sót nguyên liệu gây dị ứng.
 ALLERGEN_ALIASES = {
-    "peanut": ["peanut", "dau phong", "lac"],
-    "soy": ["soy", "dau nanh", "dau phu", "dau hu", "tempeh", "tuong", "natto", "miso"],
-    "gluten": ["gluten", "lua mi", "bot mi", "seitan", "banh mi", "mi soi"],
-    "dairy": ["dairy", "milk", "cheese", "butter", "yogurt", "sua bo", "sua tuoi", "sua chua", "pho mai", "kem tuoi", "ghee", "whey"],
-    "egg": ["egg", "trung"],
-    "mushroom": ["mushroom", "nam"],
-    "sesame": ["sesame", "me", "vung"],
-    "nut": ["almond", "walnut", "cashew", "hanh nhan", "oc cho", "hat dieu"],
+    "peanut": ["peanut", "groundnut", "dau phong", "lac", "bo dau phong"],
+    "soy": [
+        "soy", "soya", "soybean", "tofu", "edamame", "tempeh", "natto", "miso", "yuba", "shoyu",
+        "dau nanh", "dau tuong", "dau phu", "dau hu", "tau hu", "tau hu ky", "tuong", "xi dau",
+    ],
+    "gluten": [
+        "gluten", "wheat", "barley", "rye", "seitan", "soba", "udon", "ramen", "pasta", "spaghetti",
+        "couscous", "bread", "lua mi", "bot mi", "dam lua mi", "lua mach", "banh mi", "mi",
+    ],
+    "dairy": [
+        "dairy", "milk", "cheese", "butter", "yogurt", "cream", "ghee", "whey", "casein", "lactose",
+        "sua bo", "sua tuoi", "sua dac", "sua bot", "sua chua", "pho mai", "pho mat", "kem tuoi",
+    ],
+    "egg": ["egg", "mayonnaise", "trung"],
+    "mushroom": ["mushroom", "shiitake", "enoki", "nam"],
+    "sesame": ["sesame", "tahini", "me", "vung"],
+    "nut": [
+        "almond", "walnut", "cashew", "hazelnut", "pecan", "pistachio", "macadamia",
+        "hanh nhan", "oc cho", "hat dieu", "mac ca", "hat de cuoi", "hat phi",
+    ],
 }
 _ALLERGEN_GROUP_NAMES = {
-    "peanuts": "peanut", "lac": "peanut", "dau phong": "peanut",
-    "soy": "soy", "soya": "soy", "dau nanh": "soy", "dau phu": "soy",
-    "wheat": "gluten", "gluten": "gluten", "lua mi": "gluten",
-    "dairy": "dairy", "milk": "dairy", "sua": "dairy", "lactose": "dairy",
-    "eggs": "egg", "egg": "egg", "trung": "egg",
-    "mushrooms": "mushroom", "mushroom": "mushroom", "nam": "mushroom",
+    "peanut": "peanut", "lac": "peanut", "dau phong": "peanut",
+    "soy": "soy", "soya": "soy", "dau nanh": "soy", "dau tuong": "soy", "dau phu": "soy",
+    "dau hu": "soy", "tofu": "soy",
+    "wheat": "gluten", "gluten": "gluten", "lua mi": "gluten", "bot mi": "gluten", "mi": "gluten",
+    "dairy": "dairy", "milk": "dairy", "sua": "dairy", "sua bo": "dairy", "lactose": "dairy",
+    "egg": "egg", "trung": "egg",
+    "mushroom": "mushroom", "nam": "mushroom",
     "sesame": "sesame", "me": "sesame", "vung": "sesame",
-    "nuts": "nut", "tree nuts": "nut",
+    "nut": "nut", "tree nut": "nut", "hat": "nut", "hat cay": "nut",
 }
 
 
@@ -156,8 +170,9 @@ def _name_without_negation(name: str) -> str:
 
 
 def _allergen_terms(allergy: str) -> List[str]:
+    """Từ khoá cần tìm cho một dị ứng người dùng nhập (chấp nhận số nhiều: peanuts, eggs...)."""
     key = _norm(allergy)
-    group = _ALLERGEN_GROUP_NAMES.get(key)
+    group = _ALLERGEN_GROUP_NAMES.get(key) or _ALLERGEN_GROUP_NAMES.get(key.removesuffix("s"))
     return ALLERGEN_ALIASES[group] if group else [key]
 
 
