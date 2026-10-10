@@ -273,3 +273,13 @@ async def test_chatbot_skips_cache_when_menu_context_given():
         # System prompt of the call contains the menu
         system_msg = mock_llm.ainvoke.call_args.args[0][0]
         assert '{"a": 2}' in system_msg.content
+
+
+def test_authenticated_user_chat_usage_unlimited():
+    response = client.get("/api/chat/usage", headers={"X-User-Id": "user-usage-1"})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["is_authenticated"] is True
+    assert data["unlimited"] is True
+    assert data["daily_limit"] is None
+    assert data["remaining_questions"] is None
