@@ -146,6 +146,14 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", unidecode(text).lower()).strip()
 
 
+# Tên món hay ghi "(không đậu phộng)", "không chứa sữa", "gluten-free": bỏ phần phủ định này
+_NEGATION = re.compile(r"\b(?:khong|no|without)\s+(?:co\s+|chua\s+)?[a-z]+(?:\s+[a-z]+)?|\b[a-z]+-free\b")
+
+
+def _name_without_negation(name: str) -> str:
+    return _NEGATION.sub(" ", _norm(name))
+
+
 def _allergen_terms(allergy: str) -> List[str]:
     key = _norm(allergy)
     group = _ALLERGEN_GROUP_NAMES.get(key)
@@ -163,7 +171,10 @@ def find_allergen_violations(meals: Iterable[tuple[str, str, List[str]]], allerg
             continue
         patterns = [re.compile(rf"(?<![a-z0-9]){re.escape(t.strip())}(?![a-z0-9])") for t in _allergen_terms(allergy)]
         for label, name, ingredients in meals:
-            haystack = _norm(" ; ".join([name, *ingredients]))
-            if any(p.search(haystack) for p in patterns):
-                violations.append(f"{label} '{name}' chứa nguyên liệu liên quan đến dị ứng '{allergy}'")
+            haystack = " ; ".join([_name_without_negation(name), *(_norm(i) for i in ingredients)])
+            match = next((m for m in (p.search(haystack) for p in patterns) if m), None)
+            if match:
+                violations.append(
+                    f"{label} '{name}' chứa '{match.group(0)}' (liên quan đến dị ứng '{allergy}')"
+                )
     return violations
