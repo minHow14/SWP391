@@ -52,10 +52,6 @@ def resolve_identity(
         guest_id=effective_guest_id,
     )
 
-# In-memory storage for development/demo guest meal plan usage tracking.
-# Format: {(guest_id, "YYYY-MM-DD"): count}
-_guest_meal_plan_usage_store: dict[tuple[str, str], int] = {}
-
 def get_guest_usage(guest_id: str) -> Tuple[int, int, int]:
     """
     Returns (used, remaining, daily_limit) for a guest today.
@@ -79,34 +75,7 @@ def release_guest_question(guest_id: str) -> None:
     """Refunds one reserved turn (e.g. when the AI provider failed)."""
     quota.release(guest_id, get_today_str())
 
-def get_guest_meal_plan_usage(guest_id: str) -> Tuple[int, int, int]:
-    """
-    Returns (used_plans, remaining_plans, daily_limit) for a given guest_id today.
-    """
-    limit = settings.GUEST_MEAL_PLAN_LIMIT
-    today = get_today_str()
-    used = _guest_meal_plan_usage_store.get((guest_id, today), 0)
-    remaining = max(0, limit - used)
-    return used, remaining, limit
-
-def can_guest_generate_meal_plan(guest_id: str) -> bool:
-    """Checks if a guest has any meal plan generations remaining today."""
-    _, remaining, _ = get_guest_meal_plan_usage(guest_id)
-    return remaining > 0
-
-def increment_guest_meal_plan_usage(guest_id: str) -> int:
-    """
-    Increments the meal plan count for today and returns remaining generations.
-    """
-    today = get_today_str()
-    key = (guest_id, today)
-    current = _guest_meal_plan_usage_store.get(key, 0)
-    _guest_meal_plan_usage_store[key] = current + 1
-    _, remaining, _ = get_guest_meal_plan_usage(guest_id)
-    return remaining
-
 def reset_guest_usage_for_tests() -> None:
-    """Utility to reset usage stores during automated tests."""
+    """Utility to reset the guest quota during automated tests."""
     quota.clear_for_tests()
-    _guest_meal_plan_usage_store.clear()
 
