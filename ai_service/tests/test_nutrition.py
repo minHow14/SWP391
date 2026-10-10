@@ -221,3 +221,19 @@ def test_english_plant_based_names_are_vegan():
     plant = [("Phụ", "Sữa chua dừa & hạt hướng dương", ["Coconut yogurt 100g", "Almond milk 200ml", "Vegan cheese 20g"])]
     assert not find_diet_violations(plant, "vegan")
     assert find_diet_violations([("Phụ", "Snack", ["Greek yogurt 100g"])], "vegan")
+
+
+def test_gemini_37_false_alarms_and_their_limits():
+    from core.nutrition import find_diet_violations
+
+    seed_butter = [("Phụ", "Sinh tố bơ hạt hướng dương", ["20g bơ hạt hướng dương (sunflower seed butter)"])]
+    aminos = [("Trưa", "Mì soba xào", ["Nước tương dừa (coconut aminos - không đậu nành)"])]
+    chili = [("Trưa", "Chả giò chay", ["Tương ớt 1 thìa"])]
+    assert not find_diet_violations(seed_butter, "vegan")
+    assert not find_allergen_violations(seed_butter, ["dairy"])
+    assert not find_allergen_violations(aminos, ["soy"])
+    assert not find_allergen_violations(chili, ["soy"])
+    # Vẫn bắt: nước tương thường, bánh mì hạt với gluten, bơ đậu phộng với người dị ứng đậu phộng
+    assert find_allergen_violations([("Trưa", "Rau", ["Nước tương 1 thìa"])], ["soy"])
+    assert find_allergen_violations([("Sáng", "Bánh", ["Seed bread 2 lát"])], ["gluten"])
+    assert find_allergen_violations([("Phụ", "Bánh", ["Peanut butter 15g"])], ["peanuts"])

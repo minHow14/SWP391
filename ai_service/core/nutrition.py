@@ -188,10 +188,22 @@ _PLANT_SOURCES = {
     True: r"(?:dừa|hạt|yến mạch|hạnh nhân|đậu nành|gạo|oat)",
     False: r"(?:dua|hat|yen mach|hanh nhan|dau nanh|oat|coconut|almond|soy|plant)",
 }
-# Tiếng Anh đặt nguồn thực vật phía trước: "coconut yogurt", "almond milk", "vegan cheese"
+# Tiếng Anh đặt nguồn thực vật phía trước: "coconut yogurt", "almond milk", "vegan cheese",
+# "sunflower seed butter", "plant chicken". Chỉ áp dụng cho từ chỉ sữa/trứng/thịt (không áp dụng
+# cho "bread", "pasta"... vì "seed bread" vẫn có lúa mì). Dùng cả khi kiểm tra dị ứng vì nguồn
+# đó (almond, peanut, soy...) đã được kiểm tra riêng theo dị ứng của chính nó.
 _ENGLISH_PLANT_PREFIX = "".join(
-    rf"(?<!{word} )" for word in ("coconut", "almond", "oat", "soy", "rice", "cashew", "vegan", "plant", "plant-based")
+    rf"(?<!{word} )"
+    for word in (
+        "coconut", "almond", "oat", "soy", "rice", "cashew", "vegan", "plant", "plant-based",
+        "seed", "nut", "peanut", "cocoa", "shea", "sesame", "apple",
+    )
 )
+
+_PLANT_PREFIX_TERMS = {"milk", "cheese", "butter", "yogurt", "cream", "ghee", "egg", "mayonnaise"}
+
+# Ngoại lệ theo từng từ: "tương ớt", "tương cà", "tương dừa" (coconut aminos) không có đậu nành
+_TERM_EXCEPTIONS = {"tương": r"(?!\s+(?:ớt|cà|dừa)(?!\w))"}
 
 # Tên rau/đậu có chứa từ chỉ động vật (chỉ bỏ khi kiểm tra thịt/cá, không bỏ khi kiểm tra dị ứng)
 _PLANT_NAMES = ["rau chân vịt", "chân vịt", "đậu gà", "bánh tai heo", "cỏ mực"]
@@ -212,7 +224,8 @@ def _term_patterns(
     terms: Iterable[str], plant_based_ok: bool = False, animal: bool = False
 ) -> List[TermPattern]:
     """
-    So khớp nguyên từ.
+    So khớp nguyên từ, bỏ qua _TERM_EXCEPTIONS và cụm tiếng Anh có nguồn thực vật đứng trước
+    (với từ chỉ sữa/trứng/thịt).
     - plant_based_ok: bỏ qua bản làm từ thực vật (xem _PLANT_MARKERS, _PLANT_SOURCES).
     - animal: từ chỉ thịt/cá; bỏ qua 'trứng gà', 'sữa bò' (đã kiểm tra riêng ở nhóm trứng/sữa).
     """
@@ -221,15 +234,15 @@ def _term_patterns(
         term = term.strip()
         accented = not term.isascii()
         word = r"\w" if accented else r"[a-z0-9]"
-        prefix = suffix = ""
+        use_prefix = not accented and (term in _PLANT_PREFIX_TERMS or animal)
+        prefix = _ENGLISH_PLANT_PREFIX if use_prefix else ""
+        suffix = _TERM_EXCEPTIONS.get(term, "")
         if plant_based_ok:
             marker, source = _PLANT_MARKERS[accented], _PLANT_SOURCES[accented]
-            suffix = (
+            suffix += (
                 rf"(?!(?:\s+{word}+){{0,2}}\s+{marker}(?!{word}))"
                 rf"(?!\s+{source}(?!{word}))"
             )
-            if not accented:
-                prefix = _ENGLISH_PLANT_PREFIX
         if animal and accented:
             prefix += r"(?<!trứng )(?<!sữa )"
         patterns.append(
