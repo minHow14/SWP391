@@ -1,77 +1,154 @@
 import logging
-from typing import Generator, Optional
-from sqlalchemy import create_engine, Column, Integer, String, Text, Enum
-from sqlalchemy.orm import declarative_base, sessionmaker, Session
+import threading
+import time
+from typing import Callable, Optional, TypeVar
+
+from sqlalchemy import (
+    Column,
+    Date,
+    DateTime,
+    Engine,
+    Enum,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    create_engine,
+    func,
+    insert,
+)
+from sqlalchemy.engine import Connection
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.concurrency import run_in_threadpool
+
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-Base = declarative_base()
+T = TypeVar("T")
 
-class AILog(Base):
-    """
-    Represents the existing AILog table in PostgreSQL.
-    Schema source of truth:
-      - log_id: INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY
-      - model_name: VARCHAR(255)
-      - action: VARCHAR(255)
-      - status: ai_log_status ('SUCCESS', 'ERROR')
-      - error_feedback: TEXT
-    """
-    __tablename__ = "ailog"
+# Sau khi PostgreSQL lỗi, dùng SQLite cục bộ trong khoảng này rồi mới thử lại PostgreSQL.
+PRIMARY_RETRY_SECONDS = 30
 
-    log_id = Column(Integer, primary_key=True, autoincrement=True)
-    model_name = Column(String(255), nullable=True)
-    action = Column(String(255), nullable=True)
-    status = Column(Enum("SUCCESS", "ERROR", name="ai_log_status"), nullable=False)
-    error_feedback = Column(Text, nullable=True)
+metadata = MetaData()
+
+# Bảng AILog đã có trong PostgreSQL của nhóm (xem ERD); bản SQLite chỉ dùng khi không kết nối được.
+ai_log = Table(
+    "ailog",
+    metadata,
+    Column("log_id", Integer, primary_key=True, autoincrement=True),
+    Column("model_name", String(255), nullable=True),
+    Column("action", String(255), nullable=True),
+    Column("status", Enum("SUCCESS", "ERROR", name="ai_log_status", create_type=False), nullable=False),
+    Column("error_feedback", Text, nullable=True),
+    Column("created_at", DateTime, server_default=func.now()),
+)
+
+# Hạn mức dùng AI trong ngày của khách; schema PostgreSQL nằm trong file schema đầy đủ của nhóm (bảng GuestQuota).
+guest_quota = Table(
+    "guestquota",
+    metadata,
+    Column("guest_id", String(100), primary_key=True),
+    Column("quota_date", Date, primary_key=True),
+    Column("used_count", Integer, nullable=False, server_default="0"),
+    Column("updated_at", DateTime, nullable=False, server_default=func.now()),
+)
+
+_primary: Optional[Engine] = None
+_fallback: Optional[Engine] = None
+_primary_disabled_until = 0.0
+_init_lock = threading.Lock()  # các lệnh database chạy trong threadpool
 
 
-engine = None
-SessionLocal = None
+def _sqlite_url() -> str:
+    return f"sqlite:///{settings.SQLITE_FALLBACK_PATH}"
 
-def init_db():
-    global engine, SessionLocal
-    if engine is None and settings.DATABASE_URL:
-        try:
-            engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
-            SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        except Exception as e:
-            logger.warning(f"Failed to initialize database connection: {e}")
 
-def get_db() -> Generator[Optional[Session], None, None]:
-    init_db()
-    if SessionLocal is None:
-        yield None
+def init_db() -> None:
+    """Tạo engine (lười, chưa kết nối) và các bảng của bản SQLite dự phòng."""
+    if _primary is not None:
         return
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    with _init_lock:
+        if _primary is None:
+            _create_engines()
 
-def record_ai_log(
+
+def _create_engines() -> None:
+    global _primary, _fallback
+    url = settings.DATABASE_URL
+    if url.startswith("sqlite"):
+        _primary = create_engine(url)
+        _fallback = None
+    else:
+        _primary = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 3})
+        _fallback = create_engine(_sqlite_url())
+    sqlite_engine = _fallback or _primary
+    metadata.create_all(sqlite_engine)
+
+
+def run_with_fallback(operation: Callable[[Connection], T]) -> T:
+    """
+    Chạy `operation(conn)` trong một transaction trên PostgreSQL. Nếu PostgreSQL không dùng được
+    (mất kết nối, chưa có bảng) thì chạy trên SQLite cục bộ và thử lại PostgreSQL sau một lúc.
+    """
+    global _primary_disabled_until
+    init_db()
+    if _fallback is None:
+        with _primary.begin() as conn:
+            return operation(conn)
+
+    if time.monotonic() >= _primary_disabled_until:
+        try:
+            with _primary.begin() as conn:
+                return operation(conn)
+        except SQLAlchemyError as e:
+            _primary_disabled_until = time.monotonic() + PRIMARY_RETRY_SECONDS
+            logger.warning(f"PostgreSQL unavailable, using local SQLite ({e.__class__.__name__})")
+
+    with _fallback.begin() as conn:
+        return operation(conn)
+
+
+def reset_for_tests() -> None:
+    """Đưa trạng thái kết nối về ban đầu (dùng trong test)."""
+    global _primary, _fallback, _primary_disabled_until
+    for engine in (_primary, _fallback):
+        if engine is not None:
+            engine.dispose()
+    _primary = _fallback = None
+    _primary_disabled_until = 0.0
+
+
+def _write_ai_log(
     model_name: Optional[str],
     action: str,
     status: str,
-    error_feedback: Optional[str] = None
+    error_feedback: Optional[str] = None,
+) -> None:
+    try:
+        run_with_fallback(
+            lambda conn: conn.execute(
+                insert(ai_log).values(
+                    model_name=model_name,
+                    action=action,
+                    status=status,
+                    error_feedback=error_feedback,
+                )
+            )
+        )
+    except Exception as e:
+        logger.debug(f"AILog write notice: {e}")
+
+
+async def record_ai_log(
+    model_name: Optional[str],
+    action: str,
+    status: str,
+    error_feedback: Optional[str] = None,
 ) -> None:
     """
-    Safely writes an entry to the existing AILog table.
-    Fails gracefully so that database issues never break chatbot responses.
+    Ghi một dòng vào AILog (PostgreSQL, hoặc SQLite dự phòng) trong threadpool. Không bao giờ
+    ném lỗi để sự cố database không làm hỏng câu trả lời của chatbot.
     """
-    try:
-        init_db()
-        if SessionLocal is None:
-            return
-        with SessionLocal() as session:
-            entry = AILog(
-                model_name=model_name,
-                action=action,
-                status=status,
-                error_feedback=error_feedback
-            )
-            session.add(entry)
-            session.commit()
-    except Exception as e:
-        logger.warning(f"Unable to write to AILog: {e}")
+    await run_in_threadpool(_write_ai_log, model_name, action, status, error_feedback)
