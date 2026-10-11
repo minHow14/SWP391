@@ -70,7 +70,6 @@ export const videoService = {
               select: {
                 user_id: true,
                 full_name: true,
-                email: true,
               },
             },
           },
@@ -113,7 +112,6 @@ export const videoService = {
               select: {
                 user_id: true,
                 full_name: true,
-                email: true,
               },
             },
           },
@@ -169,7 +167,7 @@ export const videoService = {
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
     if (video_url !== undefined) updateData.video_url = video_url.trim();
-    if (thumbnail_url !== undefined) updateData.thumbnail_url = thumbnail_url.trim();
+    if (thumbnail_url !== undefined) updateData.thumbnail_url = thumbnail_url?.trim() || null;
     if (duration !== undefined) updateData.duration = Number(duration);
     if (transcript !== undefined) updateData.transcript = transcript;
 
@@ -183,7 +181,6 @@ export const videoService = {
               select: {
                 user_id: true,
                 full_name: true,
-                email: true,
               },
             },
           },

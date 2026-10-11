@@ -43,7 +43,6 @@ export const commentService = {
           select: {
             user_id: true,
             full_name: true,
-            email: true,
           },
         },
       },
@@ -78,7 +77,6 @@ export const commentService = {
           select: {
             user_id: true,
             full_name: true,
-            email: true,
           },
         },
       },
@@ -122,7 +120,6 @@ export const commentService = {
           select: {
             user_id: true,
             full_name: true,
-            email: true,
           },
         },
       },
