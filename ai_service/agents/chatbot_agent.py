@@ -17,6 +17,12 @@ class ChatbotAgent:
         # Cache các câu hỏi tra cứu dinh dưỡng lặp lại trong 1 giờ (tối đa 150 câu)
         self._cache: TTLCache = TTLCache(maxsize=150, ttl=3600)
 
+    def clear_cache(self) -> int:
+        """Xoá cache câu trả lời; trả về số câu đã xoá (Admin dùng khi đổi prompt hoặc model)."""
+        count = len(self._cache)
+        self._cache.clear()
+        return count
+
     def load_prompt(self, dietary_type: Optional[str] = None, menu_context: Optional[str] = None) -> str:
         if self._prompt_content is None:
             if PROMPT_FILE.exists():
