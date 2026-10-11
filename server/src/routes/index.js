@@ -6,6 +6,7 @@ import commentRoutes from './comment.route.js';
 import voteRoutes from './vote.route.js';
 import searchRoutes from './search.route.js';
 import recommendationRoutes from './recommendation.route.js';
+import placesRoutes from './places.route.js';
 
 const router = express.Router();
 
@@ -16,5 +17,6 @@ router.use('/comments', commentRoutes);
 router.use('/votes', voteRoutes);
 router.use('/search', searchRoutes);
 router.use('/recommendations', recommendationRoutes);
+router.use('/places', placesRoutes);
 
 export default router;

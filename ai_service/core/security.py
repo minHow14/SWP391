@@ -151,6 +151,11 @@ async def release_guest_question(guest_id: str) -> None:
     await run_in_threadpool(quota.release, guest_id, get_today())
 
 
+async def admin_reset_guest_quota(guest_id: str) -> int:
+    """Admin xoá hạn mức hôm nay của một khách; trả về số lượt đã dùng trước khi xoá."""
+    return await run_in_threadpool(quota.reset, guest_id, get_today())
+
+
 def reset_guest_usage_for_tests() -> None:
     """Utility to reset the guest quota during automated tests."""
     quota.clear_for_tests()

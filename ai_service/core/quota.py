@@ -46,6 +46,18 @@ def release(guest_id: str, day: date) -> None:
     )
 
 
+def reset(guest_id: str, day: date) -> int:
+    """Xoá hạn mức đã dùng của một khách trong ngày; trả về số lượt đã dùng trước khi xoá."""
+    used = run_with_fallback(
+        lambda conn: conn.execute(
+            delete(guest_quota)
+            .where(guest_quota.c.guest_id == guest_id, guest_quota.c.quota_date == day)
+            .returning(guest_quota.c.used_count)
+        ).scalar()
+    )
+    return used or 0
+
+
 def get_used(guest_id: str, day: date) -> int:
     return run_with_fallback(
         lambda conn: conn.execute(

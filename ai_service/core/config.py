@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     # DeepSeek: chatbot hỏi đáp và thực đơn (JSON)
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_MODEL: str = "deepseek-chat"
+    # Model dùng thay thế khi model chính gặp sự cố (để trống để tắt)
+    DEEPSEEK_FALLBACK_MODEL: str = "deepseek-v4-pro"
 
     # Database: dùng DATABASE_URL nếu có, ngược lại ghép từ các biến DB_*
     DATABASE_URL_OVERRIDE: str = Field("", validation_alias="DATABASE_URL")

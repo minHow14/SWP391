@@ -1,9 +1,13 @@
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { getNearby, searchPlaces } from '../controllers/PlacesController.js';
-import { fail } from '../utils/response.js';
+import { getNearby, searchPlaces } from '../controllers/places.controller.js';
+import { requestId } from '../middlewares/requestId.js';
+import { fail } from '../utils/envelope.js';
 
 const router = express.Router();
+
+// Mã request req_<id> cho envelope và header X-Request-Id của các route /places
+router.use(requestId);
 
 // Giới hạn theo IP để tránh spam và tiêu hao credit ZIOMAP
 router.use(
