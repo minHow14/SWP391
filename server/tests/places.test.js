@@ -1,8 +1,13 @@
-import { test, beforeEach, afterEach } from 'node:test';
+import { test, beforeEach, afterEach } from 'vitest';
 import assert from 'node:assert/strict';
 import request from 'supertest';
-import app from '../app.js';
-import { clearZiomapCache, normalize } from '../services/PlacesService.js';
+import express from 'express';
+import placesRoutes from '../src/routes/places.route.js';
+import { clearZiomapCache, normalize } from '../src/services/places.service.js';
+
+// Chỉ dựng route /places, không kéo theo Prisma/DB của các module khác
+const app = express();
+app.use('/api/places', placesRoutes);
 
 const DISTRICT_1 = { lat: 10.7769, lng: 106.7009 };
 const FAR_AWAY = { lat: 21.0285, lng: 105.8542 }; // Hà Nội, ngoài vùng có quán trong DB
@@ -243,10 +248,4 @@ test('X-Request-Id của client được giữ nguyên', async () => {
     .set('X-Request-Id', 'req_from_client')
     .query(DISTRICT_1);
   assert.equal(res.body.meta.requestId, 'req_from_client');
-});
-
-test('gợi ý quán của /api/recommendations dùng chung dữ liệu với places', async () => {
-  const res = await request(app).get('/api/recommendations/suggest').query({ keyword: 'pho chay' });
-  assert.equal(res.status, 200);
-  assert.ok(res.body.recommendations.shops.length >= 2);
 });

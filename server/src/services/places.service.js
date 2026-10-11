@@ -6,7 +6,7 @@ import {
   restaurantMenuItems,
   restaurantRecipes,
   recipes,
-} from '../data/mockStore.js';
+} from '../data/placesSample.js';
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
