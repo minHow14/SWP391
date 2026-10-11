@@ -214,6 +214,9 @@ npm run prisma:generate
 # Đồng bộ trực tiếp cấu trúc schema vào PostgreSQL database local
 npm run prisma:push
 
+# Nạp dữ liệu mẫu (Seed Data) vào PostgreSQL
+npm run seed
+
 # (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
 npm run prisma:studio
 ```

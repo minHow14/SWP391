@@ -122,7 +122,10 @@ cp .env.example .env
 npm run prisma:generate
 npm run prisma:push
 
-# 5. Khởi chạy server ở chế độ phát triển
+# 5. Nạp dữ liệu mẫu (Seed Data) vào cơ sở dữ liệu
+npm run seed
+
+# 6. Khởi chạy server ở chế độ phát triển
 npm run dev
 ```
 > Server sẽ chạy tại: `http://localhost:5000` (Kiểm tra tại `http://localhost:5000/health`)
