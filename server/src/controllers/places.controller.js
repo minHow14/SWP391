@@ -75,7 +75,7 @@ export async function getNearby(req, res) {
     return fail(res, 400, 'INVALID_INPUT', 'Cần cung cấp cả lat và lng.');
   }
 
-  const local = findNearbyLocal({ lat, lng, radiusKm });
+  const local = await findNearbyLocal({ lat, lng, radiusKm });
   // DB đã đủ kết quả thì không gọi ZIOMAP để tiết kiệm phí
   if (local.length >= limit) {
     return ok(res, { places: local.slice(0, limit) }, 200, { ziomap: 'not_needed' });
@@ -99,7 +99,7 @@ export async function searchPlaces(req, res) {
     return fail(res, 400, 'INVALID_INPUT', 'lat và lng phải đi cùng nhau.');
   }
 
-  const local = searchLocal({ query: q, lat, lng }).slice(0, limit);
+  const local = (await searchLocal({ query: q, lat, lng })).slice(0, limit);
   // Chỉ hỏi ZIOMAP khi DB không có quán phù hợp và biết vị trí người dùng
   if (local.length > 0 || lat === undefined) {
     return ok(res, { places: local }, 200, { ziomap: 'not_needed' });

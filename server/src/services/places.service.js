@@ -1,12 +1,7 @@
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
-import {
-  restaurants,
-  restaurantMenuItems,
-  restaurantRecipes,
-  recipes,
-} from '../data/placesSample.js';
+import prisma from '../config/prisma.js';
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
@@ -37,59 +32,89 @@ export const mapsUrl = ({ latitude, longitude, place_id }) =>
 const GENERIC_QUERY_WORDS = new Set(['chay', 'quan', 'nha', 'hang', 'mon', 'an', 'vegan', 'vegetarian']);
 
 const distanceMeters = (from, to) =>
-  from ? getDistance(from, { latitude: to.latitude, longitude: to.longitude }) : null;
+  from && to?.latitude != null && to?.longitude != null
+    ? getDistance(from, { latitude: to.latitude, longitude: to.longitude })
+    : null;
 
-// Món của quán = menu dạng văn bản + công thức quán đang phục vụ
-const dishesOf = (restaurantId) => {
-  const menu = restaurantMenuItems
-    .filter((item) => item.restaurant_id === restaurantId)
-    .map((item) => item.dish_name);
-  const recipeNames = restaurantRecipes
-    .filter((rr) => rr.restaurant_id === restaurantId)
-    .map((rr) => recipes.find((r) => r.recipe_id === rr.recipe_id)?.recipe_name)
-    .filter(Boolean);
-  return [...new Set([...menu, ...recipeNames])];
+// Món của quán = danh sách công thức / món ăn quán đang phục vụ qua bảng restaurant_recipes
+const dishesOf = (restaurant) => {
+  const recipeNames = restaurant.restaurant_recipes
+    ?.map((rr) => rr.recipe?.recipe_name)
+    .filter(Boolean) ?? [];
+  return [...new Set(recipeNames)];
 };
 
-const toPlace = (restaurant, origin, extra = {}) => ({
-  id: `local_${restaurant.restaurant_id}`,
-  source: 'local',
-  restaurant_id: restaurant.restaurant_id,
-  name: restaurant.name,
-  address: restaurant.address,
-  latitude: restaurant.latitude,
-  longitude: restaurant.longitude,
-  phone: restaurant.phone ?? null,
-  diet_type_id: restaurant.diet_type_id ?? null,
-  rating: null,
-  place_id: restaurant.google_place_id ?? null,
-  distance_m: distanceMeters(origin, restaurant),
-  maps_url: mapsUrl({
-    latitude: restaurant.latitude,
-    longitude: restaurant.longitude,
-    place_id: restaurant.google_place_id,
-  }),
-  ...extra,
-});
+const toPlace = (restaurant, origin, extra = {}) => {
+  const lat = restaurant.latitude != null ? Number(restaurant.latitude) : null;
+  const lng = restaurant.longitude != null ? Number(restaurant.longitude) : null;
+  const location = lat != null && lng != null ? { latitude: lat, longitude: lng } : null;
+
+  return {
+    id: `local_${restaurant.restaurant_id}`,
+    source: 'local',
+    restaurant_id: restaurant.restaurant_id,
+    name: restaurant.name,
+    address: restaurant.address,
+    latitude: lat,
+    longitude: lng,
+    phone: restaurant.phone ?? null,
+    diet_type_id: restaurant.diet_type_id ?? null,
+    diet_type: restaurant.diet_type?.name ?? null,
+    rating: restaurant.rating != null ? Number(restaurant.rating) : null,
+    image_url: restaurant.image_url ?? null,
+    place_id: null,
+    distance_m: origin && location ? distanceMeters(origin, location) : null,
+    maps_url: location
+      ? mapsUrl({ latitude: lat, longitude: lng, place_id: null })
+      : null,
+    ...extra,
+  };
+};
 
 const byDistance = (a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity);
 
 /** Quán trong DB nằm trong bán kính, xếp từ gần đến xa. */
-export function findNearbyLocal({ lat, lng, radiusKm }) {
+export async function findNearbyLocal({ lat, lng, radiusKm }) {
   const origin = { latitude: lat, longitude: lng };
+  const restaurants = await prisma.restaurant.findMany({
+    where: {
+      latitude: { not: null },
+      longitude: { not: null },
+    },
+    include: {
+      diet_type: true,
+      restaurant_recipes: {
+        include: {
+          recipe: true,
+        },
+      },
+    },
+  });
+
   return restaurants
     .map((restaurant) => toPlace(restaurant, origin))
-    .filter((place) => place.distance_m <= radiusKm * 1000)
+    .filter((place) => place.distance_m !== null && place.distance_m <= radiusKm * 1000)
     .sort(byDistance);
 }
 
 /** Tìm quán trong DB theo tên quán hoặc tên món (không dấu, cho phép gõ sai nhẹ). */
-export function searchLocal({ query, lat, lng }) {
+export async function searchLocal({ query, lat, lng }) {
   const origin = lat !== undefined && lng !== undefined ? { latitude: lat, longitude: lng } : null;
+  const restaurants = await prisma.restaurant.findMany({
+    include: {
+      diet_type: true,
+      restaurant_recipes: {
+        include: {
+          recipe: true,
+        },
+      },
+    },
+  });
+
   const docs = restaurants.map((restaurant) => ({
     restaurant,
     name: normalize(restaurant.name),
-    dishes: dishesOf(restaurant.restaurant_id).map((dish) => ({
+    dishes: dishesOf(restaurant).map((dish) => ({
       original: dish,
       text: normalize(dish),
     })),

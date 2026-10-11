@@ -1,16 +1,17 @@
-import { test, beforeEach, afterEach } from 'vitest';
+import { test, beforeEach, afterEach, afterAll } from 'vitest';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import express from 'express';
 import placesRoutes from '../src/routes/places.route.js';
 import { clearZiomapCache, normalize } from '../src/services/places.service.js';
+import prisma from '../src/config/prisma.js';
 
-// Chỉ dựng route /places, không kéo theo Prisma/DB của các module khác
+// Dựng route /places với dữ liệu thật từ PostgreSQL qua Prisma
 const app = express();
 app.use('/api/places', placesRoutes);
 
 const DISTRICT_1 = { lat: 10.7769, lng: 106.7009 };
-const FAR_AWAY = { lat: 21.0285, lng: 105.8542 }; // Hà Nội, ngoài vùng có quán trong DB
+const FAR_AWAY = { lat: 16.0544, lng: 108.2022 }; // Đà Nẵng, ngoài vùng có quán trong DB
 const TEST_KEY = 'test-ziomap-key';
 
 const originalFetch = globalThis.fetch;
@@ -23,6 +24,10 @@ beforeEach(() => {
 afterEach(() => {
   globalThis.fetch = originalFetch;
   delete process.env.ZIOMAP_API_KEY;
+});
+
+afterAll(async () => {
+  await prisma.$disconnect();
 });
 
 const ziomapReply = (places) => async () => ({ ok: true, status: 200, json: async () => ({ places }) });
@@ -72,19 +77,19 @@ test('nearby thiếu hoặc sai toạ độ trả 400 INVALID_INPUT', async () =
 });
 
 test('search tìm quán theo tên món không dấu và sắp xếp theo khoảng cách', async () => {
-  const res = await request(app).get('/api/places/search').query({ q: 'pho chay', ...DISTRICT_1 });
+  const res = await request(app).get('/api/places/search').query({ q: 'salad', ...DISTRICT_1 });
   assert.equal(res.status, 200);
   const places = res.body.data.places;
-  const withPho = places.filter((p) => p.matched_dishes.includes('Phở chay'));
+  const withSalad = places.filter((p) => p.matched_dishes.some((d) => d.includes('Salad')));
   assert.deepEqual(
-    withPho.map((p) => p.restaurant_id).sort(),
-    [3, 6]
+    withSalad.map((p) => p.restaurant_id).sort(),
+    [1, 3, 4, 7]
   );
   assert.ok(places.every((p) => p.distance_m !== null));
 });
 
 test('search bỏ từ chung "chay": chỉ trả quán thật sự có món', async () => {
-  const res = await request(app).get('/api/places/search').query({ q: 'phở chay', ...DISTRICT_1 });
+  const res = await request(app).get('/api/places/search').query({ q: 'salad chay', ...DISTRICT_1 });
   assert.equal(res.status, 200);
   const places = res.body.data.places;
   assert.ok(places.length >= 2);
@@ -98,7 +103,7 @@ test('search chỉ có từ chung vẫn tìm theo tên quán', async () => {
 });
 
 test('search chỉ cần từ khoá, không bắt buộc vị trí', async () => {
-  const res = await request(app).get('/api/places/search').query({ q: 'bun rieu' });
+  const res = await request(app).get('/api/places/search').query({ q: 'dau hu' });
   assert.equal(res.status, 200);
   assert.ok(res.body.data.places.length >= 2);
   assert.ok(res.body.data.places.every((p) => p.distance_m === null));
@@ -121,9 +126,9 @@ test('bổ sung từ ZIOMAP khi DB không có quán gần, kết quả được 
     return ziomapReply([
       {
         id: 'ChIJ_abc',
-        displayName: { text: 'Quán Chay Hà Nội' },
-        formattedAddress: '1 Hàng Bài, Hà Nội',
-        location: { latitude: 21.0281, longitude: 105.8524 },
+        displayName: { text: 'Quán Chay Đà Nẵng' },
+        formattedAddress: '1 Bạch Đằng, Đà Nẵng',
+        location: { latitude: 16.0540, longitude: 108.2020 },
       },
     ])();
   };
@@ -156,8 +161,8 @@ test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB', async () => 
     requested = new URL(url).searchParams.get('maxResultCount');
     return ziomapReply([])();
   };
-  // Bán kính 0.5 km quanh Quận 1 chỉ có vài quán trong DB
-  const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 0.5, limit: 10 });
+  // Bán kính 1.5 km quanh Quận 1 có 2 quán trong DB (Hum Vegetarian & Thiền Tâm)
+  const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 1.5, limit: 10 });
   assert.equal(res.status, 200);
   const local = res.body.data.places.length;
   assert.ok(local > 0 && local < 10);
@@ -170,12 +175,12 @@ test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không gi
     {
       id: 'near',
       displayName: { text: 'Quán gần' },
-      location: { latitude: 21.0281, longitude: 105.8524 }, // ~200 m
+      location: { latitude: 16.0540, longitude: 108.2020 }, // ~50 m
     },
     {
       id: 'far',
       displayName: { text: 'Quán xa' },
-      location: { latitude: 21.2, longitude: 106.0 }, // ~25 km
+      location: { latitude: 16.5, longitude: 108.5 }, // ~60 km
     },
   ]);
   const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
@@ -188,7 +193,7 @@ test('quán ZIOMAP thiếu toạ độ bị bỏ qua, không làm hỏng respons
   globalThis.fetch = ziomapReply([
     { id: 'no_location', displayName: { text: 'Thiếu toạ độ' } },
     { id: 'bad', displayName: { text: 'Sai toạ độ' }, location: { latitude: 'x', longitude: 1 } },
-    { id: 'ok', displayName: { text: 'Hợp lệ' }, location: { latitude: 21.0281, longitude: 105.8524 } },
+    { id: 'ok', displayName: { text: 'Hợp lệ' }, location: { latitude: 16.0540, longitude: 108.2020 } },
   ]);
   const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
   assert.equal(res.status, 200);

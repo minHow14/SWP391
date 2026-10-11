@@ -34,10 +34,6 @@ server/
     │   ├── status.js          # Trạng thái tài khoản, bài viết, báo cáo
     │   └── index.js           # Re-export constants
     │
-    ├── data/                  # Nguồn dữ liệu mẫu & fallback
-    │   ├── mockStore.js       # [Deprecated] Dữ liệu mẫu lịch sử
-    │   └── placesSample.js    # Dữ liệu mẫu quán ăn / nhà hàng chay phục vụ tìm kiếm & fallback
-    │
     ├── middlewares/           # Middleware trung gian của Express
     │   ├── asyncMiddleware.js # Wrapper asyncHandler tự động bắt lỗi không đồng bộ
     │   ├── authMiddleware.js  # Xác thực JWT Bearer token và gán user vào req.user
