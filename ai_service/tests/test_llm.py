@@ -71,3 +71,10 @@ def test_fallback_model_runs_with_thinking_disabled(monkeypatch):
     fallback = llm._client("deepseek-v4-pro", 0.3, 30, thinking=False)
     assert not primary.extra_body
     assert fallback.extra_body == {"thinking": {"type": "disabled"}}
+
+
+def test_json_clients_get_a_larger_token_budget_than_chat(monkeypatch):
+    monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
+    assert llm.get_llm_json().max_tokens == 8192
+    assert llm._client("deepseek-chat", 0.7, 30).max_tokens == 4096  # chat giữ nguyên
+    assert llm.JSON_MAX_TOKENS > llm.TEXT_MAX_TOKENS

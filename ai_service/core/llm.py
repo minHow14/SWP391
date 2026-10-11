@@ -13,18 +13,24 @@ DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 # model dự phòng. Lỗi sai định dạng đầu ra là ValueError và để agent tự thử lại kèm góp ý.
 PROVIDER_ERRORS = (openai.APIError, httpx.HTTPError, TimeoutError)
 
+# Chat trả lời ngắn; thực đơn JSON dài hơn nhiều (7 ngày ~6.400-7.500 token, 3 ngày ~3.900)
+TEXT_MAX_TOKENS = 4096
+JSON_MAX_TOKENS = 8192
+
 
 def get_json_model_name() -> str:
     """Tên model chính (ghi vào AILog)."""
     return settings.DEEPSEEK_MODEL or "deepseek-chat"
 
 
-def _client(model: str, temperature: float, timeout: float, thinking: bool = True) -> ChatOpenAI:
+def _client(
+    model: str, temperature: float, timeout: float, thinking: bool = True, max_tokens: int = TEXT_MAX_TOKENS
+) -> ChatOpenAI:
     return ChatOpenAI(
         model=model,
         api_key=settings.DEEPSEEK_API_KEY,
         base_url=DEEPSEEK_BASE_URL,
-        max_tokens=4096,
+        max_tokens=max_tokens,
         temperature=temperature,
         request_timeout=timeout,
         # Model suy nghĩ (deepseek-v4-pro) từ chối tool_choice bắt buộc dùng cho JSON (HTTP 400) và
@@ -60,7 +66,7 @@ def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
     Client DeepSeek (model chính) cho câu trả lời JSON phức tạp: timeout dài (90s), temperature thấp
     (0.3) để đầu ra ổn định theo schema.
     """
-    return _client(get_json_model_name(), 0.3, timeout)
+    return _client(get_json_model_name(), 0.3, timeout, max_tokens=JSON_MAX_TOKENS)
 
 
 def get_structured_llm(schema: Type[BaseModel], timeout: float = 90.0):
@@ -74,5 +80,7 @@ def get_structured_llm(schema: Type[BaseModel], timeout: float = 90.0):
     fallback_model = _fallback_model()
     return with_model_fallback(
         structured(get_llm_json(timeout=timeout)),
-        structured(_client(fallback_model, 0.3, timeout, thinking=False)) if fallback_model else None,
+        structured(_client(fallback_model, 0.3, timeout, thinking=False, max_tokens=JSON_MAX_TOKENS))
+        if fallback_model
+        else None,
     )
