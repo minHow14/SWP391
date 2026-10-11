@@ -1,6 +1,6 @@
-# Backend Server Architecture - SWP391
+# Backend Server Architecture - SWP391 (Chay Xanh)
 
-Hệ thống API backend cho dự án **SWP391 - Vegetarian & Healthy Platform** được thiết kế theo mô hình **Layered Architecture (Kiến trúc phân tầng)** chuẩn công nghiệp dành cho Express.js / Node.js kết hợp với **Prisma ORM** và cơ sở dữ liệu **PostgreSQL**.
+Hệ thống API backend cho dự án **SWP391 - Vegetarian & Healthy Platform (Chay Xanh)** được thiết kế theo mô hình **Layered Architecture (Kiến trúc phân tầng)** chuẩn công nghiệp dành cho Express.js / Node.js kết hợp với **Prisma ORM**, cơ sở dữ liệu **PostgreSQL**, kiểm thử tự động với **Vitest**, và xác thực dữ liệu đầu vào bằng **Zod**.
 
 ---
 
@@ -10,63 +10,80 @@ Hệ thống API backend cho dự án **SWP391 - Vegetarian & Healthy Platform**
 server/
 ├── .env                       # File cấu hình biến môi trường cục bộ (không commit)
 ├── .env.example               # Mẫu biến môi trường cho thành viên nhóm
-├── package.json               # Quản lý dependencies & scripts (Express, Prisma, Cors...)
-├── index.js                   # Forwarder entry point (đảm bảo tương thích ngược)
+├── package.json               # Quản lý dependencies & scripts (Express, Prisma, Vitest, Zod...)
+├── index.js                   # Forwarder entry point tới src/server.js
 ├── prisma/                    # Quản lý cấu trúc Database ORM
 │   └── schema.prisma          # Định nghĩa 23 models và relationships của hệ thống
+├── test/                      # Test suites kiểm thử API boundary
+│   └── app.test.js
+├── tests/                     # Test suites kiểm thử Places API
+│   └── places.test.js
 └── src/
     ├── app.js                 # Khởi tạo Express app, global middlewares, routes, error handlers
     ├── server.js              # Entry point khởi chạy HTTP server, graceful shutdown DB
+    ├── validators.js          # Khai báo Zod schemas kiểm thực dữ liệu (Body & Query & Params)
     │
     ├── config/                # Quản lý cấu hình tập trung
     │   ├── index.js           # Đọc biến môi trường, thiết lập defaults (PORT, DB, JWT, CORS)
-    │   └── prisma.js          # Khởi tạo PrismaClient singleton tái sử dụng kết nối
+    │   └── prisma.js          # Khởi tạo PrismaClient singleton tái sử dụng kết nối pool
     │
     ├── constants/             # Quản lý các hằng số hệ thống
-    │   ├── httpStatus.js      # Mã trạng thái HTTP (200, 201, 400, 404, 500...)
+    │   ├── httpStatus.js      # Mã trạng thái HTTP chuẩn (200, 201, 400, 401, 403, 404, 500...)
     │   ├── postTypes.js       # Loại bài viết, vote, bữa ăn, giới tính
-    │   ├── roles.js           # Phân quyền người dùng (ADMIN, USER)
+    │   ├── roles.js           # Phân quyền người dùng (ADMIN = 1, USER = 2)
     │   ├── status.js          # Trạng thái tài khoản, bài viết, báo cáo
     │   └── index.js           # Re-export constants
     │
-    ├── data/                  # Nguồn dữ liệu
-    │   └── mockStore.js       # [Deprecated] Dữ liệu mẫu lịch sử (đã chuyển sang PostgreSQL)
+    ├── data/                  # Nguồn dữ liệu mẫu & fallback
+    │   ├── mockStore.js       # [Deprecated] Dữ liệu mẫu lịch sử
+    │   └── placesSample.js    # Dữ liệu mẫu quán ăn / nhà hàng chay phục vụ tìm kiếm & fallback
     │
     ├── middlewares/           # Middleware trung gian của Express
-    │   ├── asyncMiddleware.js # Wrapper asyncHandler tự động bắt lỗi không cần try/catch
+    │   ├── asyncMiddleware.js # Wrapper asyncHandler tự động bắt lỗi không đồng bộ
+    │   ├── authMiddleware.js  # Xác thực JWT Bearer token và gán user vào req.user
     │   ├── errorMiddleware.js # Middleware xử lý 404 và Global Error Handler
+    │   ├── requestId.js       # Gán và quản lý mã X-Request-Id theo dõi luồng request
+    │   ├── validationMiddleware.js # Middleware validate request payload/params theo Zod
     │   └── index.js           # Re-export middlewares
     │
     ├── utils/                 # Các hàm tiện ích dùng chung
     │   ├── apiError.js        # Lớp tùy biến ApiError chuẩn hóa mã lỗi
     │   ├── apiResponse.js     # Chuẩn hóa định dạng phản hồi REST API
+    │   ├── envelope.js        # Chuẩn hóa định dạng envelope response (success/error/meta)
+    │   ├── jwt.js             # Tiện ích ký, mã hóa và verify JWT token
     │   └── index.js           # Re-export utils
     │
-    ├── services/              # Tầng Business Logic kết nối Prisma ORM
-    │   ├── blog.service.js    # Nghiệp vụ Blog (CRUD, ACID transaction với Post)
-    │   ├── video.service.js   # Nghiệp vụ Video (CRUD, ACID transaction với Post)
+    ├── services/              # Tầng Business Logic kết nối Prisma ORM & Database
+    │   ├── auth.service.js    # Nghiệp vụ xác thực (Đăng ký, Đăng nhập, mã hóa bcrypt)
+    │   ├── blog.service.js    # Nghiệp vụ Blog (CRUD, ACID transaction đồng bộ bảng Post)
+    │   ├── video.service.js   # Nghiệp vụ Video (CRUD, ACID transaction đồng bộ bảng Post)
     │   ├── comment.service.js # Nghiệp vụ Bình luận (CRUD theo bài viết)
-    │   ├── vote.service.js    # Nghiệp vụ Bình chọn (Upsert PostVote, tính điểm)
+    │   ├── vote.service.js    # Nghiệp vụ Bình chọn (Upsert PostVote, tính điểm up/down)
     │   ├── search.service.js  # Tìm kiếm Blog & Video bằng PostgreSQL Insensitive Search
     │   ├── recommendation.service.js # Thuật toán gợi ý Video & Nhà hàng
+    │   ├── places.service.js  # Tìm kiếm địa điểm chay lân cận (Geolib) & từ khóa (Fuse.js)
     │   └── index.js
     │
     ├── controllers/           # Tầng Controllers (Tiếp nhận Req, chuẩn hóa response)
+    │   ├── auth.controller.js
     │   ├── blog.controller.js
     │   ├── video.controller.js
     │   ├── comment.controller.js
     │   ├── vote.controller.js
     │   ├── search.controller.js
     │   ├── recommendation.controller.js
+    │   ├── places.controller.js
     │   └── index.js
     │
     └── routes/                # Tầng Routes (Định tuyến API Endpoints)
-        ├── blog.route.js
-        ├── video.route.js
-        ├── comment.route.js
-        ├── vote.route.js
-        ├── search.route.js
-        ├── recommendation.route.js
+        ├── auth.route.js      # /api/auth (Đăng ký, Đăng nhập, Profile)
+        ├── blog.route.js      # /api/blogs (CRUD bài viết blog chay)
+        ├── video.route.js     # /api/videos (CRUD video hướng dẫn)
+        ├── comment.route.js   # /api/comments (Bình luận bài viết)
+        ├── vote.route.js      # /api/votes (Bình chọn bài viết)
+        ├── search.route.js    # /api/search (Tìm kiếm toàn cục)
+        ├── recommendation.route.js # /api/recommendations (Gợi ý nội dung)
+        ├── places.route.js    # /api/places (Địa điểm quán ăn chay lân cận)
         └── index.js           # Gom toàn bộ route vào router chính (/api/...)
 ```
 
@@ -74,76 +91,161 @@ server/
 
 ## 🔄 Luồng xử lý Request (Request Lifecycle)
 
-```
+```text
 Client Request
       │
       ▼
-[Express App & Middlewares] (CORS, JSON Parser, URL-encoded)
+[Express App & Global Middlewares]
+  ├── CORS (quản lý truy cập từ Client URL)
+  ├── JSON Parser & URL-encoded (giới hạn payload 1MB)
+  └── X-Request-Id Tracing
       │
       ▼
-[Routes Layer (src/routes/)] (/api/blogs, /api/videos, /api/comments, ...)
+[Routes Layer (src/routes/)]
+      │
+      ├── [Validation Middleware (Zod)] ──► Thất bại ──► 400 Bad Request
+      ├── [Auth Middleware (JWT)]       ──► Không hợp lệ ──► 401 Unauthorized
       │
       ▼
-[Controllers Layer (src/controllers/)] (Nhận req, gọi service, trả sendSuccess/sendCreated)
+[Controllers Layer (src/controllers/)] (Nhận req, extract params/payload, gọi service)
       │
       ▼
-[Services Layer (src/services/)] (Nghiệp vụ, xác thực quan hệ, tính toán)
+[Services Layer (src/services/)] (Xử lý nghiệp vụ, kiểm tra ràng buộc, tính toán)
       │
       ▼
-[Prisma ORM (src/config/prisma.js)] (Type-safe queries, Transactions)
+[Prisma ORM Client (src/config/prisma.js)] (Type-safe queries, Prisma Transactions)
       │
       ▼
 [PostgreSQL Database (vegetarian_db)]
       │
-      ▼ (Nếu phát sinh lỗi)
-[Global Error Handler (src/middlewares/errorMiddleware.js)]
+      ├── [Thành công] ──► sendSuccess / sendCreated / envelope
+      │
+      └── [Nếu phát sinh lỗi] ──► Global Error Handler (src/middlewares/errorMiddleware.js)
 ```
+
+---
+
+## 📡 Danh sách API Endpoints
+
+### 1. Xác thực & Tài khoản (`/api/auth`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Không | Đăng ký tài khoản người dùng mới (email, password, full_name) |
+| `POST` | `/api/auth/login` | Không | Đăng nhập hệ thống, nhận JWT access token |
+| `GET` | `/api/auth/me` | Có (Bearer Token) | Lấy thông tin tài khoản hiện tại |
+
+### 2. Bài viết Blog (`/api/blogs`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/blogs` | Không | Lấy danh sách blog (hỗ trợ phân trang, sắp xếp) |
+| `GET` | `/api/blogs/:id` | Không | Xem chi tiết bài viết blog theo ID |
+| `POST` | `/api/blogs` | Có (Bearer Token) | Tạo bài viết blog mới |
+| `PUT` | `/api/blogs/:id` | Có (Bearer Token) | Cập nhật bài viết blog (chỉ tác giả) |
+| `DELETE` | `/api/blogs/:id` | Có (Bearer Token) | Xóa bài viết blog (chỉ tác giả hoặc Admin) |
+
+### 3. Video Hướng dẫn (`/api/videos`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/videos` | Không | Lấy danh sách video món chay |
+| `GET` | `/api/videos/:id` | Không | Xem chi tiết video theo ID |
+| `POST` | `/api/videos` | Có (Bearer Token) | Đăng tải video hướng dẫn mới |
+| `PUT` | `/api/videos/:id` | Có (Bearer Token) | Chỉnh sửa thông tin video |
+| `DELETE` | `/api/videos/:id` | Có (Bearer Token) | Xóa video |
+
+### 4. Bình luận (`/api/comments`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/comments/post/:postId` | Không | Lấy danh sách bình luận của bài viết |
+| `POST` | `/api/comments` | Có (Bearer Token) | Thêm bình luận mới vào bài viết |
+| `PUT` | `/api/comments/:id` | Có (Bearer Token) | Chỉnh sửa nội dung bình luận |
+| `DELETE` | `/api/comments/:id` | Có (Bearer Token) | Xóa bình luận |
+
+### 5. Bình chọn & Đánh giá (`/api/votes`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/votes/post/:postId` | Không | Xem tổng quan lượt vote up/down của bài viết |
+| `POST` | `/api/votes` | Có (Bearer Token) | Thực hiện vote up (+1) hoặc down (-1) |
+| `DELETE` | `/api/votes/post/:postId` | Có (Bearer Token) | Hủy lượt vote đã bình chọn |
+
+### 6. Tìm kiếm & Gợi ý (`/api/search`, `/api/recommendations`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/search?q={keyword}` | Không | Tìm kiếm toàn cục Blog & Video theo từ khóa |
+| `GET` | `/api/recommendations/suggest?q={k}` | Không | Gợi ý nội dung liên quan theo từ khóa tìm kiếm |
+
+### 7. Quán ăn & Địa điểm chay (`/api/places`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/places/nearby?lat={lat}&lng={lng}&radius={m}` | Không (Rate limit) | Tìm quán chay gần đây theo tọa độ GPS và bán kính |
+| `GET` | `/api/places/search?q={keyword}` | Không (Rate limit) | Tìm quán chay theo tên hoặc món ăn |
+
+### 8. Giám sát hệ thống (`/`)
+| Phương thức | Endpoint | Mô tả |
+| :--- | :--- | :--- |
+| `GET` | `/` | Trạng thái máy chủ Express |
+| `GET` | `/health` | Kiểm tra trạng thái sức khỏe máy chủ (`UP`, timestamp, environment) |
 
 ---
 
 ## 🚀 Hướng dẫn khởi chạy
 
-1. Cài đặt các thư viện cần thiết:
-   ```bash
-   npm install
-   ```
+### 1. Cài đặt dependencies:
+```bash
+npm install
+```
 
-2. Tạo file cấu hình môi trường `.env`:
-   ```bash
-   cp .env.example .env
-   # Điền DATABASE_URL và JWT_SECRET (tối thiểu 32 ký tự khi production)
-   ```
+### 2. Thiết lập biến môi trường `.env`:
+Tạo file `.env` từ `.env.example`:
+```bash
+cp .env.example .env
+```
+Nội dung file `.env` tham khảo:
+```env
+NODE_ENV=development
+PORT=5000
+DATABASE_URL="postgresql://postgres:password@localhost:5432/vegetarian_db?schema=public"
+CLIENT_URL=http://localhost:5173
+JWT_SECRET=your-secure-jwt-secret-key-at-least-32-chars
+JWT_EXPIRES_IN=7d
+PLACES_RATE_LIMIT=60
+```
 
-3. Sinh Prisma Client từ schema:
-   ```bash
-   npm run prisma:generate
-   ```
+### 3. Đồng bộ Cơ sở dữ liệu với Prisma ORM:
+```bash
+# Tạo Prisma Client type-safe
+npm run prisma:generate
 
-4. Đồng bộ schema với database local:
-   ```bash
-   npm run prisma:push
-   ```
-   Lệnh này phù hợp cho bài tập và database local. Khi thay đổi `prisma/schema.prisma`, chạy lại lệnh này để cập nhật database.
+# Đồng bộ trực tiếp cấu trúc schema vào PostgreSQL database local
+npm run prisma:push
 
-5. Chạy server ở chế độ phát triển (auto-reload với nodemon):
-   ```bash
-   npm run dev
-   ```
+# (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
+npm run prisma:studio
+```
 
-6. Chạy server ở chế độ Production:
-   ```bash
-   npm start
-   ```
+### 4. Khởi chạy Server:
+- **Chế độ phát triển (Auto-reload với nodemon):**
+  ```bash
+  npm run dev
+  ```
+- **Chế độ Production:**
+  ```bash
+  npm start
+  ```
 
-7. Kiểm tra chất lượng và trạng thái hoạt động:
-   - Health check: `http://localhost:5000/health`
-   - API Blogs: `http://localhost:5000/api/blogs`
-   - Prisma Studio: `npm run prisma:studio`
-   - Tests: `npm test`
+### 5. Chạy kiểm thử tự động (Vitest):
+```bash
+# Chạy toàn bộ 21 unit & boundary integration tests
+npm test
 
-## Quy ước đơn giản cho bài tập
+# Chế độ watch tự động chạy lại khi thay đổi code
+npm run test:watch
+```
 
-- Không commit `.env`; mọi người copy `.env.example` rồi tự điền thông tin database local.
-- Các endpoint ghi dữ liệu xác thực kiểu/độ dài payload; `author_id` và `user_id` luôn lấy từ JWT, không lấy từ client.
-- Trước khi push code, chạy `npm test` và `npx prisma validate`.
-- Không cần migration, seed, CI hay rate limit cho demo local. Có thể bổ sung các phần này khi dự án cần deploy hoặc có dữ liệu thật.
+---
+
+## 🛡️ Quy ước phát triển & Bảo mật
+
+1. **Bảo mật biến môi trường:** Tuyệt đối không commit file `.env`. Mỗi thành viên tự tạo cấu hình database local từ `.env.example`.
+2. **Xác thực danh tính:** Mọi thao tác ghi dữ liệu (tạo bài viết, bình luận, vote) đều lấy `userId` từ JWT Token đã được xác thực ở middleware, không tin cậy dữ liệu truyền từ client body.
+3. **Xác thực dữ liệu (Validation):** Toàn bộ dữ liệu đầu vào (request body, params, queries) đều được kiểm tra nghiêm ngặt qua Zod schema trước khi xuống tầng Service.
+4. **Kiểm tra trước khi commit/push:** Chạy `npm test` và `npx prisma validate` để đảm bảo code không phá vỡ logic sẵn có.
