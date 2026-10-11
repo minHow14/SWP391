@@ -16,6 +16,7 @@ from core.config import settings
 from core.database import init_db
 from core.ratelimit import limiter
 from api.admin import router as admin_router
+from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
 
@@ -139,6 +140,7 @@ async def health_check():
 app.include_router(chat_router, prefix="/api")
 app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(admin_actions_router, prefix="/api")
 
 
 if __name__ == "__main__":
