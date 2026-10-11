@@ -111,7 +111,7 @@ Client Request
 2. Tạo file cấu hình môi trường `.env`:
    ```bash
    cp .env.example .env
-   # Điền DATABASE_URL=postgresql://postgres:password@localhost:5432/vegetarian_db
+   # Điền DATABASE_URL và JWT_SECRET (tối thiểu 32 ký tự khi production)
    ```
 
 3. Sinh Prisma Client từ schema:
@@ -119,17 +119,31 @@ Client Request
    npm run prisma:generate
    ```
 
-4. Chạy server ở chế độ phát triển (auto-reload với nodemon):
+4. Đồng bộ schema với database local:
+   ```bash
+   npm run prisma:push
+   ```
+   Lệnh này phù hợp cho bài tập và database local. Khi thay đổi `prisma/schema.prisma`, chạy lại lệnh này để cập nhật database.
+
+5. Chạy server ở chế độ phát triển (auto-reload với nodemon):
    ```bash
    npm run dev
    ```
 
-5. Chạy server ở chế độ Production:
+6. Chạy server ở chế độ Production:
    ```bash
    npm start
    ```
 
-6. Kiểm tra trạng thái hoạt động:
+7. Kiểm tra chất lượng và trạng thái hoạt động:
    - Health check: `http://localhost:5000/health`
    - API Blogs: `http://localhost:5000/api/blogs`
    - Prisma Studio: `npm run prisma:studio`
+   - Tests: `npm test`
+
+## Quy ước đơn giản cho bài tập
+
+- Không commit `.env`; mọi người copy `.env.example` rồi tự điền thông tin database local.
+- Các endpoint ghi dữ liệu xác thực kiểu/độ dài payload; `author_id` và `user_id` luôn lấy từ JWT, không lấy từ client.
+- Trước khi push code, chạy `npm test` và `npx prisma validate`.
+- Không cần migration, seed, CI hay rate limit cho demo local. Có thể bổ sung các phần này khi dự án cần deploy hoặc có dữ liệu thật.

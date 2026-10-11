@@ -5,6 +5,14 @@ import apiRoutes from './routes/index.js';
 import { notFoundHandler, globalErrorHandler } from './middlewares/index.js';
 
 const app = express();
+app.disable('x-powered-by');
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Server is running!',
+  });
+});
 
 // Middlewares xử lý request & CORS
 app.use(
@@ -13,7 +21,7 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Endpoint kiểm tra trạng thái hoạt động của hệ thống (Health Check)
@@ -35,4 +43,3 @@ app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
 export default app;
-

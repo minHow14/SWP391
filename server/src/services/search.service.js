@@ -31,7 +31,6 @@ export const searchService = {
                 select: {
                   user_id: true,
                   full_name: true,
-                  email: true,
                 },
               },
             },
@@ -62,7 +61,6 @@ export const searchService = {
                 select: {
                   user_id: true,
                   full_name: true,
-                  email: true,
                 },
               },
             },

@@ -3,9 +3,17 @@ import dotenv from 'dotenv';
 // Tải biến môi trường từ .env
 dotenv.config();
 
+const env = process.env.NODE_ENV || 'development';
+const jwtSecret = process.env.JWT_SECRET;
+if (env === 'production') {
+  const missing = ['DATABASE_URL', 'JWT_SECRET', 'CLIENT_URL'].filter((key) => !process.env[key]);
+  if (missing.length) throw new Error(`Missing required production environment variables: ${missing.join(', ')}`);
+  if (jwtSecret.length < 32) throw new Error('JWT_SECRET must contain at least 32 characters in production');
+}
+
 export const config = Object.freeze({
-  env: process.env.NODE_ENV || 'development',
-  isProduction: process.env.NODE_ENV === 'production',
+  env,
+  isProduction: env === 'production',
   port: parseInt(process.env.PORT || '5000', 10),
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 
@@ -21,7 +29,7 @@ export const config = Object.freeze({
 
   // Cấu hình bảo mật JWT
   jwt: {
-    secret: process.env.JWT_SECRET || 'swp391_default_fallback_secret_key',
+    secret: jwtSecret || 'development-only-change-me-before-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
 });
