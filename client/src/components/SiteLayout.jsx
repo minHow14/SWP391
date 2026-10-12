@@ -64,7 +64,7 @@ function LoadedSiteLayout({data}) {
             }}
           />
           <Footer />
-          <ChatBox dietName={dietName} />
+          <ChatBox dietName={dietName} dietTypeId={diet?.diet_type_id} />
         </>
       ) : (
         <main
