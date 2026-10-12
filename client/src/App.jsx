@@ -12,6 +12,7 @@ import IngredientDictionary from './pages/IngredientDictionary.jsx';
 import Restaurants from './pages/Restaurants.jsx';
 import Journal from './pages/Journal.jsx';
 import Profile from './pages/Profile.jsx';
+import AdminAi from './pages/AdminAi.jsx';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/quan-chay" element={<Restaurants />} />
         <Route path="/nhat-ky" element={<Journal />} />
         <Route path="/ho-so" element={<Profile />} />
+        <Route path="/admin/ai" element={<AdminAi />} />
         <Route path="/cong-thuc" element={<Recipes />} />
         <Route path="/cong-dong" element={<Community />} />
       </Route>

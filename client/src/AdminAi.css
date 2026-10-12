@@ -1,0 +1,35 @@
+/* Trang Quản trị AI */
+.cx-admin-page { padding: 28px 16px 60px; }
+.cx-admin-shell { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #d9e8e0; border-radius: 24px; padding: 26px; }
+.cx-admin-shell header h1 { font-size: 22px; font-weight: 800; color: #065f46; margin: 0; }
+.cx-admin-shell header h1 .bi { margin-right: 8px; }
+.cx-admin-shell header p { color: #52645c; margin: 4px 0 18px; }
+.cx-admin-shell h3 { font-size: 15px; font-weight: 800; margin: 18px 0 8px; }
+.cx-admin-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid #e2eee7; margin-bottom: 16px; }
+.cx-admin-tabs button { border: 0; background: transparent; padding: 9px 16px; font-weight: 700; color: #52645c; border-bottom: 3px solid transparent; }
+.cx-admin-tabs button.is-active { color: #15803d; border-bottom-color: #15803d; }
+.cx-admin-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; margin-bottom: 10px; }
+.cx-admin-filters label { display: grid; font-size: 11px; font-weight: 700; color: #475569; gap: 2px; }
+.cx-admin-filters input, .cx-admin-filters select { padding: 7px 10px; border: 1px solid #cfe0d6; border-radius: 10px; font-size: 13px; min-width: 150px; }
+.cx-admin-filters button, .cx-admin-pager button, .cx-admin-intervene button { padding: 7px 14px; border: 1px solid #15803d; background: #fff; color: #15803d; border-radius: 10px; font-size: 13px; font-weight: 700; }
+.cx-admin-filters button:disabled, .cx-admin-pager button:disabled, .cx-admin-intervene button:disabled { opacity: 0.5; }
+.cx-admin-intervene button.is-danger { border-color: #b91c1c; color: #b91c1c; }
+.cx-admin-count { font-size: 12px; color: #64748b; margin: 6px 0; }
+.cx-admin-table { font-size: 12.5px; }
+.cx-admin-table tr.is-admin { background: #fffbeb; }
+.cx-admin-error { max-width: 340px; overflow-wrap: anywhere; color: #7f1d1d; }
+.cx-admin-pager { display: flex; gap: 8px; justify-content: flex-end; }
+.cx-admin-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 10px; }
+.cx-admin-kpis div { padding: 14px 16px; border-radius: 16px; background: #f4fbf7; border: 1px solid #e2eee7; }
+.cx-admin-kpis small { display: block; color: #64748b; font-size: 11px; font-weight: 700; }
+.cx-admin-kpis strong { font-size: 24px; }
+.cx-admin-bars { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px; }
+.cx-admin-bars li { display: grid; grid-template-columns: 52px 1fr 36px; gap: 8px; align-items: center; font-size: 12px; }
+.cx-admin-bar-track { display: flex; height: 14px; background: #eef2ef; border-radius: 7px; overflow: hidden; }
+.cx-admin-bar-track .is-ok { background: #22a06b; }
+.cx-admin-bar-track .is-error { background: #dc2626; }
+.cx-admin-bar-total { text-align: right; color: #475569; }
+.cx-admin-split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.cx-admin-intervene { display: grid; gap: 22px; }
+.cx-admin-quota { margin-top: 8px; padding: 10px 14px; border-radius: 12px; background: #f4fbf7; }
+@media (max-width: 720px) { .cx-admin-kpis { grid-template-columns: repeat(2, 1fr); } .cx-admin-split { grid-template-columns: 1fr; } }

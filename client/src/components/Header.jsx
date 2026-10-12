@@ -15,6 +15,8 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
     { name: 'Cộng Đồng', icon: 'bi-people-fill', path: '/cong-dong' },
     { name: 'Quán Chay', icon: 'bi-geo-alt-fill', path: '/quan-chay' },
     { name: 'Nhật Ký', icon: 'bi-pie-chart-fill', path: '/nhat-ky' },
+    // Chỉ Admin (role 1) thấy mục quản trị AI
+    ...(user?.role === 1 ? [{ name: 'Quản Trị AI', icon: 'bi-speedometer2', path: '/admin/ai' }] : []),
   ];
 
   return (
