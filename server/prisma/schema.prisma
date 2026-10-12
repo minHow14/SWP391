@@ -25,6 +25,8 @@ model User {
   posts            Post[]
   reports          Report[]
   allergies        UserAllergy[]
+  restaurant_reviews RestaurantReview[]
+  preferences ProfilePreference?
 
   @@index([email], map: "idx_users_email")
   @@map("users")
@@ -169,6 +171,7 @@ model PostVote {
 }
 
 model Ingredient {
+  details IngredientDetails?
   ingredient_id      Int                @id @default(autoincrement())
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
@@ -241,6 +244,7 @@ model MealPlanDetail {
 }
 
 model FoodDiary {
+  nutrients DiaryNutrients?
   diary_id         Int       @id @default(autoincrement())
   user_id          Int
   consumed_date    DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
@@ -255,6 +259,8 @@ model FoodDiary {
 }
 
 model Restaurant {
+  details RestaurantDetails?
+  reviews RestaurantReview[]
   restaurant_id      Int                @id @default(autoincrement())
   name               String             @db.VarChar(255)
   address            String             @db.VarChar(255)
@@ -271,6 +277,7 @@ model Restaurant {
 }
 
 model RestaurantRecipe {
+  price RestaurantMenuPrice?
   restaurant_id Int
   recipe_id     Int
   recipe        Recipe     @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
@@ -314,4 +321,78 @@ model ai_logs {
   status         String    @db.VarChar(20)
   error_feedback String?
   created_at     DateTime? @default(now()) @db.Timestamptz(6)
+}
+
+model IngredientDetails {
+  ingredient_id Int @id
+  category String @db.VarChar(30)
+  origin String
+  plant Boolean?
+  description String
+  cooking String
+  aliases String @default("")
+  image_url String?
+  ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("ingredient_details")
+}
+model IngredientAlternative {
+  id String @id @db.VarChar(40)
+  chip String
+  emoji String
+  original String
+  role String
+  alternatives Json @db.JsonB
+  description String
+  keywords String
+  @@map("ingredient_alternatives")
+}
+model RestaurantDetails {
+  restaurant_id Int @id
+  city String
+  hours String?
+  price_range String?
+  separate_kitchen Boolean?
+  restaurant Restaurant @relation(fields:[restaurant_id],references:[restaurant_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("restaurant_details")
+}
+model RestaurantReview {
+  review_id Int @id @default(autoincrement())
+  restaurant_id Int
+  user_id Int
+  stars Int @db.SmallInt
+  content String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  restaurant Restaurant @relation(fields:[restaurant_id],references:[restaurant_id],onDelete:Cascade,onUpdate:NoAction)
+  user User @relation(fields:[user_id],references:[user_id],onDelete:Cascade,onUpdate:NoAction)
+  @@index([restaurant_id],map:"restaurant_reviews_place_idx")
+  @@map("restaurant_reviews")
+}
+model DiaryNutrients {
+  diary_id Int @id
+  serving String @default("1 phần")
+  protein Float @default(0) @db.Real
+  carbs Float @default(0) @db.Real
+  fat Float @default(0) @db.Real
+  fiber Float @default(0) @db.Real
+  diary FoodDiary @relation(fields:[diary_id],references:[diary_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("diary_nutrients")
+}
+model ProfilePreference {
+  user_id Int @id
+  calorie_goal Float? @db.Real
+  goal String?
+  protein_goal Float? @default(70) @db.Real
+  carbs_goal Float? @default(230) @db.Real
+  fat_goal Float? @default(45) @db.Real
+  fiber_goal Float? @default(30) @db.Real
+  user User @relation(fields:[user_id],references:[user_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("profile_preferences")
+}
+model RestaurantMenuPrice {
+  restaurant_id Int
+  recipe_id Int
+  price Int?
+  menu RestaurantRecipe @relation(fields:[restaurant_id,recipe_id],references:[restaurant_id,recipe_id],onDelete:Cascade,onUpdate:NoAction)
+  @@id([restaurant_id,recipe_id])
+  @@map("restaurant_menu_prices")
 }

@@ -63,9 +63,12 @@ test('search, category and diet filters combine', () => {
     0
   );
 });
-test('explore selection does not restrict recipes', () => {
+test('Keto and Eat Clean do not bypass dietary classification', () => {
   assert.equal(
     filterRecipes(recipes, { matchDiet: true, diet_type_id: 6 }).length,
-    3
+    0
   );
+  const classified = [{ ...recipes[0], compatible_diet_type_ids: [6] }, { ...recipes[1], compatible_diet_type_ids: [7] }];
+  assert.deepEqual(filterRecipes(classified,{matchDiet:true,diet_type_id:6}).map(r=>r.recipe_id),[1]);
+  assert.deepEqual(filterRecipes(classified,{matchDiet:true,diet_type_id:7}).map(r=>r.recipe_id),[2]);
 });

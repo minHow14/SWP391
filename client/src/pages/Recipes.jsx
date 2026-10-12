@@ -1,15 +1,15 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
-import {
-  recipes,
-  recipeCategories,
-  recipeDietLabels,
-} from '../data/recipes.js';
+import { useDatabase } from '../lib/databaseContext.js';
 import { filterRecipes } from '../lib/recipeFilters.js';
 import ContentDialog from '../components/ContentDialog.jsx';
 import ContentImage from '../components/ContentImage.jsx';
 
 export default function Recipes() {
+  const {data}=useDatabase();
+  const recipes=data.recipes;
+  const recipeCategories=[{category_id:null,name:'Tất Cả Món',icon:'grid'},...data.categories.filter(c=>data.recipes.some(r=>r.category_id===c.category_id)).map(c=>({...c,icon:'leaf'}))];
+  const recipeDietLabels=data.diets.map(d=>({...d,icon:'leaf',tone:'green'}));
   const { diet } = useOutletContext();
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState(null);
@@ -51,7 +51,6 @@ export default function Recipes() {
                 type="button"
                 className="btn btn-sm"
                 aria-pressed={matchDiet}
-                disabled={diet.diet_type_id === 6}
                 onClick={() => setMatchDiet(!matchDiet)}
               >
                 {matchDiet ? 'Tắt lọc tự động' : 'Bật lọc tự động'}
@@ -87,14 +86,9 @@ export default function Recipes() {
               ))}
             </div>
           </div>
-          {diet.diet_type_id === 6 && (
-            <p className="small mt-3 mb-0">
-              Bạn đang chọn Tham khảo thêm nên tất cả chế độ ăn được hiển thị.
-            </p>
-          )}
         </section>
         <p className="cx-sample-note">
-          Công thức minh họa · thời gian và kcal là dữ liệu mẫu. Hiển thị{' '}
+          Tìm thấy{' '}
           {filtered.length} món.
         </p>
         <div className="row g-4">
@@ -196,7 +190,7 @@ export default function Recipes() {
           </ul>
           <h3 className="h6 fw-bold mt-4">Cách chế biến</h3>
           <ol className="cx-recipe-steps">
-            {selectedRecipe.instructions.split('\n').map((step) => (
+            {(selectedRecipe.instructions || 'Chưa cập nhật hướng dẫn.').split('\n').map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ol>

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getDemoReply, summarizeDemoText } from '../lib/chatReplies.js';
+import { getDatabaseReply, summarizeText } from '../lib/chatReplies.js';
 
 const suggestions = [
   {
@@ -15,7 +15,7 @@ const suggestions = [
   { label: 'Chỉ số BMI', icon: 'bar-chart', text: 'Tôi muốn tính chỉ số BMI' },
 ];
 
-export default function ChatBox({ dietName }) {
+export default function ChatBox() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState('chat');
@@ -66,23 +66,24 @@ export default function ChatBox({ dietName }) {
     setError('');
   }
 
-  function sendMessage(text = draft, forcedMode) {
+  async function sendMessage(text = draft, forcedMode) {
     const question = text.trim();
     if (!question) return;
     const activeMode = forcedMode || mode;
-    addExchange(
+    try { addExchange(
       question,
       activeMode === 'summary'
-        ? summarizeDemoText(question)
-        : getDemoReply(question, dietName)
+        ? summarizeText(question)
+        : await getDatabaseReply(question)
     );
     setDraft('');
     setMode('chat');
     input.current?.focus();
+    } catch(error) {setError(error.message);}
   }
 
   function selectSummary() {
-    addExchange('Tóm tắt video', getDemoReply('Tóm tắt video', dietName));
+    addExchange('Tóm tắt video', {text:'Dán văn bản hướng dẫn để trích các câu đầu.'});
     setMode('summary');
     input.current?.focus();
   }
@@ -104,7 +105,7 @@ export default function ChatBox({ dietName }) {
     addExchange(
       `Ảnh nguyên liệu: ${file.name}`,
       {
-        text: 'Mình đã hiển thị ảnh bạn chọn. Ảnh chỉ ở trên thiết bị và chưa được gửi đi. Bản demo chưa nhận diện nguyên liệu; bạn có thể nhập tên nguyên liệu để trò chuyện.',
+        text: 'Mình đã hiển thị ảnh bạn chọn. Ảnh chỉ ở trên thiết bị và chưa được gửi đi. Chưa hỗ trợ nhận diện ảnh nguyên liệu; bạn có thể nhập tên nguyên liệu để trò chuyện.',
       },
       url
     );
@@ -269,7 +270,7 @@ export default function ChatBox({ dietName }) {
             </button>
           </form>
           <p className="cx-chat-disclaimer">
-            Bản minh họa giao diện, chưa kết nối AI.
+            Tra cứu công thức và trích nội dung hướng dẫn nấu ăn.
           </p>
         </section>
       )}

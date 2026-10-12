@@ -7,7 +7,7 @@ import config from './index.js';
  */
 const prismaClientSingleton = () => {
   return new PrismaClient({
-    log: config.isProduction ? ['error'] : ['query', 'info', 'warn', 'error'],
+    log: process.env.PRISMA_LOG_QUERIES === 'true' ? ['query', 'info', 'warn', 'error'] : ['error'],
   });
 };
 

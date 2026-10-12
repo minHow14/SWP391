@@ -1,0 +1,58 @@
+export const foodSwaps = [
+  {
+    id: 'meat', chip: 'Thịt bò', emoji: '🥩',
+    original: 'Thịt bò / Thịt heo / Thịt băm', role: 'Đạm & Kết cấu',
+    alternatives: ['Nấm đùi gà', 'Đạm đậu nành (TVP)', 'Seitan (Đạm lúa mì)', 'Nấm đông cô băm'],
+    description: 'Tạo kết cấu dai, giữ gia vị đậm đà cho món xào, kho hoặc nhân bánh. Đạm đậu nành và seitan bổ sung nguồn đạm thực vật.',
+    keywords: 'thịt lợn beef pork mince protein',
+  },
+  {
+    id: 'egg', chip: 'Trứng gà', emoji: '🥚',
+    original: 'Trứng gà (cho làm bánh & kết dính)', role: 'Kết dính & Tạo xốp',
+    alternatives: ['Đậu phụ non xay mịn', 'Hạt lanh ngâm nước (Flaxseed)', 'Aquafaba (Nước luộc đậu gà)'],
+    description: 'Đậu phụ và hạt lanh giúp kết dính, giữ độ ẩm cho khối bột. Aquafaba đánh bông hỗ trợ tạo độ xốp; chọn theo loại bánh.',
+    keywords: 'trứng vịt egg bánh ngọt',
+  },
+  {
+    id: 'fish-sauce', chip: 'Nước mắm', emoji: '🐟',
+    original: 'Nước mắm truyền thống (Cá cơm)', role: 'Tạo Vị Umami',
+    alternatives: ['Nước mắm chay từ dứa (thơm)', 'Nước mắm chay nấm đông cô', 'Tương đậu nành tamari / shoyu'],
+    description: 'Tạo vị mặn, vị umami và màu nâu hổ phách cho món kho hoặc nước chấm. Điều chỉnh lượng dùng theo độ mặn của sản phẩm.',
+    keywords: 'fish sauce nước chấm',
+  },
+  {
+    id: 'gelatin', chip: 'Gelatin', emoji: '🧪',
+    original: 'Gelatin (Chiết xuất từ da, xương động vật)', role: 'Tạo Độ Đông Đặc',
+    alternatives: ['Bột agar-agar (Tảo biển)', 'Pectin thực vật (Vỏ táo / cam)', 'Bột rau câu dẻo'],
+    description: 'Tạo độ đông hoặc độ dẻo cho thạch, kẹo và món tráng miệng. Mỗi loại có cách nấu và tỷ lệ riêng, cần điều chỉnh công thức.',
+    keywords: 'gelatine thạch panna cotta mousse',
+  },
+  {
+    id: 'stock', chip: 'Bột nêm thịt/xương', emoji: '🧂',
+    original: 'Bột nêm thịt heo / Chiết xuất xương', role: 'Tạo Vị Ngọt Thanh',
+    alternatives: ['Bột nêm nấm shiitake', 'Nước dùng củ quả ninh (Su su, củ cải, cà rốt)', 'Bột ngô ngọt & gia vị nấm'],
+    description: 'Tạo vị ngọt thanh và umami tự nhiên cho nước dùng, canh hoặc món hầm. Ninh củ quả và nấm để làm nền nước dùng chay.',
+    keywords: 'hạt nêm broth stock nước dùng',
+  },
+  {
+    id: 'cheese', chip: 'Phô mai / Bơ', emoji: '🧀',
+    original: 'Phô mai / Bơ động vật', role: 'Tạo Độ Béo Ngậy',
+    alternatives: ['Men dinh dưỡng (Nutritional yeast)', 'Phô mai hạt điều (Cashew cheese)', 'Bơ thực vật có nhãn thuần chay'],
+    description: 'Gợi hương vị phô mai, tạo độ béo và vị bùi cho món Âu hoặc bánh. Chọn loại thay thế phù hợp khi cần độ tan chảy hay đánh bông.',
+    keywords: 'cheese butter margarine',
+  },
+  {
+    id: 'seafood', chip: 'Thịt gà / Tôm', emoji: '🍗',
+    original: 'Thịt gà / Tôm biển / Hải sản', role: 'Tạo Độ Dai Giòn',
+    alternatives: ['Nấm tuyết', 'Nấm bào ngư xé sợi', 'Váng đậu (Tàu hũ ky) cuộn', 'Măng tây'],
+    description: 'Tạo độ dai, giòn và mọng nước cho món xào, nộm hoặc gỏi. Xé sợi nấm hay cuộn tàu hũ ky để tạo kết cấu phù hợp với món gốc.',
+    keywords: 'cá cua mực chicken shrimp seafood',
+  },
+  {
+    id: 'milk', chip: 'Sữa tươi / Sữa đặc', emoji: '🥛',
+    original: 'Sữa tươi / Sữa đặc có đường', role: 'Sữa Thực Vật',
+    alternatives: ['Sữa đậu nành', 'Sữa yến mạch (Oat milk)', 'Sữa hạt điều / Sữa dừa đặc thuần chay'],
+    description: 'Tạo độ mịn và độ béo cho đồ uống, sốt hoặc bánh. Dùng loại không đường cho món mặn; sữa dừa đặc phù hợp khi cần độ sánh.',
+    keywords: 'milk condensed dairy',
+  },
+];

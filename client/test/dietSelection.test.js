@@ -102,3 +102,15 @@ test('failed storage writes keep the confirmed choice in memory', async () => {
   selection.saveDiet({ id: 'ovo' });
   assert.equal(selection.getSavedDiet().diet_type_id, 3);
 });
+
+test('database diet labels and new IDs survive saving and reloading', async () => {
+  const options = [{diet_type_id:6,name:'Keto Chay'},{diet_type_id:7,name:'Eat Clean Chay'}];
+  const {selection,values}=await freshModule();
+  selection.saveDiet(options[1],options);
+  assert.equal(selection.getSavedDiet(options).name,'Eat Clean Chay');
+  const restored=await freshModule({dietSelection:values.get('dietSelection')});
+  assert.equal(restored.selection.getSavedDiet(options).diet_type_id,7);
+  const keto=await freshModule({dietSelection:JSON.stringify({diet_type_id:6,name:'Tham khảo thêm'})});
+  assert.equal(keto.selection.getSavedDiet(options).name,'Keto Chay');
+  assert.equal(keto.selection.getSavedDiet([]),null);
+});

@@ -12,7 +12,11 @@
     "prisma:generate": "prisma generate",
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "db:seed": "node prisma/seed.mjs",
+    "db:verify": "node prisma/seed.mjs --verify",
+    "db:website": "node prisma/website-data.mjs",
+    "test:database": "node tests/workspace.integration.mjs"
   },
   "keywords": [],
   "author": "",

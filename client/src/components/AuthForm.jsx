@@ -1,18 +1,19 @@
 import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
+import { api,setSession } from '../lib/api.js';
 
 export default function AuthForm({ isRegister = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
+  const [busy,setBusy]=useState(false);
+  const navigate=useNavigate();
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
-
-    setMessage(
-      isRegister
-        ? 'Thông tin hợp lệ. Bản mẫu chưa tạo tài khoản thật.'
-        : 'Bản mẫu giao diện, chưa xác thực đăng nhập.'
-    );
+    if(busy)return;
+    const form=new FormData(event.currentTarget);
+    setBusy(true);
+    try{const result=await api(`/auth/${isRegister?'register':'login'}`,{method:'POST',body:{email:form.get('email')||form.get('account'),password:form.get('password'),...(isRegister?{full_name:form.get('full_name')}:{})}});setSession({token:result.token,user:result.user});navigate('/');}catch(error){setMessage(error.message);}finally{setBusy(false);}
   }
 
   return (
@@ -84,6 +85,7 @@ export default function AuthForm({ isRegister = false }) {
                           className="form-control border-0 py-3"
                           placeholder="Nguyễn Văn A"
                           autoComplete="name"
+                          maxLength={255}
                           required
                           pattern=".*\S.*"
                           title="Vui lòng nhập họ và tên."
@@ -110,6 +112,7 @@ export default function AuthForm({ isRegister = false }) {
                         id="account"
                         name="email"
                         type="email"
+                        maxLength={255}
                         className="form-control border-0 py-3"
                         placeholder="nhapemail@gmail.com"
                         autoComplete={isRegister ? 'email' : 'username'}
@@ -153,12 +156,13 @@ export default function AuthForm({ isRegister = false }) {
                         type={showPassword ? 'text' : 'password'}
                         className="form-control border-0 py-3"
                         placeholder={
-                          isRegister ? 'Ít nhất 6 ký tự' : 'Nhập mật khẩu'
+                          isRegister ? 'Ít nhất 8 ký tự' : 'Nhập mật khẩu'
                         }
                         autoComplete={
                           isRegister ? 'new-password' : 'current-password'
                         }
-                        minLength={isRegister ? 6 : undefined}
+                        minLength={isRegister ? 8 : undefined}
+                        maxLength={128}
                         required
                       />
 
@@ -236,9 +240,10 @@ export default function AuthForm({ isRegister = false }) {
 
                   <button
                     type="submit"
+                    disabled={busy}
                     className="btn btn-success bg-gradient w-100 py-3 rounded-3 fw-semibold shadow-sm"
                   >
-                    {isRegister ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}
+                    {busy ? 'Đang xử lý…' : isRegister ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}
                   </button>
                 </form>
               </div>

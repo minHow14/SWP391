@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export default function ContentDialog({ title, children, onClose }) {
+export default function ContentDialog({ title, children, onClose, className = '', hideHeader = false }) {
   const dialog = useRef(null);
   const closeHandler = useRef(onClose);
   useEffect(() => {
@@ -27,10 +27,11 @@ export default function ContentDialog({ title, children, onClose }) {
   return (
     <dialog
       ref={dialog}
-      className="cx-content-dialog"
-      aria-labelledby="cx-content-title"
+      className={`cx-content-dialog ${className}`}
+      aria-labelledby={hideHeader ? undefined : 'cx-content-title'}
+      aria-label={hideHeader ? title : undefined}
     >
-      <div className="d-flex justify-content-between align-items-start gap-3 border-bottom pb-3 mb-4">
+      {!hideHeader && <div className="d-flex justify-content-between align-items-start gap-3 border-bottom pb-3 mb-4">
         <h2 id="cx-content-title" className="h5 fw-bold mb-0">
           {title}
         </h2>
@@ -40,7 +41,7 @@ export default function ContentDialog({ title, children, onClose }) {
           aria-label="Đóng hộp thoại"
           onClick={onClose}
         />
-      </div>
+      </div>}
       {children}
     </dialog>
   );

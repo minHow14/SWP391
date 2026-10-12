@@ -1,8 +1,8 @@
 import { useState } from 'react';
 
-export default function ContentImage({ src, alt, className = '' }) {
-  const [failed, setFailed] = useState(false);
-  if (failed)
+export default function ContentImage({ src, alt, className = '', emptyText = 'Chưa có ảnh' }) {
+  const [failedSrc, setFailedSrc] = useState('');
+  if (!src || failedSrc === src)
     return (
       <div
         className={`cx-image-fallback ${className}`}
@@ -10,7 +10,7 @@ export default function ContentImage({ src, alt, className = '' }) {
         aria-label={alt}
       >
         <i className="bi bi-image" aria-hidden="true" />
-        <span>Ảnh món ăn</span>
+        <span>{emptyText}</span>
       </div>
     );
   return (
@@ -19,7 +19,7 @@ export default function ContentImage({ src, alt, className = '' }) {
       alt={alt}
       className={className}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => setFailedSrc(src)}
     />
   );
 }

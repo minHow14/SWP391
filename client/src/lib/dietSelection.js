@@ -42,15 +42,15 @@ export const dietOptions = [
 // Keep the choice available for navigation even when browser storage is blocked.
 let currentSelection = null;
 
-export function getSavedDiet() {
-  if (currentSelection) return currentSelection;
+export function getSavedDiet(options = dietOptions) {
+  if (currentSelection) return options.find(item => item.diet_type_id === currentSelection.diet_type_id) || null;
 
   try {
     const saved = sessionStorage.getItem('dietSelection');
     if (saved) {
       try {
         const selection = JSON.parse(saved);
-        const diet = dietOptions.find(
+        const diet = options.find(
           (item) =>
             item.diet_type_id ===
               (selection?.diet_type_id ?? DIET_TYPE_IDS[selection?.id]) ||
@@ -63,14 +63,14 @@ export function getSavedDiet() {
     }
 
     const legacyName = sessionStorage.getItem('selectedDiet');
-    return dietOptions.find((item) => item.name === legacyName) || null;
+    return options.find((item) => item.name === legacyName) || null;
   } catch {
     return null;
   }
 }
 
-export function saveDiet(diet) {
-  const selection = dietOptions.find(
+export function saveDiet(diet, options = dietOptions) {
+  const selection = options.find(
     (item) =>
       item.diet_type_id === (diet?.diet_type_id ?? DIET_TYPE_IDS[diet?.id])
   );
