@@ -45,6 +45,9 @@ export function bmiCategory(bmi) {
   return 'Béo phì';
 }
 
+/** BMI hiển thị một chữ số thập phân kiểu Việt Nam: 22 -> "22,0". */
+export const formatBmi = (bmi) => (bmi == null || bmi === '' || !Number.isFinite(Number(bmi)) ? '' : Number(bmi).toFixed(1).replace('.', ','));
+
 export function ageFromDob(dob, now = new Date()) {
   const birth = new Date(`${String(dob).slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(birth.getTime())) return null;

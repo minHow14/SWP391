@@ -2,7 +2,7 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSseParser } from '../src/lib/aiApi.js';
 import {
-  ageFromDob, bmiCategory, buildMealPlanRequest, calcBmi, chatHistory, dietTypeToAi, formatDistance,
+  ageFromDob, bmiCategory, buildMealPlanRequest, calcBmi, chatHistory, formatBmi, dietTypeToAi, formatDistance,
   friendlyAiError, genderToAi, goalToAi, mealPlanDefaults, planToMenuContext, stagePercent,
   validateMealPlanValues, MAX_MENU_CONTEXT,
 } from '../src/lib/aiHelpers.js';
@@ -170,4 +170,10 @@ test('progress and distance helpers', () => {
   assert.equal(formatDistance(420), '420 m');
   assert.equal(formatDistance(1440), '1,4 km');
   assert.equal(formatDistance(null), '');
+});
+
+test('BMI is shown with one decimal in Vietnamese style', () => {
+  assert.equal(formatBmi(22), '22,0');
+  assert.equal(formatBmi(22.54), '22,5');
+  assert.equal(formatBmi(null), '');
 });

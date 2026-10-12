@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import ContentDialog from './ContentDialog.jsx';
 import { AiApiError, streamMealPlan } from '../lib/aiApi.js';
 import {
-  bmiCategory, buildMealPlanRequest, calcBmi, friendlyAiError, isQuotaError, mealPlanDefaults,
+  bmiCategory, buildMealPlanRequest, calcBmi, formatBmi, friendlyAiError, isQuotaError, mealPlanDefaults,
   stagePercent, validateMealPlanValues,
 } from '../lib/aiHelpers.js';
 import '../MealPlan.css';
@@ -70,7 +70,7 @@ function PlanResult({ plan, onAsk, onRedo }) {
       <h3>{plan.title}</h3>
       <div className="cx-mp-kpis">
         <span><strong>{profile.target_daily_calories}</strong> kcal/ngày</span>
-        <span>BMI <strong>{profile.bmi}</strong> · {bmiCategory(profile.bmi)}</span>
+        <span>BMI <strong>{formatBmi(profile.bmi)}</strong> · {bmiCategory(profile.bmi)}</span>
         <span>{plan.weekly_plan.length} ngày</span>
       </div>
       <p>{plan.summary}</p>
@@ -165,7 +165,7 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
           <div className="cx-mp-grid">
             <div className="cx-mp-field"><label htmlFor="mp-height">Chiều cao (cm)</label><input id="mp-height" type="number" step="0.1" value={values.height_cm} onChange={set('height_cm')} aria-invalid={!!errors.height_cm} />{errors.height_cm && <small role="alert">{errors.height_cm}</small>}</div>
             <div className="cx-mp-field"><label htmlFor="mp-weight">Cân nặng (kg)</label><input id="mp-weight" type="number" step="0.1" value={values.weight_kg} onChange={set('weight_kg')} aria-invalid={!!errors.weight_kg} />{errors.weight_kg && <small role="alert">{errors.weight_kg}</small>}</div>
-            <div className="cx-mp-field"><label htmlFor="mp-bmi">BMI (tự tính)</label><output id="mp-bmi" className="cx-mp-bmi">{bmi ? `${bmi} · ${bmiCategory(bmi)}` : '—'}</output></div>
+            <div className="cx-mp-field"><label htmlFor="mp-bmi">BMI (tự tính)</label><output id="mp-bmi" className="cx-mp-bmi">{bmi ? `${formatBmi(bmi)} · ${bmiCategory(bmi)}` : '—'}</output></div>
             <div className="cx-mp-field"><label htmlFor="mp-age">Tuổi</label><input id="mp-age" type="number" value={values.age} onChange={set('age')} aria-invalid={!!errors.age} />{errors.age && <small role="alert">{errors.age}</small>}</div>
             <div className="cx-mp-field"><label htmlFor="mp-gender">Giới tính</label><select id="mp-gender" value={values.gender} onChange={set('gender')}>{GENDERS.map(([value, label]) => <option key={label} value={value}>{label}</option>)}</select></div>
             <div className="cx-mp-field"><label htmlFor="mp-days">Số ngày (1-7)</label><input id="mp-days" type="number" min="1" max="7" value={values.days} onChange={set('days')} aria-invalid={!!errors.days} />{errors.days && <small role="alert">{errors.days}</small>}</div>
