@@ -155,7 +155,7 @@ pip install -r requirements.txt
 # Điền DEEPSEEK_API_KEY và kết nối database
 
 # 5. Chạy AI service
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 > AI Service sẽ chạy tại: `http://localhost:8000` (Tài liệu tương tác: `http://localhost:8000/docs`)
 
