@@ -17,6 +17,10 @@
     "db:verify": "node prisma/seed.mjs --verify",
     "db:website": "node prisma/website-data.mjs",
     "test:database": "node tests/workspace.integration.mjs"
+    "seed": "node prisma/seed.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   },
   "keywords": [],
   "author": "",
