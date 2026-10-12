@@ -122,13 +122,18 @@ cp .env.example .env
 npm run prisma:generate
 npm run prisma:push
 
-# 5. Nạp dữ liệu mẫu (Seed Data) vào cơ sở dữ liệu
-npm run seed
+# 5. Nạp toàn bộ dữ liệu mẫu & xác thực tự động vào cơ sở dữ liệu
+npm run seed            # Nạp 56 câu lệnh dữ liệu chuẩn từ seed.sql & tự động xác thực
 
 # 6. Khởi chạy server ở chế độ phát triển
 npm run dev
 ```
 > Server sẽ chạy tại: `http://localhost:5000` (Kiểm tra tại `http://localhost:5000/health`)
+
+#### 🔑 Tài khoản mẫu đăng nhập kiểm thử:
+- **Quản trị viên (Admin):** `admin@swp391.com` | Mật khẩu: `123456`
+- **Người dùng mẫu (User):** `user@swp391.com` | Mật khẩu: `123456`
+- **Người dùng mẫu khác:** `lan.nguyen@swp391.com` | Mật khẩu: `123456`
 
 ---
 
@@ -178,8 +183,10 @@ Hệ thống được thiết kế với tiêu chuẩn kiểm thử nghiêm ng�
 
 | Phân hệ | Lệnh kiểm thử | Công cụ | Nội dung kiểm thử |
 | :--- | :--- | :--- | :--- |
-| **Frontend** | `npm test` (trong `client/`) | Node.js Test Runner | Kiểm thử 15 ca: lưu trữ chế độ ăn, upload media, tìm kiếm công thức không dấu |
+| **Frontend** | `npm test` (trong `client/`) | Node.js Test Runner | Kiểm thử 30 ca: phiên đăng nhập bộ nhớ, mã hóa chế độ ăn, scanner, nhật ký calo theo ngày/tuần, upload media, bộ lọc công thức không dấu |
 | **Backend** | `npm test` (trong `server/`) | Vitest + Supertest | Kiểm thử 21 ca: API Boundary, validate Zod schema, Places API, Rate limit |
+| **Database** | `npm run test:database` | Node.js Integration | Kiểm thử catalog, auth, cộng đồng CRUD/comments/votes, nhật ký, dinh dưỡng, kế hoạch tuần, đánh giá quán |
+| **Seed & Verify DB** | `npm run seed` | Seed SQL Runner | Nạp 56 câu lệnh, 30 bảng, 42 bữa ăn tuần và tự động xác thực toàn bộ dữ liệu & tài khoản mẫu |
 | **AI Service** | `pytest` (trong `ai_service/`) | Pytest Asyncio | Kiểm thử Chatbot, LLM Fallback, Admin Quota Reset, Cache Clear, Meal Planner |
 
 ---
@@ -191,6 +198,18 @@ Hệ thống được thiết kế với tiêu chuẩn kiểm thử nghiêm ng�
   - `POST /api/auth/register` - Đăng ký tài khoản mới
   - `POST /api/auth/login` - Đăng nhập hệ thống & cấp JWT token
   - `GET /api/auth/me` - Lấy thông tin tài khoản hiện tại (Bearer Token)
+  - `PATCH /api/auth/me` - Cập nhật thông tin hồ sơ sức khỏe & dị ứng (Bearer Token)
+- **Nghiệp vụ Workspace & Cá nhân hóa (`/workspace`):**
+  - `GET /api/workspace/catalog` - Lấy toàn bộ danh mục, chế độ ăn, nguyên liệu, công thức, bài viết, quán ăn
+  - `GET /api/workspace/mine` - Lấy bài viết cá nhân của người dùng hiện tại (Bearer Token)
+  - `GET /api/workspace/journal` - Lấy nhật ký dinh dưỡng và kế hoạch bữa ăn tuần (Bearer Token)
+  - `PATCH /api/workspace/profile` - Cập nhật chỉ số cơ thể và mục tiêu calo (Bearer Token)
+  - `POST /api/workspace/diary` - Thêm món vào nhật ký (Bearer Token)
+  - `DELETE /api/workspace/diary/:id` - Xóa món khỏi nhật ký (Bearer Token)
+  - `PUT /api/workspace/plan` - Lên kế hoạch thực đơn theo ngày trong tuần (Bearer Token)
+  - `POST /api/workspace/plan/record` - Lưu thực đơn tuần vào nhật ký ngày (Bearer Token)
+  - `POST /api/workspace/restaurants` - Đề xuất địa điểm quán chay mới (Bearer Token)
+  - `POST /api/workspace/restaurants/:id/reviews` - Gửi đánh giá nhà hàng (Bearer Token)
 - **Bài viết & Video (`/blogs`, `/videos`):**
   - `GET /api/blogs`, `POST /api/blogs`, `PUT /api/blogs/:id`, `DELETE /api/blogs/:id`
   - `GET /api/videos`, `POST /api/videos`, `PUT /api/videos/:id`, `DELETE /api/videos/:id`

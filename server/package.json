@@ -13,10 +13,8 @@
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "db:seed": "node prisma/seed.mjs",
-    "db:verify": "node prisma/seed.mjs --verify",
-    "db:website": "node prisma/website-data.mjs",
-    "test:database": "node tests/workspace.integration.mjs"
+    "db:seed": "node prisma/seed.js",
+    "test:database": "node tests/workspace.integration.mjs",
     "seed": "node prisma/seed.js"
   },
   "prisma": {

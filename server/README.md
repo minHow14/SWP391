@@ -12,8 +12,10 @@ server/
 ├── .env.example               # Mẫu biến môi trường cho thành viên nhóm
 ├── package.json               # Quản lý dependencies & scripts (Express, Prisma, Vitest, Zod...)
 ├── index.js                   # Forwarder entry point tới src/server.js
-├── prisma/                    # Quản lý cấu trúc Database ORM
-│   └── schema.prisma          # Định nghĩa 23 models và relationships của hệ thống
+├── prisma/                    # Quản lý cấu trúc Database ORM & Seed
+│   ├── schema.prisma          # Định nghĩa 23 models và relationships của hệ thống
+│   ├── seed.js                # Runner nạp toàn bộ seed.sql & tự động xác thực
+│   └── seed.sql               # Toàn bộ 56 câu lệnh SQL dữ liệu mẫu hệ thống & website mở rộng
 ├── test/                      # Test suites kiểm thử API boundary
 │   └── app.test.js
 ├── tests/                     # Test suites kiểm thử Places API
@@ -80,6 +82,7 @@ server/
         ├── search.route.js    # /api/search (Tìm kiếm toàn cục)
         ├── recommendation.route.js # /api/recommendations (Gợi ý nội dung)
         ├── places.route.js    # /api/places (Địa điểm quán ăn chay lân cận)
+        ├── workspace.route.js # /api/workspace (Catalog, nhật ký cá nhân, thực đơn tuần, đề xuất quán)
         └── index.js           # Gom toàn bộ route vào router chính (/api/...)
 ```
 
@@ -175,11 +178,38 @@ Client Request
 | `GET` | `/api/places/nearby?lat={lat}&lng={lng}&radius={m}` | Không (Rate limit) | Tìm quán chay gần đây theo tọa độ GPS và bán kính |
 | `GET` | `/api/places/search?q={keyword}` | Không (Rate limit) | Tìm quán chay theo tên hoặc món ăn |
 
-### 8. Giám sát hệ thống (`/`)
+### 8. Nghiệp vụ Workspace & Cá nhân hóa (`/api/workspace`)
+| Phương thức | Endpoint | Yêu cầu Auth | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/workspace/catalog` | Không | Lấy dữ liệu công khai: danh mục, chế độ ăn, nguyên liệu, công thức, bài viết, quán ăn |
+| `GET` | `/api/workspace/mine` | Có (Bearer Token) | Lấy danh sách bài viết cá nhân của người dùng hiện tại |
+| `GET` | `/api/workspace/journal` | Có (Bearer Token) | Lấy hồ sơ dinh dưỡng, nhật ký bữa ăn và kế hoạch tuần |
+| `PATCH` | `/api/workspace/profile` | Có (Bearer Token) | Cập nhật chiều cao, cân nặng, mục tiêu calo cá nhân |
+| `POST` | `/api/workspace/diary` | Có (Bearer Token) | Thêm bữa ăn vào nhật ký ăn uống |
+| `DELETE` | `/api/workspace/diary/:id` | Có (Bearer Token) | Xóa món ăn khỏi nhật ký cá nhân |
+| `PUT` | `/api/workspace/plan` | Có (Bearer Token) | Lên kế hoạch món ăn theo ngày trong tuần |
+| `POST` | `/api/workspace/plan/record` | Có (Bearer Token) | Lưu toàn bộ món từ kế hoạch tuần vào nhật ký ngày |
+| `POST` | `/api/workspace/restaurants` | Có (Bearer Token) | Đề xuất địa điểm quán chay mới |
+| `POST` | `/api/workspace/restaurants/:id/reviews` | Có (Bearer Token) | Đăng đánh giá và chấm sao nhà hàng |
+
+### 9. Giám sát hệ thống (`/`)
 | Phương thức | Endpoint | Mô tả |
 | :--- | :--- | :--- |
 | `GET` | `/` | Trạng thái máy chủ Express |
 | `GET` | `/health` | Kiểm tra trạng thái sức khỏe máy chủ (`UP`, timestamp, environment) |
+
+---
+
+## 🔑 Tài khoản mẫu phục vụ kiểm thử (Demo Accounts)
+
+| Vai trò | Email | Mật khẩu | Trạng thái | Nguồn dữ liệu |
+| :--- | :--- | :--- | :--- | :--- |
+| **Admin** | `admin@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
+| **User** | `user@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
+| **User** | `lan.nguyen@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
+| **Admin (Demo)** | `admin@chayxanh.local` | `Admin@123456` | `ACTIVE` | `seed.mjs` |
+| **User (Demo)** | `user@chayxanh.local` | `User@123456` | `ACTIVE` | `seed.mjs` |
+| **Locked User** | `locked@chayxanh.local` | `User@123456` | `LOCKED` | `seed.mjs` |
 
 ---
 
@@ -214,7 +244,7 @@ npm run prisma:generate
 # Đồng bộ trực tiếp cấu trúc schema vào PostgreSQL database local
 npm run prisma:push
 
-# Nạp dữ liệu mẫu (Seed Data) vào PostgreSQL
+# Nạp toàn bộ dữ liệu mẫu chuẩn & tự động xác thực vào PostgreSQL
 npm run seed
 
 # (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
@@ -231,10 +261,13 @@ npm run prisma:studio
   npm start
   ```
 
-### 5. Chạy kiểm thử tự động (Vitest):
+### 5. Chạy kiểm thử tự động:
 ```bash
-# Chạy toàn bộ 21 unit & boundary integration tests
+# Chạy 21 unit & boundary integration tests với Vitest
 npm test
+
+# Kiểm thử tích hợp toàn bộ luồng nghiệp vụ Database & Workspace
+npm run test:database
 
 # Chế độ watch tự động chạy lại khi thay đổi code
 npm run test:watch

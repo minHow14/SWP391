@@ -127,6 +127,21 @@ async def unexpected_error_handler(request: Request, exc: Exception):
     return error_response(request, 500, "INTERNAL_ERROR", "Đã xảy ra lỗi khi xử lý yêu cầu.")
 
 
+# Root Endpoint
+@app.get("/", tags=["Root"])
+async def root():
+    """
+    Root endpoint returning service info and documentation links.
+    """
+    return {
+        "service": "Vegetarian Support System - AI Service",
+        "status": "online",
+        "version": "1.0.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 # Health Check Endpoint
 @app.get("/health", tags=["Health"])
 async def health_check():

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcryptjs';
 import prisma from '../src/config/prisma.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -109,30 +110,68 @@ async function main() {
       }
     },
     {
-      timeout: 30000, // 30s timeout cho tác vụ seed toàn bộ bảng
+      timeout: 60000, // 60s timeout cho tác vụ seed toàn bộ bảng
     }
   );
 
   console.log('✅ Import dữ liệu mẫu vào PostgreSQL thành công!');
   console.log('----------------------------------------------------');
-  console.log('📋 Thống kê số lượng dữ liệu đã nạp:');
-  const [usersCount, postsCount, recipesCount, restaurantsCount] = await Promise.all([
+  console.log('📋 Thống kê số lượng dữ liệu đã nạp & xác thực:');
+
+  const [
+    usersCount,
+    postsCount,
+    recipesCount,
+    restaurantsCount,
+    dietTypesCount,
+    ingredientsCount,
+    categoriesCount,
+    mealPlansCount,
+    mealPlanDetailsCount,
+    foodDiariesCount,
+    swapsCount,
+  ] = await Promise.all([
     prisma.user.count(),
     prisma.post.count(),
     prisma.recipe.count(),
     prisma.restaurant.count(),
+    prisma.dietType.count(),
+    prisma.ingredient.count(),
+    prisma.category.count(),
+    prisma.mealPlan.count(),
+    prisma.mealPlanDetail.count(),
+    prisma.foodDiary.count(),
+    prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM ingredient_alternatives`,
   ]);
 
-  console.log(`   - Người dùng (users):       ${usersCount}`);
-  console.log(`   - Bài đăng (posts):          ${postsCount}`);
-  console.log(`   - Công thức (recipes):       ${recipesCount}`);
-  console.log(`   - Nhà hàng chay (restaurants): ${restaurantsCount}`);
+  console.log(`   - Chế độ ăn (diet_types):           ${dietTypesCount}`);
+  console.log(`   - Danh mục (categories):            ${categoriesCount}`);
+  console.log(`   - Nguyên liệu (ingredients):        ${ingredientsCount}`);
+  console.log(`   - Đổi nguyên liệu (alternatives):   ${swapsCount[0]?.count ?? 0}`);
+  console.log(`   - Người dùng (users):               ${usersCount}`);
+  console.log(`   - Bài đăng cộng đồng (posts):       ${postsCount}`);
+  console.log(`   - Công thức nấu ăn (recipes):       ${recipesCount}`);
+  console.log(`   - Kế hoạch tuần (meal_plans):       ${mealPlansCount} (với ${mealPlanDetailsCount} chi tiết bữa ăn)`);
+  console.log(`   - Nhật ký ăn uống (food_diaries):   ${foodDiariesCount}`);
+  console.log(`   - Nhà hàng chay (restaurants):      ${restaurantsCount}`);
   console.log('----------------------------------------------------');
-  console.log('🔑 Tài khoản mẫu:');
-  console.log('   - Admin: admin@swp391.com    | Mật khẩu: 123456');
-  console.log('   - User:  user@swp391.com     | Mật khẩu: 123456');
-  console.log('   - User:  lan.nguyen@swp391.com | Mật khẩu: 123456');
+
+  // Xác thực mật khẩu tài khoản mẫu
+  const adminUser = await prisma.user.findUnique({ where: { email: 'admin@swp391.com' } });
+  const normalUser = await prisma.user.findUnique({ where: { email: 'user@swp391.com' } });
+  const adminPassMatch = adminUser && (await bcrypt.compare('123456', adminUser.password_hash));
+  const userPassMatch = normalUser && (await bcrypt.compare('123456', normalUser.password_hash));
+
+  if (!adminPassMatch || !userPassMatch) {
+    throw new Error('Cảnh báo: Mật khẩu của tài khoản mẫu admin hoặc user không khớp.');
+  }
+
+  console.log('🔑 Tài khoản mẫu đã xác thực sẵn sàng đăng nhập:');
+  console.log('   - Admin: admin@swp391.com      | Mật khẩu: 123456 (Role: 1, ACTIVE)');
+  console.log('   - User:  user@swp391.com       | Mật khẩu: 123456 (Role: 2, ACTIVE)');
+  console.log('   - User:  lan.nguyen@swp391.com | Mật khẩu: 123456 (Role: 2, ACTIVE)');
   console.log('----------------------------------------------------');
+  console.log('🎉 Toàn bộ cơ sở dữ liệu đã sẵn sàng cho ứng dụng ChayXanh!');
 }
 
 main()
@@ -143,4 +182,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

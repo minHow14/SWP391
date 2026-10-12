@@ -4,6 +4,16 @@ import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 
+export function normalizeGender(val) {
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim().toUpperCase();
+  if (!s) return null;
+  if (['MALE', 'NAM', 'M'].includes(s)) return 'MALE';
+  if (['FEMALE', 'NỮ', 'NU', 'F'].includes(s)) return 'FEMALE';
+  if (['OTHER', 'KHÁC', 'KHAC', 'O'].includes(s)) return 'OTHER';
+  throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
+}
+
 export const authService = {
   /**
    * Đăng ký tài khoản người dùng mới
@@ -160,6 +170,7 @@ export const authService = {
       if (health_profile !== undefined) {
         const profile = { ...health_profile };
         if (profile.dob !== undefined) profile.dob = profile.dob === null ? null : new Date(profile.dob);
+        if (profile.gender !== undefined) profile.gender = normalizeGender(profile.gender);
         await tx.healthProfile.upsert({ where: { user_id }, create: { user_id, ...profile }, update: profile });
         if (profile.health_goal !== undefined) await tx.$executeRaw`UPDATE profile_preferences SET goal=${profile.health_goal} WHERE user_id=${user_id}`;
       }

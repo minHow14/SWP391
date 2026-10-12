@@ -3,17 +3,23 @@
 *.user
 *.suo
 
-# Node.js dependencies
+# Node.js dependencies & environment
 node_modules/
 .env
+.env*.local
 
 # Build outputs
 dist/
 build/
-node_modules/
-.env
 .DS_Store
+
+# Python & AI
+venv/
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 .pytest_cache/
+*.db
+*.sqlite3
+

@@ -6,12 +6,21 @@ import { normalizeSearch } from '../lib/recipeFilters.js';
 import { todayKey } from '../lib/journal.js';
 import '../Profile.css';
 
+function normalizeGenderValue(gender) {
+  if (!gender) return '';
+  const s = String(gender).trim().toUpperCase();
+  if (['MALE', 'NAM', 'M'].includes(s)) return 'MALE';
+  if (['FEMALE', 'NỮ', 'NU', 'F'].includes(s)) return 'FEMALE';
+  if (['OTHER', 'KHÁC', 'KHAC', 'O'].includes(s)) return 'OTHER';
+  return '';
+}
+
 function profileValues(user) {
   const profile = user.health_profile;
   return {
     full_name: user.full_name,
     height: profile?.height ?? '', weight: profile?.weight ?? '',
-    dob: profile?.dob?.slice(0, 10) || '', gender: profile?.gender || '',
+    dob: profile?.dob?.slice(0, 10) || '', gender: normalizeGenderValue(profile?.gender),
     diet_type_id: profile?.diet_type_id ?? '', health_goal: profile?.health_goal || '',
     allergy_ids: (user.allergies || []).map(allergy => allergy.ingredient_id),
   };
@@ -86,7 +95,7 @@ function ProfileForm({ userId, catalog }) {
         </div><div className="cx-profile-account-meta"><span>Mã tài khoản: {account.user_id}</span><span>Trạng thái: {account.status}</span>{account.created_at && <span>Ngày tham gia: {new Date(account.created_at).toLocaleDateString('vi-VN', { timeZone: 'Asia/Bangkok' })}</span>}</div></section>
         <section className="cx-profile-section"><h2>Thông tin chi tiết</h2><div className="cx-profile-grid">
           <label>Ngày sinh<input name="dob" type="date" value={values.dob} onChange={change} max={todayKey()} autoComplete="bday" /></label>
-          <label>Giới tính<input name="gender" value={values.gender} onChange={change} maxLength={20} autoComplete="sex" /></label>
+          <label>Giới tính<select name="gender" value={values.gender} onChange={change} autoComplete="sex"><option value="">Chưa chọn</option><option value="MALE">Nam</option><option value="FEMALE">Nữ</option><option value="OTHER">Khác</option></select></label>
           <label>Chiều cao (cm)<input name="height" type="number" value={values.height} onChange={change} min={50} max={250} step="0.1" /></label>
           <label>Cân nặng (kg)<input name="weight" type="number" value={values.weight} onChange={change} min={10} max={400} step="0.1" /></label>
           <label>Chế độ ăn<select name="diet_type_id" value={values.diet_type_id} onChange={change}><option value="">Chưa chọn</option>{catalog.diets.map(diet => <option key={diet.diet_type_id} value={diet.diet_type_id}>{diet.name}</option>)}</select></label>

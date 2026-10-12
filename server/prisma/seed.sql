@@ -27,6 +27,13 @@ BEGIN;
 -- Xóa sạch dữ liệu cũ và reset quan hệ (Idempotent)
 -- ------------------------------------------------------------------------
 TRUNCATE TABLE
+  "restaurant_menu_prices",
+  "restaurant_reviews",
+  "restaurant_details",
+  "ingredient_details",
+  "ingredient_alternatives",
+  "diary_nutrients",
+  "profile_preferences",
   "ai_logs",
   "notifications",
   "reports",
@@ -436,7 +443,7 @@ INSERT INTO "meal_plans" ("plan_id", "user_id", "title", "start_date", "end_date
   (2, 3, 'Thực Đơn Chay Dưỡng Nhan Giảm Mỡ', '2026-10-05', '2026-10-11', 1500);
 
 -- ------------------------------------------------------------------------
--- 17. CHI TIẾT BỮA ĂN THEO NGÀY (MEAL PLAN DETAILS) (21 bản ghi)
+-- 17. CHI TIẾT BỮA ĂN THEO NGÀY (MEAL PLAN DETAILS) (42 bản ghi)
 -- ------------------------------------------------------------------------
 INSERT INTO "meal_plan_details" ("plan_detail_id", "plan_id", "recipe_id", "meal_type", "day_of_week") VALUES
   (1, 1, 4, 'BREAKFAST', 1),
@@ -459,7 +466,28 @@ INSERT INTO "meal_plan_details" ("plan_detail_id", "plan_id", "recipe_id", "meal
   (18, 1, 3, 'DINNER', 6),
   (19, 1, 5, 'BREAKFAST', 7),
   (20, 1, 1, 'LUNCH', 7),
-  (21, 1, 8, 'DINNER', 7);
+  (21, 1, 8, 'DINNER', 7),
+  (22, 2, 2, 'BREAKFAST', 1),
+  (23, 2, 9, 'LUNCH', 1),
+  (24, 2, 7, 'DINNER', 1),
+  (25, 2, 2, 'BREAKFAST', 2),
+  (26, 2, 10, 'LUNCH', 2),
+  (27, 2, 6, 'DINNER', 2),
+  (28, 2, 4, 'BREAKFAST', 3),
+  (29, 2, 1, 'LUNCH', 3),
+  (30, 2, 7, 'DINNER', 3),
+  (31, 2, 2, 'BREAKFAST', 4),
+  (32, 2, 9, 'LUNCH', 4),
+  (33, 2, 6, 'DINNER', 4),
+  (34, 2, 4, 'BREAKFAST', 5),
+  (35, 2, 10, 'LUNCH', 5),
+  (36, 2, 7, 'DINNER', 5),
+  (37, 2, 2, 'BREAKFAST', 6),
+  (38, 2, 1, 'LUNCH', 6),
+  (39, 2, 6, 'DINNER', 6),
+  (40, 2, 4, 'BREAKFAST', 7),
+  (41, 2, 9, 'LUNCH', 7),
+  (42, 2, 7, 'DINNER', 7);
 
 -- ------------------------------------------------------------------------
 -- 18. NHẬT KÝ ĂN UỐNG (FOOD DIARIES) (7 bản ghi)
@@ -559,5 +587,189 @@ SELECT setval('restaurants_restaurant_id_seq', COALESCE((SELECT MAX(restaurant_i
 SELECT setval('reports_report_id_seq', COALESCE((SELECT MAX(report_id) FROM "reports"), 1));
 SELECT setval('notifications_notification_id_seq', COALESCE((SELECT MAX(notification_id) FROM "notifications"), 1));
 SELECT setval('ai_logs_log_id_seq', COALESCE((SELECT MAX(log_id) FROM "ai_logs"), 1));
+
+
+-- ========================================================================
+-- 22. BẢNG MỞ RỘNG VÀ DỮ LIỆU BỔ TRỢ (SUPPLEMENTARY WEBSITE DATA)
+-- ========================================================================
+
+-- Tạo cấu trúc các bảng mở rộng nếu chưa tồn tại
+CREATE TABLE IF NOT EXISTS "ingredient_details" (
+  "ingredient_id" INTEGER PRIMARY KEY REFERENCES "ingredients"("ingredient_id") ON DELETE CASCADE,
+  "category" VARCHAR(30) NOT NULL,
+  "origin" TEXT NOT NULL,
+  "plant" BOOLEAN,
+  "description" TEXT NOT NULL,
+  "cooking" TEXT NOT NULL,
+  "aliases" TEXT NOT NULL DEFAULT '',
+  "image_url" TEXT
+);
+
+CREATE TABLE IF NOT EXISTS "ingredient_alternatives" (
+  "id" VARCHAR(40) PRIMARY KEY,
+  "chip" TEXT NOT NULL,
+  "emoji" TEXT NOT NULL,
+  "original" TEXT NOT NULL,
+  "role" TEXT NOT NULL,
+  "alternatives" JSONB NOT NULL,
+  "description" TEXT NOT NULL,
+  "keywords" TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "restaurant_details" (
+  "restaurant_id" INTEGER PRIMARY KEY REFERENCES "restaurants"("restaurant_id") ON DELETE CASCADE,
+  "city" TEXT NOT NULL,
+  "hours" TEXT,
+  "price_range" TEXT,
+  "separate_kitchen" BOOLEAN
+);
+
+CREATE TABLE IF NOT EXISTS "restaurant_reviews" (
+  "review_id" SERIAL PRIMARY KEY,
+  "restaurant_id" INTEGER NOT NULL REFERENCES "restaurants"("restaurant_id") ON DELETE CASCADE,
+  "user_id" INTEGER NOT NULL REFERENCES "users"("user_id") ON DELETE CASCADE,
+  "stars" SMALLINT NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  "content" TEXT NOT NULL,
+  "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS "diary_nutrients" (
+  "diary_id" INTEGER PRIMARY KEY REFERENCES "food_diaries"("diary_id") ON DELETE CASCADE,
+  "serving" TEXT NOT NULL DEFAULT '1 phần',
+  "protein" REAL NOT NULL DEFAULT 0,
+  "carbs" REAL NOT NULL DEFAULT 0,
+  "fat" REAL NOT NULL DEFAULT 0,
+  "fiber" REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "profile_preferences" (
+  "user_id" INTEGER PRIMARY KEY REFERENCES "users"("user_id") ON DELETE CASCADE,
+  "calorie_goal" REAL CHECK (calorie_goal > 0),
+  "goal" TEXT,
+  "protein_goal" REAL DEFAULT 70,
+  "carbs_goal" REAL DEFAULT 230,
+  "fat_goal" REAL DEFAULT 45,
+  "fiber_goal" REAL DEFAULT 30
+);
+
+CREATE INDEX IF NOT EXISTS "restaurant_reviews_place_idx" ON "restaurant_reviews"("restaurant_id");
+
+CREATE TABLE IF NOT EXISTS "restaurant_menu_prices" (
+  "restaurant_id" INTEGER NOT NULL,
+  "recipe_id" INTEGER NOT NULL,
+  "price" INTEGER CHECK (price >= 0),
+  PRIMARY KEY("restaurant_id", "recipe_id"),
+  FOREIGN KEY("restaurant_id", "recipe_id") REFERENCES "restaurant_recipes"("restaurant_id", "recipe_id") ON DELETE CASCADE
+);
+
+-- Xóa dữ liệu các bảng mở rộng khi chạy truncate
+
+
+-- 22.1. ĐỔI NGUYÊN LIỆU CHAY (INGREDIENT ALTERNATIVES) (8 bản ghi)
+INSERT INTO "ingredient_alternatives" ("id", "chip", "emoji", "original", "role", "alternatives", "description", "keywords") VALUES
+  ('cheese', 'Phô mai / Bơ', '🧀', 'Phô mai / Bơ động vật', 'Tạo Độ Béo Ngậy', '["Men dinh dưỡng (Nutritional yeast)","Phô mai hạt điều (Cashew cheese)","Bơ thực vật có nhãn thuần chay"]'::jsonb, 'Gợi hương vị phô mai, tạo độ béo và vị bùi cho món Âu hoặc bánh. Chọn loại thay thế phù hợp khi cần độ tan chảy hay đánh bông.', 'cheese butter margarine'),
+  ('egg', 'Trứng gà', '🥚', 'Trứng gà (cho làm bánh & kết dính)', 'Kết dính & Tạo xốp', '["Đậu phụ non xay mịn","Hạt lanh ngâm nước (Flaxseed)","Aquafaba (Nước luộc đậu gà)"]'::jsonb, 'Đậu phụ và hạt lanh giúp kết dính, giữ độ ẩm cho khối bột. Aquafaba đánh bông hỗ trợ tạo độ xốp; chọn theo loại bánh.', 'trứng vịt egg bánh ngọt'),
+  ('fish-sauce', 'Nước mắm', '🐟', 'Nước mắm truyền thống (Cá cơm)', 'Tạo Vị Umami', '["Nước mắm chay từ dứa (thơm)","Nước mắm chay nấm đông cô","Tương đậu nành tamari / shoyu"]'::jsonb, 'Tạo vị mặn, vị umami và màu nâu hổ phách cho món kho hoặc nước chấm. Điều chỉnh lượng dùng theo độ mặn của sản phẩm.', 'fish sauce nước chấm'),
+  ('gelatin', 'Gelatin', '🧪', 'Gelatin (Chiết xuất từ da, xương động vật)', 'Tạo Độ Đông Đặc', '["Bột agar-agar (Tảo biển)","Pectin thực vật (Vỏ táo / cam)","Bột rau câu dẻo"]'::jsonb, 'Tạo độ đông hoặc độ dẻo cho thạch, kẹo và món tráng miệng. Mỗi loại có cách nấu và tỷ lệ riêng, cần điều chỉnh công thức.', 'gelatine thạch panna cotta mousse'),
+  ('meat', 'Thịt bò', '🥩', 'Thịt bò / Thịt heo / Thịt băm', 'Đạm & Kết cấu', '["Nấm đùi gà","Đạm đậu nành (TVP)","Seitan (Đạm lúa mì)","Nấm đông cô băm"]'::jsonb, 'Tạo kết cấu dai, giữ gia vị đậm đà cho món xào, kho hoặc nhân bánh. Đạm đậu nành và seitan bổ sung nguồn đạm thực vật.', 'thịt lợn beef pork mince protein'),
+  ('milk', 'Sữa tươi / Sữa đặc', '🥛', 'Sữa tươi / Sữa đặc có đường', 'Sữa Thực Vật', '["Sữa đậu nành","Sữa yến mạch (Oat milk)","Sữa hạt điều / Sữa dừa đặc thuần chay"]'::jsonb, 'Tạo độ mịn và độ béo cho đồ uống, sốt hoặc bánh. Dùng loại không đường cho món mặn; sữa dừa đặc phù hợp khi cần độ sánh.', 'milk condensed dairy'),
+  ('seafood', 'Thịt gà / Tôm', '🍗', 'Thịt gà / Tôm biển / Hải sản', 'Tạo Độ Dai Giòn', '["Nấm tuyết","Nấm bào ngư xé sợi","Váng đậu (Tàu hũ ky) cuộn","Măng tây"]'::jsonb, 'Tạo độ dai, giòn và mọng nước cho món xào, nộm hoặc gỏi. Xé sợi nấm hay cuộn tàu hũ ky để tạo kết cấu phù hợp với món gốc.', 'cá cua mực chicken shrimp seafood'),
+  ('stock', 'Bột nêm thịt/xương', '🧂', 'Bột nêm thịt heo / Chiết xuất xương', 'Tạo Vị Ngọt Thanh', '["Bột nêm nấm shiitake","Nước dùng củ quả ninh (Su su, củ cải, cà rốt)","Bột ngô ngọt & gia vị nấm"]'::jsonb, 'Tạo vị ngọt thanh và umami tự nhiên cho nước dùng, canh hoặc món hầm. Ninh củ quả và nấm để làm nền nước dùng chay.', 'hạt nêm broth stock nước dùng');
+
+-- 22.2. CHI TIẾT NGUYÊN LIỆU (INGREDIENT DETAILS) (28 bản ghi)
+INSERT INTO "ingredient_details" ("ingredient_id", "category", "origin", "plant", "description", "cooking", "aliases", "image_url") VALUES
+  (1, 'other', 'Thực vật', TRUE, 'Đậu hũ non. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Đậu hũ non', NULL),
+  (2, 'other', 'Thực vật', TRUE, 'Đậu hũ chiên. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Đậu hũ chiên', NULL),
+  (3, 'other', 'Thực vật', TRUE, 'Nấm đông cô tươi. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Nấm đông cô tươi', NULL),
+  (4, 'other', 'Thực vật', TRUE, 'Nấm rơm. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Nấm rơm', NULL),
+  (5, 'mushroom', 'Nấm', TRUE, 'Thân nấm dày, kết cấu dai giòn. Thích hợp áp chảo, xé sợi làm gỏi hoặc thay kết cấu thịt trong món xào.', 'Cắt lát dọc để áp chảo hoặc xé sợi rồi xào với rau củ. Tránh nấu quá lâu để giữ kết cấu.', 'king oyster mushroom nấm đùi gà tươi', '/demo-assets/mushroom-soup.webp'),
+  (6, 'other', 'Thực vật', TRUE, 'Nấm mỡ. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Nấm mỡ', NULL),
+  (7, 'other', 'Thực vật', TRUE, 'Hạt sen tươi luộc. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Hạt sen tươi luộc', NULL),
+  (8, 'other', 'Thực vật', TRUE, 'Quả bơ sáp. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Quả bơ sáp', NULL),
+  (9, 'other', 'Thực vật', TRUE, 'Rau xà lách tươi. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Rau xà lách tươi', NULL),
+  (10, 'other', 'Thực vật', TRUE, 'Cà chua tươi. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Cà chua tươi', NULL),
+  (11, 'other', 'Thực vật', TRUE, 'Hạt óc chó. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Hạt óc chó', NULL),
+  (12, 'other', 'Thực vật', TRUE, 'Hạt hạnh nhân. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Hạt hạnh nhân', NULL),
+  (13, 'other', 'Thực vật', TRUE, 'Yến mạch nguyên cám. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Yến mạch nguyên cám', NULL),
+  (14, 'other', 'Thực vật', TRUE, 'Sữa đậu nành không đường. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Sữa đậu nành không đường', NULL),
+  (15, 'other', 'Động vật', FALSE, 'Sữa tươi thanh trùng. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Sữa tươi thanh trùng', NULL),
+  (16, 'other', 'Thực vật', TRUE, 'Phô mai Mozzarella. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Phô mai Mozzarella', NULL),
+  (17, 'other', 'Động vật', FALSE, 'Trứng gà ta. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Trứng gà ta', NULL),
+  (18, 'other', 'Thực vật', TRUE, 'Hành boa-rô. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Hành boa-rô', NULL),
+  (19, 'other', 'Thực vật', TRUE, 'Dầu olive nguyên chất. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Dầu olive nguyên chất', NULL),
+  (20, 'other', 'Thực vật', TRUE, 'Bánh mì nguyên cám. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Bánh mì nguyên cám', NULL),
+  (21, 'other', 'Thực vật', TRUE, 'Rong biển khô. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Rong biển khô', NULL),
+  (22, 'other', 'Thực vật', TRUE, 'Gạo lứt đỏ. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Gạo lứt đỏ', NULL),
+  (23, 'other', 'Thực vật', TRUE, 'Đậu gà (Chickpeas). Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Đậu gà (Chickpeas)', NULL),
+  (24, 'other', 'Thực vật', TRUE, 'Đậu lăng đỏ. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Đậu lăng đỏ', NULL),
+  (25, 'other', 'Thực vật', TRUE, 'Hạt điều rang. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Hạt điều rang', NULL),
+  (26, 'other', 'Thực vật', TRUE, 'Bơ đậu phộng. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Bơ đậu phộng', NULL),
+  (27, 'other', 'Thực vật', TRUE, 'Bông cải xanh. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Bông cải xanh', NULL),
+  (28, 'other', 'Thực vật', TRUE, 'Bắp ngọt. Thông tin dinh dưỡng trên 100g được lưu trong database; kiểm tra thêm thành phần của sản phẩm chế biến sẵn.', 'Chế biến theo công thức và hướng dẫn của sản phẩm.', 'Bắp ngọt', NULL);
+
+-- 22.3. CHI TIẾT NHÀ HÀNG (RESTAURANT DETAILS) (8 bản ghi)
+INSERT INTO "restaurant_details" ("restaurant_id", "city", "hours", "price_range", "separate_kitchen") VALUES
+  (1, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (2, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (3, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (4, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (5, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (6, 'TP.HCM', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (7, 'Hà Nội', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE),
+  (8, 'Hà Nội', '09:00 – 21:00', '80.000đ – 150.000đ', TRUE);
+
+-- 22.4. GIÁ THỰC ĐƠN NHÀ HÀNG (RESTAURANT MENU PRICES) (25 bản ghi)
+INSERT INTO "restaurant_menu_prices" ("restaurant_id", "recipe_id", "price") VALUES
+  (1, 1, 145000),
+  (1, 2, 120000),
+  (1, 7, 95000),
+  (1, 9, 80000),
+  (2, 6, 145000),
+  (2, 8, 120000),
+  (2, 10, 95000),
+  (3, 1, 145000),
+  (3, 2, 120000),
+  (3, 4, 95000),
+  (4, 1, 145000),
+  (4, 2, 120000),
+  (4, 7, 95000),
+  (5, 4, 145000),
+  (5, 5, 120000),
+  (5, 6, 95000),
+  (6, 1, 145000),
+  (6, 6, 120000),
+  (6, 8, 95000),
+  (7, 2, 145000),
+  (7, 3, 120000),
+  (7, 8, 95000),
+  (8, 1, 145000),
+  (8, 6, 120000),
+  (8, 7, 95000);
+
+-- 22.5. ĐÁNH GIÁ NHÀ HÀNG MẪU (RESTAURANT REVIEWS) (4 bản ghi)
+INSERT INTO "restaurant_reviews" ("review_id", "restaurant_id", "user_id", "stars", "content", "created_at") VALUES
+  (1, 1, 2, 5, 'Không gian ấm cúng, thanh tịnh. Món ăn nêm nếm rất vừa vị, nhân viên chu đáo!', '2026-10-09T10:00:00Z'),
+  (2, 1, 3, 5, 'Rau nấm tươi ngon, đậu hũ non mềm mịn. Chắc chắn sẽ quay lại thường xuyên.', '2026-10-10T12:30:00Z'),
+  (3, 2, 2, 5, 'Món ăn trang trí đẹp mắt, vị ngọt thanh tự nhiên từ củ quả. Rất đáng trải nghiệm.', '2026-10-11T11:15:00Z'),
+  (4, 3, 3, 5, 'Không gian yên tĩnh, thực đơn phong phú từ khai vị đến tráng miệng.', '2026-10-11T14:00:00Z');
+SELECT setval('restaurant_reviews_review_id_seq', COALESCE((SELECT MAX(review_id) FROM "restaurant_reviews"), 1));
+
+-- 22.6. MỤC TIÊU DINH DƯỠNG CÁ NHÂN (PROFILE PREFERENCES) (5 bản ghi)
+INSERT INTO "profile_preferences" ("user_id", "calorie_goal", "goal", "protein_goal", "carbs_goal", "fat_goal", "fiber_goal") VALUES
+  (2, 1850, 'Tăng cơ giảm mỡ với chế độ thuần chay và calisthenics', 70, 230, 45, 30),
+  (3, 1850, 'Duy trì', 70, 230, 45, 30),
+  (5, 1850, 'Duy trì', 70, 230, 45, 30),
+  (6, 1850, 'Duy trì', 70, 230, 45, 30),
+  (7, 1850, 'Duy trì', 70, 230, 45, 30);
+
+-- 22.7. DINH DƯỠNG NHẬT KÝ BỮA ĂN (DIARY NUTRIENTS) (7 bản ghi)
+INSERT INTO "diary_nutrients" ("diary_id", "serving", "protein", "carbs", "fat", "fiber") VALUES
+  (1, '1 phần', 29.06, 47.77, 14.78, 0),
+  (2, '1 phần', 28.25, 21.8, 15.75, 0),
+  (3, '1 phần', 8.46, 20.835, 53.63, 0),
+  (4, '1 phần', 33.7, 35.21, 18.42, 0),
+  (5, '1 phần', 5.88, 38.1, 11.59, 0),
+  (6, '1 phần', 8.46, 20.835, 53.63, 0),
+  (7, '1 phần', 14.95, 11.45, 7.46, 0);
 
 COMMIT;

@@ -32,7 +32,6 @@ client/
 ├── src/
 │   ├── main.jsx               # Entry point ứng dụng React
 │   ├── App.jsx                # Thiết lập routing hệ thống (React Router)
-│   ├── index.css              # Global styles
 │   ├── App.css                # Style chung của ứng dụng
 │   ├── Home.css / Explore.css # Styles cho các trang chuyên biệt
 │   │
