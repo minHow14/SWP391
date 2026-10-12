@@ -17,3 +17,8 @@ export const getMe = asyncHandler(async (req, res) => {
   return sendSuccess(res, { user });
 });
 
+export const updateMe = asyncHandler(async (req, res) => {
+  const user = await authService.updateMe(req.user.user_id, req.body);
+  return sendSuccess(res, { user });
+});
+

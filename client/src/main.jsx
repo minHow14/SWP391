@@ -6,12 +6,13 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 import App from "./App.jsx";
+import { DatabaseProvider } from './lib/DatabaseContext.jsx';
 import "./App.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
-      <App />
+      <DatabaseProvider><App /></DatabaseProvider>
     </BrowserRouter>
   </React.StrictMode>
 );

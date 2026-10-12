@@ -1,17 +1,20 @@
 import { useState } from 'react';
 import { Link, NavLink } from 'react-router';
+import { useDatabase } from '../lib/databaseContext.js';
+import { setSession } from '../lib/api.js';
 
 export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDiet }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const {user}=useDatabase();
 
   const menuItems = [
-    { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check' },
-    { name: 'Đổi Món Chay', icon: 'bi-magic' },
-    { name: 'Từ Điển Chay', icon: 'bi-book-fill' },
+    { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check', path: '/kiem-tra-mon' },
+    { name: 'Đổi Món Chay', icon: 'bi-magic', path: '/doi-mon-chay' },
+    { name: 'Từ Điển Chay', icon: 'bi-book-fill', path: '/tu-dien-chay' },
     { name: 'Công Thức', icon: 'bi-book-half', path: '/cong-thuc' },
     { name: 'Cộng Đồng', icon: 'bi-people-fill', path: '/cong-dong' },
-    { name: 'Quán Chay', icon: 'bi-geo-alt-fill' },
-    { name: 'Nhật Ký', icon: 'bi-pie-chart-fill' },
+    { name: 'Quán Chay', icon: 'bi-geo-alt-fill', path: '/quan-chay' },
+    { name: 'Nhật Ký', icon: 'bi-pie-chart-fill', path: '/nhat-ky' },
   ];
 
   return (
@@ -94,12 +97,14 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
               </button>
 
               <div className="account-buttons">
+                {user ? <><Link to="/ho-so" className="cx-account-profile small align-self-center text-truncate" style={{maxWidth:150}} title="Mở hồ sơ cá nhân" onClick={()=>setMenuOpen(false)}><i className="bi bi-person-circle me-1" aria-hidden="true" />{user.full_name}{user.role===1?' · Admin':''}</Link><button className="btn btn-outline-success" onClick={()=>setSession(null)}>Đăng xuất</button></> : <>
                 <Link to="/dang-nhap" className="btn btn-outline-success">
                   Đăng nhập
                 </Link>
                 <Link to="/dang-ky" className="btn btn-success">
                   Đăng ký
                 </Link>
+                </>}
               </div>
             </div>
           </div>

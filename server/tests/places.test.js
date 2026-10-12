@@ -1,4 +1,4 @@
-import { test, beforeEach, afterEach, afterAll } from 'vitest';
+import { test, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import request from 'supertest';
 import express from 'express';
@@ -6,7 +6,8 @@ import placesRoutes from '../src/routes/places.route.js';
 import { clearZiomapCache, normalize } from '../src/services/places.service.js';
 import prisma from '../src/config/prisma.js';
 
-// Dựng route /places với dữ liệu thật từ PostgreSQL qua Prisma
+// Fixed records isolate route/search tests from the user's live database.
+const fixtures=Array.from({length:7},(_,index)=>({restaurant_id:index+1,name:`Quán Chay Kiểm Thử ${index+1}`,address:'Quận 1, TP.HCM',latitude:10.7769+index*.002,longitude:106.7009,phone:null,rating:4.5,image_url:null,diet_type_id:1,diet_type:{name:'Vegan'},restaurant_recipes:([{recipe:{recipe_name:'Đậu hũ kho'}}]).concat([1,3,4,7].includes(index+1)?[{recipe:{recipe_name:'Salad Bơ'}}]:[])}));
 const app = express();
 app.use('/api/places', placesRoutes);
 
@@ -17,11 +18,13 @@ const TEST_KEY = 'test-ziomap-key';
 const originalFetch = globalThis.fetch;
 
 beforeEach(() => {
+  vi.spyOn(prisma.restaurant,'findMany').mockResolvedValue(fixtures);
   clearZiomapCache();
   delete process.env.ZIOMAP_API_KEY;
 });
 
 afterEach(() => {
+  vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
   delete process.env.ZIOMAP_API_KEY;
 });

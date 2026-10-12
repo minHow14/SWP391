@@ -15,7 +15,6 @@ export function filterRecipes(
     (recipe) =>
       (category_id === null || recipe.category_id === category_id) &&
       (!matchDiet ||
-        diet_type_id === 6 ||
         recipe.compatible_diet_type_ids.includes(diet_type_id)) &&
       (!search ||
         normalizeSearch(

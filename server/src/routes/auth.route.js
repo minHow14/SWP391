@@ -9,6 +9,7 @@ const router = express.Router();
 router.post('/register', validate(schemas.register), authController.register);
 router.post('/login', validate(schemas.login), authController.login);
 router.get('/me', authenticate, authController.getMe);
+router.patch('/me', authenticate, validate(schemas.updateMe), authController.updateMe);
 
 export default router;
 

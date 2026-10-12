@@ -5,11 +5,18 @@ import Footer from './Footer.jsx';
 import WelcomeModal from './WelcomeModal.jsx';
 import ChatBox from './ChatBox.jsx';
 import { getSavedDiet } from '../lib/dietSelection.js';
+import { useDatabase } from '../lib/databaseContext.js';
 import '../Home.css';
 import '../Explore.css';
 
 export default function SiteLayout() {
-  const [diet, setDiet] = useState(getSavedDiet);
+  const {data,error,reload}=useDatabase();
+  if(!data)return <main className="p-5 text-center"><h1 className="h4">{error?'Không thể tải dữ liệu':'Đang tải dữ liệu ChayXanh…'}</h1>{error&&<><p>{error}</p><button className="btn btn-success" onClick={()=>reload().catch(()=>{})}>Thử lại</button></>}</main>;
+  return <>{error&&<div className="alert alert-warning m-3" role="alert">{error} <button className="btn btn-sm btn-outline-success" onClick={()=>reload().catch(()=>{})}>Thử lại</button></div>}<LoadedSiteLayout data={data} /></>;
+}
+
+function LoadedSiteLayout({data}) {
+  const [diet, setDiet] = useState(() => getSavedDiet(data?.diets));
   const [dietPickerOpen, setDietPickerOpen] = useState(() => !diet);
   const [personalPosts, setPersonalPosts] = useState([]);
   const mediaUrls = useRef(new Set());
@@ -66,7 +73,7 @@ export default function SiteLayout() {
         />
       )}
       {dietPickerOpen && (
-        <WelcomeModal
+        <WelcomeModal options={data.diets}
           onConfirm={(selection) => {
             setDiet(selection);
             setDietPickerOpen(false);

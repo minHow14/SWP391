@@ -132,6 +132,10 @@ export const authService = {
             diet_type: true,
           },
         },
+        allergies: {
+          select: { ingredient_id: true, ingredient: { select: { name: true } } },
+          orderBy: { ingredient_id: 'asc' },
+        },
       },
     });
 
@@ -140,6 +144,31 @@ export const authService = {
     }
 
     return user;
+  },
+
+  async updateMe(userId, { full_name, health_profile, allergy_ids }) {
+    const user_id = Number(userId);
+    await prisma.$transaction(async tx => {
+      if (health_profile?.diet_type_id != null && !await tx.dietType.findUnique({ where: { diet_type_id: health_profile.diet_type_id } })) {
+        throw ApiError.badRequest('Chế độ ăn không tồn tại');
+      }
+      if (allergy_ids !== undefined) {
+        const count = await tx.ingredient.count({ where: { ingredient_id: { in: allergy_ids } } });
+        if (count !== allergy_ids.length) throw ApiError.badRequest('Nguyên liệu dị ứng không tồn tại');
+      }
+      if (full_name !== undefined) await tx.user.update({ where: { user_id }, data: { full_name } });
+      if (health_profile !== undefined) {
+        const profile = { ...health_profile };
+        if (profile.dob !== undefined) profile.dob = profile.dob === null ? null : new Date(profile.dob);
+        await tx.healthProfile.upsert({ where: { user_id }, create: { user_id, ...profile }, update: profile });
+        if (profile.health_goal !== undefined) await tx.$executeRaw`UPDATE profile_preferences SET goal=${profile.health_goal} WHERE user_id=${user_id}`;
+      }
+      if (allergy_ids !== undefined) {
+        await tx.userAllergy.deleteMany({ where: { user_id } });
+        if (allergy_ids.length) await tx.userAllergy.createMany({ data: allergy_ids.map(ingredient_id => ({ user_id, ingredient_id })) });
+      }
+    });
+    return this.getMe(user_id);
   },
 };
 

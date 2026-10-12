@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { dietOptions, saveDiet } from '../lib/dietSelection.js';
+import { saveDiet } from '../lib/dietSelection.js';
 
 const icons = {
   1: 'leaf',
@@ -10,7 +10,7 @@ const icons = {
   6: 'compass',
 };
 
-export default function WelcomeModal({ onConfirm }) {
+export default function WelcomeModal({ onConfirm,options: dietOptions }) {
   const [selectedDiet, setSelectedDiet] = useState('');
   const dialog = useRef(null);
 
@@ -35,7 +35,7 @@ export default function WelcomeModal({ onConfirm }) {
     event.preventDefault();
     const diet = dietOptions.find((item) => item.diet_type_id === selectedDiet);
     if (!diet) return;
-    saveDiet(diet);
+    saveDiet(diet, dietOptions);
     onConfirm(diet);
   }
 
@@ -72,7 +72,7 @@ export default function WelcomeModal({ onConfirm }) {
                 >
                   <div className="d-flex justify-content-between align-items-center mb-3">
                     <i
-                      className={`bi bi-${icons[diet.diet_type_id]} fs-4`}
+                      className={`bi bi-${icons[diet.diet_type_id] || 'leaf'} fs-4`}
                       aria-hidden="true"
                     />
                     <input

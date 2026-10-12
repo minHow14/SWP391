@@ -4,7 +4,23 @@ const id = z.coerce.number().int().positive();
 const text = (max) => z.string().trim().min(1).max(max);
 const url = z.string().trim().url().max(500);
 const update = (shape) => z.object(shape).strict().refine((value) => Object.keys(value).length > 0, 'Cần ít nhất một trường để cập nhật');
+const birthDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
+  const parsed = new Date(value);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0,10) === value && value <= new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
+}, 'Ngày sinh không hợp lệ hoặc nằm trong tương lai');
 export const schemas = {
+  updateMe: update({
+    full_name: text(255).optional(),
+    health_profile: z.object({
+      height: z.number().min(50).max(250).nullable().optional(),
+      weight: z.number().min(10).max(400).nullable().optional(),
+      dob: birthDate.nullable().optional(),
+      gender: text(20).nullable().optional(),
+      health_goal: text(255).nullable().optional(),
+      diet_type_id: id.nullable().optional(),
+    }).strict().optional(),
+    allergy_ids: z.array(id).max(200).refine(ids=>new Set(ids).size===ids.length,'Nguyên liệu dị ứng bị trùng').optional(),
+  }),
   idParams: z.object({ id }), postIdParams: z.object({ postId: id }),
   register: z.object({ email: z.string().trim().email().max(255), password: z.string().min(8).max(128), full_name: text(255) }).strict(),
   login: z.object({ email: z.string().trim().email().max(255), password: z.string().min(1).max(128) }).strict(),
