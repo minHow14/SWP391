@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, insert
 
 from core.database import ai_log, run_with_fallback
+from core.timezone import VN_TZ
 from main import app
 
 client = TestClient(app)
@@ -12,12 +13,12 @@ ADMIN = {"X-User-Id": "1", "X-User-Role": "ADMIN"}
 
 # (created_at, model, action, status, error)
 ROWS = [
-    (datetime(2026, 10, 1, 9, 0), "deepseek-chat", "CHAT_GUEST", "SUCCESS", None),
-    (datetime(2026, 10, 1, 9, 5), "deepseek-chat", "CHAT_USER_5", "SUCCESS", None),
-    (datetime(2026, 10, 2, 10, 0), "deepseek-chat", "CHAT_ERROR", "ERROR", "timeout from provider"),
-    (datetime(2026, 10, 2, 23, 59), "deepseek-chat", "MEAL_PLANNER_USER_5", "SUCCESS", None),
-    (datetime(2026, 10, 3, 8, 0), "deepseek-chat", "MEAL_PLANNER_ERROR", "ERROR", "invalid api key"),
-    (datetime(2026, 10, 3, 8, 30), "other-model", "CHAT_STREAM_GUEST", "SUCCESS", None),
+    (datetime(2026, 10, 1, 9, 0, tzinfo=VN_TZ), "deepseek-chat", "CHAT_GUEST", "SUCCESS", None),
+    (datetime(2026, 10, 1, 9, 5, tzinfo=VN_TZ), "deepseek-chat", "CHAT_USER_5", "SUCCESS", None),
+    (datetime(2026, 10, 2, 10, 0, tzinfo=VN_TZ), "deepseek-chat", "CHAT_ERROR", "ERROR", "timeout from provider"),
+    (datetime(2026, 10, 2, 23, 59, tzinfo=VN_TZ), "deepseek-chat", "MEAL_PLANNER_USER_5", "SUCCESS", None),
+    (datetime(2026, 10, 3, 8, 0, tzinfo=VN_TZ), "deepseek-chat", "MEAL_PLANNER_ERROR", "ERROR", "invalid api key"),
+    (datetime(2026, 10, 3, 8, 30, tzinfo=VN_TZ), "other-model", "CHAT_STREAM_GUEST", "SUCCESS", None),
 ]
 
 

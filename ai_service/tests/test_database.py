@@ -79,3 +79,27 @@ def test_quota_and_log_calls_run_off_the_event_loop_thread():
 
     asyncio.run(scenario())
     assert seen == [False, False, False, False]
+
+
+def test_ai_log_fits_the_team_table_constraints():
+    """ai_logs của nhóm: model_name và action là varchar(100) bắt buộc, status là chuỗi."""
+    import asyncio
+
+    from sqlalchemy import delete, select
+
+    from core.database import ai_log, run_with_fallback
+
+    run_with_fallback(lambda conn: conn.execute(delete(ai_log)))
+    asyncio.run(database.record_ai_log(None, "A" * 150, "SUCCESS"))
+    asyncio.run(database.record_ai_log("m" * 150, "CHAT_GUEST", "ERROR", "lỗi"))
+    rows = run_with_fallback(lambda conn: conn.execute(select(ai_log).order_by(ai_log.c.log_id)).all())
+    assert len(rows) == 2  # không dòng nào bị mất vì thiếu hoặc quá dài
+    assert rows[0].model_name == "system" and rows[0].action == "A" * 100
+    assert rows[1].model_name == "m" * 100 and rows[1].status == "ERROR"
+    assert rows[0].created_at is not None
+    run_with_fallback(lambda conn: conn.execute(delete(ai_log)))
+
+
+def test_table_names_match_the_team_database():
+    assert database.ai_log.name == "ai_logs"
+    assert database.guest_quota.name == "guest_quota"
