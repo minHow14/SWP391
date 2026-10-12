@@ -1,5 +1,4 @@
 -- ========================================================================
--- DỰ ÁN SWP391: CHAY XANH (VEGETARIAN & HEALTHY LIVING PLATFORM)
 -- FILE TỰ ĐỘNG IMPORT DỮ LIỆU MẪU (SEED DATA) VÀO POSTGRESQL
 -- ========================================================================
 --
@@ -186,10 +185,25 @@ INSERT INTO "posts" ("post_id", "author_id", "post_type", "status", "created_at"
 -- 9. VIDEO HƯỚNG DẪN (VIDEOS) (4 bản ghi)
 -- ------------------------------------------------------------------------
 INSERT INTO "videos" ("post_id", "title", "video_url", "thumbnail_url", "duration", "transcript") VALUES
-  (1, 'Cách làm Đậu Hũ Kho Nấm Rơm đậm đà đưa cơm', 'https://cdn.example.com/videos/dau-hu-kho-nam.mp4', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=900&q=80', 480, 'Xin chào các bạn, hôm nay chúng ta cùng thực hiện món đậu hũ kho nấm rơm chay thanh tịnh thơm ngon...'),
-  (2, 'Bí quyết làm Salad Bơ Hạt Óc Chó sốt mè tỏi thơm lừng', 'https://cdn.example.com/videos/salad-bo.mp4', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80', 360, 'Món salad bơ tươi giòn mát rất giàu chất béo tốt omega-3 thực vật, làm trong vòng 10 phút...'),
-  (3, 'Salad Rau Củ Tươi Mát Với Sốt Đậu Phộng', 'https://cdn.example.com/videos/salad-ngu-sac.mp4', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80', 525, '1. Rửa và thái rau củ. 2. Pha sốt đậu phộng với chanh và nước tương. 3. Trộn đều, thêm hạt rang và thưởng thức.'),
-  (4, 'Bữa Cơm Gạo Lứt Rau Củ Dễ Làm Tại Nhà', 'https://cdn.example.com/videos/com-gao-lut.mp4', 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80', 320, '1. Chuẩn bị cơm gạo lứt. 2. Xào rau củ vừa chín tới. 3. Xếp vào bát, thêm hạt điều và nước sốt.');
+  (1, 'Cách làm Đậu Hũ Kho Nấm Rơm đậm đà đưa cơm', 
+   'https://www.youtube.com/watch?v=AEpTdclRFAE', 
+   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80', 
+   480, 'Xin chào các bạn, hôm nay chúng ta cùng thực hiện món đậu hũ kho nấm rơm chay thanh tịnh thơm ngon...'),
+
+  (2, 'Bí quyết làm Salad Bơ Hạt Óc Chó sốt mè tỏi thơm lừng', 
+   'https://www.youtube.com/watch?v=eCC-HG_Jwoo', 
+   'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80', 
+   360, 'Món salad bơ tươi giòn mát rất giàu chất béo tốt omega-3 thực vật, làm trong vòng 10 phút...'),
+
+  (3, 'Salad Rau Củ Tươi Mát Với Sốt Đậu Phộng', 
+   'https://www.youtube.com/watch?v=BFGWlAgcesk', 
+   'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80', 
+   525, '1. Rửa và thái rau củ. 2. Pha sốt đậu phộng với chanh và nước tương. 3. Trộn đều, thêm hạt rang và thưởng thức.'),
+
+  (4, 'Bữa Cơm Gạo Lứt Rau Củ Dễ Làm Tại Nhà', 
+   'https://www.youtube.com/watch?v=iLaJEvVh3u0', 
+   'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80', 
+   320, '1. Chuẩn bị cơm gạo lứt. 2. Xào rau củ vừa chín tới. 3. Xếp vào bát, thêm hạt điều và nước sốt.');
 
 -- ------------------------------------------------------------------------
 -- 10. BÀI VIẾT BLOG (BLOGS) (12 bản ghi)
@@ -245,35 +259,74 @@ INSERT INTO "post_categories" ("post_id", "category_id") VALUES
 -- 12. CÔNG THỨC MÓN ĂN (RECIPES) (10 bản ghi)
 -- ------------------------------------------------------------------------
 INSERT INTO "recipes" ("recipe_id", "post_id", "category_id", "diet_type_id", "recipe_name", "description", "image_url", "prep_time", "total_calories", "instructions") VALUES
-  (1, 1, 1, 1, 'Đậu Hũ Kho Nấm Đông Cô & Hạt Sen', 'Đậu hũ vàng giòn kho cùng nấm đông cô tươi, hạt sen dẻo và nước dừa thanh ngọt.', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=900&q=80', 25, 280, '1. Cắt đậu hũ và áp chảo đến khi vàng đều các mặt.
+  (1, 1, 1, 1, 'Đậu Hũ Kho Nấm Đông Cô & Hạt Sen', 
+   'Đậu hũ vàng giòn kho cùng nấm đông cô tươi, hạt sen dẻo và nước dừa thanh ngọt.', 
+   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80', 
+   25, 280, '1. Cắt đậu hũ và áp chảo đến khi vàng đều các mặt.
 2. Rửa sạch nấm đông cô tươi, ngâm nước muối loãng 5 phút.
 3. Cho nấm, đậu hũ, hạt sen vào nồi cùng nước dừa tươi.
 4. Nêm nước tương và kho nhỏ lửa đến khi nước sốt sánh lại.'),
-  (2, 2, 2, 1, 'Salad Bơ Hạt Óc Chó Sốt Tỏi Olive', 'Bơ sáp dẻo ngậy kết hợp hạt óc chó giòn, rau tươi xanh và sốt tỏi dầu olive thơm nhẹ.', 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80', 15, 210, '1. Rửa sạch rau xà lách, để ráo và cắt bơ sáp thành từng lát vừa ăn.
+
+  (2, 2, 2, 1, 'Salad Bơ Hạt Óc Chó Sốt Tỏi Olive', 
+   'Bơ sáp dẻo ngậy kết hợp hạt óc chó giòn, rau tươi xanh và sốt tỏi dầu olive thơm nhẹ.', 
+   'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=900&q=80', 
+   15, 210, '1. Rửa sạch rau xà lách, để ráo và cắt bơ sáp thành từng lát vừa ăn.
 2. Trộn tỏi băm, dầu olive nguyên chất, nước chanh và chút muối biển.
 3. Xếp rau và bơ ra đĩa, rắc hạt óc chó đập dập rồi rưới đều sốt lên trên.'),
-  (3, NULL, 3, 2, 'Súp Nấm Mỡ & Váng Sữa Phô Mai', 'Súp nấm mỡ mềm mịn với sữa tươi, kem và phô mai. Lựa chọn tuyệt vời cho chế độ chay có sữa.', 'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80', 25, 320, '1. Thái lát nấm mỡ và hành tây, xào thơm cùng bơ thực vật.
+
+  (3, NULL, 3, 2, 'Súp Nấm Mỡ & Váng Sữa Phô Mai', 
+   'Súp nấm mỡ mềm mịn với sữa tươi, kem và phô mai. Lựa chọn tuyệt vời cho chế độ chay có sữa.', 
+   'https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=900&q=80', 
+   25, 320, '1. Thái lát nấm mỡ và hành tây, xào thơm cùng bơ thực vật.
 2. Thêm nước dùng rau củ vừa đủ và nấu đến khi nấm chín mềm.
 3. Dùng máy xay mịn, cho sữa tươi vào đun ấm nhẹ rồi rắc phô mai bào lên trên.'),
-  (4, NULL, 5, 3, 'Bánh Mì Kẹp Trứng Ốp La & Nấm Đùi Gà', 'Bánh mì giòn kẹp trứng ốp la béo ngậy, nấm đùi gà áp chảo cùng dưa leo và rau thơm.', 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=80', 15, 310, '1. Cắt lát nấm đùi gà, áp chảo với chút dầu olive và nước tương thơm lừng.
+
+  (4, NULL, 5, 3, 'Bánh Mì Kẹp Trứng Ốp La & Nấm Đùi Gà', 
+   'Bánh mì giòn kẹp trứng ốp la béo ngậy, nấm đùi gà áp chảo cùng dưa leo và rau thơm.', 
+   'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=80', 
+   15, 310, '1. Cắt lát nấm đùi gà, áp chảo với chút dầu olive và nước tương thơm lừng.
 2. Chiên trứng ốp la lòng đào, nướng nóng giòn ổ bánh mì nguyên cám.
 3. Kẹp nấm, trứng và rau xà lách vào bánh mì rồi dùng ngay khi còn nóng.'),
-  (5, NULL, 5, 4, 'Bánh Nướng Phô Mai Mozzarella & Trứng', 'Bánh nướng mềm với trứng và phô mai mozzarella kéo sợi béo ngậy, dành cho chế độ chay trứng & sữa.', 'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=80', 30, 410, '1. Phết một lớp bơ mỏng lên lát bánh mì nguyên cám rồi xếp vào khay nướng.
+
+  (5, NULL, 5, 4, 'Bánh Nướng Phô Mai Mozzarella & Trứng', 
+   'Bánh nướng mềm với trứng và phô mai mozzarella kéo sợi béo ngậy, dành cho chế độ chay trứng & sữa.', 
+   'https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=900&q=80', 
+   30, 410, '1. Phết một lớp bơ mỏng lên lát bánh mì nguyên cám rồi xếp vào khay nướng.
 2. Tạo hình lòng chảo ở giữa, đập trứng gà và phủ phô mai Mozzarella xung quanh.
 3. Nướng ở 180°C trong 12 phút đến khi phô mai tan chảy xém vàng.'),
-  (6, NULL, 4, 1, 'Đậu Hũ Sốt Cà Chua & Hành Boa-rô', 'Đậu hũ chiên giòn rim cùng sốt cà chua tươi ngọt và hành boa-rô thơm phức.', 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=900&q=80', 20, 260, '1. Cắt đậu hũ miếng vuông, chiên vàng giòn rồi vớt ra thấm ráo dầu.
+
+  (6, NULL, 4, 1, 'Đậu Hũ Sốt Cà Chua & Hành Boa-rô', 
+   'Đậu hũ chiên giòn rim cùng sốt cà chua tươi ngọt và hành boa-rô thơm phức.', 
+   'https://images.unsplash.com/photo-1546069901-d5bfd2cbfb1f?auto=format&fit=crop&w=900&q=80', 
+   20, 260, '1. Cắt đậu hũ miếng vuông, chiên vàng giòn rồi vớt ra thấm ráo dầu.
 2. Phi thơm hành boa-rô băm nhỏ, cho cà chua xắt hạt lựu vào đảo nát thành sốt sệt.
 3. Cho đậu hũ vào rim nhỏ lửa trong 8 phút cho thấm gia vị, rắc tiêu và boa-rô ngọn.'),
-  (7, NULL, 3, 1, 'Canh Rong Biển Đậu Hũ Non Hạt Sen', 'Canh thanh nhiệt giải độc, bổ sung i-ốt và khoáng chất tự nhiên từ biển cả.', 'https://images.unsplash.com/photo-1607532941433-304659e8198a?auto=format&fit=crop&w=900&q=80', 20, 180, '1. Ngâm nở rong biển khô trong nước lạnh 10 phút rồi vớt ráo.
+
+  (7, NULL, 3, 1, 'Canh Rong Biển Đậu Hũ Non Hạt Sen', 
+   'Canh thanh nhiệt giải độc, bổ sung i-ốt và khoáng chất tự nhiên từ biển cả.', 
+   'https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=900&q=80', 
+   20, 180, '1. Ngâm nở rong biển khô trong nước lạnh 10 phút rồi vớt ráo.
 2. Nấu sôi nước cùng hạt sen cho chín mềm.
 3. Thả đậu hũ non cắt quân cờ và rong biển vào, nêm hạt nêm chay vừa ăn, tắt bếp sau 2 phút.'),
-  (8, NULL, 4, 1, 'Cơm Chiên Gạo Lứt Nấm & Củ Quả', 'Cơm gạo lứt hạt giòn bùi kết hợp nấm hương, đậu cô ve, cà rốt giàu chất xơ và đạm thực vật.', 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80', 25, 340, '1. Nấu chín cơm gạo lứt và để nguội ráo.
+
+  (8, NULL, 4, 1, 'Cơm Chiên Gạo Lứt Nấm & Củ Quả', 
+   'Cơm gạo lứt hạt giòn bùi kết hợp nấm hương, đậu cô ve, cà rốt giàu chất xơ và đạm thực vật.', 
+   'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=900&q=80', 
+   25, 340, '1. Nấu chín cơm gạo lứt và để nguội ráo.
 2. Cắt hạt lựu nấm đùi gà, cà rốt và đậu cô ve, xào sơ với dầu olive.
 3. Cho cơm gạo lứt vào đảo đều tay trên lửa lớn, nêm nước tương và tiêu xay.'),
-  (9, 3, 2, 1, 'Salad Ngũ Sắc Sốt Tương Đậu Phộng', 'Rau củ tươi kết hợp sốt đậu phộng thơm bùi, dễ chuẩn bị cho những ngày bận rộn.', 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80', 20, 210, '1. Rửa sạch và thái rau củ.
+
+  (9, 3, 2, 1, 'Salad Ngũ Sắc Sốt Tương Đậu Phộng', 
+   'Rau củ tươi kết hợp sốt đậu phộng thơm bùi, dễ chuẩn bị cho những ngày bận rộn.', 
+   'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80', 
+   20, 210, '1. Rửa sạch và thái rau củ.
 2. Pha bơ đậu phộng với nước tương, chanh và nước ấm.
 3. Trộn rau cùng đậu hũ, thêm sốt và dùng ngay.'),
-  (10, 4, 4, 1, 'Cơm Gạo Lứt Rau Củ & Hạt Điều', 'Một bát cơm ấm với rau củ theo mùa và hạt điều rang thơm, đơn giản mà ngon miệng.', 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80', 25, 350, '1. Nấu gạo lứt theo hướng dẫn trên bao bì.
+
+  (10, 4, 4, 1, 'Cơm Gạo Lứt Rau Củ & Hạt Điều', 
+   'Một bát cơm ấm với rau củ theo mùa và hạt điều rang thơm, đơn giản mà ngon miệng.', 
+   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80', 
+   25, 350, '1. Nấu gạo lứt theo hướng dẫn trên bao bì.
 2. Xào rau củ với dầu và nước tương.
 3. Cho cơm, rau vào bát và rắc hạt điều rang.');
 
