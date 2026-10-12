@@ -172,6 +172,7 @@ model PostVote {
 
 model Ingredient {
   details IngredientDetails?
+  image IngredientImage?
   ingredient_id      Int                @id @default(autoincrement())
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
@@ -334,6 +335,17 @@ model IngredientDetails {
   image_url String?
   ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
   @@map("ingredient_details")
+}
+model IngredientImage {
+  ingredient_id Int @id
+  mime_type String @db.VarChar(50)
+  image_data Bytes
+  attribution String?
+  source_url String?
+  license String?
+  license_text String?
+  ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("ingredient_images")
 }
 model IngredientAlternative {
   id String @id @db.VarChar(40)
