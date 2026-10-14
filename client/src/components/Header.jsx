@@ -96,15 +96,59 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
                 <i className="bi bi-chevron-down" aria-hidden="true"></i>
               </button>
 
-              <div className="account-buttons">
-                {user ? <><Link to="/ho-so" className="cx-account-profile small align-self-center text-truncate" style={{maxWidth:150}} title="Mở hồ sơ cá nhân" onClick={()=>setMenuOpen(false)}><i className="bi bi-person-circle me-1" aria-hidden="true" />{user.full_name}{user.role===1?' · Admin':''}</Link><button className="btn btn-outline-success" onClick={()=>setSession(null)}>Đăng xuất</button></> : <>
-                <Link to="/dang-nhap" className="btn btn-outline-success">
-                  Đăng nhập
-                </Link>
-                <Link to="/dang-ky" className="btn btn-success">
-                  Đăng ký
-                </Link>
-                </>}
+              <div className="account-buttons d-flex align-items-center gap-2">
+                {user ? (
+                  <>
+                    {user.role === 1 ? (
+                      <Link
+                        to="/admin"
+                        className="btn btn-success btn-sm rounded-pill px-3 d-inline-flex align-items-center gap-1 shadow-sm"
+                        title="Vào Trung tâm Quản trị"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <i className="bi bi-shield-shaded" />
+                        <span>Quản trị</span>
+                      </Link>
+                    ) : (
+                      <Link
+                        to="/ho-so"
+                        className="cx-account-profile small align-self-center text-truncate me-1"
+                        style={{ maxWidth: 140 }}
+                        title="Mở hồ sơ cá nhân"
+                        onClick={() => setMenuOpen(false)}
+                      >
+                        <i className="bi bi-person-circle me-1" />
+                        {user.full_name}
+                      </Link>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-outline-secondary btn-sm rounded-circle p-0 d-inline-flex align-items-center justify-content-center"
+                      style={{ width: 32, height: 32 }}
+                      onClick={() => setSession(null)}
+                      title="Đăng xuất"
+                    >
+                      <i className="bi bi-box-arrow-right" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      to="/dang-nhap"
+                      className="btn btn-link text-success text-decoration-none btn-sm fw-semibold px-2"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Đăng nhập
+                    </Link>
+                    <Link
+                      to="/dang-ky"
+                      className="btn btn-success btn-sm rounded-pill px-3"
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      Đăng ký
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </div>

@@ -12,6 +12,7 @@ import IngredientDictionary from './pages/IngredientDictionary.jsx';
 import Restaurants from './pages/Restaurants.jsx';
 import Journal from './pages/Journal.jsx';
 import Profile from './pages/Profile.jsx';
+import AdminPortal from './pages/admin/AdminPortal.jsx';
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/cong-thuc" element={<Recipes />} />
         <Route path="/cong-dong" element={<Community />} />
       </Route>
+      <Route path="/admin" element={<AdminPortal />} />
       <Route path="/dang-nhap" element={<Login />} />
       <Route path="/dang-ky" element={<Register />} />
       <Route path="*" element={<Navigate to="/" replace />} />

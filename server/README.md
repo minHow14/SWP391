@@ -16,10 +16,10 @@ server/
 │   ├── schema.prisma          # Định nghĩa 23 models và relationships của hệ thống
 │   ├── seed.js                # Runner nạp toàn bộ seed.sql & tự động xác thực
 │   └── seed.sql               # Toàn bộ 56 câu lệnh SQL dữ liệu mẫu hệ thống & website mở rộng
-├── test/                      # Test suites kiểm thử API boundary
-│   └── app.test.js
-├── tests/                     # Test suites kiểm thử Places API
-│   └── places.test.js
+├── tests/                     # Test suites kiểm thử tự động
+│   ├── app.test.js            # Kiểm thử API boundary & Zod validation
+│   ├── places.test.js         # Kiểm thử Places API & Cache & Rate Limiting
+│   └── workspace.integration.mjs # Kiểm thử tích hợp toàn bộ luồng Database & Workspace
 └── src/
     ├── app.js                 # Khởi tạo Express app, global middlewares, routes, error handlers
     ├── server.js              # Entry point khởi chạy HTTP server, graceful shutdown DB
@@ -207,9 +207,8 @@ Client Request
 | **Admin** | `admin@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
 | **User** | `user@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
 | **User** | `lan.nguyen@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
-| **Admin (Demo)** | `admin@chayxanh.local` | `Admin@123456` | `ACTIVE` | `seed.mjs` |
-| **User (Demo)** | `user@chayxanh.local` | `User@123456` | `ACTIVE` | `seed.mjs` |
-| **Locked User** | `locked@chayxanh.local` | `User@123456` | `LOCKED` | `seed.mjs` |
+| **User (Khóa)** | `spammer@swp391.com` | `123456` | `LOCKED` | `seed.sql` |
+| **User (Đầu bếp)** | `tung.bepchay@swp391.com` | `123456` | `ACTIVE` | `seed.sql` |
 
 ---
 

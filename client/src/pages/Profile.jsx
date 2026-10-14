@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, Navigate } from 'react-router';
 import { useDatabase } from '../lib/databaseContext.js';
 import { api, getSession, setSession } from '../lib/api.js';
 import { normalizeSearch } from '../lib/recipeFilters.js';
@@ -28,6 +27,7 @@ function profileValues(user) {
 
 export default function Profile() {
   const { user, data } = useDatabase();
+  if (user?.role === 1) return <Navigate to="/admin" replace />;
   if (!user) return <main className="cx-profile-page"><div className="cx-profile-shell text-center"><h1>Hồ sơ cá nhân</h1><p>Đăng nhập để xem và cập nhật thông tin của bạn.</p><Link className="btn btn-success" to="/dang-nhap">Đăng nhập</Link></div></main>;
   return <ProfileForm key={user.user_id} userId={user.user_id} catalog={data} />;
 }

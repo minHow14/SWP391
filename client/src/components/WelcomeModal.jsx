@@ -8,6 +8,7 @@ const icons = {
   4: 'egg-fried',
   5: 'flower1',
   6: 'compass',
+  7: 'heart-pulse',
 };
 
 export default function WelcomeModal({ onConfirm,options: dietOptions }) {
