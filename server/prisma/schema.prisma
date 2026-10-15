@@ -172,6 +172,7 @@ model PostVote {
 
 model Ingredient {
   details IngredientDetails?
+  image IngredientImage?
   ingredient_id      Int                @id @default(autoincrement())
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
@@ -335,6 +336,17 @@ model IngredientDetails {
   ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
   @@map("ingredient_details")
 }
+model IngredientImage {
+  ingredient_id Int @id
+  mime_type String @db.VarChar(50)
+  image_data Bytes
+  attribution String?
+  source_url String?
+  license String?
+  license_text String?
+  ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
+  @@map("ingredient_images")
+}
 model IngredientAlternative {
   id String @id @db.VarChar(40)
   chip String
@@ -395,4 +407,16 @@ model RestaurantMenuPrice {
   menu RestaurantRecipe @relation(fields:[restaurant_id,recipe_id],references:[restaurant_id,recipe_id],onDelete:Cascade,onUpdate:NoAction)
   @@id([restaurant_id,recipe_id])
   @@map("restaurant_menu_prices")
+}
+
+/// Hạn mức dùng AI mỗi ngày của khách (chatbot + tạo thực đơn dùng chung), do ai_service đọc/ghi.
+/// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
+model GuestQuota {
+  guest_id   String   @db.VarChar(100)
+  quota_date DateTime @db.Date
+  used_count Int      @default(0)
+  updated_at DateTime @default(now()) @db.Timestamp(6)
+
+  @@id([guest_id, quota_date])
+  @@map("guest_quota")
 }

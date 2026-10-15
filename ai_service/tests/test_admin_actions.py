@@ -120,3 +120,12 @@ def test_interventions_are_recorded_in_the_ai_log_with_the_admin_id():
         "ADMIN_RESET_GUEST_QUOTA_audited-guest_BY_9",
         "ADMIN_CLEAR_CHATBOT_CACHE_BY_9",
     ]
+    models = run_with_fallback(lambda conn: conn.execute(select(ai_log.c.model_name)).all())
+    assert {row.model_name for row in models} == {"admin"}
+
+
+def test_audit_of_a_long_guest_id_is_still_recorded_within_100_characters():
+    long_id = "g" * 100
+    client.post("/api/admin/guest-quota/reset", json={"guest_id": long_id}, headers=ADMIN)
+    actions = audit_actions()
+    assert len(actions) == 1 and len(actions[0]) == 100 and actions[0].startswith("ADMIN_RESET_GUEST_QUOTA_")

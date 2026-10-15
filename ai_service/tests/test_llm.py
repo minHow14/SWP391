@@ -8,6 +8,13 @@ from core import llm
 from core.config import settings
 
 
+@pytest.fixture(autouse=True)
+def mock_llm_credentials(monkeypatch):
+    """Cấp key giả tự động cho mọi test trong file này để ChatOpenAI không báo lỗi thiếu key trên CI."""
+    monkeypatch.setenv("OPENAI_API_KEY", "test-dummy-key")
+    monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", "test-deepseek-key", raising=False)
+
+
 def provider_error() -> Exception:
     return openai.APIConnectionError(request=httpx.Request("POST", "https://api.deepseek.com"))
 

@@ -30,6 +30,13 @@ test('API supports workspace envelopes and auth responses',async()=>{
   assert.deepEqual(await api('/workspace/catalog'),{recipes:[]});
   assert.equal((await api('/auth/login',{method:'POST',body:{}})).token,'new');
 });
+test('places can retain provider status while existing API callers still receive data', async () => {
+  const { api } = await setup();
+  const envelope = { success: true, data: { places: [] }, meta: { ziomap: 'unavailable' } };
+  globalThis.fetch = async () => new Response(JSON.stringify(envelope));
+  assert.deepEqual(await api('/places/nearby', { includeMeta: true }), envelope);
+  assert.deepEqual(await api('/places/nearby'), envelope.data);
+});
 test('a stale unauthorized response cannot clear a newer login',async()=>{
   const {api,setSession,getSession}=await setup();
   setSession({token:'old'});

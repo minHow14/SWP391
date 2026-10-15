@@ -114,12 +114,18 @@
 .cx-restaurant-card-actions button { background: #009671; color: #fff; }
 .cx-restaurant-card-actions button:hover { background: #047857; }
 .cx-restaurant-card-actions a:hover { background: #e2e8f0; }
-.cx-restaurant-map { position: relative; overflow: hidden; height: 740px; border: 1px solid #d9e8e0; border-radius: 27px; background: #e8f0ec; }
+.cx-restaurant-map { position: relative; display: flex; flex-direction: column; overflow: hidden; height: 740px; border: 1px solid #d9e8e0; border-radius: 27px; background: #e8f0ec; }
 .cx-restaurant-map-heading { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 20px; background: #075744; color: #fff; }
 .cx-restaurant-map-heading strong { font-size: 12px; }
 .cx-restaurant-map-heading strong .bi { color: #4cd6a2; margin-right: 5px; }
 .cx-restaurant-map-heading span { color: #9be7ce; font-size: 10px; font-weight: 650; }
-.cx-restaurant-map iframe { display: block; width: 100%; height: calc(100% - 49px); border: 0; }
+.cx-restaurant-map-heading { flex-shrink: 0; }
+.cx-live-map { position: relative; flex: 1; min-height: 0; z-index: 0; }
+.cx-live-map-canvas { height: 100%; width: 100%; background: #e8f0ec; }
+.cx-map-marker { display: grid; place-items: center; width: 36px; height: 42px; color: #047857; font-size: 36px; filter: drop-shadow(0 2px 2px #0005); }
+.cx-map-marker.is-selected { color: #e4572e; font-size: 42px; }
+.cx-map-load-error { position: absolute; bottom: 30px; left: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; border-radius: 12px; background: #fff; color: #43536a; box-shadow: 0 3px 12px #0002; font-size: 12px; }
+.cx-map-load-error button { border: 0; border-radius: 8px; padding: 6px 10px; background: #047857; color: #fff; }
 .cx-map-reopen { position: absolute; z-index: 2; top: 66px; right: 17px; padding: 8px 12px; border: 1px solid #d2e9df; border-radius: 12px; background: #fff; color: #047857; font-size: 11px; font-weight: 750; box-shadow: 0 3px 8px #0001; }
 .cx-map-place-popup { position: absolute; z-index: 2; top: 160px; right: 32px; width: min(330px, calc(100% - 64px)); overflow: hidden; border: 1px solid #dae9e0; border-radius: 23px; background: #fff; box-shadow: 0 15px 40px #1b414f28; }
 .cx-map-popup-close { position: absolute; z-index: 2; top: 8px; right: 8px; width: 27px; height: 27px; border: 0; border-radius: 50%; background: #fff; color: #64748b; font-size: 21px; line-height: 1; }
