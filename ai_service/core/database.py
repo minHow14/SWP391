@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from datetime import datetime
 from typing import Callable, Optional, TypeVar
 
 from sqlalchemy import (
@@ -8,7 +9,6 @@ from sqlalchemy import (
     Date,
     DateTime,
     Engine,
-    Enum,
     Integer,
     MetaData,
     String,
@@ -23,6 +23,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 
 from core.config import settings
+from core.timezone import VN_TZ
 
 logger = logging.getLogger(__name__)
 
@@ -33,21 +34,24 @@ PRIMARY_RETRY_SECONDS = 30
 
 metadata = MetaData()
 
-# Bảng AILog đã có trong PostgreSQL của nhóm (xem ERD); bản SQLite chỉ dùng khi không kết nối được.
+# Bảng log AI của nhóm (Prisma model ai_logs): model_name và action là varchar(100) bắt buộc, status là
+# chuỗi SUCCESS | ERROR. Bản SQLite chỉ dùng khi không kết nối được PostgreSQL.
+AI_LOG_TEXT_LENGTH = 100
+
 ai_log = Table(
-    "ailog",
+    "ai_logs",
     metadata,
     Column("log_id", Integer, primary_key=True, autoincrement=True),
-    Column("model_name", String(255), nullable=True),
-    Column("action", String(255), nullable=True),
-    Column("status", Enum("SUCCESS", "ERROR", name="ai_log_status", create_type=False), nullable=False),
+    Column("model_name", String(AI_LOG_TEXT_LENGTH), nullable=False),
+    Column("action", String(AI_LOG_TEXT_LENGTH), nullable=False),
+    Column("status", String(20), nullable=False),
     Column("error_feedback", Text, nullable=True),
-    Column("created_at", DateTime, server_default=func.now()),
+    Column("created_at", DateTime(timezone=True), server_default=func.now()),
 )
 
-# Hạn mức dùng AI trong ngày của khách; schema PostgreSQL nằm trong file schema đầy đủ của nhóm (bảng GuestQuota).
+# Hạn mức dùng AI trong ngày của khách (Prisma model GuestQuota, bảng guest_quota).
 guest_quota = Table(
-    "guestquota",
+    "guest_quota",
     metadata,
     Column("guest_id", String(100), primary_key=True),
     Column("quota_date", Date, primary_key=True),
@@ -130,10 +134,13 @@ def _write_ai_log(
         run_with_fallback(
             lambda conn: conn.execute(
                 insert(ai_log).values(
-                    model_name=model_name,
-                    action=action,
+                    # Cột bắt buộc và giới hạn 100 ký tự: không để giá trị rỗng/quá dài làm mất cả dòng log
+                    model_name=(model_name or "system")[:AI_LOG_TEXT_LENGTH],
+                    action=action[:AI_LOG_TEXT_LENGTH],
                     status=status,
                     error_feedback=error_feedback,
+                    # Giờ Việt Nam để khớp cách lọc theo ngày của trang Admin
+                    created_at=datetime.now(VN_TZ),
                 )
             )
         )

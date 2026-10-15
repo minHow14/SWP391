@@ -55,8 +55,8 @@ class CacheClearResponse(BaseModel):
 
 
 async def _audit(admin: RequestIdentity, action: str) -> None:
-    """Ghi dấu vết can thiệp của Admin vào AILog để truy lại ai đã làm gì."""
-    await record_ai_log(model_name=None, action=f"ADMIN_{action}_BY_{admin.user_id}", status="SUCCESS")
+    """Ghi dấu vết can thiệp của Admin vào bảng ai_logs để truy lại ai đã làm gì."""
+    await record_ai_log(model_name="admin", action=f"ADMIN_{action}_BY_{admin.user_id}", status="SUCCESS")
 
 
 async def _quota(guest_id: str) -> GuestQuotaData:

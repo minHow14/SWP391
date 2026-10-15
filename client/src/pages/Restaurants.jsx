@@ -6,10 +6,12 @@ import { normalizeSearch } from '../lib/recipeFilters.js';
 import ContentImage from '../components/ContentImage.jsx';
 import ContentDialog from '../components/ContentDialog.jsx';
 import RestaurantDetail from '../components/RestaurantDetail.jsx';
-import { restaurantDirections } from '../lib/restaurantDirections.js';
+import NearbyPlaces from '../components/NearbyPlaces.jsx';
+import RestaurantMap from '../components/RestaurantMap.jsx';
+import { hasCoordinates, restaurantDirections } from '../lib/restaurantDirections.js';
 import '../Discovery.css';
 
-const typeName = (type) => restaurantTypes.find((item) => item.id === type)?.name || type;
+const typeName = (type) => type === 'external' ? 'Quán từ ZIOMAP' : restaurantTypes.find((item) => item.id === type)?.name || type;
 const directions = restaurantDirections;
 
 export default function Restaurants() {
@@ -20,6 +22,7 @@ export default function Restaurants() {
   const [city, setCity] = useState('all');
   const [sort, setSort] = useState('rating');
   const [selectedId, setSelectedId] = useState(null);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const [popupOpen, setPopupOpen] = useState(true);
   const [proposing, setProposing] = useState(false);
   const [notice, setNotice] = useState('');
@@ -27,12 +30,14 @@ export default function Restaurants() {
   const map = useRef(null);
   const search = normalizeSearch(query.trim());
   const filtered = places.filter((place) => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address} ${place.dishes}`).includes(search)).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'vi') : sort === 'price' ? a.price.length - b.price.length : b.rating - a.rating);
-  const selected = filtered.find((place) => place.id === selectedId) || filtered[0];
-  const hasLocation=selected && Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude);
-  const bbox = hasLocation ? `${selected.longitude - .022},${selected.latitude - .015},${selected.longitude + .022},${selected.latitude + .015}` : '';
-  const mapUrl = hasLocation ? `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${selected.latitude}%2C${selected.longitude}` : '';
+  const visibleNearby = nearbyPlaces.filter(place => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address}`).includes(search));
+  const mapPlaces = [...filtered, ...visibleNearby];
+  const selected = mapPlaces.find((place) => place.id === selectedId) || mapPlaces[0];
+  const hasLocation = mapPlaces.some(hasCoordinates);
+  const mapSelection = hasCoordinates(selected) ? selected : mapPlaces.find(hasCoordinates);
 
   function selectPlace(place) {
+    if (place.source === 'ziomap') { setQuery(''); setType('all'); setCity('all'); }
     setSelectedId(place.id);
     setPopupOpen(true);
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -60,6 +65,7 @@ export default function Restaurants() {
         </div>
         <p className="cx-restaurant-demo-note"><i className="bi bi-info-circle" aria-hidden="true" /> Khám phá quán chay theo khu vực. Đăng nhập để đề xuất địa điểm hoặc chia sẻ đánh giá.</p>
       </section>
+      <NearbyPlaces onResults={setNearbyPlaces} onSelect={selectPlace} />
       {notice && <div className="cx-restaurant-notice" role="status">{notice}<button type="button" aria-label="Đóng thông báo" onClick={() => setNotice('')}>×</button></div>}
       <div className="cx-restaurant-workspace">
         <section className="cx-restaurant-list" aria-label="Danh sách quán chay"><p className="visually-hidden" role="status">Hiển thị {filtered.length} địa điểm phù hợp.</p>{filtered.map((place) => <article className={`cx-restaurant-card ${selected?.id === place.id ? 'is-selected' : ''}`} key={place.id}>
@@ -67,8 +73,8 @@ export default function Restaurants() {
           <div className="cx-restaurant-kitchen"><div><span>🍳 Dụng cụ nấu riêng: <strong>{place.separate ? '✓ Có bếp riêng' : place.type === 'shop' ? 'Cửa hàng' : 'Chưa xác minh'}</strong></span><span>⏰ {place.hours}</span></div><p><strong>{place.type === 'shop' ? 'Sản phẩm:' : 'Món nổi bật:'}</strong> {place.dishes}</p></div>
           <div className="cx-restaurant-card-actions"><button className="cx-restaurant-detail-button" type="button" onClick={() => setDetail(place)}><i className="bi bi-info-circle" aria-hidden="true" /> Chi Tiết</button><a href={directions(place)} target="_blank" rel="noreferrer"><i className="bi bi-sign-turn-right-fill" aria-hidden="true" /> Chỉ Đường</a><button type="button" onClick={() => selectPlace(place)}><i className="bi bi-crosshair" aria-hidden="true" /> Xem Bản Đồ</button></div>
         </article>)}{!filtered.length && <div className="cx-discovery-empty"><i className="bi bi-shop" aria-hidden="true" /><h2>Chưa tìm thấy quán phù hợp</h2><p>Thử đổi từ khóa hoặc khu vực.</p><button type="button" onClick={() => { setQuery(''); setCity('all'); setType('all'); }}>Xóa bộ lọc</button></div>}</section>
-        <section className="cx-restaurant-map" ref={map} aria-label="Bản đồ quán chay"><div className="cx-restaurant-map-heading"><strong><i className="bi bi-crosshair" aria-hidden="true" /> Bản Đồ Quán Chay</strong><span>{selected?.city || 'Không có địa điểm'} · {filtered.length} kết quả</span></div>
-          {hasLocation ? <><iframe key={mapUrl} title={`Bản đồ vị trí minh họa ${selected.name}`} src={mapUrl} referrerPolicy="no-referrer" /><button type="button" className="cx-map-reopen" onClick={() => setPopupOpen(!popupOpen)} aria-expanded={popupOpen}><i className="bi bi-geo-alt-fill" aria-hidden="true" /> {popupOpen ? 'Ẩn thông tin quán' : 'Xem thông tin quán'}</button>{popupOpen && <article className="cx-map-place-popup"><button type="button" className="cx-map-popup-close" aria-label="Đóng thông tin trên bản đồ" onClick={() => setPopupOpen(false)}>×</button><div className="cx-map-popup-photo"><ContentImage src={selected.image} alt="Ảnh minh họa quán đang chọn" />{selected.rating > 0 && <span>⭐ {selected.rating}</span>}</div><div className="cx-map-popup-body"><small>{typeName(selected.type)}</small><h2>{selected.name}</h2><p>📍 {selected.address}</p><div><span>◷ {selected.hours}</span><span>Địa điểm</span></div><a href={directions(selected)} target="_blank" rel="noreferrer">🧭 Chỉ đường tới quán</a></div></article>}</> : <div className="cx-map-no-results"><i className="bi bi-map" aria-hidden="true" /><p>Chọn bộ lọc khác để hiển thị địa điểm trên bản đồ.</p></div>}
+        <section className="cx-restaurant-map" ref={map} aria-label="Bản đồ quán chay"><div className="cx-restaurant-map-heading"><strong><i className="bi bi-crosshair" aria-hidden="true" /> Bản Đồ Quán Chay</strong><span>{selected?.city || 'Không có địa điểm'} · {mapPlaces.length} kết quả</span></div>
+          {hasLocation ? <><RestaurantMap places={mapPlaces} selected={mapSelection} onSelect={selectPlace} /><button type="button" className="cx-map-reopen" onClick={() => setPopupOpen(!popupOpen)} aria-expanded={popupOpen}><i className="bi bi-geo-alt-fill" aria-hidden="true" /> {popupOpen ? 'Ẩn thông tin quán' : 'Xem thông tin quán'}</button>{popupOpen && <article className="cx-map-place-popup"><button type="button" className="cx-map-popup-close" aria-label="Đóng thông tin trên bản đồ" onClick={() => setPopupOpen(false)}>×</button><div className="cx-map-popup-photo"><ContentImage src={selected.image} alt="Ảnh minh họa quán đang chọn" />{selected.rating > 0 && <span>⭐ {selected.rating}</span>}</div><div className="cx-map-popup-body"><small>{typeName(selected.type)}</small><h2>{selected.name}</h2><p>📍 {selected.address}</p><div><span>◷ {selected.hours}</span><span>Địa điểm</span></div><a href={directions(selected)} target="_blank" rel="noreferrer">🧭 Chỉ đường tới quán</a></div></article>}</> : <div className="cx-map-no-results"><i className="bi bi-map" aria-hidden="true" /><p>Chọn bộ lọc khác để hiển thị địa điểm trên bản đồ.</p></div>}
         </section>
       </div>
       {detail && <RestaurantDetail key={detail.id} place={places.find(p=>p.id===detail.id)||detail} user={user} onClose={() => setDetail(null)} onReview={async(review)=>{await api(`/workspace/restaurants/${detail.id}/reviews`,{method:'POST',body:{stars:review.stars,text:review.text}});await reload();}} />}

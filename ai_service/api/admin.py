@@ -9,6 +9,7 @@ from starlette.concurrency import run_in_threadpool
 
 from core.database import ai_log, run_with_fallback
 from core.security import RequestIdentity, require_admin
+from core.timezone import VN_TZ
 
 router = APIRouter(prefix="/admin/ai-logs", tags=["Admin - AI Logs"])
 
@@ -94,9 +95,11 @@ def _filters(
     search: Optional[str] = None,
 ) -> Select:
     if date_from:
-        stmt = stmt.where(ai_log.c.created_at >= datetime.combine(date_from, time.min))
+        stmt = stmt.where(ai_log.c.created_at >= datetime.combine(date_from, time.min, tzinfo=VN_TZ))
     if date_to:  # tính trọn ngày date_to
-        stmt = stmt.where(ai_log.c.created_at < datetime.combine(date_to + timedelta(days=1), time.min))
+        stmt = stmt.where(
+            ai_log.c.created_at < datetime.combine(date_to + timedelta(days=1), time.min, tzinfo=VN_TZ)
+        )
     if status_filter:
         stmt = stmt.where(ai_log.c.status == status_filter)
     if feature:
@@ -176,9 +179,15 @@ async def ai_log_stats(
 ):
     """Tỷ lệ thành công/lỗi tổng, theo chức năng, theo model và theo ngày (để vẽ biểu đồ)."""
     _check_range(date_from, date_to)
-    day = func.date(ai_log.c.created_at)
 
     def query(conn):
+        # Ngày theo giờ Việt Nam: PostgreSQL lưu timestamptz nên phải đổi múi giờ trước khi lấy ngày;
+        # SQLite dự phòng đã lưu sẵn giờ Việt Nam.
+        created_at = ai_log.c.created_at
+        if conn.dialect.name == "postgresql":
+            created_at = func.timezone("Asia/Ho_Chi_Minh", created_at)
+        day = func.date(created_at)
+
         def grouped(group_column):
             stmt = select(group_column, *_COUNT_COLUMNS).group_by(group_column).order_by(group_column)
             return conn.execute(_filters(stmt, date_from, date_to)).all()

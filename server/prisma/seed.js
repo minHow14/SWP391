@@ -3,6 +3,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import prisma from '../src/config/prisma.js';
+import { repairIngredientDetails } from './repair-ingredients.js';
+import { importIngredientImages } from './import-ingredient-images.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,6 +116,8 @@ async function main() {
     }
   );
 
+  await repairIngredientDetails();
+  await importIngredientImages();
   console.log('✅ Import dữ liệu mẫu vào PostgreSQL thành công!');
   console.log('----------------------------------------------------');
   console.log('📋 Thống kê số lượng dữ liệu đã nạp & xác thực:');

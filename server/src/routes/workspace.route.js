@@ -5,6 +5,7 @@ import { authenticate } from '../middlewares/authMiddleware.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { ApiError } from '../utils/apiError.js';
 import { sendSuccess } from '../utils/apiResponse.js';
+import { sendIngredientImage } from '../services/ingredientImages.service.js';
 
 const router=Router();
 const id=z.coerce.number().int().positive();
@@ -36,6 +37,7 @@ export async function loadCatalog() {
   };
 }
 router.get('/catalog',handle(loadCatalog));
+router.get('/ingredients/:id/image', asyncHandler(sendIngredientImage));
 
 router.use(authenticate);
 router.get('/mine',handle(req=>prisma.blog.findMany({where:{post:{author_id:req.user.user_id,status:{not:'DELETED'}}},include:{post:{include:{post_categories:true}},attached_video:true}})));

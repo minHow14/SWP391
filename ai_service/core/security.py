@@ -1,6 +1,5 @@
 from datetime import date, datetime, time, timedelta
 from typing import Optional, Tuple
-from zoneinfo import ZoneInfo
 
 import jwt
 from fastapi import Depends, Header, HTTPException, Request, status
@@ -9,8 +8,8 @@ from starlette.concurrency import run_in_threadpool
 
 from core import quota
 from core.config import settings
+from core.timezone import VN_TZ
 
-VN_TZ = ZoneInfo("Asia/Ho_Chi_Minh")  # +07:00, không có giờ mùa hè
 MAX_GUEST_ID_LENGTH = 100  # bằng độ dài cột GuestQuota.guest_id
 
 

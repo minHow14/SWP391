@@ -14,7 +14,10 @@
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
     "db:seed": "node prisma/seed.js",
+    "db:repair-ingredients": "node prisma/repair-ingredients.js",
+    "db:import-ingredient-images": "node prisma/import-ingredient-images.js",
     "test:database": "node tests/workspace.integration.mjs",
+    "test:ingredient-images": "node tests/ingredient-images.integration.mjs",
     "seed": "node prisma/seed.js"
   },
   "prisma": {
