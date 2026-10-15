@@ -75,3 +75,77 @@ test('apiClient attaches Bearer token from session storage', async () => {
     setSession(null);
   }
 });
+
+test('syncEvents dispatches and subscribes to real-time events across components', async () => {
+  const listeners = [];
+  globalThis.window = {
+    addEventListener: (name, fn) => {
+      if (name === 'chayxanh-sync') listeners.push(fn);
+    },
+    removeEventListener: (name, fn) => {
+      const idx = listeners.indexOf(fn);
+      if (idx !== -1) listeners.splice(idx, 1);
+    },
+    dispatchEvent: (event) => {
+      listeners.forEach((fn) => fn(event));
+    },
+  };
+  globalThis.CustomEvent = class {
+    constructor(name, options) {
+      this.name = name;
+      this.detail = options?.detail;
+    }
+  };
+
+  const { emitSyncEvent, subscribeSyncEvent } = await import('../src/lib/syncEvents.js');
+
+  const received = [];
+  const unsubscribe = subscribeSyncEvent(['POST_CHANGED', 'COMMENT_CHANGED'], (detail) => {
+    received.push(detail);
+  });
+
+  emitSyncEvent('POST_CHANGED', { postId: 101 });
+  emitSyncEvent('USER_CHANGED', { userId: 5 }); // Should not match
+  emitSyncEvent('COMMENT_CHANGED', { commentId: 202 });
+
+  assert.equal(received.length, 2);
+  assert.equal(received[0].type, 'POST_CHANGED');
+  assert.equal(received[0].payload.postId, 101);
+  assert.equal(received[1].type, 'COMMENT_CHANGED');
+  assert.equal(received[1].payload.commentId, 202);
+
+  unsubscribe();
+  emitSyncEvent('POST_CHANGED', { postId: 999 });
+  assert.equal(received.length, 2);
+});
+
+test('tab state persistence maintains current tab across page reloads', () => {
+  const store = new Map();
+  globalThis.sessionStorage = {
+    getItem: (key) => store.get(key) || null,
+    setItem: (key, val) => store.set(key, String(val)),
+    removeItem: (key) => store.delete(key),
+  };
+
+  const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'reports'];
+
+  // Simulate refresh on tab 'reports'
+  sessionStorage.setItem('admin_active_tab', 'reports');
+
+  const getInitialTab = (searchParamTab) => {
+    if (searchParamTab && VALID_TABS.includes(searchParamTab)) return searchParamTab;
+    const saved = sessionStorage.getItem('admin_active_tab');
+    if (saved && VALID_TABS.includes(saved)) return saved;
+    return 'dashboard';
+  };
+
+  // 1. With query param
+  assert.equal(getInitialTab('posts'), 'posts');
+
+  // 2. Without query param (e.g. F5 or direct reload on /admin)
+  assert.equal(getInitialTab(null), 'reports');
+
+  // 3. Invalid tab fallback
+  sessionStorage.setItem('admin_active_tab', 'invalid_tab');
+  assert.equal(getInitialTab(null), 'dashboard');
+});

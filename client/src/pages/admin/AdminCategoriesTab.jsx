@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Form, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminCategoriesTab() {
   const [categories, setCategories] = useState([]);
@@ -30,6 +31,14 @@ export default function AdminCategoriesTab() {
     fetchCategories();
   }, []);
 
+  // Tự động cập nhật danh mục khi có thay đổi
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent('CATEGORY_CHANGED', () => {
+      fetchCategories();
+    });
+    return unsubscribe;
+  }, []);
+
   const handleOpenCreate = () => {
     setModalMode('CREATE');
     setActiveCategory(null);
@@ -55,6 +64,7 @@ export default function AdminCategoriesTab() {
         await adminService.updateCategory(activeCategory.category_id, { name: categoryName.trim() });
         setActionMsg(`Đã cập nhật danh mục thành "${categoryName.trim()}"`);
       }
+      emitSyncEvent('CATEGORY_CHANGED');
       setShowModal(false);
       fetchCategories();
     } catch (err) {
@@ -67,6 +77,7 @@ export default function AdminCategoriesTab() {
     try {
       await adminService.deleteCategory(cat.category_id);
       setActionMsg(`Đã xóa danh mục "${cat.name}" thành công`);
+      emitSyncEvent('CATEGORY_CHANGED');
       fetchCategories();
     } catch (err) {
       setError(err.message);

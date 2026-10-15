@@ -1,7 +1,7 @@
 // d:\Projects\FPT\SWP391\client\src\pages\admin\AdminPortal.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Container, Row, Col, Nav, Alert } from 'react-bootstrap';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useDatabase } from '../../lib/databaseContext.js';
 import '../../Admin.css';
 
@@ -14,9 +14,49 @@ import AdminAiModerationTab from './AdminAiModerationTab.jsx';
 import AdminAiMonitorTab from './AdminAiMonitorTab.jsx';
 import AdminReportsTab from './AdminReportsTab.jsx';
 
+const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'reports'];
+
 export default function AdminPortal() {
   const { user } = useDatabase();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Khởi tạo tab hiện tại: ưu tiên query param (?tab=...), sau đó đến sessionStorage, mặc định là 'dashboard'
+  const [activeTab, setActiveTab] = useState(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.includes(tabParam)) return tabParam;
+    try {
+      const savedTab = sessionStorage.getItem('admin_active_tab');
+      if (savedTab && VALID_TABS.includes(savedTab)) return savedTab;
+    } catch {
+      // Bỏ qua lỗi nếu sessionStorage bị chặn
+    }
+    return 'dashboard';
+  });
+
+  // Chuyển tab và lưu trạng thái vào URL và sessionStorage
+  const handleSelectTab = (selectedKey) => {
+    if (!selectedKey || !VALID_TABS.includes(selectedKey)) return;
+    setActiveTab(selectedKey);
+    setSearchParams({ tab: selectedKey }, { replace: true });
+    try {
+      sessionStorage.setItem('admin_active_tab', selectedKey);
+    } catch {
+      // Bỏ qua lỗi nếu sessionStorage bị chặn
+    }
+  };
+
+  // Đồng bộ hóa URL khi mở lại hoặc ấn back/forward trên trình duyệt
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam && VALID_TABS.includes(tabParam) && tabParam !== activeTab) {
+      setActiveTab(tabParam);
+      try {
+        sessionStorage.setItem('admin_active_tab', tabParam);
+      } catch {}
+    } else if (!tabParam && activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true });
+    }
+  }, [searchParams, activeTab, setSearchParams]);
 
   // RBAC: Kiểm tra quyền quản trị viên (Role 1)
   if (!user || user.role !== 1) {
@@ -99,7 +139,7 @@ export default function AdminPortal() {
               <div className="text-muted small fw-bold px-3 py-2 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
                 Danh mục chức năng
               </div>
-              <Nav variant="pills" className="flex-column admin-sidebar-nav" activeKey={activeTab} onSelect={(k) => setActiveTab(k)}>
+              <Nav variant="pills" className="flex-column admin-sidebar-nav" activeKey={activeTab} onSelect={handleSelectTab}>
                 {navItems.map((item) => (
                   <Nav.Item key={item.key}>
                     <Nav.Link eventKey={item.key} className="d-flex align-items-center py-2 px-3 small" title={item.label}>
@@ -114,7 +154,7 @@ export default function AdminPortal() {
 
           <Col xs={12} lg={8} xl={9}>
             <div className="admin-card p-3 p-md-4 min-vh-75">
-              {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={(tab) => setActiveTab(tab)} />}
+              {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={handleSelectTab} />}
               {activeTab === 'members' && <AdminMembersTab />}
               {activeTab === 'posts' && <AdminPostsTab />}
               {activeTab === 'comments' && <AdminCommentsTab />}

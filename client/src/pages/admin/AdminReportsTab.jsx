@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminReportsTab() {
   const [reports, setReports] = useState([]);
@@ -27,6 +28,14 @@ export default function AdminReportsTab() {
     fetchReports();
   }, [statusFilter]);
 
+  // Tự động cập nhật danh sách báo cáo khi có thay đổi liên quan
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['REPORT_CHANGED', 'POST_CHANGED', 'COMMENT_CHANGED'], () => {
+      fetchReports();
+    });
+    return unsubscribe;
+  }, [statusFilter]);
+
   const handleResolve = async (reportId, resolutionAction) => {
     try {
       await adminService.updateReportStatus(reportId, {
@@ -34,6 +43,11 @@ export default function AdminReportsTab() {
         resolutionAction,
       });
       setActionMsg(`Đã xử lý báo cáo thành công (${resolutionAction === 'HIDE_CONTENT' ? 'Đã gỡ bỏ nội dung' : 'Đã duyệt'})`);
+      emitSyncEvent('REPORT_CHANGED', { reportId });
+      if (resolutionAction === 'HIDE_CONTENT') {
+        emitSyncEvent('POST_CHANGED');
+        emitSyncEvent('COMMENT_CHANGED');
+      }
       fetchReports();
     } catch (err) {
       setError(err.message);
@@ -44,6 +58,7 @@ export default function AdminReportsTab() {
     try {
       await adminService.updateReportStatus(reportId, { status: 'DISMISSED' });
       setActionMsg('Đã bác bỏ báo cáo vi phạm không chính xác');
+      emitSyncEvent('REPORT_CHANGED', { reportId });
       fetchReports();
     } catch (err) {
       setError(err.message);

@@ -110,10 +110,20 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
   const user = await prisma.user.findUnique({ where: { user_id: id } });
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
 
-  return prisma.user.update({
-    where: { user_id: id },
-    data: { status: USER_STATUS.DELETED },
-    select: { user_id: true, email: true, full_name: true, status: true },
+  return prisma.$transaction(async (tx) => {
+    await tx.comment.updateMany({
+      where: { user_id: id },
+      data: { status: COMMENT_STATUS.DELETED },
+    });
+    await tx.post.updateMany({
+      where: { author_id: id },
+      data: { status: POST_STATUS.DELETED },
+    });
+    return tx.user.update({
+      where: { user_id: id },
+      data: { status: USER_STATUS.DELETED },
+      select: { user_id: true, email: true, full_name: true, status: true },
+    });
   });
 };
 
@@ -204,9 +214,15 @@ export const deletePost = async (postId) => {
   const post = await prisma.post.findUnique({ where: { post_id: id } });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
-  return prisma.post.update({
-    where: { post_id: id },
-    data: { status: POST_STATUS.DELETED },
+  return prisma.$transaction(async (tx) => {
+    await tx.comment.updateMany({
+      where: { post_id: id },
+      data: { status: COMMENT_STATUS.DELETED },
+    });
+    return tx.post.update({
+      where: { post_id: id },
+      data: { status: POST_STATUS.DELETED },
+    });
   });
 };
 
@@ -385,7 +401,15 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     if (!post) throw ApiError.notFound('Không tìm thấy bài viết');
 
     const newStatus = action === 'APPROVE' ? POST_STATUS.PUBLISHED : POST_STATUS.DELETED;
-    const updated = await prisma.post.update({ where: { post_id: id }, data: { status: newStatus } });
+    const updated = await prisma.$transaction(async (tx) => {
+      if (action !== 'APPROVE') {
+        await tx.comment.updateMany({
+          where: { post_id: id },
+          data: { status: COMMENT_STATUS.DELETED },
+        });
+      }
+      return tx.post.update({ where: { post_id: id }, data: { status: newStatus } });
+    });
 
     await prisma.ai_logs.create({
       data: {
@@ -593,7 +617,10 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
 
   if (resolutionAction === 'HIDE_CONTENT') {
     if (report.post_id) {
-      await prisma.post.update({ where: { post_id: report.post_id }, data: { status: POST_STATUS.DELETED } });
+      await prisma.$transaction([
+        prisma.comment.updateMany({ where: { post_id: report.post_id }, data: { status: COMMENT_STATUS.DELETED } }),
+        prisma.post.update({ where: { post_id: report.post_id }, data: { status: POST_STATUS.DELETED } }),
+      ]);
     }
     if (report.comment_id) {
       await prisma.comment.update({ where: { comment_id: report.comment_id }, data: { status: COMMENT_STATUS.DELETED } });

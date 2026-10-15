@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Row, Col, Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
 import AdminAiInterveneModal from './AdminAiInterveneModal.jsx';
+import { subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminAiMonitorTab() {
   const [models, setModels] = useState([]);
@@ -37,6 +38,14 @@ export default function AdminAiMonitorTab() {
 
   useEffect(() => {
     fetchData();
+  }, [statusFilter, actionFilter]);
+
+  // Tự động cập nhật số liệu và nhật ký AI khi có can thiệp hoặc kiểm duyệt
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['AI_CHANGED', 'MODERATION_CHANGED'], () => {
+      fetchData();
+    });
+    return unsubscribe;
   }, [statusFilter, actionFilter]);
 
   const handleOpenIntervene = (log = null) => {

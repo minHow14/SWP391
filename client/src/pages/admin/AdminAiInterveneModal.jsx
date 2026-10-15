@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminAiInterveneModal({ show, onHide, onSuccess, defaultLog = null }) {
   const [modelName, setModelName] = useState(defaultLog?.model_name || 'deepseek-chat');
@@ -25,6 +26,7 @@ export default function AdminAiInterveneModal({ show, onHide, onSuccess, default
         correctionType,
         feedback: feedback.trim(),
       });
+      emitSyncEvent('AI_CHANGED');
       onSuccess?.('Đã lưu thông tin can thiệp thủ công kết quả AI thành công');
       onHide();
     } catch (err) {

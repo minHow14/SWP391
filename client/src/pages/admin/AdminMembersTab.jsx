@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminMembersTab() {
   const [users, setUsers] = useState([]);
@@ -30,6 +31,14 @@ export default function AdminMembersTab() {
     fetchUsers();
   }, [statusFilter]);
 
+  // Tự động cập nhật danh sách khi có sự kiện thay đổi người dùng
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent('USER_CHANGED', () => {
+      fetchUsers();
+    });
+    return unsubscribe;
+  }, []);
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchUsers();
@@ -40,6 +49,7 @@ export default function AdminMembersTab() {
     try {
       await adminService.updateUserStatus(user.user_id, nextStatus);
       setActionMessage(`Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${user.full_name}`);
+      emitSyncEvent('USER_CHANGED', { userId: user.user_id, status: nextStatus });
       fetchUsers();
     } catch (err) {
       setError(err.message);
@@ -51,6 +61,9 @@ export default function AdminMembersTab() {
     try {
       await adminService.deleteUser(userId);
       setActionMessage('Đã chuyển tài khoản sang trạng thái Đã xóa');
+      emitSyncEvent('USER_CHANGED', { userId });
+      emitSyncEvent('POST_CHANGED');
+      emitSyncEvent('COMMENT_CHANGED');
       fetchUsers();
     } catch (err) {
       setError(err.message);

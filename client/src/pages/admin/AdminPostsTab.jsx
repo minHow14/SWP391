@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminPostsTab() {
   const [posts, setPosts] = useState([]);
@@ -31,10 +32,19 @@ export default function AdminPostsTab() {
     fetchPosts();
   }, [typeFilter, statusFilter]);
 
+  // Tự động cập nhật danh sách bài viết khi có tác động từ các tab/trang khác
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'CATEGORY_CHANGED', 'USER_CHANGED'], () => {
+      fetchPosts();
+    });
+    return unsubscribe;
+  }, []);
+
   const handleUpdateStatus = async (postId, status) => {
     try {
       await adminService.updatePostStatus(postId, status);
       setActionMsg(`Đã cập nhật trạng thái bài viết thành công`);
+      emitSyncEvent('POST_CHANGED', { postId, status });
       fetchPosts();
     } catch (err) {
       setError(err.message);
@@ -46,6 +56,8 @@ export default function AdminPostsTab() {
     try {
       await adminService.deletePost(postId);
       setActionMsg('Đã xóa bài viết vi phạm');
+      emitSyncEvent('POST_CHANGED', { postId });
+      emitSyncEvent('COMMENT_CHANGED');
       fetchPosts();
     } catch (err) {
       setError(err.message);
@@ -64,6 +76,7 @@ export default function AdminPostsTab() {
     try {
       await adminService.updatePost(editingPost.post_id, editForm);
       setActionMsg('Đã chỉnh sửa nội dung bài viết vi phạm thành công');
+      emitSyncEvent('POST_CHANGED', { postId: editingPost.post_id });
       setEditingPost(null);
       fetchPosts();
     } catch (err) {

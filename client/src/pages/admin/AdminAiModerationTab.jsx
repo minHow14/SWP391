@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminAiModerationTab() {
   const [data, setData] = useState({ posts: [], comments: [], totalFlagged: 0 });
@@ -28,6 +29,14 @@ export default function AdminAiModerationTab() {
     fetchFlagged();
   }, []);
 
+  // Tự động cập nhật hàng đợi duyệt khi có thay đổi từ các tab khác
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['MODERATION_CHANGED', 'POST_CHANGED', 'COMMENT_CHANGED'], () => {
+      fetchFlagged();
+    });
+    return unsubscribe;
+  }, []);
+
   const handleConfirmResolve = async () => {
     if (!actionItem) return;
     try {
@@ -38,6 +47,8 @@ export default function AdminAiModerationTab() {
         notes,
       });
       setActionMsg(`Đã ${actionItem.action === 'APPROVE' ? 'khôi phục' : 'gỡ bỏ'} nội dung vi phạm thành công`);
+      emitSyncEvent('MODERATION_CHANGED', { entityType: actionItem.type, entityId: actionItem.id, action: actionItem.action });
+      emitSyncEvent(actionItem.type === 'POST' ? 'POST_CHANGED' : 'COMMENT_CHANGED', { id: actionItem.id });
       setActionItem(null);
       setNotes('');
       fetchFlagged();

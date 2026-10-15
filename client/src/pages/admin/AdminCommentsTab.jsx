@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminCommentsTab() {
   const [comments, setComments] = useState([]);
@@ -34,10 +35,19 @@ export default function AdminCommentsTab() {
     fetchComments();
   }, [statusFilter, flagFilter]);
 
+  // Tự động cập nhật danh sách bình luận khi có tác động từ các tab/trang khác
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['COMMENT_CHANGED', 'POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'USER_CHANGED'], () => {
+      fetchComments();
+    });
+    return unsubscribe;
+  }, []);
+
   const handleUpdateStatus = async (commentId, status) => {
     try {
       await adminService.updateCommentStatus(commentId, status);
       setActionMsg(`Đã cập nhật trạng thái bình luận thành công`);
+      emitSyncEvent('COMMENT_CHANGED', { commentId, status });
       fetchComments();
     } catch (err) {
       setError(err.message);
@@ -49,6 +59,7 @@ export default function AdminCommentsTab() {
     try {
       await adminService.deleteComment(commentId);
       setActionMsg('Đã xóa bình luận vi phạm');
+      emitSyncEvent('COMMENT_CHANGED', { commentId });
       fetchComments();
     } catch (err) {
       setError(err.message);

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Row, Col, Spinner, Alert, Button, Table } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
+import { subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminDashboardTab({ onNavigateTab }) {
   const [stats, setStats] = useState(null);
@@ -23,6 +24,14 @@ export default function AdminDashboardTab({ onNavigateTab }) {
 
   useEffect(() => {
     fetchStats();
+
+    // Lắng nghe sự kiện đồng bộ để tự động cập nhật số liệu khi có thay đổi từ bất kỳ tab hoặc trang nào
+    const unsubscribe = subscribeSyncEvent('*', () => {
+      adminService.getDashboardStats().then((res) => {
+        if (res?.data) setStats(res.data);
+      }).catch(() => {});
+    });
+    return unsubscribe;
   }, []);
 
   if (loading) {
