@@ -160,4 +160,6 @@ jobs:
       - name: Run Tests
         env:
           INTERNAL_API_KEY: ci_test_key
+          OPENAI_API_KEY: test-ci-dummy-key
+          DEEPSEEK_API_KEY: test-ci-dummy-key
         run: pytest
