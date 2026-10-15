@@ -160,4 +160,5 @@ jobs:
       - name: Run Tests
         env:
           INTERNAL_API_KEY: ci_test_key
+          OPENAI_API_KEY: sk-test-dummy-key-for-ci
         run: pytest
