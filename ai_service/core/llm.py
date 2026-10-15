@@ -28,7 +28,7 @@ def _client(
 ) -> ChatOpenAI:
     return ChatOpenAI(
         model=model,
-        api_key=settings.DEEPSEEK_API_KEY,
+        api_key=settings.DEEPSEEK_API_KEY or None,
         base_url=DEEPSEEK_BASE_URL,
         max_tokens=max_tokens,
         temperature=temperature,

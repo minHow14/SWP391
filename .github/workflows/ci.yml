@@ -12,6 +12,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   # -------------------------------------------------------------
@@ -35,10 +36,13 @@ jobs:
           filters: |
             client:
               - 'client/**'
+              - '.github/workflows/ci.yml'
             server:
               - 'server/**'
+              - '.github/workflows/ci.yml'
             ai_service:
               - 'ai_service/**'
+              - '.github/workflows/ci.yml'
 
   # -------------------------------------------------------------
   # Job 2: Kiểm tra Front-end (Client)

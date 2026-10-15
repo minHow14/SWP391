@@ -14,3 +14,6 @@ os.environ["AUTH_DEV_MODE"] = "true"
 os.environ["GUEST_DAILY_LIMIT"] = "3"
 # TestClient gọi từ host "testclient": coi như proxy tin cậy để test được X-Forwarded-For
 os.environ["TRUSTED_PROXIES"] = "testclient"
+os.environ.setdefault("DEEPSEEK_API_KEY", "test-deepseek-ci-key")
+os.environ.setdefault("OPENAI_API_KEY", "test-openai-ci-key")
+
