@@ -27,7 +27,9 @@ jobs:
       ai_service: ${{ steps.filter.outputs.ai_service }}
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Đảm bảo có đủ lịch sử commit để paths-filter so sánh chính xác
 
       - name: Check Paths
         uses: dorny/paths-filter@v4
@@ -57,10 +59,10 @@ jobs:
         working-directory: client
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
@@ -100,17 +102,17 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test_user -d test_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js 20
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'npm'
@@ -141,10 +143,10 @@ jobs:
         working-directory: ai_service
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Python 3.11
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -158,7 +160,6 @@ jobs:
 
       - name: Lint Code
         run: |
-          # Dừng nếu có lỗi syntax hoặc undefined name
           flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
 
       - name: Run Tests
@@ -167,3 +168,22 @@ jobs:
           OPENAI_API_KEY: test-ci-dummy-key
           DEEPSEEK_API_KEY: test-ci-dummy-key
         run: pytest
+
+  # -------------------------------------------------------------
+  # Job 5: Tổng hợp kết quả (Dành cho Branch Protection Rules)
+  # -------------------------------------------------------------
+  ci-status:
+    name: CI Status
+    needs: [changes, client-check, server-check, ai-service-check]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check All Jobs Status
+        run: |
+          if [[ "${{ needs.client-check.result }}" =~ ^(failure|cancelled)$ ]] || \
+             [[ "${{ needs.server-check.result }}" =~ ^(failure|cancelled)$ ]] || \
+             [[ "${{ needs.ai-service-check.result }}" =~ ^(failure|cancelled)$ ]]; then
+            echo "Một hoặc nhiều jobs kiểm thử đã thất bại!"
+            exit 1
+          fi
+          echo "Tất cả các job kiểm thử đã PASS hoặc được bỏ qua hợp lệ!"
