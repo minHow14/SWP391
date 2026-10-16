@@ -13,7 +13,7 @@ export default function AuthForm({ isRegister = false }) {
     if(busy)return;
     const form=new FormData(event.currentTarget);
     setBusy(true);
-    try{const result=await api(`/auth/${isRegister?'register':'login'}`,{method:'POST',body:{email:form.get('email')||form.get('account'),password:form.get('password'),...(isRegister?{full_name:form.get('full_name')}:{})}});setSession({token:result.token,user:result.user});navigate('/');}catch(error){setMessage(error.message);}finally{setBusy(false);}
+    try{const result=await api(`/auth/${isRegister?'register':'login'}`,{method:'POST',body:{email:form.get('email')||form.get('account'),password:form.get('password'),...(isRegister?{full_name:form.get('full_name')}:{})}});setSession({token:result.token,user:result.user});if(result.user?.role===1){navigate('/admin');}else{navigate('/');}}catch(error){setMessage(error.message);}finally{setBusy(false);}
   }
 
   return (
