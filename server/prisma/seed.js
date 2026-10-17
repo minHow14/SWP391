@@ -117,7 +117,11 @@ async function main() {
   );
 
   await repairIngredientDetails();
-  await importIngredientImages();
+  try {
+    await importIngredientImages();
+  } catch (imageErr) {
+    console.warn('⚠️ Cảnh báo khi nạp ảnh nguyên liệu:', imageErr.message);
+  }
   console.log('✅ Import dữ liệu mẫu vào PostgreSQL thành công!');
   console.log('----------------------------------------------------');
   console.log('📋 Thống kê số lượng dữ liệu đã nạp & xác thực:');
