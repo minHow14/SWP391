@@ -7,7 +7,6 @@ import { subscribeSyncEvent } from '../../lib/syncEvents.js';
 
 export default function AdminAiMonitorTab() {
   const [models, setModels] = useState([]);
-  const [metrics, setMetrics] = useState(null);
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -21,13 +20,11 @@ export default function AdminAiMonitorTab() {
     setLoading(true);
     setError('');
     try {
-      const [modelsRes, metricsRes, logsRes] = await Promise.all([
+      const [modelsRes, logsRes] = await Promise.all([
         adminService.getAiModels(),
-        adminService.getAiMetrics(),
         adminService.getAiLogs({ status: statusFilter, action: actionFilter, limit: 30 }),
       ]);
       setModels(modelsRes.data);
-      setMetrics(metricsRes.data);
       setLogs(logsRes.data);
     } catch (err) {
       setError(err.message || 'Không thể tải dữ liệu giám sát mô hình AI');

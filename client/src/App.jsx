@@ -12,6 +12,7 @@ import IngredientDictionary from './pages/IngredientDictionary.jsx';
 import Restaurants from './pages/Restaurants.jsx';
 import Journal from './pages/Journal.jsx';
 import Profile from './pages/Profile.jsx';
+import AdminAi from './pages/AdminAi.jsx';
 import AdminPortal from './pages/admin/AdminPortal.jsx';
 
 export default function App() {

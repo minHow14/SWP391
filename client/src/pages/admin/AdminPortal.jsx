@@ -52,7 +52,9 @@ export default function AdminPortal() {
       setActiveTab(tabParam);
       try {
         sessionStorage.setItem('admin_active_tab', tabParam);
-      } catch {}
+      } catch {
+        /* Bỏ qua lỗi khi storage bị chặn */
+      }
     } else if (!tabParam && activeTab) {
       setSearchParams({ tab: activeTab }, { replace: true });
     }
