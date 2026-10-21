@@ -1,0 +1,170 @@
+/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/styles/admin.css */
+/* d:\Projects\FPT\SWP391\client\src\Admin.css */
+/* Giao diện Quản trị viên ChayXanh - Đồng bộ Tone màu với Trang chủ */
+
+.admin-portal-shell {
+  --cx-admin-bg: #f8fafc;
+  --cx-admin-surface: #ffffff;
+  --cx-admin-soft: #effbf3;
+  --cx-admin-ink: #1e293b;
+  --cx-admin-muted: #64748b;
+  --cx-admin-green: #15803d;
+  --cx-admin-green-light: #22c55e;
+  --cx-admin-green-soft: #dcfce7;
+  --cx-admin-border: #e2eee6;
+  --cx-admin-shadow: 0 4px 20px rgba(21, 128, 61, 0.05);
+
+  background-color: var(--cx-admin-bg);
+  min-height: 100vh;
+  color: var(--cx-admin-ink);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Card hiện đại bo góc chuẩn thương hiệu */
+.admin-card {
+  background: var(--cx-admin-surface);
+  border: 1px solid var(--cx-admin-border);
+  border-radius: 16px;
+  box-shadow: var(--cx-admin-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.admin-card-header {
+  background: transparent;
+  border-bottom: 1px solid var(--cx-admin-border);
+  padding: 1rem 1.25rem;
+}
+
+/* Header thương hiệu quản trị */
+.admin-header-brand {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2acb92, #15803d);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.2);
+}
+
+/* Sidebar Navigation - Đảm bảo text luôn trên 1 dòng */
+.admin-sidebar-nav .nav-link {
+  border-radius: 10px;
+  color: var(--cx-admin-ink);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  padding: 10px 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+}
+
+.admin-sidebar-nav .nav-link:hover {
+  background-color: var(--cx-admin-soft);
+  color: var(--cx-admin-green);
+}
+
+.admin-sidebar-nav .nav-link.active {
+  background-color: var(--cx-admin-green-soft) !important;
+  color: var(--cx-admin-green) !important;
+  font-weight: 700;
+  border-left: 4px solid var(--cx-admin-green);
+}
+
+/* Cột số thứ tự (STT) chuẩn */
+.stt-col {
+  width: 55px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+/* Thống kê KPI card */
+.kpi-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.kpi-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.kpi-blue {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.kpi-amber {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.kpi-rose {
+  background: #ffe4e6;
+  color: #be123c;
+}
+
+/* Bảng dữ liệu quản trị */
+.admin-table thead th {
+  background-color: #f1f7f3;
+  color: #334155;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--cx-admin-border);
+}
+
+.admin-table tbody td {
+  padding: 0.85rem 0.85rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.admin-table tbody tr:hover {
+  background-color: #fafdfb;
+}
+
+/* Badges trạng thái Việt hóa bo tròn mềm */
+.cx-badge {
+  padding: 0.35rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cx-badge-active {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.cx-badge-locked {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.cx-badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.cx-badge-info {
+  background-color: #e0f2fe;
+  color: #075985;
+}
+
+.cx-badge-neutral {
+  background-color: #f1f5f9;
+  color: #475569;
+}

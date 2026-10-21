@@ -1,11 +1,12 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/aiApi.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSseParser } from '../src/lib/aiApi.js';
+import { createSseParser } from '../src/services/aiApi.js';
 import {
   ageFromDob, bmiCategory, buildMealPlanRequest, calcBmi, chatHistory, formatBmi, dietTypeToAi, formatDistance,
   friendlyAiError, genderToAi, goalToAi, mealPlanDefaults, planToMenuContext, stagePercent,
   validateMealPlanValues, MAX_MENU_CONTEXT,
-} from '../src/lib/aiHelpers.js';
+} from '../src/utils/aiHelpers.js';
 
 const originals = Object.fromEntries(['sessionStorage', 'localStorage', 'fetch'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 afterEach(() => {
@@ -43,7 +44,7 @@ test('SSE parser flushes a final event that lacks the blank line', () => {
 test('streamChat sends identity headers, joins tokens and returns the remaining quota', async () => {
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: () => JSON.stringify({ token: 'jwt-123', user: { user_id: 1 } }) } });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'guest-xyz', setItem() {} } });
-  const { streamChat } = await import('../src/lib/aiApi.js?stream');
+  const { streamChat } = await import('../src/services/aiApi.js?stream');
   let seen;
   globalThis.fetch = async (url, options) => {
     seen = { url, options };
@@ -61,7 +62,7 @@ test('streamChat sends identity headers, joins tokens and returns the remaining 
 });
 
 test('streamChat turns an error event or an HTTP error envelope into AiApiError', async () => {
-  const { streamChat, AiApiError } = await import('../src/lib/aiApi.js?errors');
+  const { streamChat, AiApiError } = await import('../src/services/aiApi.js?errors');
   globalThis.fetch = async () => new Response('event: error\ndata: {"success":false,"error":{"code":"AI_PROVIDER_ERROR","message":"bận"},"meta":{"requestId":"req_1"}}\n\n', { headers: { 'content-type': 'text/event-stream' } });
   await assert.rejects(streamChat({ message: 'x' }), (error) => error instanceof AiApiError && error.code === 'AI_PROVIDER_ERROR' && error.requestId === 'req_1');
 
@@ -73,7 +74,7 @@ test('streamChat turns an error event or an HTTP error envelope into AiApiError'
 });
 
 test('streamMealPlan reports progress and returns the final plan', async () => {
-  const { streamMealPlan } = await import('../src/lib/aiApi.js?plan');
+  const { streamMealPlan } = await import('../src/services/aiApi.js?plan');
   globalThis.fetch = async () => new Response([
     'event: progress\ndata: {"success":true,"data":{"stage":"calculating","message":"A"}}\n\n',
     'event: progress\ndata: {"success":true,"data":{"stage":"generating","message":"B"}}\n\n',

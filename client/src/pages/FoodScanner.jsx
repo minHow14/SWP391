@@ -1,8 +1,8 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/FoodScanner.jsx
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router';
-import { analyzeIngredients } from '../lib/foodScanner.js';
-import { useDatabase } from '../lib/databaseContext.js';
-import '../FoodScanner.css';
+import { analyzeIngredients } from '../utils/foodScanner.js';
+import { useDatabase } from '../hooks/useDatabase.js';
 
 const layers = ['Thịt & hải sản', 'Chiết xuất động vật', 'Trứng, sữa & mật ong', 'Quy tắc chế độ ăn'];
 const Icon = ({ name }) => <i className={`bi bi-${name}`} aria-hidden="true" />;
@@ -128,4 +128,3 @@ export default function FoodScanner() {
     </main>
   );
 }
-

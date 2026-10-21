@@ -1,9 +1,10 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Recipes.jsx
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
-import { useDatabase } from '../lib/databaseContext.js';
-import { filterRecipes } from '../lib/recipeFilters.js';
-import ContentDialog from '../components/ContentDialog.jsx';
-import ContentImage from '../components/ContentImage.jsx';
+import { useDatabase } from '../hooks/useDatabase.js';
+import { filterRecipes } from '../utils/recipeFilters.js';
+import ContentDialog from '../components/common/ContentDialog.jsx';
+import ContentImage from '../components/common/ContentImage.jsx';
 
 export default function Recipes() {
   const {data}=useDatabase();

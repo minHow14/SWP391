@@ -1,15 +1,15 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
-import { restaurantTypes } from '../lib/restaurantLabels.js';
-import { useDatabase } from '../lib/databaseContext.js';
-import { api } from '../lib/api.js';
-import { normalizeSearch } from '../lib/recipeFilters.js';
-import ContentImage from '../components/ContentImage.jsx';
-import ContentDialog from '../components/ContentDialog.jsx';
-import RestaurantDetail from '../components/RestaurantDetail.jsx';
-import NearbyPlaces from '../components/NearbyPlaces.jsx';
-import RestaurantMap from '../components/RestaurantMap.jsx';
-import { hasCoordinates, restaurantDirections } from '../lib/restaurantDirections.js';
-import '../Discovery.css';
+import { restaurantTypes } from '../constants/restaurantLabels.js';
+import { useDatabase } from '../hooks/useDatabase.js';
+import { api } from '../services/api.js';
+import { normalizeSearch } from '../utils/recipeFilters.js';
+import ContentImage from '../components/common/ContentImage.jsx';
+import ContentDialog from '../components/common/ContentDialog.jsx';
+import RestaurantDetail from '../features/restaurants/components/RestaurantDetail.jsx';
+import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
+import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
+import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
 
 const typeName = (type) => type === 'external' ? 'Quán từ ZIOMAP' : restaurantTypes.find((item) => item.id === type)?.name || type;
 const directions = restaurantDirections;

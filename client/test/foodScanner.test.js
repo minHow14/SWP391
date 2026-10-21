@@ -1,6 +1,7 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/foodScanner.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyzeIngredients } from '../src/lib/foodScanner.js';
+import { analyzeIngredients } from '../src/utils/foodScanner.js';
 const scanDemo={ingredients:'Bún tươi, đậu hũ chiên, nấm rơm, chả chay, sa tế tôm, nước mắm cá cơm, bột nêm chiết xuất xương heo, ngò gai, sả'};
 
 test('sample identifies all three hidden animal ingredients', () => {

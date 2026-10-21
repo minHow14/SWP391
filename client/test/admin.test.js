@@ -1,9 +1,9 @@
-// d:\Projects\FPT\SWP391\client\test\admin.test.js
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/admin.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminService } from '../src/services/adminService.js';
 import apiClient from '../src/services/apiClient.js';
-import { setSession } from '../src/lib/api.js';
+import { setSession } from '../src/utils/session.js';
 
 const originalWindow = globalThis.window;
 const originalSessionStorage = globalThis.sessionStorage;
@@ -97,7 +97,7 @@ test('syncEvents dispatches and subscribes to real-time events across components
     }
   };
 
-  const { emitSyncEvent, subscribeSyncEvent } = await import('../src/lib/syncEvents.js');
+  const { emitSyncEvent, subscribeSyncEvent } = await import('../src/utils/syncEvents.js');
 
   const received = [];
   const unsubscribe = subscribeSyncEvent(['POST_CHANGED', 'COMMENT_CHANGED'], (detail) => {

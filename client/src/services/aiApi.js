@@ -1,0 +1,216 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/aiApi.js
+import { getSession } from '../utils/session.js';
+
+// Dịch vụ AI (FastAPI). Mặc định đi qua proxy của Vite: /ai-api -> http://127.0.0.1:8000/api
+// (xem vite.config.js). Khi deploy, đặt VITE_AI_API_URL trỏ thẳng tới dịch vụ AI.
+const AI_BASE = (import.meta.env?.VITE_AI_API_URL || '/ai-api').replace(/\/$/, '');
+const GUEST_KEY = 'chayxanh-guest-id';
+let memoryGuestId;
+
+export class AiApiError extends Error {
+  constructor({ status = 0, code = 'NETWORK_ERROR', message, details, requestId, cause } = {}) {
+    super(message || 'Không thể kết nối tới dịch vụ AI. Vui lòng thử lại sau.', { cause });
+    this.name = 'AiApiError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+    this.requestId = requestId;
+  }
+}
+
+/** Mã khách, tạo một lần và nhớ lại; dùng cho hạn mức 3 lượt/ngày của khách. */
+export function getGuestId() {
+  if (memoryGuestId) return memoryGuestId;
+  try {
+    memoryGuestId = localStorage.getItem(GUEST_KEY);
+    if (!memoryGuestId) {
+      memoryGuestId = crypto.randomUUID();
+      localStorage.setItem(GUEST_KEY, memoryGuestId);
+    }
+  } catch {
+    memoryGuestId ??= crypto.randomUUID();
+  }
+  return memoryGuestId;
+}
+
+function headers(hasBody) {
+  const token = getSession()?.token;
+  return {
+    ...(hasBody ? { 'Content-Type': 'application/json' } : {}),
+    'X-Guest-Id': getGuestId(),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+async function toError(response) {
+  const result = await response.json().catch(() => null);
+  const error = result?.error;
+  return new AiApiError({
+    status: response.status,
+    code: error?.code || `HTTP_${response.status}`,
+    message: typeof error === 'string' ? error : error?.message,
+    details: error?.details,
+    requestId: result?.meta?.requestId || response.headers.get('X-Request-Id') || undefined,
+  });
+}
+
+async function send(path, { method = 'GET', body, signal } = {}) {
+  try {
+    return await fetch(`${AI_BASE}${path}`, {
+      method,
+      signal,
+      headers: headers(body !== undefined),
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+  } catch (cause) {
+    if (signal?.aborted) throw cause;
+    throw new AiApiError({ cause });
+  }
+}
+
+/** Gọi API JSON thường; trả về `data` của envelope chuẩn. */
+export async function aiRequest(path, options = {}) {
+  const response = await send(path, options);
+  if (!response.ok) throw await toError(response);
+  const result = await response.json().catch(() => null);
+  if (!result?.success) throw new AiApiError({ status: response.status, message: 'Phản hồi không hợp lệ từ dịch vụ AI.' });
+  return result.data;
+}
+
+/** Tách các sự kiện `event:` / `data:` của Server-Sent Events (hỗ trợ \r\n và chunk bị cắt giữa chừng). */
+export function createSseParser(onEvent) {
+  let buffer = '';
+  const flush = (block) => {
+    let event = 'message';
+    const data = [];
+    for (const line of block.split('\n')) {
+      if (!line || line.startsWith(':')) continue;
+      const separator = line.indexOf(':');
+      const field = separator === -1 ? line : line.slice(0, separator);
+      const value = separator === -1 ? '' : line.slice(separator + 1).replace(/^ /, '');
+      if (field === 'event') event = value;
+      else if (field === 'data') data.push(value);
+    }
+    if (!data.length) return;
+    const text = data.join('\n');
+    let payload = text;
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      /* giữ nguyên chuỗi */
+    }
+    onEvent(event, payload);
+  };
+  return {
+    push(chunk) {
+      buffer += chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      let boundary = buffer.indexOf('\n\n');
+      while (boundary !== -1) {
+        flush(buffer.slice(0, boundary));
+        buffer = buffer.slice(boundary + 2);
+        boundary = buffer.indexOf('\n\n');
+      }
+    },
+    end() {
+      if (buffer.trim()) flush(buffer);
+      buffer = '';
+    },
+  };
+}
+
+/**
+ * POST và đọc luồng SSE. `onEvent(name, payload)` được gọi cho mỗi sự kiện.
+ * Lỗi trả về trước khi stream bắt đầu (400, 422, 429...) được ném như AiApiError.
+ */
+async function postStream(path, body, { signal, onEvent }) {
+  const response = await send(path, { method: 'POST', body, signal });
+  if (!response.ok) throw await toError(response);
+  if (!response.headers.get('content-type')?.includes('text/event-stream') || !response.body) {
+    throw new AiApiError({ status: response.status, message: 'Phản hồi không hợp lệ từ dịch vụ AI.' });
+  }
+  const parser = createSseParser(onEvent);
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      parser.push(decoder.decode(value, { stream: true }));
+    }
+    parser.push(decoder.decode());
+    parser.end();
+  } finally {
+    reader.releaseLock?.();
+  }
+}
+
+function errorFromEvent(payload) {
+  const error = payload?.error;
+  return new AiApiError({
+    code: error?.code || 'AI_PROVIDER_ERROR',
+    message: error?.message,
+    details: error?.details,
+    requestId: payload?.meta?.requestId,
+  });
+}
+
+export const getChatUsage = (signal) => aiRequest('/chat/usage', { signal });
+
+/** Hỏi chatbot và nhận câu trả lời dần dần. Trả về { remaining } khi xong. */
+export async function streamChat({ message, history, dietaryType, menuContext, signal, onToken }) {
+  let remaining = null;
+  let failure = null;
+  await postStream(
+    '/chat/stream',
+    {
+      message,
+      ...(history?.length ? { history } : {}),
+      ...(dietaryType ? { dietary_type: dietaryType } : {}),
+      ...(menuContext ? { menu_context: menuContext } : {}),
+    },
+    {
+      signal,
+      onEvent(name, payload) {
+        if (name === 'token') onToken?.(payload?.token ?? '');
+        else if (name === 'done') remaining = payload?.remaining_questions ?? null;
+        else if (name === 'error') failure = errorFromEvent(payload);
+      },
+    }
+  );
+  if (failure) throw failure;
+  return { remaining };
+}
+
+/** Tạo thực đơn tuần kèm tiến độ. Trả về thực đơn đầy đủ (có trường `chat`). */
+export async function streamMealPlan({ request, signal, onProgress }) {
+  let plan = null;
+  let failure = null;
+  await postStream('/meal-planner/generate/stream', request, {
+    signal,
+    onEvent(name, payload) {
+      if (name === 'progress') onProgress?.(payload?.data ?? {});
+      else if (name === 'done') plan = payload?.data ?? null;
+      else if (name === 'error') failure = errorFromEvent(payload);
+    },
+  });
+  if (failure) throw failure;
+  if (!plan) throw new AiApiError({ message: 'Dịch vụ AI không trả về thực đơn. Vui lòng thử lại.' });
+  return plan;
+}
+
+// ----- Quản trị (chỉ tài khoản Admin) -----
+const query = (params) => {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, value);
+  }
+  const text = search.toString();
+  return text ? `?${text}` : '';
+};
+export const adminListLogs = (params, signal) => aiRequest(`/admin/ai-logs${query(params)}`, { signal });
+export const adminLogStats = (params, signal) => aiRequest(`/admin/ai-logs/stats${query(params)}`, { signal });
+export const adminGetGuestQuota = (guestId, signal) =>
+  aiRequest(`/admin/guest-quota/${encodeURIComponent(guestId)}`, { signal });
+export const adminResetGuestQuota = (guestId) =>
+  aiRequest('/admin/guest-quota/reset', { method: 'POST', body: { guest_id: guestId } });
+export const adminClearChatCache = () => aiRequest('/admin/chatbot-cache/clear', { method: 'POST' });
