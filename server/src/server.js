@@ -1,6 +1,9 @@
 import app from './app.js';
 import config from './config/index.js';
 import prisma from './config/prisma.js';
+import { startAutoPurgeCron } from './services/purge.service.js';
+
+let purgeCronInterval = null;
 
 const server = app.listen(config.port, () => {
   console.log(`===============================================`);
@@ -8,6 +11,9 @@ const server = app.listen(config.port, () => {
   console.log(`⚙️  Environment: ${config.env}`);
   console.log(`🔗 Health check: http://localhost:${config.port}/health`);
   console.log(`🗄️  Database: PostgreSQL via Prisma ORM connected`);
+  if (config.env !== 'test') {
+    purgeCronInterval = startAutoPurgeCron();
+  }
   console.log(`===============================================`);
 });
 
@@ -25,6 +31,9 @@ process.on('uncaughtException', (error) => {
 // Graceful shutdown khi nhận tín hiệu đóng server (SIGTERM / SIGINT)
 const gracefulShutdown = async (signal) => {
   console.log(`\nReceived ${signal}. Closing HTTP server and database connections gracefully...`);
+  if (purgeCronInterval) {
+    clearInterval(purgeCronInterval);
+  }
   server.close(async () => {
     try {
       await prisma.$disconnect();

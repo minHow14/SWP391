@@ -230,7 +230,10 @@ export const blogService = {
       return { message: 'Blog is already deleted' };
     }
 
-    await postRepository.updatePost(postId, { status: POST_STATUS.DELETED });
+    await postRepository.updatePost(postId, {
+      status: POST_STATUS.DELETED,
+      deleted_at: new Date(),
+    });
 
     return { message: 'Blog deleted successfully' };
   },

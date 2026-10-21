@@ -70,4 +70,16 @@ describe('Admin API & RBAC Boundary', () => {
     expect(res.body.success).toBe(true);
     expect(Array.isArray(res.body.data)).toBe(true);
   });
+
+  it('allows Admin to fetch 30-day retention and purge statistics (FE-10 / Maintenance)', async () => {
+    const res = await request(app)
+      .get('/api/admin/maintenance/retention-stats?retentionDays=30')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.retentionDays).toBe(30);
+    expect(res.body.data.users).toBeDefined();
+    expect(res.body.data.posts).toBeDefined();
+    expect(res.body.data.comments).toBeDefined();
+  });
 });

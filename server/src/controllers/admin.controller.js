@@ -1,5 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\admin.controller.js
 import * as adminService from '../services/admin.service.js';
+import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 
@@ -45,6 +46,15 @@ export const deleteUser = asyncHandler(async (req, res) => {
 });
 
 // FE-02: Quản lý bài viết và video
+export const restoreUser = asyncHandler(async (req, res) => {
+  const restoredUser = await adminService.restoreUser(req.params.id);
+  return sendSuccess(res, {
+    message: 'Khôi phục tài khoản người dùng thành công',
+    data: restoredUser,
+  });
+});
+
+// FE-02: Quản lý bài viết và video
 export const getPosts = asyncHandler(async (req, res) => {
   const result = await adminService.getPosts(req.query);
   return sendSuccess(res, {
@@ -84,6 +94,14 @@ export const deletePost = asyncHandler(async (req, res) => {
   });
 });
 
+export const restorePost = asyncHandler(async (req, res) => {
+  const restoredPost = await adminService.restorePost(req.params.id);
+  return sendSuccess(res, {
+    message: 'Khôi phục bài viết thành công',
+    data: restoredPost,
+  });
+});
+
 // FE-03: Quản lý bình luận
 export const getComments = asyncHandler(async (req, res) => {
   const result = await adminService.getComments(req.query);
@@ -109,6 +127,14 @@ export const deleteComment = asyncHandler(async (req, res) => {
   await adminService.deleteComment(req.params.id);
   return sendSuccess(res, {
     message: 'Xóa bình luận vi phạm thành công',
+  });
+});
+
+export const restoreComment = asyncHandler(async (req, res) => {
+  const restoredComment = await adminService.restoreComment(req.params.id);
+  return sendSuccess(res, {
+    message: 'Khôi phục bình luận thành công',
+    data: restoredComment,
   });
 });
 
@@ -217,6 +243,23 @@ export const updateReportStatus = asyncHandler(async (req, res) => {
   });
   return sendSuccess(res, {
     message: 'Xử lý báo cáo thành công',
+    data: result,
+  });
+});
+
+// Maintenance & Data Retention (Xóa mềm 30 ngày & tự động xóa cứng)
+export const getRetentionStats = asyncHandler(async (req, res) => {
+  const stats = await purgeService.getRetentionStats(req.query);
+  return sendSuccess(res, {
+    message: 'Lấy thống kê lưu trữ và dọn dẹp dữ liệu thành công',
+    data: stats,
+  });
+});
+
+export const purgeExpiredItems = asyncHandler(async (req, res) => {
+  const result = await purgeService.purgeExpiredDeletedItems(req.query);
+  return sendSuccess(res, {
+    message: 'Thực thi dọn dẹp vĩnh viễn dữ liệu quá hạn thành công',
     data: result,
   });
 });

@@ -34,6 +34,7 @@ export const getUsers = async ({ page = 1, limit = 10, search = '', status = '',
         role: true,
         status: true,
         created_at: true,
+        deleted_at: true,
         _count: {
           select: {
             posts: true,
@@ -94,10 +95,13 @@ export const updateUserStatus = async ({ targetUserId, status, currentAdminId })
   const user = await prisma.user.findUnique({ where: { user_id: id } });
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
 
+  const isDeleting = status === USER_STATUS.DELETED;
+  const deletedAt = isDeleting ? new Date() : null;
+
   return prisma.user.update({
     where: { user_id: id },
-    data: { status },
-    select: { user_id: true, email: true, full_name: true, status: true, role: true },
+    data: { status, deleted_at: deletedAt },
+    select: { user_id: true, email: true, full_name: true, status: true, role: true, deleted_at: true },
   });
 };
 
@@ -110,19 +114,45 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
   const user = await prisma.user.findUnique({ where: { user_id: id } });
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
 
+  const now = new Date();
   return prisma.$transaction(async (tx) => {
     await tx.comment.updateMany({
       where: { user_id: id },
-      data: { status: COMMENT_STATUS.DELETED },
+      data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
     });
     await tx.post.updateMany({
       where: { author_id: id },
-      data: { status: POST_STATUS.DELETED },
+      data: { status: POST_STATUS.DELETED, deleted_at: now },
     });
     return tx.user.update({
       where: { user_id: id },
-      data: { status: USER_STATUS.DELETED },
-      select: { user_id: true, email: true, full_name: true, status: true },
+      data: { status: USER_STATUS.DELETED, deleted_at: now },
+      select: { user_id: true, email: true, full_name: true, status: true, deleted_at: true },
+    });
+  });
+};
+
+export const restoreUser = async (userId) => {
+  const id = Number(userId);
+  const user = await prisma.user.findUnique({ where: { user_id: id } });
+  if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
+  if (user.status !== USER_STATUS.DELETED) {
+    throw ApiError.badRequest('Tài khoản này không ở trạng thái đã xóa');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.comment.updateMany({
+      where: { user_id: id, status: COMMENT_STATUS.DELETED },
+      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+    });
+    await tx.post.updateMany({
+      where: { author_id: id, status: POST_STATUS.DELETED },
+      data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
+    });
+    return tx.user.update({
+      where: { user_id: id },
+      data: { status: USER_STATUS.ACTIVE, deleted_at: null },
+      select: { user_id: true, email: true, full_name: true, status: true, deleted_at: true },
     });
   });
 };
@@ -170,9 +200,12 @@ export const updatePostStatus = async ({ postId, status }) => {
   const post = await prisma.post.findUnique({ where: { post_id: id } });
   if (!post) throw ApiError.notFound('Không tìm thấy bài viết hoặc video');
 
+  const isDeleting = status === POST_STATUS.DELETED;
+  const deletedAt = isDeleting ? new Date() : null;
+
   return prisma.post.update({
     where: { post_id: id },
-    data: { status },
+    data: { status, deleted_at: deletedAt },
     include: { blog: true, video: true },
   });
 };
@@ -214,14 +247,36 @@ export const deletePost = async (postId) => {
   const post = await prisma.post.findUnique({ where: { post_id: id } });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
+  const now = new Date();
   return prisma.$transaction(async (tx) => {
     await tx.comment.updateMany({
       where: { post_id: id },
-      data: { status: COMMENT_STATUS.DELETED },
+      data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
     });
     return tx.post.update({
       where: { post_id: id },
-      data: { status: POST_STATUS.DELETED },
+      data: { status: POST_STATUS.DELETED, deleted_at: now },
+    });
+  });
+};
+
+export const restorePost = async (postId) => {
+  const id = Number(postId);
+  const post = await prisma.post.findUnique({ where: { post_id: id } });
+  if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
+  if (post.status !== POST_STATUS.DELETED) {
+    throw ApiError.badRequest('Bài đăng này không ở trạng thái đã xóa');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    await tx.comment.updateMany({
+      where: { post_id: id, status: COMMENT_STATUS.DELETED },
+      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+    });
+    return tx.post.update({
+      where: { post_id: id },
+      data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
+      include: { blog: true, video: true },
     });
   });
 };
@@ -272,9 +327,12 @@ export const updateCommentStatus = async ({ commentId, status }) => {
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
   if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
 
+  const isDeleting = status === COMMENT_STATUS.DELETED;
+  const deletedAt = isDeleting ? new Date() : null;
+
   return prisma.comment.update({
     where: { comment_id: id },
-    data: { status },
+    data: { status, deleted_at: deletedAt },
     include: { user: { select: { full_name: true } } },
   });
 };
@@ -286,7 +344,22 @@ export const deleteComment = async (commentId) => {
 
   return prisma.comment.update({
     where: { comment_id: id },
-    data: { status: COMMENT_STATUS.DELETED },
+    data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
+  });
+};
+
+export const restoreComment = async (commentId) => {
+  const id = Number(commentId);
+  const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
+  if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
+  if (comment.status !== COMMENT_STATUS.DELETED) {
+    throw ApiError.badRequest('Bình luận này không ở trạng thái đã xóa');
+  }
+
+  return prisma.comment.update({
+    where: { comment_id: id },
+    data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+    include: { user: { select: { full_name: true } } },
   });
 };
 

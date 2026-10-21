@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\routes\index.js
 import express from 'express';
 import authRoutes from './auth.route.js';
 import blogRoutes from './blog.route.js';
@@ -9,6 +10,7 @@ import recommendationRoutes from './recommendation.route.js';
 import placesRoutes from './places.route.js';
 import workspaceRoutes from './workspace.route.js';
 import adminRoutes from './admin.route.js';
+import uploadRoutes from './upload.route.js';
 
 const router = express.Router();
 
@@ -22,5 +24,6 @@ router.use('/recommendations', recommendationRoutes);
 router.use('/places', placesRoutes);
 router.use('/workspace', workspaceRoutes);
 router.use('/admin', adminRoutes);
+router.use('/upload', uploadRoutes);
 
 export default router;

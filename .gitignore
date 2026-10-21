@@ -26,3 +26,7 @@ __pycache__/
 # Ingredient photos are imported into PostgreSQL, not tracked in Git.
 client/public/ingredient-assets/
 
+
+# Local uploaded files
+uploads/
+server/uploads/

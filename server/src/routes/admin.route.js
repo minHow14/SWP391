@@ -12,22 +12,29 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 // FE-10: Dashboard tổng quan
 router.get('/dashboard/stats', adminController.getDashboardStats);
 
+// Bảo trì & Data Retention (Xóa mềm 30 ngày & tự động xóa cứng)
+router.get('/maintenance/retention-stats', adminController.getRetentionStats);
+router.post('/maintenance/purge-expired', adminController.purgeExpiredItems);
+
 // FE-01: Quản lý thành viên
 router.get('/users', adminController.getUsers);
 router.get('/users/:id/content', adminController.getUserContent);
 router.patch('/users/:id/status', adminController.updateUserStatus);
 router.delete('/users/:id', adminController.deleteUser);
+router.post('/users/:id/restore', adminController.restoreUser);
 
 // FE-02: Quản lý bài viết & video
 router.get('/posts', adminController.getPosts);
 router.patch('/posts/:id/status', adminController.updatePostStatus);
 router.put('/posts/:id', adminController.updatePost);
 router.delete('/posts/:id', adminController.deletePost);
+router.post('/posts/:id/restore', adminController.restorePost);
 
 // FE-03: Quản lý bình luận
 router.get('/comments', adminController.getComments);
 router.patch('/comments/:id/status', adminController.updateCommentStatus);
 router.delete('/comments/:id', adminController.deleteComment);
+router.post('/comments/:id/restore', adminController.restoreComment);
 
 // FE-04: Quản lý danh mục
 router.get('/categories', adminController.getCategories);

@@ -157,7 +157,10 @@ export const commentService = {
       return { message: 'Comment is already deleted' };
     }
 
-    await commentRepository.update(commentId, { status: COMMENT_STATUS.DELETED });
+    await commentRepository.update(commentId, {
+      status: COMMENT_STATUS.DELETED,
+      deleted_at: new Date(),
+    });
 
     return { message: 'Comment deleted successfully' };
   },
