@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\client\src\services\adminService.js
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/adminService.js
 import apiClient from './apiClient.js';
 
 export const adminService = {
@@ -10,26 +10,17 @@ export const adminService = {
   getUserContent: (userId) => apiClient.get(`/admin/users/${userId}/content`),
   updateUserStatus: (userId, status) => apiClient.patch(`/admin/users/${userId}/status`, { status }),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
-  restoreUser: (userId) => apiClient.post(`/admin/users/${userId}/restore`),
 
-  // FE-02: Quản lý bài viết & video (Hỗ trợ Xóa mềm và Xóa vĩnh viễn)
+  // FE-02: Quản lý bài viết & video
   getPosts: (params = {}) => apiClient.get('/admin/posts', { params }),
   updatePostStatus: (postId, status) => apiClient.patch(`/admin/posts/${postId}/status`, { status }),
   updatePost: (postId, data) => apiClient.put(`/admin/posts/${postId}`, data),
-  deletePost: (postId, permanent = false) =>
-    apiClient.delete(`/admin/posts/${postId}`, {
-      params: permanent ? { permanent: 'true' } : {},
-    }),
-  restorePost: (postId) => apiClient.post(`/admin/posts/${postId}/restore`),
+  deletePost: (postId) => apiClient.delete(`/admin/posts/${postId}`),
 
-  // FE-03: Quản lý bình luận (Hỗ trợ Xóa mềm và Xóa vĩnh viễn)
+  // FE-03: Quản lý bình luận
   getComments: (params = {}) => apiClient.get('/admin/comments', { params }),
   updateCommentStatus: (commentId, status) => apiClient.patch(`/admin/comments/${commentId}/status`, { status }),
-  deleteComment: (commentId, permanent = false) =>
-    apiClient.delete(`/admin/comments/${commentId}`, {
-      params: permanent ? { permanent: 'true' } : {},
-    }),
-  restoreComment: (commentId) => apiClient.post(`/admin/comments/${commentId}/restore`),
+  deleteComment: (commentId) => apiClient.delete(`/admin/comments/${commentId}`),
 
   // FE-04: Quản lý danh mục
   getCategories: () => apiClient.get('/admin/categories'),
@@ -37,7 +28,7 @@ export const adminService = {
   updateCategory: (categoryId, data) => apiClient.put(`/admin/categories/${categoryId}`, data),
   deleteCategory: (categoryId) => apiClient.delete(`/admin/categories/${categoryId}`),
 
-  // FE-05: Kiểm duyệt nội dung gắn cờ AI (Gỡ bỏ = Xóa vĩnh viễn)
+  // FE-05: Kiểm duyệt nội dung gắn cờ AI
   getAiFlaggedContent: () => apiClient.get('/admin/moderation/flagged'),
   resolveAiFlaggedItem: (data) => apiClient.post('/admin/moderation/resolve', data),
 

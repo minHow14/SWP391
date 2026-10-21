@@ -1,6 +1,6 @@
-// d:\Projects\FPT\SWP391\client\src\services\apiClient.js
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/apiClient.js
 import axios from 'axios';
-import { getSession, setSession } from '../lib/api.js';
+import { getSession, setSession } from '../utils/session.js';
 
 const apiClient = axios.create({
   baseURL: '/api',

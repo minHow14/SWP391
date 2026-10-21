@@ -1,6 +1,7 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/journal.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { totals, todayKey, weekDates } from '../src/lib/journal.js';
+import { totals, todayKey, weekDates } from '../src/utils/journal.js';
 
 test('journal uses Bangkok calendar day around UTC midnight', () => {
   assert.equal(todayKey(new Date('2026-10-10T18:00:00Z')), '2026-10-11');

@@ -1,6 +1,7 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/postAttachments.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validatePostAttachments } from '../src/lib/postAttachments.js';
+import { validatePostAttachments } from '../src/utils/postAttachments.js';
 
 test('mixed supported photos and videos are accepted', () => {
   assert.equal(

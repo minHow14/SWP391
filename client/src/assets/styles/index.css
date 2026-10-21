@@ -1,0 +1,17 @@
+/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/index.css */
+/* Keep the global cascade stable when routes load their JavaScript lazily. */
+@import '../../features/mealPlan/styles/mealPlan.css';
+@import '../../features/chat/styles/chatAi.css';
+@import './home.css';
+@import './explore.css';
+@import '../../features/foodScanner/styles/foodScanner.css';
+@import '../../features/foodSwap/styles/foodSwap.css';
+@import './discovery.css';
+@import '../../features/restaurants/styles/restaurantDetail.css';
+@import '../../features/restaurants/styles/nearbyPlaces.css';
+@import '../../features/journal/styles/journal.css';
+@import '../../features/profile/styles/profile.css';
+@import '../../features/admin/styles/adminAi.css';
+@import '../../features/admin/styles/admin.css';
+@import './app.css';
+@import './ui.css';

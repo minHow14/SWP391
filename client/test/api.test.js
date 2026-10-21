@@ -1,3 +1,4 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/api.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -7,8 +8,11 @@ async function setup() {
   const events=[];
   Object.defineProperty(globalThis,'window',{configurable:true,value:{dispatchEvent:event=>events.push(event.type)}});
   Object.defineProperty(globalThis,'sessionStorage',{configurable:true,get(){throw new Error('Storage blocked');}});
-  const api=await import(`../src/lib/api.js?case=${sequence++}`);
-  return {...api,events};
+  const api=await import(`../src/services/api.js?case=${sequence++}`);
+  const session=await import('../src/utils/session.js');
+  session.setSession(null);
+  events.length=0;
+  return {...api,...session,events};
 }
 afterEach(()=>{for(const [key,descriptor] of Object.entries(originals)){if(descriptor)Object.defineProperty(globalThis,key,descriptor);else delete globalThis[key];}});
 

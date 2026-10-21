@@ -1,7 +1,7 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/FoodSwap.jsx
 import { useRef, useState } from 'react';
-import { useDatabase } from '../lib/databaseContext.js';
-import { normalizeSearch } from '../lib/recipeFilters.js';
-import '../FoodSwap.css';
+import { useDatabase } from '../hooks/useDatabase.js';
+import { normalizeSearch } from '../utils/recipeFilters.js';
 
 export default function FoodSwap() {
   const {data}=useDatabase();

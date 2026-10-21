@@ -1,6 +1,7 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/restaurantDirections.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasCoordinates, restaurantDirections } from '../src/lib/restaurantDirections.js';
+import { hasCoordinates, restaurantDirections } from '../src/utils/restaurantDirections.js';
 
 test('directions use the address when a restaurant has no coordinates',()=>{
   const place={name:'Quán A',address:'123 Đường B',latitude:null,longitude:null};

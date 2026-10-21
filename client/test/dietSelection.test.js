@@ -1,3 +1,4 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/dietSelection.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -20,7 +21,7 @@ async function freshModule(entries = {}) {
   return {
     values,
     selection: await import(
-      `../src/lib/dietSelection.js?test=${moduleNumber++}`
+      `../src/utils/dietSelection.js?test=${moduleNumber++}`
     ),
   };
 }

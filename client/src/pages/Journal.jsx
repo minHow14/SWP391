@@ -1,10 +1,13 @@
+// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Journal.jsx
 import { useEffect, useState } from 'react';
-import ContentDialog from '../components/ContentDialog.jsx';
-import { mealGroups, todayKey, weekDates, totals } from '../lib/journal.js';
-import { useDatabase } from '../lib/databaseContext.js';
-import { api, getSession } from '../lib/api.js';
+import ContentDialog from '../components/common/ContentDialog.jsx';
+import { mealGroups, todayKey, weekDates, totals } from '../utils/journal.js';
+import { useDatabase } from '../hooks/useDatabase.js';
+import { api } from '../services/api.js';
+import { getSession } from '../utils/session.js';
 import { Link } from 'react-router';
-import '../Journal.css';
+import HealthProfileNotice from '../features/profile/components/HealthProfileNotice.jsx';
+import { hasBodyMeasurements } from '../features/profile/utils/healthProfile.js';
 
 const number = (value) => value.toLocaleString('en-US', { maximumFractionDigits: 1 });
 const displayDate = (date, options = { day: '2-digit', month: '2-digit' }) => new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Bangkok', ...options }).format(new Date(`${date}T12:00:00Z`));
@@ -28,7 +31,8 @@ export default function Journal() {
   const entries = data.days[date] || [];
   const sum = totals(entries);
   const profile = data.profile||{height:0,weight:0,calorieGoal:0,goal:'Chưa thiết lập'};
-  const bmi = profile.weight / (profile.height / 100) ** 2;
+  const hasMeasurements = hasBodyMeasurements(profile);
+  const bmi = hasMeasurements ? profile.weight / (profile.height / 100) ** 2 : null;
   const remaining = profile.calorieGoal - sum.calories;
   const percent = profile.calorieGoal?Math.round(sum.calories / profile.calorieGoal * 100):0;
   const week = weekDates(date);
@@ -69,7 +73,7 @@ export default function Journal() {
       {notice && <p className="cx-journal-notice" role="status">{notice}<button type="button" onClick={() => setNotice('')} aria-label="Đóng thông báo">×</button></p>}
       <div id="journal-content" role="tabpanel" aria-labelledby={tab === 'day' ? 'journal-day-tab' : 'journal-week-tab'}>
         {tab === 'day' ? <>
-          <section className="cx-journal-overview" aria-label="Tổng quan nhật ký"><div className="cx-journal-bmi"><div className="cx-journal-overview-label"><h1>CHỈ SỐ CƠ THỂ & BMI</h1><button type="button" onClick={() => setEditingProfile(true)}><i className="bi bi-pencil" aria-hidden="true" /> Chỉnh hồ sơ</button></div><div className="cx-journal-big-number">{Number.isFinite(bmi)?bmi.toFixed(1):"—"} <small>BMI SCORE</small></div><div className="cx-journal-body-stats"><div><small>CHIỀU CAO</small><strong>{profile.height} cm</strong></div><div><small>CÂN NẶNG</small><strong>{profile.weight} kg</strong></div><div><small>MỤC TIÊU</small><strong>{profile.goal}</strong></div></div></div><div className="cx-journal-energy"><div className="cx-journal-overview-label"><h2>TỔNG CALO TRONG NGÀY</h2><span>Mục tiêu: {number(profile.calorieGoal)} kcal<strong>{remaining >= 0 ? `Còn ${number(remaining)}` : `Vượt ${number(-remaining)}`} kcal</strong></span></div><div className="cx-journal-big-number">{number(sum.calories)} <small>/ {number(profile.calorieGoal)} kcal</small></div><progress max={profile.calorieGoal||1} value={Math.min(sum.calories, profile.calorieGoal)} aria-label="Năng lượng đã ghi nhận so với mục tiêu" /><p><i className="bi bi-info-circle-fill" aria-hidden="true" /> Năng lượng đã ghi nhận đạt {percent}% mục tiêu bạn đặt.</p></div></section>
+          <section className="cx-journal-overview" aria-label="Tổng quan nhật ký"><div className="cx-journal-bmi"><div className="cx-journal-overview-label"><h1>CHỈ SỐ CƠ THỂ & BMI</h1><button type="button" onClick={() => setEditingProfile(true)}><i className="bi bi-pencil" aria-hidden="true" /> Chỉnh hồ sơ</button></div>{hasMeasurements ? <><div className="cx-journal-big-number">{Number.isFinite(bmi)?bmi.toFixed(1):"—"} <small>BMI SCORE</small></div><div className="cx-journal-body-stats"><div><small>CHIỀU CAO</small><strong>{profile.height} cm</strong></div><div><small>CÂN NẶNG</small><strong>{profile.weight} kg</strong></div><div><small>MỤC TIÊU</small><strong>{profile.goal}</strong></div></div></> : <HealthProfileNotice /> }</div><div className="cx-journal-energy"><div className="cx-journal-overview-label"><h2>TỔNG CALO TRONG NGÀY</h2><span>Mục tiêu: {number(profile.calorieGoal)} kcal<strong>{remaining >= 0 ? `Còn ${number(remaining)}` : `Vượt ${number(-remaining)}`} kcal</strong></span></div><div className="cx-journal-big-number">{number(sum.calories)} <small>/ {number(profile.calorieGoal)} kcal</small></div><progress max={profile.calorieGoal||1} value={Math.min(sum.calories, profile.calorieGoal)} aria-label="Năng lượng đã ghi nhận so với mục tiêu" /><p><i className="bi bi-info-circle-fill" aria-hidden="true" /> Năng lượng đã ghi nhận đạt {percent}% mục tiêu bạn đặt.</p></div></section>
           <section className="cx-journal-macros" aria-label="Các chất dinh dưỡng">{[['protein', 'Đạm Chay (Protein)', profile.macroGoals?.protein||0, 'red', 'Đậu hũ, nấm, hạt'], ['carbs', 'Tinh Bột (Carbs)', profile.macroGoals?.carbs||0, 'amber', 'Gạo lứt, khoai'], ['fat', 'Chất Béo (Fat)', profile.macroGoals?.fat||0, 'blue', 'Bơ, hạt, dầu ô liu'], ['fiber', 'Chất Xơ (Fiber)', profile.macroGoals?.fiber||0, 'green', 'Rau xanh, củ quả tươi']].map(([key, label, target, tone, hint]) => <article key={key} className={`tone-${tone}`}><div><h2><span />{label}</h2><strong>{number(sum[key])}g / {target}g</strong></div><progress max={target||1} value={Math.min(sum[key], target)} aria-label={label} /><p>{hint} · Mục tiêu trong hồ sơ</p></article>)}</section>
           <section className="cx-journal-meals" aria-labelledby="journal-meals-title"><div className="cx-journal-section-heading"><div><h2 id="journal-meals-title"><i className="bi bi-fork-knife" aria-hidden="true" /> Bữa Ăn Trong Ngày</h2><p>Ghi chép và phân bổ lượng calo theo từng bữa ăn.</p></div><button type="button" onClick={() => setAdding('breakfast')}><i className="bi bi-plus-circle-fill" aria-hidden="true" /> Ghi Thêm Bữa Ăn</button></div><div className="cx-journal-meal-grid">{mealGroups.map((group) => {
             const meals = entries.filter((entry) => entry.group === group.id);
