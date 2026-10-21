@@ -1,5 +1,5 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminMembersTab.jsx
-import { useEffect, useState } from 'react';
+// client/src/features/admin/components/AdminMembersTab.jsx
+import { useEffect, useState, useCallback } from 'react';
 import AdminMemberContentModal from './AdminMemberContentModal.jsx';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -15,7 +15,7 @@ export default function AdminMembersTab() {
   const [contentLoading, setContentLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -26,11 +26,11 @@ export default function AdminMembersTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
-  }, [statusFilter]);
+  }, [fetchUsers]);
 
   // Tự động cập nhật danh sách khi có sự kiện thay đổi người dùng
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function AdminMembersTab() {
       fetchUsers();
     });
     return unsubscribe;
-  }, []);
+  }, [fetchUsers]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminAiMonitorTab.jsx
-import { useEffect, useState } from 'react';
+// client/src/features/admin/components/AdminAiMonitorTab.jsx
+import { useEffect, useState, useCallback } from 'react';
 import { Row, Col, Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import AdminAiInterveneModal from './AdminAiInterveneModal.jsx';
@@ -16,7 +16,7 @@ export default function AdminAiMonitorTab() {
   const [selectedLogForIntervene, setSelectedLogForIntervene] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -31,11 +31,11 @@ export default function AdminAiMonitorTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, actionFilter]);
 
   useEffect(() => {
     fetchData();
-  }, [statusFilter, actionFilter]);
+  }, [fetchData]);
 
   // Tự động cập nhật số liệu và nhật ký AI khi có can thiệp hoặc kiểm duyệt
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function AdminAiMonitorTab() {
       fetchData();
     });
     return unsubscribe;
-  }, [statusFilter, actionFilter]);
+  }, [fetchData]);
 
   const handleOpenIntervene = (log = null) => {
     setSelectedLogForIntervene(log);

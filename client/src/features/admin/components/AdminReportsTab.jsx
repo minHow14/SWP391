@@ -1,5 +1,5 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminReportsTab.jsx
-import { useEffect, useState } from 'react';
+// client/src/features/admin/components/AdminReportsTab.jsx
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
@@ -11,7 +11,7 @@ export default function AdminReportsTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -22,11 +22,11 @@ export default function AdminReportsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchReports();
-  }, [statusFilter]);
+  }, [fetchReports]);
 
   // Tự động cập nhật danh sách báo cáo khi có thay đổi liên quan
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function AdminReportsTab() {
       fetchReports();
     });
     return unsubscribe;
-  }, [statusFilter]);
+  }, [fetchReports]);
 
   const handleResolve = async (reportId, resolutionAction) => {
     try {

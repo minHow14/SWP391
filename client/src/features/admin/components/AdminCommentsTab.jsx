@@ -1,5 +1,5 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminCommentsTab.jsx
-import { useEffect, useState } from 'react';
+// client/src/features/admin/components/AdminCommentsTab.jsx
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
@@ -13,7 +13,7 @@ export default function AdminCommentsTab() {
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -29,19 +29,22 @@ export default function AdminCommentsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, flagFilter, search]);
 
   useEffect(() => {
     fetchComments();
-  }, [statusFilter, flagFilter]);
+  }, [fetchComments]);
 
   // Tự động cập nhật danh sách bình luận khi có tác động từ các tab/trang khác
   useEffect(() => {
-    const unsubscribe = subscribeSyncEvent(['COMMENT_CHANGED', 'POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'USER_CHANGED'], () => {
-      fetchComments();
-    });
+    const unsubscribe = subscribeSyncEvent(
+      ['COMMENT_CHANGED', 'POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'USER_CHANGED'],
+      () => {
+        fetchComments();
+      }
+    );
     return unsubscribe;
-  }, []);
+  }, [fetchComments]);
 
   const handleUpdateStatus = async (commentId, status) => {
     try {

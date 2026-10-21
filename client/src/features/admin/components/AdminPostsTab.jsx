@@ -1,5 +1,5 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminPostsTab.jsx
-import { useEffect, useState } from 'react';
+// client/src/features/admin/components/AdminPostsTab.jsx
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
@@ -15,7 +15,7 @@ export default function AdminPostsTab() {
   const [editForm, setEditForm] = useState({ title: '', content: '' });
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -26,11 +26,11 @@ export default function AdminPostsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [typeFilter, statusFilter, search]);
 
   useEffect(() => {
     fetchPosts();
-  }, [typeFilter, statusFilter]);
+  }, [fetchPosts]);
 
   // Tự động cập nhật danh sách bài viết khi có tác động từ các tab/trang khác
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function AdminPostsTab() {
       fetchPosts();
     });
     return unsubscribe;
-  }, []);
+  }, [fetchPosts]);
 
   const handleUpdateStatus = async (postId, status) => {
     try {
