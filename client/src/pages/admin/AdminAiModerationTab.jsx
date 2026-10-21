@@ -46,7 +46,11 @@ export default function AdminAiModerationTab() {
         action: actionItem.action,
         notes,
       });
-      setActionMsg(`Đã ${actionItem.action === 'APPROVE' ? 'khôi phục' : 'gỡ bỏ'} nội dung vi phạm thành công`);
+      setActionMsg(
+        actionItem.action === 'APPROVE'
+          ? 'Đã phê duyệt và khôi phục nội dung thành công'
+          : 'Đã gỡ bỏ và xóa vĩnh viễn nội dung vi phạm khỏi cơ sở dữ liệu'
+      );
       emitSyncEvent('MODERATION_CHANGED', { entityType: actionItem.type, entityId: actionItem.id, action: actionItem.action });
       emitSyncEvent(actionItem.type === 'POST' ? 'POST_CHANGED' : 'COMMENT_CHANGED', { id: actionItem.id });
       setActionItem(null);
@@ -178,7 +182,7 @@ export default function AdminAiModerationTab() {
                             <i className="bi bi-check-circle me-1" /> Bỏ cờ
                           </Button>
                           <Button variant="outline-danger" size="sm" className="rounded-3 fw-medium" onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'DELETE', title: c.content })}>
-                            <i className="bi bi-trash me-1" /> Xóa bỏ
+                            <i className="bi bi-trash me-1" /> Xóa vĩnh viễn
                           </Button>
                         </td>
                       </tr>
@@ -195,26 +199,41 @@ export default function AdminAiModerationTab() {
       <Modal show={!!actionItem} onHide={() => setActionItem(null)} centered>
         <Modal.Header closeButton className="border-bottom">
           <Modal.Title className="fs-6 fw-bold text-dark d-flex align-items-center gap-2">
-            <i className={`bi ${actionItem?.action === 'APPROVE' ? 'bi-shield-check text-success' : 'bi-shield-x text-danger'}`} />
-            {actionItem?.action === 'APPROVE' ? 'Xác Nhận Khôi Phục Nội Dung' : 'Xác Nhận Gỡ Bỏ Vi Phạm'}
+            <i className={`bi ${actionItem?.action === 'APPROVE' ? 'bi-shield-check text-success' : 'bi-shield-slash-fill text-danger'}`} />
+            {actionItem?.action === 'APPROVE' ? 'Xác Nhận Khôi Phục Nội Dung' : 'Xác Nhận Gỡ Bỏ Vĩnh Viễn'}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="small mb-2 text-muted">
-            Hành động: <strong className={actionItem?.action === 'APPROVE' ? 'text-success' : 'text-danger'}>
-              {actionItem?.action === 'APPROVE' ? 'PHÊ DUYỆT KHÔI PHỤC' : 'GỠ BỎ VĨNH VIỄN'}
-            </strong>
-          </p>
-          <div className="p-2 border rounded-3 bg-light small mb-3 text-truncate">
-            {actionItem?.title}
-          </div>
+          {actionItem?.action === 'DELETE' ? (
+            <div className="mb-3">
+              <p className="text-danger fw-semibold mb-1">
+                <i className="bi bi-exclamation-triangle-fill me-1" /> CẢNH BÁO QUAN TRỌNG:
+              </p>
+              <p className="small text-muted mb-2">
+                Hành động này sẽ <strong>XÓA VĨNH VIỄN</strong> nội dung vi phạm này khỏi cơ sở dữ liệu ngay lập tức và không thể khôi phục.
+              </p>
+              <div className="p-2 border rounded-3 bg-danger-subtle text-danger-emphasis small fw-medium text-truncate">
+                {actionItem?.title}
+              </div>
+            </div>
+          ) : (
+            <div className="mb-3">
+              <p className="small text-muted mb-2">
+                Nội dung sẽ được <strong>PHÊ DUYỆT VÀ KHÔI PHỤC</strong> về trạng thái hiển thị bình thường cho cộng đồng:
+              </p>
+              <div className="p-2 border rounded-3 bg-light small fw-medium text-truncate">
+                {actionItem?.title}
+              </div>
+            </div>
+          )}
+
           <Form.Group controlId="moderationNotesInput">
             <Form.Label className="small fw-semibold">Ghi chú xử lý của Quản trị viên:</Form.Label>
             <Form.Control
               as="textarea"
               rows={3}
               className="rounded-3"
-              placeholder="VD: Đã rà soát thực tế không có dấu hiệu quảng cáo hay vi phạm..."
+              placeholder="VD: Xác nhận nội dung vi phạm tiêu chuẩn cộng đồng, gỡ bỏ vĩnh viễn..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
             />
@@ -223,7 +242,7 @@ export default function AdminAiModerationTab() {
         <Modal.Footer className="border-top">
           <Button variant="secondary" size="sm" className="rounded-3 px-3" onClick={() => setActionItem(null)}>Hủy bỏ</Button>
           <Button variant={actionItem?.action === 'APPROVE' ? 'success' : 'danger'} size="sm" className="rounded-3 px-3 fw-medium" onClick={handleConfirmResolve}>
-            Xác nhận thực hiện
+            {actionItem?.action === 'APPROVE' ? 'Phê Duyệt Khôi Phục' : 'Gỡ Bỏ & Xóa Vĩnh Viễn'}
           </Button>
         </Modal.Footer>
       </Modal>

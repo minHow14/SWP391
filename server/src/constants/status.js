@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\constants\status.js
 /**
  * Định nghĩa trạng thái tài khoản người dùng
  */
@@ -15,6 +16,7 @@ export const POST_STATUS = Object.freeze({
   PENDING: 'PENDING',
   PUBLISHED: 'PUBLISHED',
   HIDDEN_BY_AI: 'HIDDEN_BY_AI',
+  HIDDEN: 'HIDDEN',
   DELETED: 'DELETED',
 });
 
@@ -24,6 +26,7 @@ export const POST_STATUS = Object.freeze({
 export const COMMENT_STATUS = Object.freeze({
   ACTIVE: 'ACTIVE',
   HIDDEN_BY_AI: 'HIDDEN_BY_AI',
+  HIDDEN: 'HIDDEN',
   DELETED: 'DELETED',
 });
 

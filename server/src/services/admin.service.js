@@ -166,7 +166,12 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
 
   const where = {};
   if (postType) where.post_type = postType;
-  if (status) where.status = status;
+  if (status) {
+    where.status = status;
+  } else {
+    // Mặc định: loại bỏ các bài viết đã xóa vĩnh viễn (DELETED) khỏi bảng danh sách quản lý
+    where.status = { not: POST_STATUS.DELETED };
+  }
   if (search) {
     where.OR = [
       { blog: { title: { contains: search, mode: 'insensitive' } } },
@@ -242,21 +247,96 @@ export const updatePost = async ({ postId, title, content }) => {
   });
 };
 
-export const deletePost = async (postId) => {
+/**
+ * Hàm nội bộ xóa cứng bài viết kèm toàn bộ dữ liệu phụ thuộc trong Transaction
+ * @param {object} tx - Prisma transaction client
+ * @param {number} id - Mã bài viết (post_id)
+ */
+export const hardDeletePostTx = async (tx, id) => {
+  // 1. Gỡ liên kết post_id ở bảng recipes để không vi phạm khóa ngoại
+  await tx.recipe.updateMany({
+    where: { post_id: id },
+    data: { post_id: null },
+  });
+
+  // 2. Tìm và xóa báo cáo liên quan đến các bình luận thuộc bài viết này
+  const comments = await tx.comment.findMany({
+    where: { post_id: id },
+    select: { comment_id: true },
+  });
+  const commentIds = comments.map((c) => c.comment_id);
+  if (commentIds.length > 0) {
+    await tx.report.deleteMany({
+      where: { comment_id: { in: commentIds } },
+    });
+    await tx.comment.deleteMany({
+      where: { post_id: id },
+    });
+  }
+
+  // 3. Xóa báo cáo vi phạm liên kết trực tiếp tới bài viết
+  await tx.report.deleteMany({
+    where: { post_id: id },
+  });
+
+  // 4. Xóa lượt bình chọn và phân loại danh mục
+  await tx.postVote.deleteMany({
+    where: { post_id: id },
+  });
+  await tx.postCategory.deleteMany({
+    where: { post_id: id },
+  });
+
+  // 5. Xóa chi tiết blog hoặc video
+  await tx.blog.deleteMany({
+    where: { post_id: id },
+  });
+  await tx.video.deleteMany({
+    where: { post_id: id },
+  });
+
+  // 6. Xóa bản ghi bài viết chính khỏi database
+  return tx.post.delete({
+    where: { post_id: id },
+  });
+};
+
+/**
+ * Hàm nội bộ xóa cứng bình luận và các báo cáo vi phạm liên quan trong Transaction
+ * @param {object} tx - Prisma transaction client
+ * @param {number} id - Mã bình luận (comment_id)
+ */
+export const hardDeleteCommentTx = async (tx, id) => {
+  await tx.report.deleteMany({
+    where: { comment_id: id },
+  });
+  return tx.comment.delete({
+    where: { comment_id: id },
+  });
+};
+
+export const deletePost = async (postId, { permanent = false } = {}) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({ where: { post_id: id } });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
   const now = new Date();
+  // Nếu permanent = true: Đánh dấu DELETED (biến mất khỏi bảng quản lý Admin)
+  // Nếu permanent = false: Đánh dấu HIDDEN (trạng thái Đã ẩn, vẫn hiển thị trên bảng để Admin quản lý/khôi phục)
+  const nextStatus = permanent ? POST_STATUS.DELETED : POST_STATUS.HIDDEN;
+  const nextCommentStatus = permanent ? COMMENT_STATUS.DELETED : COMMENT_STATUS.HIDDEN;
+
+  // Giữ lại bản ghi trong DB (không xóa cứng khỏi DB)
   return prisma.$transaction(async (tx) => {
     await tx.comment.updateMany({
       where: { post_id: id },
-      data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+      data: { status: nextCommentStatus, deleted_at: now },
     });
-    return tx.post.update({
+    const updatedPost = await tx.post.update({
       where: { post_id: id },
-      data: { status: POST_STATUS.DELETED, deleted_at: now },
+      data: { status: nextStatus, deleted_at: now },
     });
+    return { ...updatedPost, permanent };
   });
 };
 
@@ -264,13 +344,13 @@ export const restorePost = async (postId) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({ where: { post_id: id } });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
-  if (post.status !== POST_STATUS.DELETED) {
-    throw ApiError.badRequest('Bài đăng này không ở trạng thái đã xóa');
+  if (post.status !== POST_STATUS.HIDDEN && post.status !== POST_STATUS.DELETED) {
+    throw ApiError.badRequest('Bài đăng này không ở trạng thái ẩn hoặc đã xóa');
   }
 
   return prisma.$transaction(async (tx) => {
     await tx.comment.updateMany({
-      where: { post_id: id, status: COMMENT_STATUS.DELETED },
+      where: { post_id: id, status: { in: [COMMENT_STATUS.HIDDEN, COMMENT_STATUS.DELETED] } },
       data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
     });
     return tx.post.update({
@@ -289,7 +369,12 @@ export const getComments = async ({ page = 1, limit = 10, status = '', isFlagged
   const take = Number(limit);
 
   const where = {};
-  if (status) where.status = status;
+  if (status) {
+    where.status = status;
+  } else {
+    // Mặc định: loại bỏ các bình luận đã xóa vĩnh viễn (DELETED) khỏi bảng danh sách quản lý
+    where.status = { not: COMMENT_STATUS.DELETED };
+  }
   if (isFlagged !== null && isFlagged !== undefined && isFlagged !== '') {
     where.is_flagged_by_ai = isFlagged === 'true' || isFlagged === true;
   }
@@ -337,23 +422,27 @@ export const updateCommentStatus = async ({ commentId, status }) => {
   });
 };
 
-export const deleteComment = async (commentId) => {
+export const deleteComment = async (commentId, { permanent = false } = {}) => {
   const id = Number(commentId);
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
   if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
 
-  return prisma.comment.update({
+  // Nếu permanent = true: Đánh dấu DELETED (biến mất khỏi bảng quản lý Admin)
+  // Nếu permanent = false: Đánh dấu HIDDEN (trạng thái Đã ẩn, vẫn hiển thị trên bảng để Admin quản lý/khôi phục)
+  const nextStatus = permanent ? COMMENT_STATUS.DELETED : COMMENT_STATUS.HIDDEN;
+  const updatedComment = await prisma.comment.update({
     where: { comment_id: id },
-    data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
+    data: { status: nextStatus, deleted_at: new Date() },
   });
+  return { ...updatedComment, permanent };
 };
 
 export const restoreComment = async (commentId) => {
   const id = Number(commentId);
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
   if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
-  if (comment.status !== COMMENT_STATUS.DELETED) {
-    throw ApiError.badRequest('Bình luận này không ở trạng thái đã xóa');
+  if (comment.status !== COMMENT_STATUS.HIDDEN && comment.status !== COMMENT_STATUS.DELETED) {
+    throw ApiError.badRequest('Bình luận này không ở trạng thái ẩn hoặc đã xóa');
   }
 
   return prisma.comment.update({
@@ -499,47 +588,86 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     const post = await prisma.post.findUnique({ where: { post_id: id } });
     if (!post) throw ApiError.notFound('Không tìm thấy bài viết');
 
-    const newStatus = action === 'APPROVE' ? POST_STATUS.PUBLISHED : POST_STATUS.DELETED;
+    if (action === 'APPROVE') {
+      const updated = await prisma.post.update({
+        where: { post_id: id },
+        data: { status: POST_STATUS.PUBLISHED },
+      });
+
+      await prisma.ai_logs.create({
+        data: {
+          model_name: 'deepseek-chat',
+          action: 'MODERATION_MANUAL_OVERRIDE',
+          status: 'SUCCESS',
+          error_feedback: `Admin phê duyệt nội dung bài viết ID ${id}. Ghi chú: ${notes || 'Không có'}`,
+        },
+      });
+      return updated;
+    }
+
+    // Khi gỡ bỏ bài viết bị AI gắn cờ: Cập nhật DELETED (không xóa cứng khỏi DB)
     const updated = await prisma.$transaction(async (tx) => {
-      if (action !== 'APPROVE') {
-        await tx.comment.updateMany({
-          where: { post_id: id },
-          data: { status: COMMENT_STATUS.DELETED },
-        });
-      }
-      return tx.post.update({ where: { post_id: id }, data: { status: newStatus } });
+      await tx.comment.updateMany({
+        where: { post_id: id },
+        data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
+      });
+      const res = await tx.post.update({
+        where: { post_id: id },
+        data: { status: POST_STATUS.DELETED, deleted_at: new Date() },
+      });
+      await tx.ai_logs.create({
+        data: {
+          model_name: 'deepseek-chat',
+          action: 'MODERATION_MANUAL_OVERRIDE',
+          status: 'SUCCESS',
+          error_feedback: `Admin kiểm duyệt và gỡ bỏ bài viết ID ${id}. Ghi chú: ${notes || 'Nội dung vi phạm'}`,
+        },
+      });
+      return res;
     });
 
-    await prisma.ai_logs.create({
-      data: {
-        model_name: 'deepseek-chat',
-        action: 'MODERATION_MANUAL_OVERRIDE',
-        status: 'SUCCESS',
-        error_feedback: `Admin duyệt thủ công bài viết ID ${id}: ${action}. Ghi chú: ${notes || 'Không có'}`,
-      },
-    });
-    return updated;
+    return { id, action: 'REMOVED', entityType: 'POST', data: updated };
   }
 
   if (type === 'COMMENT') {
     const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
     if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
 
-    const newStatus = action === 'APPROVE' ? COMMENT_STATUS.ACTIVE : COMMENT_STATUS.DELETED;
-    const updated = await prisma.comment.update({
-      where: { comment_id: id },
-      data: { status: newStatus, is_flagged_by_ai: action === 'APPROVE' ? false : comment.is_flagged_by_ai },
+    if (action === 'APPROVE') {
+      const updated = await prisma.comment.update({
+        where: { comment_id: id },
+        data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false },
+      });
+
+      await prisma.ai_logs.create({
+        data: {
+          model_name: 'deepseek-chat',
+          action: 'MODERATION_MANUAL_OVERRIDE',
+          status: 'SUCCESS',
+          error_feedback: `Admin phê duyệt bình luận ID ${id}. Ghi chú: ${notes || 'Không có'}`,
+        },
+      });
+      return updated;
+    }
+
+    // Khi gỡ bỏ bình luận bị AI gắn cờ: Cập nhật DELETED (không xóa cứng khỏi DB)
+    const updated = await prisma.$transaction(async (tx) => {
+      const res = await tx.comment.update({
+        where: { comment_id: id },
+        data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
+      });
+      await tx.ai_logs.create({
+        data: {
+          model_name: 'deepseek-chat',
+          action: 'MODERATION_MANUAL_OVERRIDE',
+          status: 'SUCCESS',
+          error_feedback: `Admin kiểm duyệt và gỡ bỏ bình luận ID ${id}. Ghi chú: ${notes || 'Bình luận vi phạm'}`,
+        },
+      });
+      return res;
     });
 
-    await prisma.ai_logs.create({
-      data: {
-        model_name: 'deepseek-chat',
-        action: 'MODERATION_MANUAL_OVERRIDE',
-        status: 'SUCCESS',
-        error_feedback: `Admin duyệt thủ công bình luận ID ${id}: ${action}. Ghi chú: ${notes || 'Không có'}`,
-      },
-    });
-    return updated;
+    return { id, action: 'REMOVED', entityType: 'COMMENT', data: updated };
   }
 
   throw ApiError.badRequest('Loại đối tượng không hợp lệ (hỗ trợ POST hoặc COMMENT)');

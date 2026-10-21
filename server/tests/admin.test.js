@@ -2,6 +2,7 @@
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import app from '../src/app.js';
+import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 
 describe('Admin API & RBAC Boundary', () => {
@@ -81,5 +82,81 @@ describe('Admin API & RBAC Boundary', () => {
     expect(res.body.data.users).toBeDefined();
     expect(res.body.data.posts).toBeDefined();
     expect(res.body.data.comments).toBeDefined();
+  });
+
+  it('supports 2-tier post deletion: hides and sets deleted_at while preserving DB record', async () => {
+    // 1. Tạo post test
+    const post = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'PUBLISHED',
+        blog: {
+          create: {
+            title: 'Test Post For Deletion',
+            content: 'Nội dung bài viết thử nghiệm ẩn và xóa vĩnh viễn',
+          },
+        },
+      },
+    });
+
+    // 2. Thử ẩn bài viết (xóa mềm)
+    const softRes = await request(app)
+      .delete(`/api/admin/posts/${post.post_id}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(softRes.status).toBe(200);
+    expect(softRes.body.success).toBe(true);
+
+    const postAfterSoft = await prisma.post.findUnique({ where: { post_id: post.post_id } });
+    expect(postAfterSoft).not.toBeNull();
+    expect(postAfterSoft.status).toBe('HIDDEN');
+    expect(postAfterSoft.deleted_at).not.toBeNull();
+
+    // 3. Thử xóa với ?permanent=true (vẫn giữ bản ghi trong DB)
+    const hardRes = await request(app)
+      .delete(`/api/admin/posts/${post.post_id}?permanent=true`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(hardRes.status).toBe(200);
+    expect(hardRes.body.success).toBe(true);
+
+    const postAfterHard = await prisma.post.findUnique({ where: { post_id: post.post_id } });
+    expect(postAfterHard).not.toBeNull();
+    expect(postAfterHard.status).toBe('DELETED');
+  });
+
+  it('AI Moderation flags content as deleted while preserving record in DB for audit trail', async () => {
+    // Tạo 1 post test bị AI gắn cờ
+    const flaggedPost = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'HIDDEN_BY_AI',
+        blog: {
+          create: {
+            title: 'Flagged Spam Post',
+            content: 'Spam vi phạm quy định',
+          },
+        },
+      },
+    });
+
+    // Gọi gỡ bỏ (REJECT) qua AI Moderation
+    const resolveRes = await request(app)
+      .post('/api/admin/moderation/resolve')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        entityType: 'POST',
+        entityId: flaggedPost.post_id,
+        action: 'REJECT',
+        notes: 'Xác nhận vi phạm, gỡ bỏ vĩnh viễn',
+      });
+
+    expect(resolveRes.status).toBe(200);
+    expect(resolveRes.body.success).toBe(true);
+
+    // Xác nhận bản ghi vẫn còn trong DB để phục vụ audit/lưu trữ nhưng ở trạng thái DELETED
+    const checkDb = await prisma.post.findUnique({ where: { post_id: flaggedPost.post_id } });
+    expect(checkDb).not.toBeNull();
+    expect(checkDb.status).toBe('DELETED');
   });
 });

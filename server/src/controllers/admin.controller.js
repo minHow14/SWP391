@@ -45,7 +45,6 @@ export const deleteUser = asyncHandler(async (req, res) => {
   });
 });
 
-// FE-02: Quản lý bài viết và video
 export const restoreUser = asyncHandler(async (req, res) => {
   const restoredUser = await adminService.restoreUser(req.params.id);
   return sendSuccess(res, {
@@ -88,9 +87,11 @@ export const updatePost = asyncHandler(async (req, res) => {
 });
 
 export const deletePost = asyncHandler(async (req, res) => {
-  await adminService.deletePost(req.params.id);
+  const isPermanent = req.query.permanent === 'true';
+  const result = await adminService.deletePost(req.params.id, { permanent: isPermanent });
   return sendSuccess(res, {
-    message: 'Xóa bài viết vi phạm thành công',
+    message: isPermanent ? 'Xóa vĩnh viễn bài viết thành công' : 'Đã ẩn bài viết thành công',
+    data: result,
   });
 });
 
@@ -124,9 +125,11 @@ export const updateCommentStatus = asyncHandler(async (req, res) => {
 });
 
 export const deleteComment = asyncHandler(async (req, res) => {
-  await adminService.deleteComment(req.params.id);
+  const isPermanent = req.query.permanent === 'true';
+  const result = await adminService.deleteComment(req.params.id, { permanent: isPermanent });
   return sendSuccess(res, {
-    message: 'Xóa bình luận vi phạm thành công',
+    message: isPermanent ? 'Xóa vĩnh viễn bình luận thành công' : 'Đã ẩn bình luận thành công',
+    data: result,
   });
 });
 
@@ -184,8 +187,9 @@ export const getAiFlaggedContent = asyncHandler(async (req, res) => {
 
 export const resolveAiFlaggedItem = asyncHandler(async (req, res) => {
   const result = await adminService.resolveAiFlaggedItem(req.body);
+  const isApproved = req.body.action === 'APPROVE';
   return sendSuccess(res, {
-    message: 'Xử lý nội dung AI gắn cờ thành công',
+    message: isApproved ? 'Xử lý nội dung AI gắn cờ thành công' : 'Đã gỡ bỏ nội dung vi phạm thành công',
     data: result,
   });
 });
