@@ -1,8 +1,9 @@
+// d:\Projects\FPT\SWP391\server\src\routes\blog.route.js
 import express from 'express';
 import * as blogController from '../controllers/blog.controller.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
-import { schemas } from '../validators.js';
+import { schemas } from '../validators/index.js';
 
 const router = express.Router();
 

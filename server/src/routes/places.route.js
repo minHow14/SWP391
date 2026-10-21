@@ -2,7 +2,7 @@ import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { getNearby, searchPlaces } from '../controllers/places.controller.js';
 import { requestId } from '../middlewares/requestId.js';
-import { fail } from '../utils/envelope.js';
+import { fail } from '../utils/apiResponse.js';
 
 const router = express.Router();
 

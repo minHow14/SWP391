@@ -2,7 +2,7 @@ import prisma from '../src/config/prisma.js';
 import { ingredientCatalog } from './ingredient-catalog.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { ingredientImageUrl } from '../src/services/ingredientImages.service.js';
+import { ingredientImageUrl } from '../src/services/workspace.service.js';
 
 export async function repairIngredientDetails(db = prisma) {
   let repaired = 0;

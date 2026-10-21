@@ -1,8 +1,9 @@
+// d:\Projects\FPT\SWP391\server\src\routes\auth.route.js
 import express from 'express';
 import * as authController from '../controllers/auth.controller.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
-import { schemas } from '../validators.js';
+import { schemas } from '../validators/index.js';
 
 const router = express.Router();
 
@@ -12,4 +13,3 @@ router.get('/me', authenticate, authController.getMe);
 router.patch('/me', authenticate, validate(schemas.updateMe), authController.updateMe);
 
 export default router;
-

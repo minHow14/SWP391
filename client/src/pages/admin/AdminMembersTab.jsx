@@ -1,5 +1,5 @@
 // d:\Projects\FPT\SWP391\client\src\pages\admin\AdminMembersTab.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
@@ -14,7 +14,7 @@ export default function AdminMembersTab() {
   const [contentLoading, setContentLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -25,11 +25,11 @@ export default function AdminMembersTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter]);
 
   useEffect(() => {
     fetchUsers();
-  }, [statusFilter]);
+  }, [statusFilter, fetchUsers]);
 
   // Tự động cập nhật danh sách khi có sự kiện thay đổi người dùng
   useEffect(() => {
@@ -37,19 +37,19 @@ export default function AdminMembersTab() {
       fetchUsers();
     });
     return unsubscribe;
-  }, []);
+  }, [fetchUsers]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchUsers();
   };
 
-  const handleToggleStatus = async (user) => {
-    const nextStatus = user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
+  const handleToggleStatus = async (targetUser) => {
+    const nextStatus = targetUser.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
     try {
-      await adminService.updateUserStatus(user.user_id, nextStatus);
-      setActionMessage(`Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${user.full_name}`);
-      emitSyncEvent('USER_CHANGED', { userId: user.user_id, status: nextStatus });
+      await adminService.updateUserStatus(targetUser.user_id, nextStatus);
+      setActionMessage(`Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${targetUser.full_name}`);
+      emitSyncEvent('USER_CHANGED', { userId: targetUser.user_id, status: nextStatus });
       fetchUsers();
     } catch (err) {
       setError(err.message);
@@ -87,40 +87,43 @@ export default function AdminMembersTab() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h4 className="fw-bold mb-1 text-dark">Quản Lý Thành Viên Cộng Đồng</h4>
-          <p className="text-muted small mb-0">Theo dõi thông tin, xem nội dung đăng tải, khóa/mở khóa hoặc xóa tài khoản thành viên</p>
+          <p className="text-muted small mb-0">Theo dõi thông tin, phân quyền, xem nội dung đăng tải hoặc khóa tài khoản thành viên</p>
         </div>
       </div>
 
       {actionMessage && (
-        <Alert variant="success" dismissible onClose={() => setActionMessage('')} className="py-2 small rounded-3">
-          <i className="bi bi-check-circle-fill me-2" />{actionMessage}
+        <Alert variant="success" dismissible onClose={() => setActionMessage('')} className="cx-alert-banner py-2 px-3 mb-3">
+          <i className="bi bi-check-circle-fill me-2 text-success" />{actionMessage}
         </Alert>
       )}
 
       {/* Bộ lọc và Tìm kiếm */}
-      <div className="admin-card mb-3 p-3">
+      <div className="admin-filter-bar mb-3">
         <Form onSubmit={handleSearchSubmit}>
           <Row className="g-2 align-items-center">
             <Col xs={12} md={7}>
-              <Form.Control
-                size="sm"
-                className="rounded-3"
-                placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <div className="admin-search-wrapper">
+                <i className="bi bi-search admin-search-icon" />
+                <Form.Control
+                  size="sm"
+                  className="admin-search-input"
+                  placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
             </Col>
-            <Col xs={6} md={3}>
-              <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Col xs={7} md={3}>
+              <Form.Select size="sm" className="admin-select-input rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">Tất cả trạng thái</option>
                 <option value="ACTIVE">Đang hoạt động</option>
                 <option value="LOCKED">Bị tạm khóa</option>
                 <option value="DELETED">Đã xóa</option>
               </Form.Select>
             </Col>
-            <Col xs={6} md={2}>
-              <Button type="submit" variant="success" size="sm" className="w-100 rounded-3">
-                <i className="bi bi-search me-1" /> Tìm kiếm
+            <Col xs={5} md={2}>
+              <Button type="submit" variant="success" size="sm" className="w-100 rounded-3 fw-medium">
+                Tìm kiếm
               </Button>
             </Col>
           </Row>
@@ -129,20 +132,25 @@ export default function AdminMembersTab() {
 
       {/* 4 Trạng thái UI */}
       {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="success" />
-          <p className="mt-2 text-muted small">Đang nạp danh sách thành viên...</p>
+        <div className="admin-card p-4 text-center">
+          <Spinner animation="border" variant="success" size="sm" className="me-2" />
+          <span className="text-muted small">Đang nạp danh sách thành viên...</span>
         </div>
       ) : error ? (
         <Alert variant="danger" className="d-flex justify-content-between align-items-center rounded-3">
-          <span><i className="bi bi-exclamation-triangle me-2" />{error}</span>
-          <Button variant="outline-danger" size="sm" onClick={fetchUsers}>Thử lại</Button>
+          <span><i className="bi bi-exclamation-triangle-fill me-2" />{error}</span>
+          <Button variant="outline-danger" size="sm" className="rounded-3" onClick={fetchUsers}>Thử lại</Button>
         </Alert>
       ) : users.length === 0 ? (
-        <div className="text-center py-5 border rounded-4 bg-light">
-          <i className="bi bi-person-x text-muted display-4" />
-          <p className="mt-2 text-muted">Không tìm thấy thành viên nào phù hợp</p>
-          <Button variant="outline-success" size="sm" className="rounded-3" onClick={() => { setSearch(''); setStatusFilter(''); }}>Xóa bộ lọc</Button>
+        <div className="cx-empty-state">
+          <div className="cx-empty-icon">
+            <i className="bi bi-person-x" />
+          </div>
+          <h5 className="fw-bold mb-1">Không tìm thấy thành viên nào</h5>
+          <p className="text-muted small mb-3">Hãy thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn các điều kiện lọc trạng thái.</p>
+          <Button variant="outline-success" size="sm" className="rounded-3 px-3" onClick={() => { setSearch(''); setStatusFilter(''); }}>
+            Xóa bộ lọc
+          </Button>
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
@@ -150,11 +158,11 @@ export default function AdminMembersTab() {
             <thead>
               <tr>
                 <th className="stt-col">STT</th>
-                <th>Họ tên & Email</th>
+                <th>Thành viên & Email</th>
                 <th>Vai trò</th>
                 <th>Trạng thái tài khoản</th>
                 <th>Đóng góp nội dung</th>
-                <th className="text-end">Thao tác</th>
+                <th className="text-end pe-3">Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -162,8 +170,15 @@ export default function AdminMembersTab() {
                 <tr key={u.user_id}>
                   <td className="stt-col">{index + 1}</td>
                   <td>
-                    <div className="fw-semibold text-dark">{u.full_name}</div>
-                    <div className="text-muted small">{u.email}</div>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="cx-user-avatar" style={{ width: 32, height: 32, fontSize: '0.75rem' }}>
+                        {u.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                      </div>
+                      <div>
+                        <div className="fw-semibold text-dark">{u.full_name}</div>
+                        <div className="text-muted" style={{ fontSize: '0.78rem' }}>{u.email}</div>
+                      </div>
+                    </div>
                   </td>
                   <td>
                     <span className={`cx-badge ${u.role === 1 ? 'cx-badge-danger' : 'cx-badge-neutral'}`}>
@@ -179,31 +194,34 @@ export default function AdminMembersTab() {
                     </span>
                   </td>
                   <td className="small text-muted">
-                    <strong>{u._count.posts}</strong> bài viết · <strong>{u._count.comments}</strong> bình luận
+                    <span className="me-2"><i className="bi bi-journal-text me-1 text-secondary" /><strong>{u._count.posts}</strong> bài</span>
+                    <span><i className="bi bi-chat-text me-1 text-secondary" /><strong>{u._count.comments}</strong> bình luận</span>
                   </td>
-                  <td className="text-end">
-                    <Button variant="outline-primary" size="sm" className="me-1 rounded-3" onClick={() => handleViewContent(u.user_id)} title="Xem bài viết & bình luận">
-                      <i className="bi bi-eye" />
-                    </Button>
-                    <Button
-                      variant={u.status === 'ACTIVE' ? 'outline-warning' : 'outline-success'}
-                      size="sm"
-                      className="me-1 rounded-3"
-                      onClick={() => handleToggleStatus(u)}
-                      title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                    >
-                      <i className={`bi bi-${u.status === 'ACTIVE' ? 'lock' : 'unlock'}`} />
-                    </Button>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      className="rounded-3"
-                      onClick={() => handleDeleteUser(u.user_id)}
-                      disabled={u.status === 'DELETED'}
-                      title="Xóa tài khoản"
-                    >
-                      <i className="bi bi-trash" />
-                    </Button>
+                  <td className="text-end pe-3">
+                    <div className="d-inline-flex gap-1">
+                      <Button variant="outline-primary" size="sm" className="admin-action-btn" onClick={() => handleViewContent(u.user_id)} title="Xem bài viết & bình luận">
+                        <i className="bi bi-eye" />
+                      </Button>
+                      <Button
+                        variant={u.status === 'ACTIVE' ? 'outline-warning' : 'outline-success'}
+                        size="sm"
+                        className="admin-action-btn"
+                        onClick={() => handleToggleStatus(u)}
+                        title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                      >
+                        <i className={`bi bi-${u.status === 'ACTIVE' ? 'lock' : 'unlock'}`} />
+                      </Button>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        className="admin-action-btn"
+                        onClick={() => handleDeleteUser(u.user_id)}
+                        disabled={u.status === 'DELETED'}
+                        title="Xóa tài khoản"
+                      >
+                        <i className="bi bi-trash" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -214,24 +232,27 @@ export default function AdminMembersTab() {
 
       {/* Modal xem nội dung của User */}
       <Modal show={!!selectedUserContent} onHide={() => setSelectedUserContent(null)} size="lg" centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-5 fw-bold">
-            Bài đăng & Bình luận của: <span className="text-success">{selectedUserContent?.user?.full_name}</span>
+        <Modal.Header closeButton className="border-bottom">
+          <Modal.Title className="fs-6 fw-bold d-flex align-items-center gap-2">
+            <i className="bi bi-person-lines-fill text-success" />
+            Nội dung đóng góp: <span className="text-success">{selectedUserContent?.user?.full_name}</span>
           </Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ maxHeight: '65vh', overflowY: 'auto' }}>
           {contentLoading ? (
-            <div className="text-center py-4"><Spinner animation="border" variant="success" /></div>
+            <div className="text-center py-4"><Spinner animation="border" variant="success" size="sm" /></div>
           ) : (
             <>
-              <h6 className="fw-bold mb-2 text-dark">Bài viết & Video đã đăng ({selectedUserContent?.posts?.length || 0})</h6>
+              <h6 className="fw-bold mb-2 text-dark small text-uppercase">Bài viết & Video ({selectedUserContent?.posts?.length || 0})</h6>
               {selectedUserContent?.posts?.length === 0 ? (
                 <p className="text-muted small">Người dùng chưa đăng tải bài viết nào.</p>
               ) : (
                 <ul className="list-group mb-3 small">
                   {selectedUserContent?.posts?.map((p) => (
-                    <li key={p.post_id} className="list-group-item d-flex justify-content-between align-items-center">
-                      <span>[{p.post_type === 'BLOG' ? 'Blog' : 'Video'}] {p.blog?.title || p.video?.title || 'Không có tiêu đề'}</span>
+                    <li key={p.post_id} className="list-group-item d-flex justify-content-between align-items-center py-2">
+                      <span className="text-truncate me-2">
+                        <strong className="text-secondary">[{p.post_type === 'BLOG' ? 'Blog' : 'Video'}]</strong> {p.blog?.title || p.video?.title || 'Không có tiêu đề'}
+                      </span>
                       <span className={`cx-badge ${p.status === 'PUBLISHED' ? 'cx-badge-active' : 'cx-badge-locked'}`}>
                         {p.status === 'PUBLISHED' ? 'Đã duyệt' : p.status === 'HIDDEN_BY_AI' ? 'AI đã ẩn' : p.status}
                       </span>
@@ -240,15 +261,15 @@ export default function AdminMembersTab() {
                 </ul>
               )}
 
-              <h6 className="fw-bold mb-2 text-dark">Bình luận gần đây ({selectedUserContent?.comments?.length || 0})</h6>
+              <h6 className="fw-bold mb-2 text-dark small text-uppercase">Bình luận gần đây ({selectedUserContent?.comments?.length || 0})</h6>
               {selectedUserContent?.comments?.length === 0 ? (
                 <p className="text-muted small">Người dùng chưa để lại bình luận nào.</p>
               ) : (
                 <ul className="list-group small">
                   {selectedUserContent?.comments?.map((c) => (
-                    <li key={c.comment_id} className="list-group-item">
+                    <li key={c.comment_id} className="list-group-item py-2">
                       <div className="fw-semibold text-truncate">{c.content}</div>
-                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Trên bài viết: {c.post?.blog?.title || c.post?.video?.title}</div>
+                      <div className="text-muted" style={{ fontSize: '0.75rem' }}>Trên bài: {c.post?.blog?.title || c.post?.video?.title}</div>
                     </li>
                   ))}
                 </ul>

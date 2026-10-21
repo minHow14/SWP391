@@ -1,5 +1,5 @@
 // d:\Projects\FPT\SWP391\client\src\pages\admin\AdminReportsTab.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
@@ -11,7 +11,7 @@ export default function AdminReportsTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -22,11 +22,11 @@ export default function AdminReportsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
 
   useEffect(() => {
     fetchReports();
-  }, [statusFilter]);
+  }, [statusFilter, fetchReports]);
 
   // Tự động cập nhật danh sách báo cáo khi có thay đổi liên quan
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function AdminReportsTab() {
       fetchReports();
     });
     return unsubscribe;
-  }, [statusFilter]);
+  }, [fetchReports]);
 
   const handleResolve = async (reportId, resolutionAction) => {
     try {
@@ -67,85 +67,93 @@ export default function AdminReportsTab() {
 
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
+      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
           <h4 className="fw-bold mb-1 text-dark">Quản Lý Báo Cáo Vi Phạm Từ Người Dùng</h4>
           <p className="text-muted small mb-0">Tiếp nhận báo cáo vi phạm bài viết hoặc bình luận, xem xét và xử lý bảo vệ cộng đồng</p>
         </div>
-        <Button variant="outline-success" size="sm" className="rounded-3" onClick={fetchReports}>
+        <Button variant="outline-success" size="sm" className="rounded-3 px-3 fw-medium" onClick={fetchReports}>
           <i className="bi bi-arrow-clockwise me-1" /> Làm mới
         </Button>
       </div>
 
       {actionMsg && (
-        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3">
-          <i className="bi bi-check-circle-fill me-2" />{actionMsg}
+        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="cx-alert-banner py-2 px-3 mb-3">
+          <i className="bi bi-check-circle-fill me-2 text-success" />{actionMsg}
         </Alert>
       )}
 
       {/* Lọc trạng thái */}
-      <div className="admin-card mb-3 p-3">
+      <div className="admin-filter-bar mb-3">
         <Row className="g-2 align-items-center">
-          <Col xs={12} sm={4}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">Tất cả trạng thái báo cáo</option>
-              <option value="PENDING">Chờ xử lý</option>
-              <option value="RESOLVED">Đã giải quyết</option>
-              <option value="DISMISSED">Đã bác bỏ</option>
-            </Form.Select>
+          <Col xs={12} sm={6} md={4}>
+            <div className="d-flex align-items-center gap-2">
+              <span className="small text-muted fw-semibold text-nowrap"><i className="bi bi-funnel me-1" />Lọc trạng thái:</span>
+              <Form.Select size="sm" className="admin-select-input rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">Tất cả trạng thái</option>
+                <option value="PENDING">Chờ xử lý (PENDING)</option>
+                <option value="RESOLVED">Đã giải quyết (RESOLVED)</option>
+                <option value="DISMISSED">Đã bác bỏ (DISMISSED)</option>
+              </Form.Select>
+            </div>
           </Col>
         </Row>
       </div>
 
       {/* Danh sách báo cáo */}
       {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="success" />
-          <p className="mt-2 text-muted small">Đang nạp danh sách báo cáo...</p>
+        <div className="admin-card p-4 text-center">
+          <Spinner animation="border" variant="success" size="sm" className="me-2" />
+          <span className="text-muted small">Đang nạp danh sách báo cáo...</span>
         </div>
       ) : error ? (
         <Alert variant="danger" className="d-flex justify-content-between align-items-center rounded-3">
-          <span><i className="bi bi-exclamation-triangle me-2" />{error}</span>
-          <Button variant="outline-danger" size="sm" onClick={fetchReports}>Thử lại</Button>
+          <span><i className="bi bi-exclamation-triangle-fill me-2" />{error}</span>
+          <Button variant="outline-danger" size="sm" className="rounded-3" onClick={fetchReports}>Thử lại</Button>
         </Alert>
       ) : reports.length === 0 ? (
-        <div className="text-center py-5 border rounded-4 bg-light">
-          <i className="bi bi-check2-circle text-success display-4" />
-          <p className="mt-2 text-muted">Không có báo cáo vi phạm nào trong danh mục này</p>
+        <div className="cx-empty-state">
+          <div className="cx-empty-icon">
+            <i className="bi bi-shield-check" />
+          </div>
+          <h5 className="fw-bold mb-1">Không có báo cáo vi phạm nào</h5>
+          <p className="text-muted small mb-0">Hàng đợi báo cáo hiện đang trống hoặc không có bản ghi nào khớp với bộ lọc.</p>
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
           <Table responsive hover className="mb-0 align-middle admin-table">
             <thead>
               <tr>
-                <th style={{ width: '70px' }}>Mã</th>
+                <th style={{ width: '60px' }}>Mã</th>
                 <th>Người gửi báo cáo</th>
                 <th>Đối tượng bị phản ánh</th>
                 <th>Lý do vi phạm</th>
                 <th>Trạng thái</th>
-                <th className="text-end">Hành động xử lý</th>
+                <th className="text-end pe-3">Hành động xử lý</th>
               </tr>
             </thead>
             <tbody>
               {reports.map((rep) => {
-                const targetTitle = rep.post
+                const isPost = !!rep.post;
+                const targetTitle = isPost
                   ? `[Bài viết] ${rep.post.blog?.title || rep.post.video?.title || 'Bài #' + rep.post.post_id}`
                   : `[Bình luận] ${rep.comment?.content}`;
 
                 return (
                   <tr key={rep.report_id}>
-                    <td className="text-muted fw-semibold">#{rep.report_id}</td>
+                    <td className="text-muted fw-semibold small">#{rep.report_id}</td>
                     <td>
                       <div className="fw-semibold small text-dark">{rep.reporter?.full_name}</div>
                       <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rep.reporter?.email}</div>
                     </td>
                     <td>
-                      <div className="small fw-semibold text-truncate" style={{ maxWidth: 260 }} title={targetTitle}>
-                        {targetTitle}
+                      <div className="small fw-semibold text-truncate d-flex align-items-center gap-1" style={{ maxWidth: 240 }} title={targetTitle}>
+                        <i className={`bi ${isPost ? 'bi-file-earmark-text text-primary' : 'bi-chat-left-dots text-secondary'}`} />
+                        <span>{targetTitle}</span>
                       </div>
                     </td>
                     <td>
-                      <div className="small text-danger text-wrap" style={{ maxWidth: 240 }}>
+                      <div className="small text-danger text-wrap" style={{ maxWidth: 220 }}>
                         {rep.reason}
                       </div>
                     </td>
@@ -157,13 +165,13 @@ export default function AdminReportsTab() {
                         {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã bác bỏ'}
                       </span>
                     </td>
-                    <td className="text-end">
+                    <td className="text-end pe-3">
                       {rep.status === 'PENDING' ? (
-                        <>
+                        <div className="d-inline-flex gap-1">
                           <Button
                             variant="outline-danger"
                             size="sm"
-                            className="me-1 rounded-3"
+                            className="rounded-3 fw-medium"
                             onClick={() => handleResolve(rep.report_id, 'HIDE_CONTENT')}
                             title="Xác nhận vi phạm & Gỡ bỏ nội dung"
                           >
@@ -178,9 +186,9 @@ export default function AdminReportsTab() {
                           >
                             Bác bỏ
                           </Button>
-                        </>
+                        </div>
                       ) : (
-                        <span className="text-muted small">Đã hoàn tất</span>
+                        <span className="text-muted small fst-italic">Đã hoàn tất</span>
                       )}
                     </td>
                   </tr>

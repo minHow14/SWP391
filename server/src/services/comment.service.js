@@ -1,4 +1,7 @@
-import prisma from '../config/prisma.js';
+// d:\Projects\FPT\SWP391\server\src\services\comment.service.js
+import { commentRepository } from '../repositories/comment.repository.js';
+import { postRepository } from '../repositories/post.repository.js';
+import { userRepository } from '../repositories/user.repository.js';
 import { POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
@@ -16,37 +19,33 @@ export const commentService = {
       throw ApiError.badRequest('Valid post_id, user_id, and content are required');
     }
 
-    const targetPost = await prisma.post.findUnique({
-      where: { post_id: numericPostId },
-    });
+    const targetPost = await postRepository.findPostById(numericPostId);
     if (!targetPost || targetPost.status === POST_STATUS.DELETED) {
       throw ApiError.notFound('Target post not found or has been deleted');
     }
 
-    const authorUser = await prisma.user.findUnique({
-      where: { user_id: numericUserId },
-    });
+    const authorUser = await userRepository.findById(numericUserId);
     if (!authorUser) {
       throw ApiError.notFound('Commenter user not found');
     }
 
-    const newComment = await prisma.comment.create({
-      data: {
+    const newComment = await commentRepository.create(
+      {
         post_id: numericPostId,
         user_id: numericUserId,
         content: content.trim(),
         is_flagged_by_ai: false,
         status: COMMENT_STATUS.ACTIVE,
       },
-      include: {
+      {
         user: {
           select: {
             user_id: true,
             full_name: true,
           },
         },
-      },
-    });
+      }
+    );
 
     return newComment;
   },
@@ -60,14 +59,12 @@ export const commentService = {
       throw ApiError.badRequest('Invalid post ID format');
     }
 
-    const post = await prisma.post.findUnique({
-      where: { post_id: numericPostId },
-    });
+    const post = await postRepository.findPostById(numericPostId);
     if (!post || post.status === POST_STATUS.DELETED) {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 
-    return await prisma.comment.findMany({
+    return await commentRepository.findMany({
       where: {
         post_id: numericPostId,
         status: COMMENT_STATUS.ACTIVE,
@@ -99,9 +96,7 @@ export const commentService = {
       throw ApiError.badRequest('Comment content cannot be empty');
     }
 
-    const comment = await prisma.comment.findUnique({
-      where: { comment_id: commentId },
-    });
+    const comment = await commentRepository.findById(commentId);
 
     if (!comment || comment.status !== COMMENT_STATUS.ACTIVE) {
       throw ApiError.notFound('Comment not found or inactive');
@@ -112,18 +107,18 @@ export const commentService = {
       throw ApiError.forbidden('Bạn chỉ có thể chỉnh sửa bình luận của chính mình');
     }
 
-    return await prisma.comment.update({
-      where: { comment_id: commentId },
-      data: { content: content.trim() },
-      include: {
+    return await commentRepository.update(
+      commentId,
+      { content: content.trim() },
+      {
         user: {
           select: {
             user_id: true,
             full_name: true,
           },
         },
-      },
-    });
+      }
+    );
   },
 
   /**
@@ -136,13 +131,10 @@ export const commentService = {
       throw ApiError.badRequest('Invalid comment ID format');
     }
 
-    const comment = await prisma.comment.findUnique({
-      where: { comment_id: commentId },
-      include: {
-        post: {
-          select: {
-            author_id: true,
-          },
+    const comment = await commentRepository.findById(commentId, {
+      post: {
+        select: {
+          author_id: true,
         },
       },
     });
@@ -165,10 +157,7 @@ export const commentService = {
       return { message: 'Comment is already deleted' };
     }
 
-    await prisma.comment.update({
-      where: { comment_id: commentId },
-      data: { status: COMMENT_STATUS.DELETED },
-    });
+    await commentRepository.update(commentId, { status: COMMENT_STATUS.DELETED });
 
     return { message: 'Comment deleted successfully' };
   },

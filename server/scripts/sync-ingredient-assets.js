@@ -1,5 +1,6 @@
+// d:\Projects\FPT\SWP391\server\scripts\sync-ingredient-assets.js
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { ingredientCatalog } from './ingredient-catalog.js';
+import { ingredientCatalog } from '../prisma/ingredient-catalog.js';
 
 const directory = new URL(
   '../../client/public/ingredient-assets/',

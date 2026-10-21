@@ -297,6 +297,32 @@ export const getCategories = async () => {
   return prisma.category.findMany({
     orderBy: { category_id: 'asc' },
     include: {
+      recipes: {
+        select: {
+          recipe_id: true,
+          recipe_name: true,
+          description: true,
+          image_url: true,
+          prep_time: true,
+          total_calories: true,
+          instructions: true,
+        },
+      },
+      post_categories: {
+        include: {
+          post: {
+            select: {
+              post_id: true,
+              post_type: true,
+              status: true,
+              created_at: true,
+              blog: { select: { title: true, content: true } },
+              video: { select: { title: true, video_url: true, transcript: true } },
+              author: { select: { full_name: true, email: true } },
+            },
+          },
+        },
+      },
       _count: {
         select: {
           post_categories: true,

@@ -18,6 +18,7 @@
     "db:import-ingredient-images": "node prisma/import-ingredient-images.js",
     "test:database": "node tests/workspace.integration.mjs",
     "test:ingredient-images": "node tests/ingredient-images.integration.mjs",
+    "assets:sync": "node scripts/sync-ingredient-assets.js",
     "seed": "node prisma/seed.js"
   },
   "prisma": {

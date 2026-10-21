@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ok, fail } from '../utils/envelope.js';
+import { ok, fail } from '../utils/apiResponse.js';
 import {
   PlacesProviderError,
   findNearbyLocal,

@@ -1,5 +1,5 @@
 // d:\Projects\FPT\SWP391\client\src\pages\admin\AdminPostsTab.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../lib/syncEvents.js';
@@ -15,7 +15,7 @@ export default function AdminPostsTab() {
   const [editForm, setEditForm] = useState({ title: '', content: '' });
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -26,11 +26,11 @@ export default function AdminPostsTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [typeFilter, statusFilter, search]);
 
   useEffect(() => {
     fetchPosts();
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, fetchPosts]);
 
   // Tự động cập nhật danh sách bài viết khi có tác động từ các tab/trang khác
   useEffect(() => {
@@ -38,7 +38,7 @@ export default function AdminPostsTab() {
       fetchPosts();
     });
     return unsubscribe;
-  }, []);
+  }, [fetchPosts]);
 
   const handleUpdateStatus = async (postId, status) => {
     try {
@@ -94,33 +94,36 @@ export default function AdminPostsTab() {
       </div>
 
       {actionMsg && (
-        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3">
-          <i className="bi bi-check-circle-fill me-2" />{actionMsg}
+        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="cx-alert-banner py-2 px-3 mb-3">
+          <i className="bi bi-check-circle-fill me-2 text-success" />{actionMsg}
         </Alert>
       )}
 
-      {/* Bộ lọc */}
-      <div className="admin-card mb-3 p-3">
+      {/* Bộ lọc cân đối */}
+      <div className="admin-filter-bar mb-3">
         <Row className="g-2">
-          <Col xs={12} md={5}>
-            <Form.Control
-              size="sm"
-              className="rounded-3"
-              placeholder="Tìm theo tiêu đề hoặc tác giả..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchPosts()}
-            />
+          <Col xs={12} md={4}>
+            <div className="admin-search-wrapper">
+              <i className="bi bi-search admin-search-icon" />
+              <Form.Control
+                size="sm"
+                className="admin-search-input"
+                placeholder="Tìm theo tiêu đề hoặc tác giả..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchPosts()}
+              />
+            </div>
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <Form.Select size="sm" className="admin-select-input rounded-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="">Tất cả thể loại</option>
               <option value="BLOG">Bài viết Blog chia sẻ</option>
               <option value="VIDEO">Video nấu ăn chay</option>
             </Form.Select>
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Form.Select size="sm" className="admin-select-input rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
               <option value="PUBLISHED">Đã phê duyệt</option>
               <option value="PENDING">Chờ phê duyệt</option>
@@ -128,27 +131,32 @@ export default function AdminPostsTab() {
               <option value="DELETED">Đã xóa</option>
             </Form.Select>
           </Col>
-          <Col xs={12} md={1}>
-            <Button variant="success" size="sm" className="w-100 rounded-3" onClick={fetchPosts}>Lọc</Button>
+          <Col xs={12} md={2}>
+            <Button variant="success" size="sm" className="w-100 rounded-3 fw-medium" onClick={fetchPosts}>
+              <i className="bi bi-funnel me-1" /> Lọc
+            </Button>
           </Col>
         </Row>
       </div>
 
       {/* Danh sách */}
       {loading ? (
-        <div className="text-center py-5">
-          <Spinner animation="border" variant="success" />
-          <p className="mt-2 text-muted small">Đang nạp bài viết & video...</p>
+        <div className="admin-card p-4 text-center">
+          <Spinner animation="border" variant="success" size="sm" className="me-2" />
+          <span className="text-muted small">Đang nạp bài viết & video...</span>
         </div>
       ) : error ? (
         <Alert variant="danger" className="d-flex justify-content-between align-items-center rounded-3">
-          <span><i className="bi bi-exclamation-triangle me-2" />{error}</span>
-          <Button variant="outline-danger" size="sm" onClick={fetchPosts}>Thử lại</Button>
+          <span><i className="bi bi-exclamation-triangle-fill me-2" />{error}</span>
+          <Button variant="outline-danger" size="sm" className="rounded-3" onClick={fetchPosts}>Thử lại</Button>
         </Alert>
       ) : posts.length === 0 ? (
-        <div className="text-center py-5 border rounded-4 bg-light">
-          <i className="bi bi-file-earmark-x text-muted display-4" />
-          <p className="mt-2 text-muted">Không có bài viết nào phù hợp điều kiện lọc</p>
+        <div className="cx-empty-state">
+          <div className="cx-empty-icon">
+            <i className="bi bi-file-earmark-x" />
+          </div>
+          <h5 className="fw-bold mb-1">Không có bài viết nào phù hợp</h5>
+          <p className="text-muted small mb-3">Hãy thử xóa bộ lọc tìm kiếm hoặc thay đổi tiêu chí lựa chọn.</p>
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
@@ -160,7 +168,7 @@ export default function AdminPostsTab() {
                 <th>Phân loại</th>
                 <th>Trạng thái</th>
                 <th>Phản hồi</th>
-                <th className="text-end">Hành động</th>
+                <th className="text-end pe-3">Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -170,7 +178,7 @@ export default function AdminPostsTab() {
                   <tr key={p.post_id}>
                     <td className="stt-col">{index + 1}</td>
                     <td>
-                      <div className="fw-semibold text-dark text-truncate" style={{ maxWidth: 320 }}>{title}</div>
+                      <div className="fw-semibold text-dark text-truncate" style={{ maxWidth: 300 }}>{title}</div>
                       <div className="text-muted small">Tác giả: {p.author?.full_name}</div>
                     </td>
                     <td>
@@ -186,19 +194,24 @@ export default function AdminPostsTab() {
                         {p.status === 'PUBLISHED' ? 'Đã phê duyệt' : p.status === 'HIDDEN_BY_AI' ? 'AI đã ẩn' : p.status === 'DELETED' ? 'Đã xóa' : 'Chờ duyệt'}
                       </span>
                     </td>
-                    <td className="small text-muted">{p._count.comments} bình luận · {p._count.reports} báo cáo</td>
-                    <td className="text-end">
-                      {p.status !== 'PUBLISHED' && (
-                        <Button variant="outline-success" size="sm" className="me-1 rounded-3" onClick={() => handleUpdateStatus(p.post_id, 'PUBLISHED')} title="Duyệt xuất bản">
-                          <i className="bi bi-check-lg" />
+                    <td className="small text-muted">
+                      <span className="me-2"><i className="bi bi-chat me-1" />{p._count.comments}</span>
+                      <span><i className="bi bi-flag me-1 text-danger" />{p._count.reports}</span>
+                    </td>
+                    <td className="text-end pe-3">
+                      <div className="d-inline-flex gap-1">
+                        {p.status !== 'PUBLISHED' && (
+                          <Button variant="outline-success" size="sm" className="admin-action-btn" onClick={() => handleUpdateStatus(p.post_id, 'PUBLISHED')} title="Duyệt xuất bản">
+                            <i className="bi bi-check-lg" />
+                          </Button>
+                        )}
+                        <Button variant="outline-primary" size="sm" className="admin-action-btn" onClick={() => handleStartEdit(p)} title="Chỉnh sửa nội dung vi phạm">
+                          <i className="bi bi-pencil" />
                         </Button>
-                      )}
-                      <Button variant="outline-primary" size="sm" className="me-1 rounded-3" onClick={() => handleStartEdit(p)} title="Chỉnh sửa nội dung vi phạm">
-                        <i className="bi bi-pencil" />
-                      </Button>
-                      <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => handleDeletePost(p.post_id)} disabled={p.status === 'DELETED'} title="Gỡ bỏ bài viết">
-                        <i className="bi bi-trash" />
-                      </Button>
+                        <Button variant="outline-danger" size="sm" className="admin-action-btn" onClick={() => handleDeletePost(p.post_id)} disabled={p.status === 'DELETED'} title="Gỡ bỏ bài viết">
+                          <i className="bi bi-trash" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -210,8 +223,11 @@ export default function AdminPostsTab() {
 
       {/* Modal Chỉnh sửa bài viết vi phạm */}
       <Modal show={!!editingPost} onHide={() => setEditingPost(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-5 fw-bold">Chỉnh sửa nội dung vi phạm tiêu chuẩn</Modal.Title>
+        <Modal.Header closeButton className="border-bottom">
+          <Modal.Title className="fs-6 fw-bold text-dark d-flex align-items-center gap-2">
+            <i className="bi bi-pencil-square text-success" />
+            Chỉnh sửa nội dung vi phạm tiêu chuẩn
+          </Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form.Group className="mb-3" controlId="editPostTitle">
@@ -233,9 +249,9 @@ export default function AdminPostsTab() {
             />
           </Form.Group>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="sm" className="rounded-3" onClick={() => setEditingPost(null)}>Đóng</Button>
-          <Button variant="success" size="sm" className="rounded-3" onClick={handleSaveEdit}>Lưu cập nhật</Button>
+        <Modal.Footer className="border-top">
+          <Button variant="secondary" size="sm" className="rounded-3 px-3" onClick={() => setEditingPost(null)}>Đóng</Button>
+          <Button variant="success" size="sm" className="rounded-3 px-3 fw-medium" onClick={handleSaveEdit}>Lưu cập nhật</Button>
         </Modal.Footer>
       </Modal>
     </div>

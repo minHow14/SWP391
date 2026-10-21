@@ -1,169 +1,661 @@
 /* d:\Projects\FPT\SWP391\client\src\Admin.css */
-/* Giao diện Quản trị viên ChayXanh - Đồng bộ Tone màu với Trang chủ */
+/* ==========================================================================
+   DESIGN SYSTEM & THEME TOKENS CHO TRUNG TÂM QUẢN TRỊ CHAYXANH
+   ========================================================================== */
 
-.admin-portal-shell {
+:root {
+  /* 1. Color Palette: Brand Greens */
+  --cx-brand-50: #f0fdf4;
+  --cx-brand-100: #dcfce7;
+  --cx-brand-200: #bbf7d0;
+  --cx-brand-500: #22c55e;
+  --cx-brand-600: #16a34a;
+  --cx-brand-700: #15803d;
+  --cx-brand-800: #166534;
+  --cx-brand-900: #14532d;
+
+  /* 2. Neutral Slates */
+  --cx-slate-50: #f8fafc;
+  --cx-slate-100: #f1f5f9;
+  --cx-slate-200: #e2e8f0;
+  --cx-slate-300: #cbd5e1;
+  --cx-slate-400: #94a3b8;
+  --cx-slate-500: #64748b;
+  --cx-slate-600: #475569;
+  --cx-slate-700: #334155;
+  --cx-slate-800: #1e293b;
+  --cx-slate-900: #0f172a;
+
+  /* 3. Semantic Colors */
+  --cx-success: #16a34a;
+  --cx-success-bg: #dcfce7;
+  --cx-warning: #d97706;
+  --cx-warning-bg: #fef3c7;
+  --cx-danger: #dc2626;
+  --cx-danger-bg: #fee2e2;
+  --cx-info: #0284c7;
+  --cx-info-bg: #e0f2fe;
+  --cx-purple: #7c3aed;
+  --cx-purple-bg: #ede9fe;
+
+  /* 4. Layout & Surface Variables */
   --cx-admin-bg: #f8fafc;
   --cx-admin-surface: #ffffff;
-  --cx-admin-soft: #effbf3;
-  --cx-admin-ink: #1e293b;
+  --cx-admin-border: #e2e8f0;
+  --cx-admin-border-subtle: #f1f5f9;
+  --cx-admin-ink: #0f172a;
   --cx-admin-muted: #64748b;
-  --cx-admin-green: #15803d;
-  --cx-admin-green-light: #22c55e;
-  --cx-admin-green-soft: #dcfce7;
-  --cx-admin-border: #e2eee6;
-  --cx-admin-shadow: 0 4px 20px rgba(21, 128, 61, 0.05);
 
+  /* 5. Typography Scale */
+  --cx-font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --cx-text-xs: 0.75rem;    /* 12px */
+  --cx-text-sm: 0.84375rem; /* 13.5px */
+  --cx-text-base: 0.9375rem;/* 15px */
+  --cx-text-md: 1.0625rem;  /* 17px */
+  --cx-text-lg: 1.25rem;    /* 20px */
+  --cx-text-xl: 1.5rem;     /* 24px */
+  --cx-text-2xl: 1.875rem;  /* 30px */
+
+  /* 6. Spacing Scale */
+  --cx-space-1: 0.25rem;  /* 4px */
+  --cx-space-2: 0.5rem;   /* 8px */
+  --cx-space-3: 0.75rem;  /* 12px */
+  --cx-space-4: 1rem;     /* 16px */
+  --cx-space-5: 1.25rem;  /* 20px */
+  --cx-space-6: 1.5rem;   /* 24px */
+  --cx-space-8: 2rem;     /* 32px */
+
+  /* 7. Border Radius Scale */
+  --cx-radius-sm: 8px;
+  --cx-radius-md: 12px;
+  --cx-radius-lg: 16px;
+  --cx-radius-xl: 20px;
+  --cx-radius-pill: 9999px;
+
+  /* 8. Elevation / Shadows */
+  --cx-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --cx-shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.04), 0 1px 2px rgba(15, 23, 42, 0.02);
+  --cx-shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  --cx-shadow-lg: 0 10px 25px -4px rgba(15, 23, 42, 0.07), 0 4px 10px -2px rgba(15, 23, 42, 0.03);
+  --cx-shadow-glow: 0 0 0 3px rgba(34, 197, 94, 0.18);
+
+  /* 9. Transitions */
+  --cx-transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --cx-transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Base Shell */
+.admin-portal-shell {
   background-color: var(--cx-admin-bg);
   min-height: 100vh;
   color: var(--cx-admin-ink);
-  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-family: var(--cx-font-sans);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Card hiện đại bo góc chuẩn thương hiệu */
+/* ==========================================================================
+   CARDS & CONTAINERS
+   ========================================================================== */
+
 .admin-card {
   background: var(--cx-admin-surface);
   border: 1px solid var(--cx-admin-border);
-  border-radius: 16px;
-  box-shadow: var(--cx-admin-shadow);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  border-radius: var(--cx-radius-lg);
+  box-shadow: var(--cx-shadow-sm);
+  transition: transform var(--cx-transition-fast), box-shadow var(--cx-transition-fast), border-color var(--cx-transition-fast);
+}
+
+.admin-card:hover {
+  border-color: #cbd5e1;
 }
 
 .admin-card-header {
-  background: transparent;
+  background: var(--cx-admin-surface);
   border-bottom: 1px solid var(--cx-admin-border);
   padding: 1rem 1.25rem;
 }
 
 /* Header thương hiệu quản trị */
 .admin-header-brand {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2acb92, #15803d);
+  width: 44px;
+  height: 44px;
+  border-radius: var(--cx-radius-md);
+  background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #ffffff;
-  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.2);
+  box-shadow: 0 4px 12px rgba(21, 128, 61, 0.25);
+  flex-shrink: 0;
 }
 
-/* Sidebar Navigation - Đảm bảo text luôn trên 1 dòng */
+/* ==========================================================================
+   SIDEBAR & RESPONSIVE NAVIGATION
+   ========================================================================== */
+
+.admin-sidebar-nav {
+  gap: 3px;
+}
+
 .admin-sidebar-nav .nav-link {
-  border-radius: 10px;
-  color: var(--cx-admin-ink);
+  border-radius: var(--cx-radius-md);
+  color: var(--cx-slate-600);
   font-weight: 500;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
-  padding: 10px 14px;
+  font-size: var(--cx-text-sm);
+  transition: all var(--cx-transition-fast);
+  padding: 0.65rem 0.95rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: flex;
   align-items: center;
+  border: 1px solid transparent;
+}
+
+.admin-sidebar-nav .nav-link i {
+  font-size: 1.1rem;
+  color: var(--cx-slate-400);
+  transition: color var(--cx-transition-fast);
 }
 
 .admin-sidebar-nav .nav-link:hover {
-  background-color: var(--cx-admin-soft);
-  color: var(--cx-admin-green);
+  background-color: var(--cx-brand-50);
+  color: var(--cx-brand-800);
+  border-color: var(--cx-brand-100);
+}
+
+.admin-sidebar-nav .nav-link:hover i {
+  color: var(--cx-brand-600);
 }
 
 .admin-sidebar-nav .nav-link.active {
-  background-color: var(--cx-admin-green-soft) !important;
-  color: var(--cx-admin-green) !important;
-  font-weight: 700;
-  border-left: 4px solid var(--cx-admin-green);
-}
-
-/* Cột số thứ tự (STT) chuẩn */
-.stt-col {
-  width: 55px;
-  text-align: center;
-  color: #64748b;
+  background-color: var(--cx-brand-50) !important;
+  color: var(--cx-brand-800) !important;
   font-weight: 600;
-  font-size: 0.85rem;
+  border-color: var(--cx-brand-200);
+  box-shadow: inset 3px 0 0 var(--cx-brand-600);
 }
 
-/* Thống kê KPI card */
+.admin-sidebar-nav .nav-link.active i {
+  color: var(--cx-brand-700) !important;
+}
+
+/* Mobile Scrollable Horizontal Nav Bar */
+@media (max-width: 991.98px) {
+  .admin-mobile-nav-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 4px;
+  }
+
+  .admin-mobile-nav-container::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .admin-mobile-nav-container::-webkit-scrollbar-thumb {
+    background-color: var(--cx-slate-300);
+    border-radius: 4px;
+  }
+
+  .admin-sidebar-nav.flex-column {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .admin-sidebar-nav .nav-link {
+    flex-shrink: 0;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .admin-sidebar-nav .nav-link.active {
+    box-shadow: inset 0 -3px 0 var(--cx-brand-600);
+  }
+}
+
+/* ==========================================================================
+   KPI STAT CARDS
+   ========================================================================== */
+
+.kpi-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.kpi-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: transparent;
+  transition: background var(--cx-transition-fast);
+}
+
+.kpi-card:hover::after {
+  background: linear-gradient(90deg, var(--cx-brand-500), #3b82f6);
+}
+
 .kpi-icon-badge {
   width: 44px;
   height: 44px;
-  border-radius: 12px;
+  border-radius: var(--cx-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.25rem;
+  flex-shrink: 0;
 }
 
 .kpi-green {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--cx-brand-100);
+  color: var(--cx-brand-700);
 }
 
 .kpi-blue {
-  background: #e0f2fe;
-  color: #0369a1;
+  background: var(--cx-info-bg);
+  color: var(--cx-info);
 }
 
 .kpi-amber {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--cx-warning-bg);
+  color: var(--cx-warning);
 }
 
 .kpi-rose {
-  background: #ffe4e6;
-  color: #be123c;
+  background: var(--cx-danger-bg);
+  color: var(--cx-danger);
 }
 
-/* Bảng dữ liệu quản trị */
+.kpi-purple {
+  background: var(--cx-purple-bg);
+  color: var(--cx-purple);
+}
+
+/* ==========================================================================
+   TABLES & DATA GRIDS
+   ========================================================================== */
+
+.admin-table {
+  font-size: var(--cx-text-sm);
+  color: var(--cx-slate-700);
+}
+
 .admin-table thead th {
-  background-color: #f1f7f3;
-  color: #334155;
-  font-size: 0.82rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  padding: 0.75rem 0.85rem;
-  border-bottom: 1px solid var(--cx-admin-border);
-}
-
-.admin-table tbody td {
-  padding: 0.85rem 0.85rem;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.admin-table tbody tr:hover {
-  background-color: #fafdfb;
-}
-
-/* Badges trạng thái Việt hóa bo tròn mềm */
-.cx-badge {
-  padding: 0.35rem 0.65rem;
-  border-radius: 20px;
+  background-color: #f8fafc;
+  color: var(--cx-slate-500);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--cx-admin-border);
   white-space: nowrap;
 }
 
+.admin-table tbody td {
+  padding: 0.95rem 1rem;
+  border-bottom: 1px solid var(--cx-admin-border-subtle);
+  vertical-align: middle;
+}
+
+.admin-table tbody tr {
+  transition: background-color var(--cx-transition-fast);
+}
+
+.admin-table tbody tr:hover {
+  background-color: #f8fbf9;
+}
+
+.stt-col {
+  width: 56px;
+  text-align: center;
+  color: var(--cx-slate-400);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+/* ==========================================================================
+   BADGES & STATUS PILLS
+   ========================================================================== */
+
+.cx-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: var(--cx-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+
+.cx-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
 .cx-badge-active {
-  background-color: #dcfce7;
-  color: #166534;
+  background-color: var(--cx-brand-100);
+  color: var(--cx-brand-800);
+  border: 1px solid #bbf7d0;
+}
+.cx-badge-active::before {
+  background-color: var(--cx-brand-600);
 }
 
 .cx-badge-locked {
-  background-color: #fef3c7;
+  background-color: var(--cx-warning-bg);
   color: #92400e;
+  border: 1px solid #fde68a;
+}
+.cx-badge-locked::before {
+  background-color: var(--cx-warning);
 }
 
 .cx-badge-danger {
-  background-color: #fee2e2;
+  background-color: var(--cx-danger-bg);
   color: #991b1b;
+  border: 1px solid #fecaca;
+}
+.cx-badge-danger::before {
+  background-color: var(--cx-danger);
 }
 
 .cx-badge-info {
-  background-color: #e0f2fe;
+  background-color: var(--cx-info-bg);
   color: #075985;
+  border: 1px solid #bae6fd;
+}
+.cx-badge-info::before {
+  background-color: var(--cx-info);
 }
 
 .cx-badge-neutral {
-  background-color: #f1f5f9;
+  background-color: var(--cx-slate-100);
+  color: var(--cx-slate-600);
+  border: 1px solid var(--cx-slate-200);
+}
+.cx-badge-neutral::before {
+  background-color: var(--cx-slate-400);
+}
+
+/* ==========================================================================
+   ACTION BUTTONS & FORM CONTROLS
+   ========================================================================== */
+
+.admin-action-btn {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--cx-radius-sm);
+  font-size: 0.9rem;
+  transition: all var(--cx-transition-fast);
+}
+
+.admin-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+/* Filter Bar Container */
+.admin-filter-bar {
+  background: #ffffff;
+  border: 1px solid var(--cx-admin-border);
+  border-radius: var(--cx-radius-md);
+  padding: 0.85rem 1rem;
+}
+
+.admin-search-wrapper {
+  position: relative;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--cx-slate-400);
+  pointer-events: none;
+  font-size: 0.85rem;
+}
+
+.admin-search-input {
+  padding-left: 2.25rem !important;
+  border-radius: var(--cx-radius-sm) !important;
+  border-color: var(--cx-slate-200) !important;
+}
+
+.admin-search-input:focus,
+.admin-select-input:focus {
+  border-color: var(--cx-brand-500) !important;
+  box-shadow: var(--cx-shadow-glow) !important;
+}
+
+/* ==========================================================================
+   EMPTY STATE, SKELETON & UI FEEDBACK
+   ========================================================================== */
+
+.cx-empty-state {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  background: #fafcfb;
+  border: 1px dashed var(--cx-brand-200);
+  border-radius: var(--cx-radius-lg);
+}
+
+.cx-empty-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--cx-brand-50);
+  color: var(--cx-brand-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin-bottom: 1rem;
+}
+
+.cx-empty-icon.danger {
+  background: var(--cx-danger-bg);
+  color: var(--cx-danger);
+}
+
+.cx-empty-icon.warning {
+  background: var(--cx-warning-bg);
+  color: var(--cx-warning);
+}
+
+/* Skeleton Loading Animation */
+.cx-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: cx-skeleton-wave 1.5s infinite;
+  border-radius: var(--cx-radius-sm);
+}
+
+@keyframes cx-skeleton-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.cx-skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+}
+
+.cx-skeleton-title {
+  height: 22px;
+  width: 60%;
+  margin-bottom: 12px;
+}
+
+.cx-skeleton-card {
+  height: 110px;
+}
+
+/* Custom User Avatar Pill */
+.cx-user-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(16, 185, 129, 0.2);
+}
+
+/* Toast Alert Box */
+.cx-alert-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: var(--cx-radius-md);
+  border: 1px solid var(--cx-brand-200);
+  background: #f0fdf4;
+  color: var(--cx-brand-900);
+  font-size: var(--cx-text-sm);
+  box-shadow: var(--cx-shadow-sm);
+  animation: cx-fade-in 0.25s ease-out;
+  min-height: 42px;
+}
+
+.cx-alert-banner.alert-dismissible {
+  padding-right: 2.75rem !important;
+}
+
+.cx-alert-banner.alert-dismissible .btn-close,
+.admin-portal-shell .alert-dismissible .btn-close {
+  position: absolute;
+  top: 50%;
+  right: 0.85rem;
+  transform: translateY(-50%);
+  padding: 0.4rem;
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.55;
+  transition: opacity var(--cx-transition-fast), transform var(--cx-transition-fast);
+}
+
+.cx-alert-banner.alert-dismissible .btn-close:hover,
+.admin-portal-shell .alert-dismissible .btn-close:hover {
+  opacity: 1;
+}
+
+.cx-alert-banner.alert-dismissible .btn-close:focus,
+.admin-portal-shell .alert-dismissible .btn-close:focus {
+  box-shadow: none;
+  opacity: 1;
+}
+
+.cx-alert-banner.alert-danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+.cx-alert-banner.alert-warning {
+  background: #fffbeb;
+  border-color: #fde68a;
+  color: #92400e;
+}
+
+/* ==========================================================================
+   SEGMENTED NAV (NEUTRAL / SLATE, NO GREEN) & STT DROPDOWN
+   ========================================================================== */
+
+.admin-segmented-nav {
+  background: #f1f5f9;
+  border-radius: var(--cx-radius-md);
+  padding: 3px;
+  display: inline-flex;
+  gap: 3px;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-segmented-nav .nav-link {
+  border-radius: var(--cx-radius-sm);
   color: #475569;
+  font-weight: 500;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.85rem;
+  transition: all var(--cx-transition-fast);
+  border: 1px solid transparent;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.admin-segmented-nav .nav-link:hover {
+  color: #0f172a;
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-segmented-nav .nav-link.active {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-color: #cbd5e1 !important;
+}
+
+.admin-stt-toggle {
+  background: transparent;
+  border: 0;
+  padding: 3px 6px;
+  border-radius: var(--cx-radius-sm);
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  transition: background-color var(--cx-transition-fast), color var(--cx-transition-fast);
+}
+
+.admin-stt-toggle:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.admin-stt-arrow {
+  font-size: 0.65rem;
+  color: #64748b;
+  display: inline-block;
+  transition: transform var(--cx-transition-fast);
+}
+
+.admin-stt-toggle:hover .admin-stt-arrow {
+  color: #0f172a;
+}
+
+@keyframes cx-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

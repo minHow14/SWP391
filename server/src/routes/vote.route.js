@@ -1,8 +1,9 @@
+// d:\Projects\FPT\SWP391\server\src\routes\vote.route.js
 import express from 'express';
 import * as voteController from '../controllers/vote.controller.js';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
-import { schemas } from '../validators.js';
+import { schemas } from '../validators/index.js';
 
 const router = express.Router();
 

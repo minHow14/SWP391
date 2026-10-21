@@ -1,4 +1,6 @@
+// d:\Projects\FPT\SWP391\server\src\services\auth.service.js
 import prisma from '../config/prisma.js';
+import { userRepository } from '../repositories/user.repository.js';
 import { hashPassword, comparePassword, generateToken } from '../utils/jwt.js';
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
@@ -35,10 +37,8 @@ export const authService = {
       throw ApiError.badRequest('Mật khẩu phải có độ dài tối thiểu 6 ký tự');
     }
 
-    // Kiểm tra email trùng lặp
-    const existingUser = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-    });
+    // Kiểm tra email trùng lặp qua repository
+    const existingUser = await userRepository.findByEmail(cleanEmail);
     if (existingUser) {
       throw ApiError.conflict('Email này đã được đăng ký trong hệ thống');
     }
@@ -46,24 +46,24 @@ export const authService = {
     // Mã hóa mật khẩu
     const password_hash = await hashPassword(password);
 
-    // Tạo người dùng mới trong database
-    const newUser = await prisma.user.create({
-      data: {
+    // Tạo người dùng mới trong database qua repository
+    const newUser = await userRepository.create(
+      {
         email: cleanEmail,
         password_hash,
         full_name: cleanName,
         role: ROLES.USER,
         status: USER_STATUS.ACTIVE,
       },
-      select: {
+      {
         user_id: true,
         email: true,
         full_name: true,
         role: true,
         status: true,
         created_at: true,
-      },
-    });
+      }
+    );
 
     // Tạo JWT token
     const token = generateToken({
@@ -88,9 +88,7 @@ export const authService = {
       throw ApiError.badRequest('Email và mật khẩu là bắt buộc');
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: cleanEmail },
-    });
+    const user = await userRepository.findByEmail(cleanEmail);
 
     if (!user) {
       throw ApiError.unauthorized('Email hoặc mật khẩu không chính xác');
@@ -128,24 +126,21 @@ export const authService = {
    * Lấy thông tin hồ sơ người dùng đang đăng nhập
    */
   async getMe(userId) {
-    const user = await prisma.user.findUnique({
-      where: { user_id: Number(userId) },
-      select: {
-        user_id: true,
-        email: true,
-        full_name: true,
-        role: true,
-        status: true,
-        created_at: true,
-        health_profile: {
-          include: {
-            diet_type: true,
-          },
+    const user = await userRepository.findById(userId, {
+      user_id: true,
+      email: true,
+      full_name: true,
+      role: true,
+      status: true,
+      created_at: true,
+      health_profile: {
+        include: {
+          diet_type: true,
         },
-        allergies: {
-          select: { ingredient_id: true, ingredient: { select: { name: true } } },
-          orderBy: { ingredient_id: 'asc' },
-        },
+      },
+      allergies: {
+        select: { ingredient_id: true, ingredient: { select: { name: true } } },
+        orderBy: { ingredient_id: 'asc' },
       },
     });
 
@@ -156,30 +151,51 @@ export const authService = {
     return user;
   },
 
+  /**
+   * Cập nhật thông tin hồ sơ, sức khỏe, dị ứng có transaction
+   */
   async updateMe(userId, { full_name, health_profile, allergy_ids }) {
     const user_id = Number(userId);
-    await prisma.$transaction(async tx => {
-      if (health_profile?.diet_type_id != null && !await tx.dietType.findUnique({ where: { diet_type_id: health_profile.diet_type_id } })) {
-        throw ApiError.badRequest('Chế độ ăn không tồn tại');
+
+    await prisma.$transaction(async (tx) => {
+      if (health_profile?.diet_type_id != null) {
+        const diet = await userRepository.findDietTypeById(health_profile.diet_type_id, tx);
+        if (!diet) {
+          throw ApiError.badRequest('Chế độ ăn không tồn tại');
+        }
       }
+
       if (allergy_ids !== undefined) {
-        const count = await tx.ingredient.count({ where: { ingredient_id: { in: allergy_ids } } });
-        if (count !== allergy_ids.length) throw ApiError.badRequest('Nguyên liệu dị ứng không tồn tại');
+        const count = await userRepository.countIngredients(allergy_ids, tx);
+        if (count !== allergy_ids.length) {
+          throw ApiError.badRequest('Nguyên liệu dị ứng không tồn tại');
+        }
       }
-      if (full_name !== undefined) await tx.user.update({ where: { user_id }, data: { full_name } });
+
+      if (full_name !== undefined) {
+        await userRepository.update(user_id, { full_name }, null, tx);
+      }
+
       if (health_profile !== undefined) {
         const profile = { ...health_profile };
-        if (profile.dob !== undefined) profile.dob = profile.dob === null ? null : new Date(profile.dob);
-        if (profile.gender !== undefined) profile.gender = normalizeGender(profile.gender);
-        await tx.healthProfile.upsert({ where: { user_id }, create: { user_id, ...profile }, update: profile });
-        if (profile.health_goal !== undefined) await tx.$executeRaw`UPDATE profile_preferences SET goal=${profile.health_goal} WHERE user_id=${user_id}`;
+        if (profile.dob !== undefined) {
+          profile.dob = profile.dob === null ? null : new Date(profile.dob);
+        }
+        if (profile.gender !== undefined) {
+          profile.gender = normalizeGender(profile.gender);
+        }
+        await userRepository.upsertHealthProfile(user_id, profile, tx);
+
+        if (profile.health_goal !== undefined) {
+          await tx.$executeRaw`UPDATE profile_preferences SET goal=${profile.health_goal} WHERE user_id=${user_id}`;
+        }
       }
+
       if (allergy_ids !== undefined) {
-        await tx.userAllergy.deleteMany({ where: { user_id } });
-        if (allergy_ids.length) await tx.userAllergy.createMany({ data: allergy_ids.map(ingredient_id => ({ user_id, ingredient_id })) });
+        await userRepository.replaceAllergies(user_id, allergy_ids, tx);
       }
     });
+
     return this.getMe(user_id);
   },
 };
-

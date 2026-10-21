@@ -1,6 +1,6 @@
 // d:\Projects\FPT\SWP391\client\src\pages\admin\AdminAiInterveneModal.jsx
 import { useState } from 'react';
-import { Modal, Button, Form, Alert } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Spinner } from 'react-bootstrap';
 import { adminService } from '../../services/adminService.js';
 import { emitSyncEvent } from '../../lib/syncEvents.js';
 
@@ -39,9 +39,9 @@ export default function AdminAiInterveneModal({ show, onHide, onSuccess, default
   return (
     <Modal show={show} onHide={onHide} centered>
       <Form onSubmit={handleSubmit}>
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-5 fw-bold text-dark">
-            <i className="bi bi-tools me-2 text-warning" />
+        <Modal.Header closeButton className="border-bottom">
+          <Modal.Title className="fs-6 fw-bold text-dark d-flex align-items-center gap-2">
+            <i className="bi bi-tools text-warning" />
             Can Thiệp Thủ Công Kết Quả AI
           </Modal.Title>
         </Modal.Header>
@@ -83,17 +83,23 @@ export default function AdminAiInterveneModal({ show, onHide, onSuccess, default
               as="textarea"
               rows={4}
               className="rounded-3"
-              placeholder="VD: Cần bỏ gắn cờ cụm từ 'trà thảo mộc', bổ sung kiểm tra alliums đối với chế độ thuần chay Phật giáo..."
+              placeholder="VD: Cần bỏ gắn cờ cụm từ 'trà thảo mộc', bổ sung kiểm tra alliums đối với chế độ thuần chay..."
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               required
             />
           </Form.Group>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="sm" className="rounded-3" onClick={onHide} disabled={submitting}>Hủy bỏ</Button>
-          <Button variant="warning" size="sm" className="rounded-3 text-dark fw-semibold" type="submit" disabled={submitting}>
-            {submitting ? 'Đang lưu...' : 'Lưu can thiệp'}
+        <Modal.Footer className="border-top">
+          <Button variant="secondary" size="sm" className="rounded-3 px-3" onClick={onHide} disabled={submitting}>Hủy bỏ</Button>
+          <Button variant="warning" size="sm" className="rounded-3 px-3 text-dark fw-semibold" type="submit" disabled={submitting}>
+            {submitting ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-1" /> Đang lưu...
+              </>
+            ) : (
+              'Lưu can thiệp'
+            )}
           </Button>
         </Modal.Footer>
       </Form>

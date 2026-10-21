@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prisma from '../src/config/prisma.js';
 import { ingredientCatalog } from './ingredient-catalog.js';
-import { ingredientImageUrl } from '../src/services/ingredientImages.service.js';
+import { ingredientImageUrl } from '../src/services/workspace.service.js';
 
 const assetDirectory = new URL('../../client/public/ingredient-assets/', import.meta.url);
 const normalize = value => value.replaceAll('_', ' ').toLowerCase();

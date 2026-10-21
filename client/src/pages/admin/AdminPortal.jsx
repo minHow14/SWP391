@@ -16,11 +16,21 @@ import AdminReportsTab from './AdminReportsTab.jsx';
 
 const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'reports'];
 
+const NAV_ITEMS = [
+  { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
+  { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
+  { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
+  { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
+  { key: 'categories', label: 'Quản lý danh mục', icon: 'bi-tags' },
+  { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
+  { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
+  { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
+];
+
 export default function AdminPortal() {
   const { user } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Khởi tạo tab hiện tại: ưu tiên query param (?tab=...), sau đó đến sessionStorage, mặc định là 'dashboard'
   const [activeTab, setActiveTab] = useState(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam && VALID_TABS.includes(tabParam)) return tabParam;
@@ -28,12 +38,11 @@ export default function AdminPortal() {
       const savedTab = sessionStorage.getItem('admin_active_tab');
       if (savedTab && VALID_TABS.includes(savedTab)) return savedTab;
     } catch {
-      // Bỏ qua lỗi nếu sessionStorage bị chặn
+      // Bỏ qua lỗi sessionStorage nếu bị chặn
     }
     return 'dashboard';
   });
 
-  // Chuyển tab và lưu trạng thái vào URL và sessionStorage
   const handleSelectTab = (selectedKey) => {
     if (!selectedKey || !VALID_TABS.includes(selectedKey)) return;
     setActiveTab(selectedKey);
@@ -41,11 +50,10 @@ export default function AdminPortal() {
     try {
       sessionStorage.setItem('admin_active_tab', selectedKey);
     } catch {
-      // Bỏ qua lỗi nếu sessionStorage bị chặn
+      // Bỏ qua lỗi sessionStorage nếu bị chặn
     }
   };
 
-  // Đồng bộ hóa URL khi mở lại hoặc ấn back/forward trên trình duyệt
   useEffect(() => {
     const tabParam = searchParams.get('tab');
     if (tabParam && VALID_TABS.includes(tabParam) && tabParam !== activeTab) {
@@ -60,30 +68,29 @@ export default function AdminPortal() {
     }
   }, [searchParams, activeTab, setSearchParams]);
 
-  // RBAC: Kiểm tra quyền quản trị viên (Role 1)
   if (!user || user.role !== 1) {
     return (
       <Container className="py-5">
         <Row className="justify-content-center">
-          <Col xs={12} md={8} lg={6}>
-            <div className="admin-card text-center p-4">
-              <div className="text-danger display-3 mb-3">
+          <Col xs={12} md={8} lg={5}>
+            <div className="admin-card text-center p-4 p-md-5">
+              <div className="cx-empty-icon danger mx-auto mb-3">
                 <i className="bi bi-shield-lock-fill" />
               </div>
-              <h4 className="fw-bold text-danger">Khu vực Giới hạn Quyền Hạn</h4>
-              <p className="text-muted small">
+              <h4 className="fw-bold text-danger mb-2">Khu Vực Giới Hạn Quyền Hạn</h4>
+              <p className="text-muted small mb-4">
                 Bạn cần đăng nhập bằng tài khoản có quyền <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông tin này.
               </p>
-              <Alert variant="success" className="text-start small bg-success-subtle border-0">
-                <strong>Tài khoản Quản trị viên hệ thống:</strong>
+              <Alert variant="success" className="text-start small bg-success-subtle border-0 rounded-3 mb-4">
+                <div className="fw-bold mb-1"><i className="bi bi-key-fill me-1" /> Tài khoản Quản trị viên hệ thống:</div>
                 <div>Email: <code>admin@swp391.com</code></div>
                 <div>Mật khẩu: <code>123456</code></div>
               </Alert>
               <div className="d-flex justify-content-center gap-2">
-                <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-3">
+                <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-3 px-3">
                   <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng nhập
                 </Link>
-                <Link to="/" className="btn btn-outline-secondary btn-sm rounded-3">
+                <Link to="/" className="btn btn-outline-secondary btn-sm rounded-3 px-3">
                   Quay về Trang chủ
                 </Link>
               </div>
@@ -94,21 +101,12 @@ export default function AdminPortal() {
     );
   }
 
-  const navItems = [
-    { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
-    { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
-    { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
-    { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
-    { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
-    { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
-    { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
-    { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
-  ];
+  const activeTabMeta = NAV_ITEMS.find((item) => item.key === activeTab) || NAV_ITEMS[0];
 
   return (
     <div className="admin-portal-shell py-3">
       <Container fluid className="px-lg-4">
-        {/* Thanh tiêu đề Admin Portal */}
+        {/* Top Header Card */}
         <div className="admin-card mb-3 p-3">
           <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
             <div className="d-flex align-items-center">
@@ -116,36 +114,44 @@ export default function AdminPortal() {
                 <i className="bi bi-leaf-fill fs-4" />
               </div>
               <div>
-                <h5 className="fw-bold mb-0 text-success">Trung Tâm Quản Trị ChayXanh</h5>
+                <div className="d-flex align-items-center gap-2">
+                  <h5 className="fw-bold mb-0 text-success">Trung Tâm Quản Trị ChayXanh</h5>
+                  <span className="cx-badge cx-badge-active d-none d-sm-inline-flex">Online</span>
+                </div>
                 <small className="text-muted">Hệ thống điều hành cộng đồng dinh dưỡng và kiểm duyệt nội dung</small>
               </div>
             </div>
             <div className="d-flex align-items-center gap-3">
-              <div className="text-end d-none d-sm-block">
-                <div className="fw-semibold small">{user.full_name}</div>
-                <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{ fontSize: '0.72rem' }}>
-                  Quản trị viên cấp cao
-                </span>
+              <div className="d-flex align-items-center gap-2 text-end d-none d-md-flex">
+                <div className="cx-user-avatar">
+                  {user.full_name?.charAt(0)?.toUpperCase() || 'A'}
+                </div>
+                <div className="text-start">
+                  <div className="fw-semibold small lh-1">{user.full_name}</div>
+                  <span className="badge bg-success-subtle text-success border border-success-subtle mt-1" style={{ fontSize: '0.7rem' }}>
+                    Quản trị viên cấp cao
+                  </span>
+                </div>
               </div>
-              <Link to="/" className="btn btn-outline-success btn-sm rounded-3">
-                <i className="bi bi-arrow-left me-1" /> Trang người dùng
+              <Link to="/" className="btn btn-outline-success btn-sm rounded-3 px-3">
+                <i className="bi bi-box-arrow-up-right me-1" /> Trang người dùng
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Nội dung chính: Sidebar điều hướng rộng rãi hiển thị 1 dòng + Tab view */}
+        {/* Layout: Sidebar + Main Content */}
         <Row className="g-3">
           <Col xs={12} lg={4} xl={3}>
-            <div className="admin-card p-2 sticky-top" style={{ top: '1rem' }}>
-              <div className="text-muted small fw-bold px-3 py-2 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
+            <div className="admin-card p-2 sticky-top admin-mobile-nav-container" style={{ top: '1rem', zIndex: 10 }}>
+              <div className="d-none d-lg-block text-muted small fw-bold px-3 py-2 text-uppercase" style={{ fontSize: '0.72rem', letterSpacing: '0.05em' }}>
                 Danh mục chức năng
               </div>
               <Nav variant="pills" className="flex-column admin-sidebar-nav" activeKey={activeTab} onSelect={handleSelectTab}>
-                {navItems.map((item) => (
+                {NAV_ITEMS.map((item) => (
                   <Nav.Item key={item.key}>
-                    <Nav.Link eventKey={item.key} className="d-flex align-items-center py-2 px-3 small" title={item.label}>
-                      <i className={`bi ${item.icon} me-2 fs-6`} />
+                    <Nav.Link eventKey={item.key} className="py-2 px-3" title={item.label}>
+                      <i className={`bi ${item.icon} me-2`} />
                       <span className="text-truncate">{item.label}</span>
                     </Nav.Link>
                   </Nav.Item>
@@ -156,6 +162,10 @@ export default function AdminPortal() {
 
           <Col xs={12} lg={8} xl={9}>
             <div className="admin-card p-3 p-md-4 min-vh-75">
+              <div className="d-lg-none mb-3 pb-2 border-bottom d-flex align-items-center text-success">
+                <i className={`bi ${activeTabMeta.icon} me-2 fs-5`} />
+                <span className="fw-bold">{activeTabMeta.label}</span>
+              </div>
               {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={handleSelectTab} />}
               {activeTab === 'members' && <AdminMembersTab />}
               {activeTab === 'posts' && <AdminPostsTab />}
