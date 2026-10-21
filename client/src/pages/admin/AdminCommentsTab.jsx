@@ -44,17 +44,6 @@ export default function AdminCommentsTab() {
     return unsubscribe;
   }, [fetchComments]);
 
-  const handleUpdateStatus = async (commentId, status) => {
-    try {
-      await adminService.updateCommentStatus(commentId, status);
-      setActionMsg('Đã cập nhật trạng thái bình luận thành công');
-      emitSyncEvent('COMMENT_CHANGED', { commentId, status });
-      fetchComments();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   const handleConfirmDelete = async () => {
     if (!confirmDelete) return;
     const { comment, permanent } = confirmDelete;
