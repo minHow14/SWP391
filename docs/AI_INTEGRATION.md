@@ -40,6 +40,16 @@ Giữ SSE theo quyết định của chủ dự án, là ngoại lệ đã đư�
 
 Khách chỉ có quota và nhật ký vận hành `ai_logs`; không tạo `ai_generations`, không gán khách vào tài khoản giả. Quota chat/thực đơn dùng chung theo ngày Việt Nam, reserve nguyên tử; lỗi được hoàn lượt về đúng ngày đã reserve. Admin reset quota và audit chạy cùng transaction.
 
+### Quota nghiệp vụ do BE quản lý
+
+- Khách có 3 lượt/ngày mặc định (`GUEST_DAILY_LIMIT` trong BE), dùng chung cho chat và thực đơn. Thành viên đăng nhập không giới hạn số lượt theo ngày.
+- BE giữ lượt nguyên tử trước khi gọi AI. Hết quota trả `429 AI_QUOTA_EXCEEDED` kèm thời điểm mở lượt mới theo ngày Việt Nam, không gọi mô hình.
+- Số lượt AI tự trả trong response không quyết định quota: sự kiện `done.remaining` được BE tính lại từ lần giữ lượt. FE chỉ hiển thị số liệu BE trả về; API xem quota không tiêu thụ lượt và không gọi AI.
+- Mỗi lần giữ lượt lưu `reservationRevision` nội bộ. Admin reset đặt số lượt về 0 và tăng phiên bản trong cùng transaction audit; yêu cầu cũ thất bại sau reset không được hoàn nhầm lượt của yêu cầu mới.
+- Cột `guest_quota.reservation_revision` được thêm bằng migration additive, mặc định 0 cho dữ liệu cũ. Reset giữ hàng quota thay vì xóa hàng để bảo toàn phiên bản. API public không trả trường này.
+
+Giới hạn tần suất kỹ thuật `RATE_LIMIT` trong AI được giữ theo phạm vi chủ dự án đã chọn; nó không quản lý quota 3 lượt/ngày. Thay đổi lần này không chuyển giới hạn tần suất.
+
 Nếu cả DB không thể ghi, BE trả `AI_STORAGE_ERROR`; bản ghi có thể còn `PROCESSING`. SSE không phải hàng đợi bền vững: tắt tiến trình BE giữa chừng không tự tiếp tục tác vụ. Lịch sử này lưu kết quả AI, không tự tạo các hàng `meal_plans`/`meal_plan_details` của chức năng lịch ăn.
 
 ## API BE
