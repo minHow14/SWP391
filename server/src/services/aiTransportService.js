@@ -1,6 +1,7 @@
 // D:/SWP391/SWP391/server/src/services/aiTransportService.js
 import { once } from 'node:events';
 import { aiConfig } from '../config/aiConfig.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 import { aiGatewayError } from '../utils/aiGatewayError.js';
 import { createSseParser } from '../utils/sseParser.js';
 
@@ -21,6 +22,10 @@ async function sendAiRequest({ path, payload, signal, requestId, identity = {} }
     },
     body: JSON.stringify(payload ?? {}),
   });
+  if ([HTTP_STATUS.UNAUTHORIZED, HTTP_STATUS.FORBIDDEN].includes(response.status)) {
+    await response.body?.cancel().catch(() => {});
+    throw aiGatewayError({ status: HTTP_STATUS.SERVICE_UNAVAILABLE, code: 'AI_INTERNAL_AUTH_FAILED', message: 'Dịch vụ AI chưa sẵn sàng. Vui lòng thử lại sau.' });
+  }
   if (!response.ok) throw aiGatewayError();
   return response;
 }
@@ -54,7 +59,10 @@ export async function readAiStream({ response, onEvent, res, signal }) {
 export async function clearAiChatCache() {
   const response = await sendAiRequest({
     path: '/api/admin/chatbot-cache/clear', signal: AbortSignal.timeout(aiConfig.timeoutMs),
-  }).catch(() => { throw aiGatewayError({ status: 503 }); });
+  }).catch((error) => {
+    if (error.errorCode) throw error;
+    throw aiGatewayError({ status: 503 });
+  });
   const result = await response.json();
   if (!result.success || !Number.isInteger(result.data?.cleared) || result.data.cleared < 0) throw aiGatewayError();
   return result.data.cleared;
