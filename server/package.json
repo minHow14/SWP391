@@ -9,6 +9,8 @@
     "dev": "nodemon src/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:prepare": "node scripts/prepareTestDatabase.js",
+    "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
