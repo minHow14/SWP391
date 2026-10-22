@@ -1,8 +1,9 @@
-﻿// client/src/features/admin/components/AdminAiModerationTab.jsx
+// client/src/features/admin/components/AdminAiModerationTab.jsx
 import { useEffect, useState } from 'react';
-import { Table, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
+import { Table, Button, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminModerationActionModal from './AdminModerationActionModal.jsx';
 
 export default function AdminAiModerationTab() {
   const [data, setData] = useState({ posts: [], comments: [], totalFlagged: 0 });
@@ -29,7 +30,6 @@ export default function AdminAiModerationTab() {
     fetchFlagged();
   }, []);
 
-  // Tự động cập nhật hàng đợi duyệt khi có thay đổi từ các tab khác
   useEffect(() => {
     const unsubscribe = subscribeSyncEvent(['MODERATION_CHANGED', 'POST_CHANGED', 'COMMENT_CHANGED'], () => {
       fetchFlagged();
@@ -108,30 +108,42 @@ export default function AdminAiModerationTab() {
                 <Table responsive hover className="mb-0 align-middle admin-table">
                   <thead>
                     <tr>
-                      <th>Tiêu đề & Trích đoạn bài viết</th>
-                      <th>Tác giả</th>
-                      <th>Cảnh báo hệ thống</th>
-                      <th className="text-end">Quyết định kiểm duyệt</th>
+                      <th style={{ minWidth: 280 }}>Tiêu đề & Trích đoạn bài viết</th>
+                      <th style={{ width: 150, minWidth: 130 }}>Tác giả</th>
+                      <th style={{ width: 130, minWidth: 110 }}>Cảnh báo</th>
+                      <th className="text-end text-nowrap" style={{ width: 270, minWidth: 260 }}>Quyết định kiểm duyệt</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.posts.map((p) => (
                       <tr key={p.post_id}>
                         <td>
-                          <div className="fw-semibold text-dark">{p.blog?.title || p.video?.title}</div>
+                          <div className="fw-semibold text-dark mb-1">{p.blog?.title || p.video?.title}</div>
                           <div className="text-muted small text-truncate" style={{ maxWidth: 350 }}>
                             {p.blog?.content || p.video?.transcript}
                           </div>
                         </td>
-                        <td className="small">{p.author?.full_name}</td>
-                        <td><span className="cx-badge cx-badge-danger">AI đã ẩn do nghi vấn</span></td>
-                        <td className="text-end">
-                          <Button variant="outline-success" size="sm" className="me-2 rounded-3" onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'APPROVE', title: p.blog?.title || p.video?.title })}>
-                            <i className="bi bi-check-circle me-1" /> Phê duyệt khôi phục
-                          </Button>
-                          <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'DELETE', title: p.blog?.title || p.video?.title })}>
-                            <i className="bi bi-trash me-1" /> Xóa vĩnh viễn
-                          </Button>
+                        <td className="small text-nowrap fw-medium text-secondary">{p.author?.full_name || 'Ẩn danh'}</td>
+                        <td><span className="cx-badge cx-badge-danger">Đã ẩn</span></td>
+                        <td className="text-end text-nowrap">
+                          <div className="d-inline-flex gap-2 justify-content-end align-items-center">
+                            <Button
+                              variant="outline-success"
+                              size="sm"
+                              className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
+                              onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'APPROVE', title: p.blog?.title || p.video?.title })}
+                            >
+                              <i className="bi bi-check-circle" /> Phê duyệt khôi phục
+                            </Button>
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
+                              onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'DELETE', title: p.blog?.title || p.video?.title })}
+                            >
+                              <i className="bi bi-trash" /> Xóa vĩnh viễn
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -156,28 +168,47 @@ export default function AdminAiModerationTab() {
                 <Table responsive hover className="mb-0 align-middle admin-table">
                   <thead>
                     <tr>
-                      <th>Nội dung bình luận</th>
-                      <th>Người bình luận</th>
-                      <th>Bài viết liên quan</th>
-                      <th className="text-end">Quyết định kiểm duyệt</th>
+                      <th style={{ minWidth: 320 }}>Nội dung bình luận</th>
+                      <th style={{ width: 160, minWidth: 140 }}>Người bình luận</th>
+                      <th style={{ width: 240, minWidth: 180 }}>Bài viết liên quan</th>
+                      <th className="text-end text-nowrap" style={{ width: 220, minWidth: 220 }}>Quyết định kiểm duyệt</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.comments.map((c) => (
                       <tr key={c.comment_id}>
                         <td>
-                          <div className="fw-semibold text-danger">{c.content}</div>
-                          <span className="cx-badge cx-badge-danger mt-1 d-inline-block">Phát hiện từ khóa nghi vấn</span>
+                          <div className="fw-medium text-dark mb-1">{c.content}</div>
+                          <span className="cx-badge cx-badge-danger d-inline-block">
+                            <i className="bi bi-exclamation-triangle-fill me-1" />
+                            Phát hiện từ khóa nghi vấn
+                          </span>
                         </td>
-                        <td className="small">{c.user?.full_name}</td>
-                        <td className="small text-truncate" style={{ maxWidth: 200 }}>{c.post?.blog?.title || c.post?.video?.title}</td>
-                        <td className="text-end">
-                          <Button variant="outline-success" size="sm" className="me-2 rounded-3" onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'APPROVE', title: c.content })}>
-                            <i className="bi bi-check-circle me-1" /> Bỏ gắn cờ
-                          </Button>
-                          <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'DELETE', title: c.content })}>
-                            <i className="bi bi-trash me-1" /> Xóa bỏ
-                          </Button>
+                        <td className="small text-nowrap fw-medium text-secondary">{c.user?.full_name || 'Khách / Ẩn danh'}</td>
+                        <td className="small">
+                          <span className="d-inline-block text-truncate" style={{ maxWidth: 220 }} title={c.post?.blog?.title || c.post?.video?.title}>
+                            {c.post?.blog?.title || c.post?.video?.title || 'Không có tiêu đề'}
+                          </span>
+                        </td>
+                        <td className="text-end text-nowrap">
+                          <div className="d-inline-flex gap-2 justify-content-end align-items-center">
+                            <Button
+                              variant="outline-success"
+                              size="sm"
+                              className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
+                              onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'APPROVE', title: c.content })}
+                            >
+                              <i className="bi bi-check-circle" /> Bỏ gắn cờ
+                            </Button>
+                            <Button
+                              variant="outline-danger"
+                              size="sm"
+                              className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
+                              onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'DELETE', title: c.content })}
+                            >
+                              <i className="bi bi-trash" /> Xóa bỏ
+                            </Button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -190,38 +221,13 @@ export default function AdminAiModerationTab() {
       )}
 
       {/* Modal Xác nhận duyệt thủ công */}
-      <Modal show={!!actionItem} onHide={() => setActionItem(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-5 fw-bold">
-            {actionItem?.action === 'APPROVE' ? 'Xác Nhận Khôi Phục Nội Dung' : 'Xác Nhận Gỡ Bỏ Vi Phạm'}
-          </Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <p className="small mb-2">
-            Hành động: <strong>{actionItem?.action === 'APPROVE' ? 'PHÊ DUYỆT KHÔI PHỤC' : 'GỠ BỎ VĨNH VIỄN'}</strong> cho:
-          </p>
-          <div className="p-2 border rounded-3 bg-light small mb-3 text-truncate">
-            {actionItem?.title}
-          </div>
-          <Form.Group controlId="moderationNotesInput">
-            <Form.Label className="small fw-semibold">Ghi chú xử lý của Quản trị viên (lưu vào nhật ký hệ thống):</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={3}
-              className="rounded-3"
-              placeholder="VD: Đã rà soát thực tế không có dấu hiệu quảng cáo hay vi phạm..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="sm" className="rounded-3" onClick={() => setActionItem(null)}>Hủy bỏ</Button>
-          <Button variant={actionItem?.action === 'APPROVE' ? 'success' : 'danger'} size="sm" className="rounded-3" onClick={handleConfirmResolve}>
-            Xác nhận thực hiện
-          </Button>
-        </Modal.Footer>
-      </Modal>
+      <AdminModerationActionModal
+        actionItem={actionItem}
+        notes={notes}
+        setNotes={setNotes}
+        onClose={() => setActionItem(null)}
+        onConfirm={handleConfirmResolve}
+      />
     </div>
   );
 }

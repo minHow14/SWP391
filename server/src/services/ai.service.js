@@ -23,6 +23,8 @@ export const aiService = {
         daily_limit: 999,
         used: 0,
         remaining: 999,
+        remaining_questions: 999,
+        unlimited: true,
         resets_at: getQuotaResetIso(),
         is_authenticated: true,
       };
@@ -40,6 +42,8 @@ export const aiService = {
       daily_limit: usage.dailyLimit,
       used: usage.used,
       remaining: usage.remaining,
+      remaining_questions: usage.remaining,
+      unlimited: false,
       resets_at: usage.resetsAt,
       is_authenticated: false,
     };
@@ -117,6 +121,13 @@ export const aiService = {
         action: user ? `CHAT_STREAM_USER_${user.user_id}` : `CHAT_STREAM_GUEST_${validGuestId}`,
         status: 'SUCCESS',
       });
+
+      // Gửi event done kèm thông tin lượt còn lại để frontend đồng bộ thời gian thực
+      const donePayload = JSON.stringify({
+        status: 'completed',
+        remaining_questions: isGuest ? remaining : 999,
+      });
+      res.write(`event: done\ndata: ${donePayload}\n\n`);
 
       res.end();
     } catch (error) {

@@ -118,7 +118,7 @@ export default function AdminCommentsTab() {
             >
               <option value="">Tất cả bình luận</option>
               <option value="ACTIVE">Đang hiển thị</option>
-              <option value="HIDDEN_BY_AI">AI đã ẩn do nghi vấn</option>
+              <option value="HIDDEN_BY_AI">Đã ẩn</option>
               <option value="HIDDEN">Đã ẩn</option>
               <option value="DELETED">Đã xóa vĩnh viễn (Lưu trữ DB)</option>
             </Form.Select>
