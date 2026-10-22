@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 class RequestIdentity(BaseModel):
     is_authenticated: bool
     user_id: str | None = None
-    user_role: str | None = None
     guest_id: str | None = None
 
 
@@ -41,7 +40,6 @@ def verify_internal_api_key(
 def resolve_identity(
     request: Request,
     x_user_id: str | None = Header(None, alias="X-User-Id"),
-    x_user_role: str | None = Header(None, alias="X-User-Role"),
     x_guest_id: str | None = Header(None, alias="X-Guest-Id"),
 ) -> RequestIdentity:
     """
@@ -53,7 +51,6 @@ def resolve_identity(
         return RequestIdentity(
             is_authenticated=True,
             user_id=x_user_id.strip(),
-            user_role=(x_user_role or "USER").strip(),
         )
 
     guest_id = (x_guest_id or "").strip()
