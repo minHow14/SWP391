@@ -1,4 +1,4 @@
-﻿// client/src/features/admin/components/AdminPostsTab.jsx
+// client/src/features/admin/components/AdminPostsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -131,7 +131,7 @@ export default function AdminPostsTab() {
               <option value="">Tất cả trạng thái</option>
               <option value="PUBLISHED">Đã phê duyệt</option>
               <option value="PENDING">Chờ phê duyệt</option>
-              <option value="HIDDEN_BY_AI">AI đã ẩn do nghi vấn</option>
+              <option value="HIDDEN_BY_AI">Đã ẩn</option>
               <option value="DELETED">Đã xóa</option>
             </Form.Select>
           </Col>
@@ -167,7 +167,7 @@ export default function AdminPostsTab() {
                 <th>Phân loại</th>
                 <th>Trạng thái</th>
                 <th>Phản hồi</th>
-                <th className="text-end">Hành động</th>
+                <th className="text-end text-nowrap" style={{ width: 140, minWidth: 130 }}>Hành động</th>
               </tr>
             </thead>
             <tbody>
@@ -190,11 +190,11 @@ export default function AdminPostsTab() {
                         p.status === 'PUBLISHED' ? 'cx-badge-active' :
                         p.status === 'HIDDEN_BY_AI' ? 'cx-badge-locked' : 'cx-badge-neutral'
                       }`}>
-                        {p.status === 'PUBLISHED' ? 'Đã phê duyệt' : p.status === 'HIDDEN_BY_AI' ? 'AI đã ẩn' : p.status === 'DELETED' ? 'Đã xóa' : 'Chờ duyệt'}
+                        {p.status === 'PUBLISHED' ? 'Đã phê duyệt' : p.status === 'HIDDEN_BY_AI' ? 'Đã ẩn' : p.status === 'DELETED' ? 'Đã xóa' : 'Chờ duyệt'}
                       </span>
                     </td>
                     <td className="small text-muted">{p._count.comments} bình luận · {p._count.reports} báo cáo</td>
-                    <td className="text-end">
+                    <td className="text-end text-nowrap"><div className="d-inline-flex gap-1 justify-content-end align-items-center">
                       {p.status !== 'PUBLISHED' && (
                         <Button variant="outline-success" size="sm" className="me-1 rounded-3" onClick={() => handleUpdateStatus(p.post_id, 'PUBLISHED')} title="Duyệt xuất bản">
                           <i className="bi bi-check-lg" />
@@ -206,7 +206,7 @@ export default function AdminPostsTab() {
                       <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => handleDeletePost(p)} title={`Xóa vĩnh viễn ${p.post_type === 'BLOG' ? 'bài viết' : 'video'}`} aria-label={`Xóa vĩnh viễn ${p.post_type === 'BLOG' ? 'bài viết' : 'video'}: ${title}`}>
                         <i className="bi bi-trash" />
                       </Button>
-                    </td>
+                    </div></td>
                   </tr>
                 );
               })}

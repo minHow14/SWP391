@@ -12,7 +12,7 @@ export default function AdminCommentTable({ comments, onRestore, onDeleteClick }
             <th>Bài viết liên kết</th>
             <th>Cờ cảnh báo AI</th>
             <th>Trạng thái</th>
-            <th className="text-end pe-3">Hành động</th>
+            <th className="text-end pe-3 text-nowrap" style={{ width: 140, minWidth: 120 }}>Hành động</th>
           </tr>
         </thead>
         <tbody>
@@ -60,7 +60,7 @@ export default function AdminCommentTable({ comments, onRestore, onDeleteClick }
                     {c.status === 'ACTIVE'
                       ? 'Đang hiển thị'
                       : c.status === 'HIDDEN_BY_AI'
-                      ? 'AI đã ẩn'
+                      ? 'Đã ẩn'
                       : c.status === 'HIDDEN'
                       ? 'Đã ẩn'
                       : c.status === 'DELETED'
@@ -68,7 +68,7 @@ export default function AdminCommentTable({ comments, onRestore, onDeleteClick }
                       : 'Đã ẩn'}
                   </span>
                 </td>
-                <td className="text-end pe-3">
+                <td className="text-end pe-3 text-nowrap">
                   <div className="d-inline-flex gap-1">
                     {c.status === 'HIDDEN' && (
                       <>

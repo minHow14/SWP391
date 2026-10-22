@@ -1,5 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/styles/admin.css */
-/* d:\Projects\FPT\SWP391\client\src\Admin.css */
+/* client/src/features/admin/styles/admin.css */
 /* Giao diện Quản trị viên ChayXanh - Đồng bộ Tone màu với Trang chủ */
 
 .admin-portal-shell {
@@ -124,11 +123,14 @@
   letter-spacing: 0.03em;
   padding: 0.75rem 0.85rem;
   border-bottom: 1px solid var(--cx-admin-border);
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .admin-table tbody td {
   padding: 0.85rem 0.85rem;
   border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
 }
 
 .admin-table tbody tr:hover {

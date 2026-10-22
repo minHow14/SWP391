@@ -101,7 +101,7 @@ export default function AdminCommentsTab() {
             <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hiển thị</option>
-              <option value="HIDDEN_BY_AI">AI đã ẩn do nghi vấn</option>
+              <option value="HIDDEN_BY_AI">Đã ẩn</option>
               <option value="DELETED">Đã xóa</option>
             </Form.Select>
           </Col>
@@ -169,7 +169,7 @@ export default function AdminCommentsTab() {
                       c.status === 'ACTIVE' ? 'cx-badge-active' :
                       c.status === 'HIDDEN_BY_AI' ? 'cx-badge-locked' : 'cx-badge-neutral'
                     }`}>
-                      {c.status === 'ACTIVE' ? 'Đang hiển thị' : c.status === 'HIDDEN_BY_AI' ? 'AI đã ẩn' : 'Đã xóa'}
+                      {c.status === 'ACTIVE' ? 'Đang hiển thị' : c.status === 'HIDDEN_BY_AI' ? 'Đã ẩn' : 'Đã xóa'}
                     </span>
                   </td>
                   <td className="text-end">

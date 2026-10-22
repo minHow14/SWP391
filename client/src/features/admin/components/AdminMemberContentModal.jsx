@@ -1,4 +1,4 @@
-﻿// client/src/features/admin/components/AdminMemberContentModal.jsx
+// client/src/features/admin/components/AdminMemberContentModal.jsx
 import { Modal, Spinner } from 'react-bootstrap';
 
 export default function AdminMemberContentModal({ content, loading, onHide }) {
@@ -23,7 +23,7 @@ export default function AdminMemberContentModal({ content, loading, onHide }) {
                   <li key={p.post_id} className="list-group-item d-flex justify-content-between align-items-center">
                     <span>[{p.post_type === 'BLOG' ? 'Blog' : 'Video'}] {p.blog?.title || p.video?.title || 'Không có tiêu đề'}</span>
                     <span className={`cx-badge ${p.status === 'PUBLISHED' ? 'cx-badge-active' : 'cx-badge-locked'}`}>
-                      {p.status === 'PUBLISHED' ? 'Đã duyệt' : p.status === 'HIDDEN_BY_AI' ? 'AI đã ẩn' : p.status}
+                      {p.status === 'PUBLISHED' ? 'Đã duyệt' : p.status === 'HIDDEN_BY_AI' ? 'Đã ẩn' : p.status}
                     </span>
                   </li>
                 ))}
