@@ -8,8 +8,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { postRepository } from '../repositories/post.repository.js';
-import { aiRepository } from '../repositories/ai.repository.js';
 import { aiService } from './ai.service.js';
+import { guestQuotaService } from './guestQuotaService.js';
+import { guestQuotaAdminService } from './guestQuotaAdminService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -769,12 +770,16 @@ export const getAiModelsStatus = async () => {
   });
 };
 
-export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action = '', status = '' }) => {
+export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action = '', status = '', search = '', dateFrom, dateTo, feature }) => {
   const result = await aiLogService.listLogs({
     page, limit,
     ...(modelName ? { modelName } : {}),
     ...(action ? { action } : {}),
     ...(status ? { status } : {}),
+    ...(search ? { search } : {}),
+    ...(dateFrom ? { dateFrom } : {}),
+    ...(dateTo ? { dateTo } : {}),
+    ...(feature ? { feature } : {}),
   });
   return { logs: result.items, total: result.total, page: result.page, limit: result.limit };
 };
@@ -801,41 +806,26 @@ export const getAiMetrics = async () => {
 /**
  * Thống kê chi tiết hoạt động AI theo ngày, chức năng và mô hình
  */
-export const getAiLogStats = async ({ date_from = null, date_to = null }) => {
-  return aiRepository.getLogStats({ dateFrom: date_from, dateTo: date_to });
-};
+export const getAiLogStats = (query) => aiLogService.getStats(query);
 
 /**
  * Xem thông tin hạn mức của khách (X-Guest-Id)
  */
-export const getGuestQuota = async (guestId) => {
-  return aiRepository.getGuestUsage(guestId);
-};
+export const getGuestQuota = (guestId) => guestQuotaService.getUsage({ guestId });
 
 /**
  * Đặt lại hạn mức của khách về 0 (Admin reset)
  */
-export const resetGuestQuota = async ({ guestId, adminId }) => {
-  const usageBefore = await aiRepository.getGuestUsage(guestId);
-  await aiRepository.resetGuestQuota(guestId);
-  await aiRepository.createLog({
-    modelName: 'admin',
-    action: `ADMIN_RESET_GUEST_QUOTA_${guestId}`,
-    status: 'SUCCESS',
-    errorFeedback: `Quản trị viên ID ${adminId} đặt lại hạn mức. Lượt đã dùng trước đó: ${usageBefore.used}`,
-  });
-  const updatedUsage = await aiRepository.getGuestUsage(guestId);
-  return { ...updatedUsage, used_before: usageBefore.used };
-};
+export const resetGuestQuota = ({ guestId, adminId }) => guestQuotaAdminService.resetUsage({ guestId, adminUserId: adminId });
 
 /**
  * Yêu cầu AI Microservice dọn dẹp bộ nhớ đệm chatbot
  */
 export const clearChatbotCache = async (adminId) => {
   const cleared = await aiService.clearChatbotCache();
-  await aiRepository.createLog({
+  await aiLogService.recordLog({
     modelName: 'admin',
-    action: 'ADMIN_CLEAR_CHATBOT_CACHE',
+    action: `ADMIN_CLEAR_CHATBOT_CACHE_BY_${adminId}`,
     status: 'SUCCESS',
     errorFeedback: `Quản trị viên ID ${adminId} đã xóa bộ nhớ đệm chatbot. Đã xóa: ${cleared}`,
   });

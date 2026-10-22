@@ -15,6 +15,7 @@ import aiLogRoutes from './aiLogRoutes.js';
 import guestQuotaRoutes from './guestQuotaRoutes.js';
 import reportRoutes from './report.route.js';
 import aiRoutes from './ai.route.js';
+import aiGenerationRoutes from './aiGenerationRoutes.js';
 
 const router = express.Router();
 
@@ -33,5 +34,6 @@ router.use('/v1/ai-logs', aiLogRoutes);
 router.use('/v1/guest-quotas', guestQuotaRoutes);
 router.use('/reports', reportRoutes);
 router.use('/ai', aiRoutes);
+router.use('/v1/ai-generations', aiGenerationRoutes);
 
 export default router;
