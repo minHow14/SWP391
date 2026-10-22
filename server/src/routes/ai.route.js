@@ -6,7 +6,7 @@ import { aiChatSchema, aiMealPlanSchema, validateAiBody } from '../validators/ai
 
 const router = Router();
 
-// Gắn optionalAuthenticate để nhận diện nếu người dùng đã đăng nhập
+// Token đã gửi lên phải hợp lệ; chỉ yêu cầu không có token mới được xử lý như khách.
 router.use(authenticateAiCaller);
 
 // Quản lý hạn mức câu hỏi của khách & tài khoản

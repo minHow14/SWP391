@@ -1,7 +1,14 @@
-// d:\Projects\FPT\SWP391\server\src\repositories\user.repository.js
+// D:/SWP391/SWP391/server/src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
 
 export const userRepository = {
+  findAuthIdentityById(userId, db = prisma) {
+    return db.user.findUnique({
+      where: { user_id: userId },
+      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true },
+    });
+  },
+
   async findByEmail(email, select = null, db = prisma) {
     return db.user.findUnique({
       where: { email },
