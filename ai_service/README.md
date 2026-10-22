@@ -19,6 +19,8 @@ Python ≥3.11. Dependencies ghim phiên bản đã kiểm thử trong requireme
 
 `GET /health` công khai. Mọi endpoint nghiệp vụ yêu cầu `X-Internal-Api-Key`; chỉ BE giữ key. `X-User-Id`/`X-Guest-Id` là danh tính BE đã xác thực, không phải dữ liệu tin cậy từ FE trực tiếp. Swagger: `/docs`, OpenAPI: `/openapi.json`.
 
+AI không nhận role để phân quyền: đã bỏ `X-User-Role` và `user_role`. JWT, trạng thái tài khoản, quyền admin và quyền đọc lịch sử đều do BE kiểm tra trước khi gọi AI. Header JWT/role tự gửi không thay thế được khóa nội bộ; AI không giải mã hay chuyển tiếp JWT.
+
 - `POST /api/chat`, `/api/chat/stream`: đầu vào `message`, `history`, `dietaryType`, `menuContext`.
 - `POST /api/meal-planner/generate`, `/api/meal-planner/generate/stream`: `heightCm`, `weightKg`, `age`, `gender`, `goal`, `activityLevel`, `dietaryType`, `allergies`, `availableIngredients`, `bmi`, `days`.
 - `POST /api/admin/chatbot-cache/clear`: xóa cache nội bộ; quyền admin được BE kiểm tra.

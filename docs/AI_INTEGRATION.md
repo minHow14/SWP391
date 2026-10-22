@@ -2,6 +2,14 @@
 
 FE → BE (`/api/ai`) → AI Service (`/api`). Chỉ BE truy cập PostgreSQL. AI không dùng PostgreSQL, SQLite, JWT hoặc khóa database. BE xác thực JWT người dùng, quota khách và quyền admin; AI kiểm tra `X-Internal-Api-Key` tối thiểu 32 ký tự. Không đưa khóa này vào biến `VITE_*`.
 
+## Xác thực và phân quyền
+
+BE dùng `authenticationService` và `userRepository` để xác thực JWT, validate `user_id` là số nguyên hợp lệ với PostgreSQL, rồi đọc danh tính/quyền hiện tại từ DB. Token hết hạn, sai chữ ký, thiếu/sai claim hoặc tài khoản không còn tồn tại trả 401; tài khoản bị khóa, xóa mềm hoặc không hoạt động trả 403. Quyền trong JWT không thay thế quyền trong DB; thu hồi quyền admin có hiệu lực với cả token đã cấp. Lỗi DB không chuyển ngầm người gọi thành khách.
+
+Chỉ yêu cầu không có Authorization mới đi theo luồng khách. BE tự tạo header gọi AI từ danh tính đã kiểm tra: `X-User-Id` hoặc `X-Guest-Id`, kèm khóa nội bộ và request ID. Header `X-User-Id`, `X-User-Role`, `X-Internal-Api-Key` do FE tự gửi không quyết định quyền và không được chuyển tiếp nguyên trạng. JWT người dùng không được gửi sang AI.
+
+AI không có `user_role`, không đọc `X-User-Role`, không xác thực JWT hoặc quyết định quyền admin. Định danh nhận từ BE chỉ phục vụ xử lý/log nội bộ sau khi khóa nội bộ đã được kiểm tra. Các hành động quản trị nội bộ như xóa cache chỉ được BE gọi sau `authenticate` và `authorize(ADMIN)`. API lịch sử ở BE luôn lọc theo user đã xác thực.
+
 ## Sinh kết quả và lưu lịch sử
 
 Giữ SSE theo quyết định của chủ dự án, là ngoại lệ đã được chấp thuận cho quy tắc Job 202 trong `server/AGENTS.md`. Tác vụ có thể kéo dài hơn 3 giây; giới hạn tổng thời gian do `AI_TIMEOUT_MS` trên BE quyết định.
