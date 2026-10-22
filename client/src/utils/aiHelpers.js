@@ -1,4 +1,5 @@
-﻿// client/src/utils/aiHelpers.js
+// D:/SWP391/SWP391/client/src/utils/aiHelpers.js
+// client/src/utils/aiHelpers.js
 // Hàm thuần (không phụ thuộc React) để nối dữ liệu của web với API AI.
 
 const strip = (text) =>
@@ -10,7 +11,7 @@ const strip = (text) =>
     .toLowerCase()
     .trim();
 
-/** diet_type_id của web -> dietary_type của AI. Chay Phật giáo dùng 'vegan' (không sản phẩm động vật, an toàn nhất). */
+/** diet_type_id của web -> dietaryType của AI. Chay Phật giáo dùng 'vegan' (không sản phẩm động vật, an toàn nhất). */
 export function dietTypeToAi(dietTypeId) {
   return { 1: 'vegan', 2: 'lacto', 3: 'ovo', 4: 'lacto_ovo', 5: 'vegan', 6: 'lacto_ovo' }[Number(dietTypeId)];
 }
@@ -65,15 +66,15 @@ export function mealPlanDefaults({ user, ingredients = [], dietTypeId } = {}) {
   const profile = user?.health_profile;
   const names = new Map(ingredients.map((item) => [item.ingredient_id, item.name]));
   return {
-    height_cm: profile?.height ?? '',
-    weight_kg: profile?.weight ?? '',
+    heightCm: profile?.height ?? '',
+    weightKg: profile?.weight ?? '',
     age: (profile?.dob && ageFromDob(profile.dob)) || '',
     gender: genderToAi(profile?.gender) || '',
     goal: goalToAi(profile?.health_goal),
-    activity_level: 'light',
-    dietary_type: dietTypeToAi(profile?.diet_type_id ?? dietTypeId) || 'vegan',
+    activityLevel: 'light',
+    dietaryType: dietTypeToAi(profile?.diet_type_id ?? dietTypeId) || 'vegan',
     allergies: (user?.allergies || []).map((item) => names.get(item.ingredient_id) || item.name).filter(Boolean),
-    available_ingredients: [],
+    availableIngredients: [],
     days: 7,
   };
 }
@@ -81,19 +82,19 @@ export function mealPlanDefaults({ user, ingredients = [], dietTypeId } = {}) {
 /** Body gửi tới /meal-planner/generate/stream từ giá trị của form (bỏ trường trống). */
 export function buildMealPlanRequest(values) {
   const number = (value) => (value === '' || value == null ? undefined : Number(value));
-  const height = number(values.height_cm);
-  const weight = number(values.weight_kg);
+  const height = number(values.heightCm);
+  const weight = number(values.weightKg);
   const request = {
-    height_cm: height,
-    weight_kg: weight,
+    heightCm: height,
+    weightKg: weight,
     bmi: calcBmi(height, weight) ?? undefined,
     age: number(values.age),
     gender: values.gender || undefined,
     goal: values.goal,
-    activity_level: values.activity_level,
-    dietary_type: values.dietary_type,
+    activityLevel: values.activityLevel,
+    dietaryType: values.dietaryType,
     allergies: values.allergies?.length ? values.allergies : undefined,
-    available_ingredients: values.available_ingredients?.length ? values.available_ingredients : undefined,
+    availableIngredients: values.availableIngredients?.length ? values.availableIngredients : undefined,
     days: number(values.days),
   };
   return Object.fromEntries(Object.entries(request).filter(([, value]) => value !== undefined));
@@ -102,10 +103,10 @@ export function buildMealPlanRequest(values) {
 /** Kiểm tra form phía client; trả về { field: thông báo }. */
 export function validateMealPlanValues(values) {
   const errors = {};
-  const height = Number(values.height_cm);
-  const weight = Number(values.weight_kg);
-  if (!(height > 50 && height < 260)) errors.height_cm = 'Chiều cao từ 51 đến 259 cm.';
-  if (!(weight > 20 && weight < 300)) errors.weight_kg = 'Cân nặng từ 21 đến 299 kg.';
+  const height = Number(values.heightCm);
+  const weight = Number(values.weightKg);
+  if (!(height > 50 && height < 260)) errors.heightCm = 'Chiều cao từ 51 đến 259 cm.';
+  if (!(weight > 20 && weight < 300)) errors.weightKg = 'Cân nặng từ 21 đến 299 kg.';
   if (values.age !== '' && !(Number(values.age) >= 10 && Number(values.age) <= 120)) errors.age = 'Tuổi từ 10 đến 120.';
   if (!(Number(values.days) >= 1 && Number(values.days) <= 7)) errors.days = 'Số ngày từ 1 đến 7.';
   return errors;
@@ -115,16 +116,16 @@ export const MAX_MENU_CONTEXT = 8000;
 
 /** Thực đơn rút gọn để chatbot giải thích (API giới hạn 8000 ký tự). */
 export function planToMenuContext(plan, limit = MAX_MENU_CONTEXT - 400) {
-  const profile = plan.profile_summary || {};
-  const header = `${plan.title}. Mục tiêu ${profile.target_daily_calories} kcal/ngày, BMI ${profile.bmi} (${profile.bmi_category}), chế độ ${profile.dietary_type}.`;
+  const profile = plan.profileSummary || {};
+  const header = `${plan.title}. Mục tiêu ${profile.targetDailyCalories} kcal/ngày, BMI ${profile.bmi} (${profile.bmiCategory}), chế độ ${profile.dietaryType}.`;
   const build = (withIngredients) =>
     [
       header,
-      ...plan.weekly_plan.map((day) => {
+      ...plan.weeklyPlan.map((day) => {
         const meals = [['sáng', day.breakfast], ['trưa', day.lunch], ['tối', day.dinner], ['phụ', day.snacks]]
           .filter(([, meal]) => meal)
           .map(([label, meal]) => {
-            const base = `${label}: ${meal.name} (${meal.estimated_calories} kcal, ${meal.protein_g}g đạm)`;
+            const base = `${label}: ${meal.name} (${meal.estimatedCalories} kcal, ${meal.proteinG}g đạm)`;
             return withIngredients ? `${base} [${meal.ingredients.slice(0, 5).join(', ')}]` : base;
           });
         return `${day.day}: ${meals.join('; ')}`;
@@ -159,8 +160,8 @@ export function formatReset(resetAt) {
 /** Thông báo thân thiện cho người dùng theo mã lỗi của API AI. */
 export function friendlyAiError(error) {
   const code = error?.code;
-  if (code === 'CHAT_QUOTA_EXCEEDED' || code === 'MEAL_PLAN_QUOTA_EXCEEDED') {
-    const reset = formatReset(error.details?.resetAt);
+  if (isQuotaError(error)) {
+    const reset = formatReset(error.resetAt || error.details?.resetAt);
     return `Bạn đã dùng hết lượt hôm nay${reset ? `, lượt mới mở lúc ${reset}` : ''}. Đăng nhập để dùng không giới hạn.`;
   }
   if (code === 'RATE_LIMIT_EXCEEDED') return 'Bạn gửi quá nhanh. Vui lòng đợi vài giây rồi thử lại.';
@@ -169,14 +170,14 @@ export function friendlyAiError(error) {
   if (code === 'AI_PROVIDER_ERROR' || code === 'PLACES_PROVIDER_ERROR') return 'Dịch vụ AI đang bận. Vui lòng thử lại sau ít phút.';
   if (code === 'SERVICE_UNAVAILABLE') return 'Hệ thống tạm thời không khả dụng. Vui lòng thử lại sau.';
   if (code === 'NETWORK_ERROR') return 'Không kết nối được dịch vụ AI. Hãy kiểm tra dịch vụ đã chạy chưa rồi thử lại.';
-  if (code === 'INVALID_INPUT' && Array.isArray(error.details) && error.details[0]?.msg) {
-    return `Dữ liệu chưa hợp lệ: ${error.details[0].msg}`;
+  if (code === 'INVALID_INPUT' && Array.isArray(error.details) && error.details[0]?.message) {
+    return `Dữ liệu chưa hợp lệ: ${error.details[0].message}`;
   }
   return error?.message || 'Có lỗi xảy ra. Vui lòng thử lại.';
 }
 
 /** Có nên hiện nút "Đăng nhập" kèm lỗi (hết lượt của khách). */
-export const isQuotaError = (error) => error?.code === 'CHAT_QUOTA_EXCEEDED' || error?.code === 'MEAL_PLAN_QUOTA_EXCEEDED';
+export const isQuotaError = (error) => ['AI_QUOTA_EXCEEDED', 'CHAT_QUOTA_EXCEEDED', 'MEAL_PLAN_QUOTA_EXCEEDED'].includes(error?.code);
 
 /** Phần trăm thanh tiến độ theo giai đoạn của /meal-planner/generate/stream. */
 export function stagePercent(stage) {

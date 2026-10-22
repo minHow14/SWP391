@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/client/test/aiApi.test.js
 // C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/aiApi.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,13 +22,13 @@ test('SSE parser handles CRLF, split chunks, comments and multi-line data', () =
   const parser = createSseParser((name, payload) => events.push([name, payload]));
   parser.push('event: token\r\ndata: {"token": "Đậu "}\r\n\r\nevent: tok');
   parser.push('en\r\ndata: {"token": "hũ"}\r\n\r\n: ping\r\n\r\n');
-  parser.push('event: done\ndata: {"status":"completed","remaining_questions":2}\n\n');
+  parser.push('event: done\ndata: {"status":"completed","remaining":2}\n\n');
   parser.push('event: note\ndata: dòng 1\ndata: dòng 2\n\n');
   parser.end();
   assert.deepEqual(events, [
     ['token', { token: 'Đậu ' }],
     ['token', { token: 'hũ' }],
-    ['done', { status: 'completed', remaining_questions: 2 }],
+    ['done', { status: 'completed', remaining: 2 }],
     ['note', 'dòng 1\ndòng 2'],
   ]);
 });
@@ -41,6 +42,42 @@ test('SSE parser flushes a final event that lacks the blank line', () => {
   assert.deepEqual(events, [['done', { ok: true }]]);
 });
 
+test('SSE parser preserves CRLF split between every character', () => {
+  const events = [];
+  const parser = createSseParser((name, payload) => events.push([name, payload]));
+  for (const char of 'event: token\r\ndata: {"token":"đậu"}\r\n\r\nevent: done\r\ndata: {}\r\n\r\n') parser.push(char);
+  parser.end();
+  assert.deepEqual(events, [['token', { token: 'đậu' }], ['done', {}]]);
+});
+
+test('chat sends camelCase menuContext and rejects an incomplete stream', async () => {
+  const { streamChat } = await import('../src/services/aiApi.js?incomplete');
+  let seen;
+  globalThis.fetch = async (_url, options) => {
+    seen = JSON.parse(options.body);
+    return new Response('event: token\ndata: {"token":"partial"}\n\n', { headers: { 'content-type': 'text/event-stream' } });
+  };
+  await assert.rejects(streamChat({ message: 'giải thích', menuContext: 'thực đơn' }), (error) => error.code === 'AI_STREAM_INTERRUPTED');
+  assert.equal(seen.menuContext, 'thực đơn');
+  assert.equal(seen.menu_context, undefined);
+});
+
+test('admin adapter preserves pagination and uses canonical backend routes', async () => {
+  const { adminListLogs, adminResetGuestQuota } = await import('../src/services/aiApi.js?canonical-admin');
+  const seen = [];
+  globalThis.fetch = async (url, options) => {
+    seen.push({ url, options });
+    return new Response(JSON.stringify({ success: true, data: [{ logId: 17 }], meta: { page: 2, limit: 10, total: 23, totalPages: 3 } }));
+  };
+  const result = await adminListLogs({ page: 2, limit: 10 });
+  assert.equal(result.totalPages, 3);
+  assert.deepEqual(result.items, [{ logId: 17 }]);
+  assert.match(seen[0].url, /\/v1\/ai-logs\?page=2&limit=10$/);
+  await adminResetGuestQuota('guest/encoded');
+  assert.match(seen[1].url, /\/v1\/guest-quotas\/guest%2Fencoded$/);
+  assert.equal(seen[1].options.method, 'DELETE');
+});
+
 test('streamChat sends identity headers, joins tokens and returns the remaining quota', async () => {
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: () => JSON.stringify({ token: 'jwt-123', user: { user_id: 1 } }) } });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'guest-xyz', setItem() {} } });
@@ -48,7 +85,7 @@ test('streamChat sends identity headers, joins tokens and returns the remaining 
   let seen;
   globalThis.fetch = async (url, options) => {
     seen = { url, options };
-    const body = 'event: token\r\ndata: {"token":"Xin "}\r\n\r\nevent: token\r\ndata: {"token":"chào"}\r\n\r\nevent: done\r\ndata: {"status":"completed","remaining_questions":1}\r\n\r\n';
+    const body = 'event: token\r\ndata: {"token":"Xin "}\r\n\r\nevent: token\r\ndata: {"token":"chào"}\r\n\r\nevent: done\r\ndata: {"status":"completed","remaining":1}\r\n\r\n';
     return new Response(body, { headers: { 'content-type': 'text/event-stream; charset=utf-8' } });
   };
   const tokens = [];
@@ -58,7 +95,7 @@ test('streamChat sends identity headers, joins tokens and returns the remaining 
   assert.match(seen.url, /\/chat\/stream$/);
   assert.equal(seen.options.headers.Authorization, 'Bearer jwt-123');
   assert.equal(seen.options.headers['X-Guest-Id'], 'guest-xyz');
-  assert.deepEqual(JSON.parse(seen.options.body), { message: 'hi', history: [{ role: 'user', content: 'a' }], dietary_type: 'vegan' });
+  assert.deepEqual(JSON.parse(seen.options.body), { message: 'hi', history: [{ role: 'user', content: 'a' }], dietaryType: 'vegan' });
 });
 
 test('streamChat turns an error event or an HTTP error envelope into AiApiError', async () => {
@@ -81,7 +118,7 @@ test('streamMealPlan reports progress and returns the final plan', async () => {
     'event: done\ndata: {"success":true,"data":{"title":"Thực đơn","chat":{"items":[]}}}\n\n',
   ].join(''), { headers: { 'content-type': 'text/event-stream' } });
   const stages = [];
-  const plan = await streamMealPlan({ request: { height_cm: 165 }, onProgress: (event) => stages.push(event.stage) });
+  const plan = await streamMealPlan({ request: { heightCm: 165 }, onProgress: (event) => stages.push(event.stage) });
   assert.deepEqual(stages, ['calculating', 'generating']);
   assert.equal(plan.title, 'Thực đơn');
 });
@@ -110,31 +147,31 @@ test('meal plan form is prefilled from the profile and builds a clean request', 
   const values = mealPlanDefaults({ user, ingredients: [{ ingredient_id: 5, name: 'Đậu phộng' }, { ingredient_id: 9, name: 'Nấm' }], dietTypeId: 4 });
   assert.equal(values.gender, 'female');
   assert.equal(values.goal, 'weight_loss');
-  assert.equal(values.dietary_type, 'vegan'); // hồ sơ ưu tiên hơn chế độ đang chọn
+  assert.equal(values.dietaryType, 'vegan'); // hồ sơ ưu tiên hơn chế độ đang chọn
   assert.deepEqual(values.allergies, ['Đậu phộng', 'Nấm']);
-  const request = buildMealPlanRequest({ ...values, available_ingredients: [] });
+  const request = buildMealPlanRequest({ ...values, availableIngredients: [] });
   assert.equal(request.bmi, 22);
-  assert.equal(request.height_cm, 165);
-  assert.ok(!('available_ingredients' in request));
+  assert.equal(request.heightCm, 165);
+  assert.ok(!('availableIngredients' in request));
   assert.deepEqual(validateMealPlanValues(values), {});
-  assert.deepEqual(Object.keys(validateMealPlanValues({ ...values, height_cm: 10, weight_kg: '', days: 9 })).sort(), ['days', 'height_cm', 'weight_kg']);
+  assert.deepEqual(Object.keys(validateMealPlanValues({ ...values, heightCm: 10, weightKg: '', days: 9 })).sort(), ['days', 'heightCm', 'weightKg']);
 });
 
 test('guest without a profile falls back to the chosen diet', () => {
   const values = mealPlanDefaults({ user: null, dietTypeId: 3 });
-  assert.equal(values.dietary_type, 'ovo');
-  assert.equal(values.height_cm, '');
+  assert.equal(values.dietaryType, 'ovo');
+  assert.equal(values.heightCm, '');
 });
 
-const meal = (name) => ({ name, estimated_calories: 400, protein_g: 20, ingredients: ['Đậu phụ 100g', 'Cà chua', 'Gạo lứt', 'Rau', 'Nấm', 'Hành'] });
+const meal = (name) => ({ name, estimatedCalories: 400, proteinG: 20, ingredients: ['Đậu phụ 100g', 'Cà chua', 'Gạo lứt', 'Rau', 'Nấm', 'Hành'] });
 const day = (label) => ({ day: label, breakfast: meal('Cháo'), lunch: meal('Cơm'), dinner: meal('Canh'), snacks: null });
 
 test('menu context stays under the API limit even for a long plan', () => {
-  const plan = { title: 'Thực đơn', profile_summary: { target_daily_calories: 1572, bmi: 22, bmi_category: 'Bình thường', dietary_type: 'vegan' }, weekly_plan: Array.from({ length: 7 }, (_, i) => day(`Ngày ${i + 1}`)) };
+  const plan = { title: 'Thực đơn', profileSummary: { targetDailyCalories: 1572, bmi: 22, bmiCategory: 'Bình thường', dietaryType: 'vegan' }, weeklyPlan: Array.from({ length: 7 }, (_, i) => day(`Ngày ${i + 1}`)) };
   const text = planToMenuContext(plan);
   assert.ok(text.length < MAX_MENU_CONTEXT);
   assert.ok(text.includes('Ngày 7') && text.includes('1572 kcal'));
-  const huge = { ...plan, weekly_plan: Array.from({ length: 7 }, (_, i) => ({ ...day(`Ngày ${i + 1}`), breakfast: meal('x'.repeat(900)), lunch: meal('y'.repeat(900)) })) };
+  const huge = { ...plan, weeklyPlan: Array.from({ length: 7 }, (_, i) => ({ ...day(`Ngày ${i + 1}`), breakfast: meal('x'.repeat(900)), lunch: meal('y'.repeat(900)) })) };
   assert.ok(planToMenuContext(huge).length <= MAX_MENU_CONTEXT);
 });
 
@@ -161,7 +198,7 @@ test('error messages are friendly and include the reset time for quota errors', 
   assert.match(friendlyAiError({ code: 'RATE_LIMIT_EXCEEDED' }), /quá nhanh/);
   assert.match(friendlyAiError({ code: 'AI_PROVIDER_ERROR' }), /bận/);
   assert.match(friendlyAiError({ code: 'NETWORK_ERROR' }), /kết nối/);
-  assert.match(friendlyAiError({ code: 'INVALID_INPUT', details: [{ msg: 'quá ngắn' }] }), /quá ngắn/);
+  assert.match(friendlyAiError({ code: 'INVALID_INPUT', details: [{ field: 'message', message: 'quá ngắn' }] }), /quá ngắn/);
   assert.equal(friendlyAiError({ code: 'X', message: 'tuỳ chỉnh' }), 'tuỳ chỉnh');
 });
 

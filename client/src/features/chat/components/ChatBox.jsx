@@ -1,4 +1,5 @@
-﻿// client/src/features/chat/components/ChatBox.jsx
+// D:/SWP391/SWP391/client/src/features/chat/components/ChatBox.jsx
+// client/src/features/chat/components/ChatBox.jsx
 import ChatMessage from './ChatMessage.jsx';
 import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';
 import { useChatBox } from '../hooks/useChatBox.js';
@@ -42,7 +43,7 @@ export default function ChatBox({ dietTypeId }) {
             </div>
             {usage && (
               <span className="cx-chat-usage" title="Khách có 3 lượt mỗi ngày, dùng chung cho hỏi đáp và tạo thực đơn">
-                {usage.unlimited ? 'Không giới hạn' : `Còn ${usage.remaining_questions}/${usage.daily_limit} lượt`}
+                {usage.unlimited ? 'Không giới hạn' : `Còn ${usage.remaining}/${usage.dailyLimit} lượt`}
               </span>
             )}
             <button

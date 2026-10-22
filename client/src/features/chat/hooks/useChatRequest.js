@@ -1,4 +1,5 @@
-﻿// client/src/features/chat/hooks/useChatRequest.js
+// D:/SWP391/SWP391/client/src/features/chat/hooks/useChatRequest.js
+// client/src/features/chat/hooks/useChatRequest.js
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';
 import { chatHistory, dietTypeToAi, friendlyAiError, isQuotaError, planToMenuContext } from '../../../utils/aiHelpers.js';
@@ -43,7 +44,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
             : message
         )
       );
-      setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining_questions: remaining } : previous));
+      setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining: remaining } : previous));
     } catch (failure) {
       if (current.signal.aborted) {
         update({ pending: false });

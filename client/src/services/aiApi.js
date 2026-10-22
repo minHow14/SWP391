@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/client/src/services/aiApi.js
 // client/src/services/aiApi.js
 import { getSession } from '../utils/session.js';
 
@@ -7,13 +8,14 @@ const GUEST_KEY = 'chayxanh-guest-id';
 let memoryGuestId;
 
 export class AiApiError extends Error {
-  constructor({ status = 0, code = 'NETWORK_ERROR', message, details, requestId, cause } = {}) {
+  constructor({ status = 0, code = 'NETWORK_ERROR', message, details, requestId, resetAt, cause } = {}) {
     super(message || 'Không thể kết nối tới dịch vụ AI. Vui lòng thử lại sau.', { cause });
     this.name = 'AiApiError';
     this.status = status;
     this.code = code;
     this.details = details;
     this.requestId = requestId;
+    this.resetAt = resetAt;
   }
 }
 
@@ -53,6 +55,7 @@ async function toError(response) {
     code,
     message,
     details: result?.errors || result?.error?.details,
+    resetAt: result?.meta?.resetAt,
     requestId: result?.meta?.requestId || response.headers.get('X-Request-Id') || undefined,
   });
 }
@@ -72,7 +75,7 @@ async function send(path, { method = 'GET', body, signal } = {}) {
 }
 
 /** Gọi API JSON thường; trả về `data` của envelope chuẩn. */
-export async function aiRequest(path, options = {}) {
+async function aiEnvelope(path, options = {}) {
   const response = await send(path, options);
   if (!response.ok) throw await toError(response);
   const result = await response.json().catch(() => null);
@@ -82,7 +85,11 @@ export async function aiRequest(path, options = {}) {
       message: result?.message || 'Phản hồi không hợp lệ từ dịch vụ AI.',
     });
   }
-  return result.data;
+  return result;
+}
+
+export async function aiRequest(path, options = {}) {
+  return (await aiEnvelope(path, options)).data;
 }
 
 /** Tách các sự kiện `event:` / `data:` của Server-Sent Events (hỗ trợ \r\n và chunk bị cắt giữa chừng). */
@@ -91,7 +98,7 @@ export function createSseParser(onEvent) {
   const flush = (block) => {
     let event = 'message';
     const data = [];
-    for (const line of block.split('\n')) {
+    for (const line of block.split(/\r\n|\r|\n/)) {
       if (!line || line.startsWith(':')) continue;
       const separator = line.indexOf(':');
       const field = separator === -1 ? line : line.slice(0, separator);
@@ -111,12 +118,12 @@ export function createSseParser(onEvent) {
   };
   return {
     push(chunk) {
-      buffer += chunk.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      let boundary = buffer.indexOf('\n\n');
-      while (boundary !== -1) {
-        flush(buffer.slice(0, boundary));
-        buffer = buffer.slice(boundary + 2);
-        boundary = buffer.indexOf('\n\n');
+      buffer += chunk;
+      let boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer);
+      while (boundary) {
+        flush(buffer.slice(0, boundary.index));
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer);
       }
     },
     end() {
@@ -157,6 +164,7 @@ function errorFromEvent(payload) {
     code: error?.code || payload?.errorCode || 'AI_PROVIDER_ERROR',
     message: error?.message || payload?.message,
     details: error?.details || payload?.errors,
+    resetAt: payload?.meta?.resetAt,
     requestId: payload?.meta?.requestId,
   });
 }
@@ -167,24 +175,26 @@ export const getChatUsage = (signal) => aiRequest('/ai/chat/usage', { signal });
 export async function streamChat({ message, history, dietaryType, menuContext, signal, onToken }) {
   let remaining = null;
   let failure = null;
+  let completed = false;
   await postStream(
     '/ai/chat/stream',
     {
       message,
       ...(history?.length ? { history } : {}),
-      ...(dietaryType ? { dietary_type: dietaryType } : {}),
-      ...(menuContext ? { menu_context: menuContext } : {}),
+      ...(dietaryType ? { dietaryType: dietaryType } : {}),
+      ...(menuContext ? { menuContext } : {}),
     },
     {
       signal,
       onEvent(name, payload) {
         if (name === 'token') onToken?.(payload?.token ?? '');
-        else if (name === 'done') remaining = payload?.remaining_questions ?? null;
+        else if (name === 'done') { completed = true; remaining = payload?.remaining ?? null; }
         else if (name === 'error') failure = errorFromEvent(payload);
       },
     }
   );
   if (failure) throw failure;
+  if (!completed) throw new AiApiError({ code: 'AI_STREAM_INTERRUPTED', message: 'Kết nối AI kết thúc trước khi trả lời hoàn tất.' });
   return { remaining };
 }
 
@@ -214,10 +224,13 @@ const query = (params) => {
   const text = search.toString();
   return text ? `?${text}` : '';
 };
-export const adminListLogs = (params, signal) => aiRequest(`/admin/ai/logs${query(params)}`, { signal });
-export const adminLogStats = (params, signal) => aiRequest(`/admin/ai/stats${query(params)}`, { signal });
+export const adminListLogs = async (params, signal) => {
+  const result = await aiEnvelope(`/v1/ai-logs${query(params)}`, { signal });
+  return { items: result.data, ...result.meta };
+};
+export const adminLogStats = (params, signal) => aiRequest(`/v1/ai-logs/stats${query(params)}`, { signal });
 export const adminGetGuestQuota = (guestId, signal) =>
-  aiRequest(`/admin/ai/guest-quota/${encodeURIComponent(guestId)}`, { signal });
+  aiRequest(`/v1/guest-quotas/${encodeURIComponent(guestId)}`, { signal });
 export const adminResetGuestQuota = (guestId) =>
-  aiRequest('/admin/ai/guest-quota/reset', { method: 'POST', body: { guest_id: guestId } });
+  aiRequest(`/v1/guest-quotas/${encodeURIComponent(guestId)}`, { method: 'DELETE' });
 export const adminClearChatCache = () => aiRequest('/admin/ai/chatbot-cache/clear', { method: 'POST' });
