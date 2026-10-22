@@ -50,6 +50,49 @@ describe('AI gateway regression tests against the isolated database', () => {
     expect(upstream).toHaveBeenCalledTimes(3);
   });
 
+  it('shares three daily turns across chat and meal plans and ignores upstream quota claims', async () => {
+    const upstream = vi.fn(async (url) => sse([
+      ['token', { token: 'Kiểm thử quota' }],
+      ['done', { ...upstreamDone, remaining: 999, ...(url.includes('meal-planner') && { data: { weeklyPlan: [{ dayNumber: 1 }] } }) }],
+    ]));
+    vi.stubGlobal('fetch', upstream);
+    const mealPlan = () => request(app).post('/api/ai/meal-planner/generate/stream')
+      .set('X-Guest-Id', guestId).send({ heightCm: 170, weightKg: 65, days: 1 });
+    expect((await chat()).text).toContain('"remaining":2');
+    expect((await mealPlan()).text).toContain('"remaining":1');
+    expect((await chat()).text).toContain('"remaining":0');
+    const denied = await mealPlan();
+    expect(denied.status).toBe(429);
+    expect(denied.body.errorCode).toBe('AI_QUOTA_EXCEEDED');
+    expect(upstream).toHaveBeenCalledTimes(3);
+    const status = await request(app).get('/api/ai/usage').set('X-Guest-Id', guestId);
+    expect(status.body.data).toMatchObject({ used: 3, remaining: 0, dailyLimit: 3 });
+  });
+
+  it('allows only three upstream calls when mixed chat and meal requests arrive concurrently', async () => {
+    const upstream = vi.fn(async (url) => sse([['done', {
+      ...upstreamDone, ...(url.includes('meal-planner') && { data: { weeklyPlan: [{ dayNumber: 1 }] } }),
+    }]]));
+    vi.stubGlobal('fetch', upstream);
+    const responses = await Promise.all(Array.from({ length: 8 }, (_, index) => index % 2 ? chat() : request(app)
+      .post('/api/ai/meal-planner/generate/stream').set('X-Guest-Id', guestId).send({ heightCm: 170, weightKg: 65, days: 1 })));
+    expect(responses.filter((response) => response.status === 200)).toHaveLength(3);
+    expect(responses.filter((response) => response.status === 429)).toHaveLength(5);
+    expect(upstream).toHaveBeenCalledTimes(3);
+    expect((await usage()).usedCount).toBe(3);
+  });
+
+  it('reads quota from BE without calling AI or consuming a turn', async () => {
+    const upstream = vi.fn(); vi.stubGlobal('fetch', upstream);
+    for (let index = 0; index < 2; index++) {
+      const response = await request(app).get('/api/ai/usage').set('X-Guest-Id', guestId);
+      expect(response.status).toBe(200);
+      expect(response.body.data).toMatchObject({ used: 0, remaining: 3 });
+    }
+    expect(upstream).not.toHaveBeenCalled();
+    expect(await usage()).toBeNull();
+  });
+
   it.each(['chatbot', 'mealPlanner'])('refunds an SSE error for %s without recording SUCCESS', async (feature) => {
     vi.stubGlobal('fetch', vi.fn(async () => sse([['error', { success: false, errorCode: 'AI_PROVIDER_ERROR', message: 'PRIVATE_PROVIDER_DETAIL' }]])));
     const before = await prisma.aiLog.count({ where: { status: 'SUCCESS' } });

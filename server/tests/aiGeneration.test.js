@@ -101,4 +101,23 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(response.text).toContain('event: done');
     expect(await prisma.aiGeneration.count()).toBe(count);
   });
+
+  it('does not apply guest daily quota to authenticated chat and meal requests', async () => {
+    const guestId = `member-quota-${randomUUID()}`;
+    vi.stubGlobal('fetch', vi.fn(async (url) => stream([
+      metadata(), ['token', { token: 'Kiểm tra hạn mức thành viên' }],
+      done(url.includes('meal-planner') ? { weeklyPlan: [{ dayNumber: 1 }] } : undefined),
+    ])));
+    for (let index = 0; index < 4; index++) {
+      const path = index % 2 ? 'meal-planner/generate/stream' : 'chat/stream';
+      const payload = index % 2 ? { heightCm: 170, weightKg: 65, days: 1 } : { message: 'Kiểm tra hạn mức thành viên' };
+      const response = await generate(payload, path).set('X-Guest-Id', guestId);
+      expect(response.status).toBe(200);
+      expect(response.text).toContain('event: done');
+      expect(response.text).toContain('"remaining":null');
+    }
+    expect(await prisma.guestQuota.findFirst({ where: { guestId } })).toBeNull();
+    const usage = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${token}`);
+    expect(usage.body.data).toMatchObject({ unlimited: true, remaining: null, dailyLimit: null });
+  });
 });
