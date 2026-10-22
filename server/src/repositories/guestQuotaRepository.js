@@ -22,23 +22,31 @@ export const guestQuotaRepository = {
       SET used_count = guest_quota.used_count + 1,
           updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
       WHERE guest_quota.used_count < ${dailyLimit}::integer
-      RETURNING used_count AS "usedCount"
+      RETURNING used_count AS "usedCount", reservation_revision AS "reservationRevision"
     `;
-    return rows[0]?.usedCount ?? null;
+    return rows[0] ?? null;
   },
 
-  releaseTurn({ guestId, quotaDate }, db = prisma) {
+  releaseTurn({ guestId, quotaDate, reservationRevision }, db = prisma) {
     return db.guestQuota.updateMany({
-      where: { guestId, quotaDate, usedCount: { gt: 0 } },
+      where: { guestId, quotaDate, reservationRevision, usedCount: { gt: 0 } },
       data: { usedCount: { decrement: 1 }, updatedAt: new Date() },
     });
   },
 
   async resetUsage({ guestId, quotaDate }, db = prisma) {
     const rows = await db.$queryRaw`
-      DELETE FROM guest_quota
-      WHERE guest_id = ${guestId} AND quota_date = ${quotaDate}::date
-      RETURNING used_count AS "usedCount"
+      WITH previous AS (
+        SELECT guest_id, quota_date, used_count FROM guest_quota
+        WHERE guest_id = ${guestId} AND quota_date = ${quotaDate}::date
+        FOR UPDATE
+      )
+      UPDATE guest_quota AS quota
+      SET used_count = 0, reservation_revision = quota.reservation_revision + 1,
+          updated_at = CURRENT_TIMESTAMP AT TIME ZONE 'UTC'
+      FROM previous
+      WHERE quota.guest_id = previous.guest_id AND quota.quota_date = previous.quota_date
+      RETURNING previous.used_count AS "usedCount"
     `;
     return rows[0]?.usedCount ?? 0;
   },

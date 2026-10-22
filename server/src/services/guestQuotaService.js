@@ -8,6 +8,7 @@ import { guestIdSchema, MAX_GUEST_ID_LENGTH } from '../validators/guestQuotaVali
 
 const TOO_MANY_REQUESTS = 429;
 const quotaDateSchema = z.date().refine((value) => value.getTime() % MILLISECONDS_PER_DAY === 0);
+const reservationRevisionSchema = z.number().int().nonnegative();
 
 function validateGuestId(guestId) {
   const result = guestIdSchema.safeParse(guestId);
@@ -35,26 +36,29 @@ export const guestQuotaService = {
   async reserveTurn({ guestId, now = new Date() }) {
     const normalizedGuestId = validateGuestId(guestId);
     const period = getAiQuotaPeriod(now);
-    const used = await guestQuotaRepository.reserveTurn({
+    const reservation = await guestQuotaRepository.reserveTurn({
       guestId: normalizedGuestId, quotaDate: period.quotaDate, dailyLimit: aiConfig.guestDailyLimit,
     });
-    if (used === null) {
+    if (reservation === null) {
       const error = new ApiError(TOO_MANY_REQUESTS, 'Bạn đã sử dụng hết lượt AI trong ngày.');
       error.errorCode = 'AI_QUOTA_EXCEEDED';
       error.details = [{ field: 'guestId', message: `Hạn mức được đặt lại lúc ${period.resetsAt}.` }];
       error.resetAt = period.resetsAt;
       throw error;
     }
-    return { ...usageData({ guestId: normalizedGuestId, period, used }), quotaDate: period.quotaDate };
+    return {
+      ...usageData({ guestId: normalizedGuestId, period, used: reservation.usedCount }),
+      quotaDate: period.quotaDate, reservationRevision: reservation.reservationRevision,
+    };
   },
 
-  async releaseTurn({ guestId, quotaDate }) {
+  async releaseTurn({ guestId, quotaDate, reservationRevision }) {
     const normalizedGuestId = validateGuestId(guestId);
-    if (!quotaDateSchema.safeParse(quotaDate).success) {
-      throw ApiError.badRequest('Ngày giữ lượt AI không hợp lệ');
+    if (!quotaDateSchema.safeParse(quotaDate).success || !reservationRevisionSchema.safeParse(reservationRevision).success) {
+      throw ApiError.badRequest('Thông tin giữ lượt AI không hợp lệ');
     }
-    // Hoàn vào ngày đã giữ lượt, kể cả khi AI trả lỗi sau nửa đêm giờ Việt Nam.
-    await guestQuotaRepository.releaseTurn({ guestId: normalizedGuestId, quotaDate });
+    // Giữ đúng ngày và phiên bản; reset của admin không được làm lỗi cũ hoàn nhầm lượt mới.
+    await guestQuotaRepository.releaseTurn({ guestId: normalizedGuestId, quotaDate, reservationRevision });
   },
 
   async resetUsage({ guestId, now = new Date() }, db) {

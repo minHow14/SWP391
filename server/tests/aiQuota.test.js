@@ -34,12 +34,14 @@ describe('Guest quota transaction and date regression tests', () => {
 
   it('rolls back a reset when audit persistence fails', async () => {
     const guestId = `${PREFIX}-rollback`;
-    await guestQuotaService.reserveTurn({ guestId });
+    const reservation = await guestQuotaService.reserveTurn({ guestId });
     const logger = vi.spyOn(aiLogService, 'recordLog').mockRejectedValueOnce(new Error('audit unavailable'));
     try {
       await expect(guestQuotaAdminService.resetUsage({ guestId, adminUserId: 1 })).rejects.toThrow('audit unavailable');
     } finally { logger.mockRestore(); }
     expect((await guestQuotaService.getUsage({ guestId })).used).toBe(1);
+    await guestQuotaService.releaseTurn(reservation);
+    expect((await guestQuotaService.getUsage({ guestId })).used).toBe(0);
   });
 
   it('records the previous usage and actor when resetting successfully', async () => {
@@ -50,5 +52,16 @@ describe('Guest quota transaction and date regression tests', () => {
     expect((await guestQuotaService.getUsage({ guestId })).used).toBe(0);
     const log = await prisma.aiLog.findFirst({ where: { errorFeedback: { contains: guestId } }, orderBy: { logId: 'desc' } });
     expect(log.action).toBe('ADMIN_RESET_GUEST_QUOTA_BY_1');
+  });
+
+  it('does not refund a new request when a request reserved before admin reset fails', async () => {
+    const guestId = `${PREFIX}-reset-during-inference`;
+    const oldReservation = await guestQuotaService.reserveTurn({ guestId });
+    await guestQuotaAdminService.resetUsage({ guestId, adminUserId: 1 });
+    const newReservation = await guestQuotaService.reserveTurn({ guestId });
+    await guestQuotaService.releaseTurn(oldReservation);
+    expect((await guestQuotaService.getUsage({ guestId })).used).toBe(1);
+    await guestQuotaService.releaseTurn(newReservation);
+    expect((await guestQuotaService.getUsage({ guestId })).used).toBe(0);
   });
 });

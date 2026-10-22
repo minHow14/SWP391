@@ -465,13 +465,14 @@ model RestaurantMenuPrice {
   @@map("restaurant_menu_prices")
 }
 
-/// Hạn mức dùng chung cho chatbot và tạo thực đơn; BE sẽ tiếp quản khi chuyển luồng AI.
+/// BE quản lý hạn mức dùng chung cho chatbot và tạo thực đơn.
 /// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
 model GuestQuota {
-  guestId   String   @map("guest_id") @db.VarChar(100)
-  quotaDate DateTime @map("quota_date") @db.Date
-  usedCount Int      @default(0) @map("used_count")
-  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+  guestId             String   @map("guest_id") @db.VarChar(100)
+  quotaDate           DateTime @map("quota_date") @db.Date
+  usedCount           Int      @default(0) @map("used_count")
+  reservationRevision Int      @default(0) @map("reservation_revision")
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
   @@id([guestId, quotaDate])
   @@map("guest_quota")
