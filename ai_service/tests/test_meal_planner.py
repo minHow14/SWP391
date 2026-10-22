@@ -1,17 +1,18 @@
+# D:/SWP391/SWP391/ai_service/tests/test_meal_planner.py
 # ai_service/tests/test_meal_planner.py
 from unittest.mock import AsyncMock, patch
-import pytest
+
 from fastapi.testclient import TestClient
 
-from core.config import settings
-from main import app
 from agents.meal_planner_agent import (
-    GeneratedMealPlan,
-    MealPlanProfile,
     DailyMealPlan,
+    GeneratedMealPlan,
     MealItem,
+    MealPlanProfile,
     meal_planner_agent,
 )
+from core.config import settings
+from main import app
 
 client = TestClient(app)
 INTERNAL_HEADERS = {"X-Internal-Api-Key": settings.INTERNAL_API_KEY}
@@ -82,7 +83,7 @@ def sample_meal_plan():
 
 def test_meal_planner_rejects_missing_internal_key():
     """Từ chối request nếu thiếu header X-Internal-Api-Key."""
-    res = client.post("/api/meal-planner/generate", json={"height_cm": 170, "weight_kg": 65})
+    res = client.post("/api/meal-planner/generate", json={"heightCm": 170, "weightKg": 65})
     assert res.status_code == 401
     assert res.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
@@ -93,10 +94,10 @@ def test_calculate_bmi_info():
     assert bmi == 22.5
     assert "Bình thường" in category
 
-    bmi_low, cat_low = meal_planner_agent.calculate_bmi_info(height_cm=170, weight_kg=50)
+    _bmi_low, cat_low = meal_planner_agent.calculate_bmi_info(height_cm=170, weight_kg=50)
     assert "Thiếu cân" in cat_low
 
-    bmi_high, cat_high = meal_planner_agent.calculate_bmi_info(height_cm=170, weight_kg=80)
+    _bmi_high, cat_high = meal_planner_agent.calculate_bmi_info(height_cm=170, weight_kg=80)
     assert "Béo phì" in cat_high or "Thừa cân" in cat_high
 
 
@@ -104,7 +105,7 @@ def test_meal_planner_validation_error():
     """Kiểm tra validation khi chiều cao hoặc cân nặng ngoài phạm vi hợp lệ."""
     res = client.post(
         "/api/meal-planner/generate",
-        json={"height_cm": 10, "weight_kg": 60},
+        json={"heightCm": 10, "weightKg": 60},
         headers=INTERNAL_HEADERS,
     )
     assert res.status_code == 422
@@ -117,15 +118,15 @@ def test_generate_meal_plan_success(mock_generate):
     mock_generate.return_value = sample_meal_plan()
 
     payload = {
-        "height_cm": 170,
-        "weight_kg": 65,
+        "heightCm": 170,
+        "weightKg": 65,
         "age": 26,
         "gender": "male",
         "goal": "muscle_gain",
-        "activity_level": "moderate",
-        "dietary_type": "vegan",
+        "activityLevel": "moderate",
+        "dietaryType": "vegan",
         "allergies": ["peanuts"],
-        "available_ingredients": ["đậu phụ", "nấm hương"],
+        "availableIngredients": ["đậu phụ", "nấm hương"],
         "days": 1,
     }
 
@@ -137,7 +138,7 @@ def test_generate_meal_plan_success(mock_generate):
     assert res.status_code == 200
     data = res.json()["data"]
     assert data["title"] == "Thực đơn chay mẫu (1 ngày) tăng cơ giảm mỡ"
-    assert len(data["weekly_plan"]) == 1
+    assert len(data["weeklyPlan"]) == 1
     assert "chat" in data
     assert "title" in data["chat"]
     assert "text" in data["chat"]
@@ -150,7 +151,7 @@ def test_generate_meal_plan_llm_failure_returns_502(mock_generate):
 
     res = client.post(
         "/api/meal-planner/generate",
-        json={"height_cm": 170, "weight_kg": 65},
+        json={"heightCm": 170, "weightKg": 65},
         headers=INTERNAL_HEADERS,
     )
     assert res.status_code == 502

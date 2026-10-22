@@ -1,10 +1,14 @@
+# D:/SWP391/SWP391/ai_service/tests/conftest.py
 # ai_service/tests/conftest.py
 import os
+import secrets
+
 import pytest
 from fastapi.testclient import TestClient
 
 # Cấu hình biến môi trường kiểm thử cho AI Microservice (Stateless)
-os.environ["INTERNAL_API_KEY"] = "chayxanh_internal_secure_key_2026"
+TEST_INTERNAL_API_KEY = secrets.token_hex(32)
+os.environ["INTERNAL_API_KEY"] = TEST_INTERNAL_API_KEY
 os.environ["RATE_LIMIT"] = "100000/minute"
 os.environ["DEBUG"] = "false"
 os.environ["TRUSTED_PROXIES"] = "testclient,127.0.0.1"
@@ -16,7 +20,7 @@ from main import app
 
 @pytest.fixture
 def internal_headers() -> dict[str, str]:
-    return {"X-Internal-Api-Key": "chayxanh_internal_secure_key_2026"}
+    return {"X-Internal-Api-Key": TEST_INTERNAL_API_KEY}
 
 
 @pytest.fixture

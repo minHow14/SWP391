@@ -1,10 +1,11 @@
+# D:/SWP391/SWP391/ai_service/tests/test_security.py
 # ai_service/tests/test_security.py
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from core.config import settings
-from core.security import verify_internal_api_key, resolve_identity, RequestIdentity
+from core.security import RequestIdentity, resolve_identity, verify_internal_api_key
 from main import app
 
 client = TestClient(app)

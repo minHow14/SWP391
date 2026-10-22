@@ -1,7 +1,11 @@
+# D:/SWP391/SWP391/ai_service/agents/chatbot_agent.py
+from collections.abc import AsyncGenerator
 from pathlib import Path
-from typing import Optional, List, AsyncGenerator, Any
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, BaseMessage
+from typing import Any
+
 from cachetools import TTLCache
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+
 from core.llm import get_llm_text
 
 PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "chatbot.md"
@@ -13,7 +17,7 @@ class ChatbotAgent:
     bộ nhớ đệm TTL Cache và streaming response.
     """
     def __init__(self):
-        self._prompt_content: Optional[str] = None
+        self._prompt_content: str | None = None
         # Cache các câu hỏi tra cứu dinh dưỡng lặp lại trong 1 giờ (tối đa 150 câu)
         self._cache: TTLCache = TTLCache(maxsize=150, ttl=3600)
 
@@ -23,7 +27,7 @@ class ChatbotAgent:
         self._cache.clear()
         return count
 
-    def load_prompt(self, dietary_type: Optional[str] = None, menu_context: Optional[str] = None) -> str:
+    def load_prompt(self, dietary_type: str | None = None, menu_context: str | None = None) -> str:
         if self._prompt_content is None:
             if PROMPT_FILE.exists():
                 self._prompt_content = PROMPT_FILE.read_text(encoding="utf-8")
@@ -59,12 +63,12 @@ class ChatbotAgent:
     def build_messages(
         self,
         user_message: str,
-        history: Optional[List[Any]] = None,
-        dietary_type: Optional[str] = None,
-        menu_context: Optional[str] = None,
-    ) -> List[BaseMessage]:
+        history: list[Any] | None = None,
+        dietary_type: str | None = None,
+        menu_context: str | None = None,
+    ) -> list[BaseMessage]:
         system_prompt = self.load_prompt(dietary_type=dietary_type, menu_context=menu_context)
-        messages: List[BaseMessage] = [SystemMessage(content=system_prompt)]
+        messages: list[BaseMessage] = [SystemMessage(content=system_prompt)]
 
         if history:
             # Lấy tối đa 10 lượt hội thoại gần nhất để tránh tràn context
@@ -85,9 +89,9 @@ class ChatbotAgent:
     async def answer(
         self,
         user_message: str,
-        history: Optional[List[Any]] = None,
-        dietary_type: Optional[str] = None,
-        menu_context: Optional[str] = None,
+        history: list[Any] | None = None,
+        dietary_type: str | None = None,
+        menu_context: str | None = None,
     ) -> str:
         """
         Xử lý tin nhắn và trả về câu trả lời dạng chuỗi hoàn chỉnh.
@@ -120,15 +124,16 @@ class ChatbotAgent:
     async def answer_stream(
         self,
         user_message: str,
-        history: Optional[List[Any]] = None,
-        dietary_type: Optional[str] = None,
-        menu_context: Optional[str] = None,
+        history: list[Any] | None = None,
+        dietary_type: str | None = None,
+        menu_context: str | None = None,
+        prepared_messages: list[BaseMessage] | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         Stream câu trả lời của LLM theo từng token.
         """
         clean_msg = user_message.strip()
-        messages = self.build_messages(
+        messages = prepared_messages if prepared_messages is not None else self.build_messages(
             clean_msg, history=history, dietary_type=dietary_type, menu_context=menu_context
         )
         llm = get_llm_text()

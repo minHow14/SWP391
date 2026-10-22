@@ -1,6 +1,7 @@
+# D:/SWP391/SWP391/ai_service/core/security.py
 # ai_service/core/security.py
 import logging
-from typing import Optional
+import secrets
 
 from fastapi import Header, HTTPException, Request, status
 from pydantic import BaseModel
@@ -12,20 +13,20 @@ logger = logging.getLogger(__name__)
 
 class RequestIdentity(BaseModel):
     is_authenticated: bool
-    user_id: Optional[str] = None
-    user_role: Optional[str] = None
-    guest_id: Optional[str] = None
+    user_id: str | None = None
+    user_role: str | None = None
+    guest_id: str | None = None
 
 
 def verify_internal_api_key(
-    x_internal_api_key: Optional[str] = Header(None, alias="X-Internal-Api-Key")
+    x_internal_api_key: str | None = Header(None, alias="X-Internal-Api-Key")
 ) -> bool:
     """
     Xác thực nội bộ bắt buộc: Chỉ cho phép các request đến từ Backend API Gateway
     có kèm header X-Internal-Api-Key khớp với biến môi trường INTERNAL_API_KEY.
     """
     expected_key = settings.INTERNAL_API_KEY
-    if not x_internal_api_key or x_internal_api_key.strip() != expected_key:
+    if not x_internal_api_key or not secrets.compare_digest(x_internal_api_key, expected_key):
         logger.warning("Rejected unauthorized call to AI service: Missing or invalid X-Internal-Api-Key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -39,9 +40,9 @@ def verify_internal_api_key(
 
 def resolve_identity(
     request: Request,
-    x_user_id: Optional[str] = Header(None, alias="X-User-Id"),
-    x_user_role: Optional[str] = Header(None, alias="X-User-Role"),
-    x_guest_id: Optional[str] = Header(None, alias="X-Guest-Id"),
+    x_user_id: str | None = Header(None, alias="X-User-Id"),
+    x_user_role: str | None = Header(None, alias="X-User-Role"),
+    x_guest_id: str | None = Header(None, alias="X-Guest-Id"),
 ) -> RequestIdentity:
     """
     Định danh người dùng do Backend Gateway gửi sang:

@@ -1,6 +1,7 @@
+# D:/SWP391/SWP391/ai_service/tests/test_chat.py
 # ai_service/tests/test_chat.py
 from unittest.mock import AsyncMock, patch
-import pytest
+
 from fastapi.testclient import TestClient
 
 from core.config import settings
@@ -33,7 +34,7 @@ def test_chat_valid_message_success(mock_answer):
 
     res = client.post(
         "/api/chat",
-        json={"message": "Ăn gì để bổ sung protein?", "dietary_type": "vegan"},
+        json={"message": "Ăn gì để bổ sung protein?", "dietaryType": "vegan"},
         headers=INTERNAL_HEADERS,
     )
     assert res.status_code == 200
@@ -47,7 +48,7 @@ def test_chat_overlong_menu_context_returns_422():
     """Gửi menu_context vượt quá 8000 ký tự -> Trả về 422 INVALID_INPUT."""
     res = client.post(
         "/api/chat",
-        json={"message": "Giải thích thực đơn", "menu_context": "x" * 8001},
+        json={"message": "Giải thích thực đơn", "menuContext": "x" * 8001},
         headers=INTERNAL_HEADERS,
     )
     assert res.status_code == 422
@@ -88,3 +89,14 @@ def test_chat_stream_success(mock_stream):
     assert "text/event-stream" in res.headers["content-type"]
     assert "Xin " in res.text
     assert "chào!" in res.text
+    events = []
+    for block in res.text.replace("\r\n", "\n").split("\n\n"):
+        if block.startswith("event: metadata"):
+            import json
+            events.append(json.loads(next(line[6:] for line in block.splitlines() if line.startswith("data:"))))
+    trace = events[0]["data"]
+    prepared = mock_stream.call_args.kwargs["prepared_messages"]
+    assert trace["messages"] == [
+        {"role": "system" if message.type == "system" else "user", "content": message.content}
+        for message in prepared
+    ]

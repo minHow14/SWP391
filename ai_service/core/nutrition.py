@@ -1,7 +1,8 @@
+# D:/SWP391/SWP391/ai_service/core/nutrition.py
 import re
 import unicodedata
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
 
 from rapidfuzz import fuzz
 from unidecode import unidecode
@@ -41,7 +42,7 @@ class NutritionTargets:
     target_calories: int
     protein_g: int
     activity_level: str
-    note: Optional[str] = None
+    note: str | None = None
 
 
 def calculate_bmi(height_cm: float, weight_kg: float) -> float:
@@ -60,7 +61,7 @@ def bmi_category(bmi: float) -> str:
     return "Béo phì (Obese)"
 
 
-def _normalize_gender(gender: Optional[str]) -> str:
+def _normalize_gender(gender: str | None) -> str:
     g = (gender or "").strip().lower()
     if g in ("male", "nam", "m"):
         return "male"
@@ -69,7 +70,7 @@ def _normalize_gender(gender: Optional[str]) -> str:
     return "other"
 
 
-def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: Optional[str]) -> float:
+def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: str | None) -> float:
     """Mifflin-St Jeor. Giới tính khác/không rõ dùng trung bình của nam và nữ."""
     base = 10 * weight_kg + 6.25 * height_cm - 5 * age
     offset = {"male": 5, "female": -161, "other": -78}[_normalize_gender(gender)]
@@ -79,11 +80,11 @@ def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: Optional
 def calculate_targets(
     height_cm: float,
     weight_kg: float,
-    age: Optional[int] = 25,
-    gender: Optional[str] = "unspecified",
+    age: int | None = 25,
+    gender: str | None = "unspecified",
     goal: str = "maintenance",
     activity_level: str = "light",
-    bmi: Optional[float] = None,
+    bmi: float | None = None,
 ) -> NutritionTargets:
     """
     Tính BMR, TDEE, calo mục tiêu và protein mục tiêu. `bmi` do web gửi sang được dùng
@@ -209,20 +210,20 @@ _TERM_EXCEPTIONS = {"tương": r"(?!\s+(?:ớt|cà|dừa)(?!\w))"}
 _PLANT_NAMES = ["rau chân vịt", "chân vịt", "đậu gà", "bánh tai heo", "cỏ mực"]
 
 
-def _allergen_terms(allergy: str) -> List[str]:
+def _allergen_terms(allergy: str) -> list[str]:
     """Từ khoá cần tìm cho một dị ứng người dùng nhập (chấp nhận số nhiều: peanuts, eggs...)."""
     key = _norm(allergy)
     group = _ALLERGEN_GROUP_NAMES.get(key) or _ALLERGEN_GROUP_NAMES.get(key.removesuffix("s"))
     return ALLERGEN_ALIASES[group] if group else [key]
 
 
-Meal = tuple[str, str, List[str]]  # (nhãn bữa, tên món, nguyên liệu)
+Meal = tuple[str, str, list[str]]  # (nhãn bữa, tên món, nguyên liệu)
 TermPattern = tuple[bool, re.Pattern]  # (so khớp giữ dấu?, pattern)
 
 
 def _term_patterns(
     terms: Iterable[str], plant_based_ok: bool = False, animal: bool = False
-) -> List[TermPattern]:
+) -> list[TermPattern]:
     """
     So khớp nguyên từ, bỏ qua _TERM_EXCEPTIONS và cụm tiếng Anh có nguồn thực vật đứng trước
     (với từ chỉ sữa/trứng/thịt).
@@ -251,7 +252,7 @@ def _term_patterns(
     return patterns
 
 
-def _first_match(meal: Meal, patterns: List[TermPattern], strip_plant_names: bool = False) -> Optional[str]:
+def _first_match(meal: Meal, patterns: list[TermPattern], strip_plant_names: bool = False) -> str | None:
     _, name, ingredients = meal
     accented_text = " ; ".join(_NEGATION.sub(" ", _lower(part)) for part in [name, *ingredients])
     if strip_plant_names:
@@ -265,7 +266,7 @@ def _first_match(meal: Meal, patterns: List[TermPattern], strip_plant_names: boo
     return None
 
 
-def find_allergen_violations(meals: Iterable[Meal], allergies: List[str]) -> List[str]:
+def find_allergen_violations(meals: Iterable[Meal], allergies: list[str]) -> list[str]:
     """
     Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ). Không chấp nhận
     ngoại lệ "bản thực vật": tofu chay vẫn là đậu nành.
@@ -300,7 +301,7 @@ DIET_FORBIDDEN = {
 }
 
 
-def diet_key(dietary_type: Optional[str]) -> str:
+def diet_key(dietary_type: str | None) -> str:
     """Chuẩn hoá trường phái chay: vegan / thuần chay, lacto, ovo, lacto_ovo (mặc định)."""
     key = _norm(dietary_type or "").replace("-", "_").replace(" ", "_")
     if "vegan" in key or "thuan_chay" in key:
@@ -313,7 +314,7 @@ def diet_key(dietary_type: Optional[str]) -> str:
     return "lacto_ovo"
 
 
-def find_diet_violations(meals: Iterable[Meal], dietary_type: Optional[str]) -> List[str]:
+def find_diet_violations(meals: Iterable[Meal], dietary_type: str | None) -> list[str]:
     """Danh sách mô tả các món không hợp trường phái chay (thịt/cá, hoặc trứng/sữa/mật ong với vegan)."""
     diet = diet_key(dietary_type)
     checks = [
@@ -333,7 +334,7 @@ def find_diet_violations(meals: Iterable[Meal], dietary_type: Optional[str]) -> 
 PANTRY_MATCH_THRESHOLD = 88
 
 
-def find_used_ingredients(available: List[str], meals: Iterable[tuple[str, str, List[str]]]) -> List[str]:
+def find_used_ingredients(available: list[str], meals: Iterable[tuple[str, str, list[str]]]) -> list[str]:
     """
     Nguyên liệu sẵn có thực sự xuất hiện trong thực đơn, so khớp gần đúng (rapidfuzz) và bỏ dấu,
     nên "cà chua" khớp "Cà chua bi 100g". Trả về đúng cách người dùng đã ghi.

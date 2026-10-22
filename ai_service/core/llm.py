@@ -1,4 +1,4 @@
-from typing import Type
+# D:/SWP391/SWP391/ai_service/core/llm.py
 
 import httpx
 import openai
@@ -69,7 +69,7 @@ def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
     return _client(get_json_model_name(), 0.3, timeout, max_tokens=JSON_MAX_TOKENS)
 
 
-def get_structured_llm(schema: Type[BaseModel], timeout: float = 90.0):
+def get_structured_llm(schema: type[BaseModel], timeout: float = 90.0):
     """
     LLM trả về đối tượng Pydantic theo `schema`, tự chuyển sang model dự phòng khi nhà cung cấp lỗi.
     Dùng function calling vì DeepSeek từ chối response_format json_schema (HTTP 400).
