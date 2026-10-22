@@ -1,4 +1,4 @@
-// server/prisma/seed.js
+// D:/SWP391/SWP391/server/prisma/seed.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -160,7 +160,7 @@ async function main() {
     prisma.report.count(),
     prisma.restaurantReview.count(),
     prisma.notification.count(),
-    prisma.ai_logs.count(),
+    prisma.aiLog.count(),
   ]);
 
   console.log(`   - Chế độ ăn (diet_types):           ${dietTypesCount}`);
