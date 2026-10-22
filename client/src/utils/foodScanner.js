@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/foodScanner.js
+﻿// client/src/utils/foodScanner.js
 const normalize = (text) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 const rules = [
   { pattern: /\bnuoc mam ca com\b/, reason: 'Chiết xuất từ cá biển.', layer: 1 },

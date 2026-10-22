@@ -1,3 +1,4 @@
+# ai_service/api/meal_planner.py
 import asyncio
 import json
 import logging
@@ -10,10 +11,7 @@ from core.config import settings
 from core.security import (
     RequestIdentity,
     resolve_identity,
-    get_guest_usage,
-    reserve_guest_question,
-    release_guest_question,
-    get_quota_reset_iso,
+    verify_internal_api_key,
 )
 from core.database import record_ai_log
 from core.ratelimit import rate_limit
@@ -23,7 +21,11 @@ from agents.meal_planner_agent import GeneratedMealPlan, ProgressCallback, meal_
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/meal-planner", tags=["Meal Planner"])
+router = APIRouter(
+    prefix="/meal-planner",
+    tags=["Meal Planner"],
+    dependencies=[Depends(verify_internal_api_key)],
+)
 
 
 class MealPlanRequest(BaseModel):
@@ -69,80 +71,13 @@ class MealPlanResponse(BaseModel):
     meta: dict
 
 
-class MealPlanUsageData(BaseModel):
-    is_authenticated: bool
-    daily_limit: Optional[int] = Field(None, description="Hạn mức số lần tạo/ngày (None nếu không giới hạn)")
-    used_plans: int = Field(..., description="Số lần đã tạo hôm nay")
-    remaining_plans: Optional[int] = Field(None, description="Số lần còn lại hôm nay (None nếu không giới hạn)")
-    unlimited: bool = Field(False, description="True nếu là thành viên đăng nhập không giới hạn")
-
-
-class MealPlanUsageResponse(BaseModel):
-    success: bool = True
-    data: MealPlanUsageData
-    meta: dict
-
-
-@router.get("/usage", response_model=MealPlanUsageResponse)
-async def get_usage(request: Request, identity: RequestIdentity = Depends(resolve_identity)):
-    """
-    Kiểm tra số lượt tạo thực đơn còn lại trong ngày.
-    Khách (guest): tối đa 3 lượt/ngày, dùng chung với lượt hỏi chatbot.
-    Người dùng đã đăng nhập: không giới hạn (unlimited).
-    """
-    if identity.is_authenticated:
-        return MealPlanUsageResponse(
-            success=True,
-            data=MealPlanUsageData(
-                is_authenticated=True,
-                daily_limit=None,
-                used_plans=0,
-                remaining_plans=None,
-                unlimited=True,
-            ),
-            meta={"requestId": request.state.request_id},
-        )
-
-    guest_id = identity.guest_id
-    used, remaining, limit = await get_guest_usage(guest_id)
-    return MealPlanUsageResponse(
-        success=True,
-        data=MealPlanUsageData(
-            is_authenticated=False,
-            daily_limit=limit,
-            used_plans=used,
-            remaining_plans=remaining,
-            unlimited=False,
-        ),
-        meta={"requestId": request.state.request_id},
-    )
-
-
-async def _reserve_guest_turn(identity: RequestIdentity) -> Optional[str]:
-    """Giữ một lượt cho khách trước khi gọi AI (nguyên tử, tránh vượt hạn mức khi gọi đồng thời)."""
-    if identity.is_authenticated:
-        return None
-    guest_id = identity.guest_id
-    if await reserve_guest_question(guest_id) is None:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            detail={
-                "code": "MEAL_PLAN_QUOTA_EXCEEDED",
-                "message": "Bạn đã sử dụng hết lượt trong ngày (dùng chung cho hỏi chatbot và tạo thực đơn). Vui lòng đăng nhập để dùng không giới hạn.",
-                "details": {"resetAt": get_quota_reset_iso()},
-            },
-        )
-    return guest_id
-
-
 async def _generate(
     body: MealPlanRequest,
     identity: RequestIdentity,
-    guest_id: Optional[str],
     on_progress: Optional[ProgressCallback] = None,
 ) -> MealPlanData:
     """
-    Tạo thực đơn và ghi AILog. Lỗi thì hoàn lại lượt của khách rồi ném lại lỗi gốc.
+    Tạo thực đơn và ghi AILog có cấu trúc.
     """
     try:
         plan: GeneratedMealPlan = await meal_planner_agent.generate_plan(
@@ -161,8 +96,6 @@ async def _generate(
         )
     except Exception as e:
         logger.error(f"Error generating meal plan: {e}", exc_info=True)
-        if guest_id:
-            await release_guest_question(guest_id)
         await record_ai_log(
             model_name=get_json_model_name(),
             action="MEAL_PLANNER_ERROR",
@@ -171,7 +104,7 @@ async def _generate(
         )
         raise
 
-    user_tag = guest_id if guest_id else f"USER_{identity.user_id}"
+    user_tag = f"USER_{identity.user_id}" if identity.is_authenticated else f"GUEST_{identity.guest_id}"
     await record_ai_log(
         model_name=get_json_model_name(),
         action=f"MEAL_PLANNER_{user_tag}",
@@ -196,15 +129,10 @@ async def generate_meal_plan(
     identity: RequestIdentity = Depends(resolve_identity),
 ):
     """
-    Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner)
-    dựa trên BMI, mục tiêu sức khỏe, dị ứng thực phẩm và nguyên liệu có sẵn.
-    - Khách: giới hạn 3 lượt/ngày, dùng chung với lượt hỏi chatbot (mỗi lần tạo thực đơn tính 1 lượt).
-    - Người dùng đã đăng nhập: không giới hạn.
-    Mất khoảng một phút; dùng /generate/stream để nhận tiến độ trong lúc chờ.
+    Tự động lập thực đơn chay cá nhân hóa (Personalized Weekly Meal Planner).
     """
-    guest_id = await _reserve_guest_turn(identity)
     try:
-        data = await _generate(body, identity, guest_id)
+        data = await _generate(body, identity)
     except Exception as e:
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=_provider_error(e))
     return MealPlanResponse(success=True, data=data, meta={"requestId": request.state.request_id})
@@ -218,14 +146,8 @@ async def generate_meal_plan_stream(
     identity: RequestIdentity = Depends(resolve_identity),
 ):
     """
-    Như /generate nhưng trả về Server-Sent Events để hiện tiến độ trong lúc chờ:
-    - `progress`: {"success": true, "data": {"stage", "message", ...}} với stage là
-      calculating | generating | validating | retrying.
-    - `done`: envelope thành công giống /generate (data là thực đơn đầy đủ kèm `chat`).
-    - `error`: envelope lỗi (AI_PROVIDER_ERROR); lượt của khách đã được hoàn lại.
-    Lỗi hạn mức (429) và dữ liệu sai (422) trả về như bình thường, trước khi stream bắt đầu.
+    Tạo thực đơn và trả về Server-Sent Events để hiển thị tiến độ trong lúc xử lý.
     """
-    guest_id = await _reserve_guest_turn(identity)
     request_id = request.state.request_id
 
     async def event_generator():
@@ -236,7 +158,7 @@ async def generate_meal_plan_stream(
 
         async def runner() -> None:
             try:
-                await queue.put(("done", await _generate(body, identity, guest_id, on_progress)))
+                await queue.put(("done", await _generate(body, identity, on_progress)))
             except Exception as e:
                 await queue.put(("error", e))
 
@@ -258,7 +180,6 @@ async def generate_meal_plan_stream(
                 if kind != "progress":
                     break
         finally:
-            # Client ngắt kết nối giữa chừng thì dừng việc tạo thực đơn
             if not task.done():
                 task.cancel()
 

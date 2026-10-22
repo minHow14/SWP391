@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/chatReplies.js
+﻿// client/src/utils/chatReplies.js
 import {api} from '../services/api.js';
 import {normalizeSearch} from './recipeFilters.js';
 export async function getDatabaseReply(question){

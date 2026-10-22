@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/profile/components/ProfileSetupNotice.jsx
+﻿// client/src/features/profile/components/ProfileSetupNotice.jsx
 import { Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 

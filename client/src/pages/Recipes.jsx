@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Recipes.jsx
+﻿// client/src/pages/Recipes.jsx
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';

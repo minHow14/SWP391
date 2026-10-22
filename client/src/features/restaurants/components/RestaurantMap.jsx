@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/components/RestaurantMap.jsx
+﻿// client/src/features/restaurants/components/RestaurantMap.jsx
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { hasCoordinates } from '../../../utils/restaurantDirections.js';

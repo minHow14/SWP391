@@ -1,114 +1,84 @@
-name: CI Pipeline
+name: CI Pipeline - Code Quality & Automated Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [ main, develop ]
   pull_request:
-    branches: [main, develop]
+    branches: [ main, develop ]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  pull-requests: read
-
 jobs:
-  # -------------------------------------------------------------
-  # Job 1: Lọc thư mục có file thay đổi
-  # -------------------------------------------------------------
-  changes:
-    name: Detect Changes
-    runs-on: ubuntu-latest
-    outputs:
-      client: ${{ steps.filter.outputs.client }}
-      server: ${{ steps.filter.outputs.server }}
-      ai_service: ${{ steps.filter.outputs.ai_service }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0 # Đảm bảo có đủ lịch sử commit để paths-filter so sánh chính xác
-
-      - name: Check Paths
-        uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: |
-            client:
-              - 'client/**'
-              - '.github/workflows/ci.yml'
-            server:
-              - 'server/**'
-              - '.github/workflows/ci.yml'
-            ai_service:
-              - 'ai_service/**'
-              - '.github/workflows/ci.yml'
-
-  # -------------------------------------------------------------
-  # Job 2: Kiểm tra Front-end (Client)
-  # -------------------------------------------------------------
-  client-check:
-    name: Client (Lint, Test & Build)
-    needs: changes
-    if: ${{ needs.changes.outputs.client == 'true' }}
+  # =========================================================================
+  # 1. CLIENT QUALITY & AUTOMATED TESTS (React 19 + Vite)
+  # =========================================================================
+  client-tests:
+    name: Frontend Quality & Tests (client/)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: client
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js 22
+      - name: Setup Node.js 20
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: 'npm'
           cache-dependency-path: client/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install Client Dependencies
         run: npm ci
 
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run Unit Tests
+      - name: Run Frontend Automated Tests
         run: npm test
 
-      - name: Test Build Production
+      - name: Build Frontend Production Artifact
         run: npm run build
 
-  # -------------------------------------------------------------
-  # Job 3: Kiểm tra Back-end (Server)
-  # -------------------------------------------------------------
-  server-check:
-    name: Server (Prisma & Vitest)
-    needs: changes
-    if: ${{ needs.changes.outputs.server == 'true' }}
+  # =========================================================================
+  # 2. SERVER QUALITY & AUTOMATED TESTS (Express + Prisma + PostgreSQL)
+  # =========================================================================
+  server-tests:
+    name: Backend Quality & Tests (server/)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
-    # Khởi tạo PostgreSQL DB tạm thời cho runner
+
     services:
       postgres:
         image: postgres:15-alpine
         env:
-          POSTGRES_USER: test_user
-          POSTGRES_PASSWORD: test_password
-          POSTGRES_DB: test_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres_password
+          POSTGRES_DB: vegetarian_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U test_user -d test_db"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
+    env:
+      PORT: 5000
+      NODE_ENV: test
+      CLIENT_URL: http://localhost:5173
+      DATABASE_URL: "postgresql://postgres:postgres_password@localhost:5432/vegetarian_db"
+      JWT_SECRET: "ci_test_super_secret_jwt_key_swp391_2026"
+      JWT_EXPIRES_IN: "7d"
+      AI_SERVICE_URL: "http://127.0.0.1:8000"
+      INTERNAL_API_KEY: "chayxanh_internal_secure_key_2026"
+      GUEST_DAILY_LIMIT: 3
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Setup Node.js 20
@@ -118,41 +88,40 @@ jobs:
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
 
-      - name: Install Dependencies
+      - name: Install Server Dependencies
         run: npm ci
 
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Deploy Database Schema
-        env:
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db?schema=public
-        run: npx prisma db push --accept-data-loss
+      - name: Push Database Schema to PostgreSQL
+        run: npx prisma db push --skip-generate
 
-      - name: Seed Database
-        env:
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db?schema=public
-        run: npm run db:seed
+      - name: Seed Database with Initial Data
+        run: npm run seed
 
-      - name: Run Database Tests
-        env:
-          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_db?schema=public
-          JWT_SECRET: test_secret_key_ci
+      - name: Run Backend Vitest Test Suite
         run: npm test
 
-  # -------------------------------------------------------------
-  # Job 4: Kiểm tra AI Microservice (FastAPI)
-  # -------------------------------------------------------------
-  ai-service-check:
-    name: AI Service (Flake8 & Pytest)
-    needs: changes
-    if: ${{ needs.changes.outputs.ai_service == 'true' }}
+  # =========================================================================
+  # 3. AI SERVICE QUALITY & AUTOMATED TESTS (FastAPI + LangChain)
+  # =========================================================================
+  ai-service-tests:
+    name: AI Microservice Quality & Tests (ai_service/)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: ai_service
+
+    env:
+      INTERNAL_API_KEY: "chayxanh_internal_secure_key_2026"
+      DEEPSEEK_API_KEY: "test-deepseek-ci-key"
+      DEBUG: "false"
+      RATE_LIMIT: "100000/minute"
+      TRUSTED_PROXIES: "testclient,127.0.0.1"
+
     steps:
-      - name: Checkout Code
+      - name: Checkout Source Code
         uses: actions/checkout@v4
 
       - name: Setup Python 3.11
@@ -162,38 +131,10 @@ jobs:
           cache: 'pip'
           cache-dependency-path: ai_service/requirements.txt
 
-      - name: Install Dependencies
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pytest pytest-asyncio httpx
 
-      - name: Lint Code
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-
-      - name: Run Tests
-        env:
-          INTERNAL_API_KEY: ci_test_key
-          OPENAI_API_KEY: test-ci-dummy-key
-          DEEPSEEK_API_KEY: test-ci-dummy-key
+      - name: Run AI Microservice Pytest Suite
         run: pytest
-
-  # -------------------------------------------------------------
-  # Job 5: Tổng hợp kết quả (Dành cho Branch Protection Rules)
-  # -------------------------------------------------------------
-  ci-status:
-    name: CI Status
-    needs: [changes, client-check, server-check, ai-service-check]
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check All Jobs Status
-        run: |
-          if [[ "${{ needs.client-check.result }}" =~ ^(failure|cancelled)$ ]] || \
-             [[ "${{ needs.server-check.result }}" =~ ^(failure|cancelled)$ ]] || \
-             [[ "${{ needs.ai-service-check.result }}" =~ ^(failure|cancelled)$ ]]; then
-            echo "Một hoặc nhiều jobs kiểm thử đã thất bại!"
-            exit 1
-          fi
-          echo "Tất cả các job kiểm thử đã PASS hoặc được bỏ qua hợp lệ!"

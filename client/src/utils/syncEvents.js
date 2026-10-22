@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/syncEvents.js
+﻿// client/src/utils/syncEvents.js
 
 const SYNC_CHANNEL_NAME = 'chayxanh-sync';
 let channel = null;

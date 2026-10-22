@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/mealPlan/components/TagField.jsx
+﻿// client/src/features/mealPlan/components/TagField.jsx
 import { useState } from 'react';
 
 export default function TagField({ id, label, tags, onChange, hints = [], placeholder }) {

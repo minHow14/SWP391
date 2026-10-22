@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/diet/components/WelcomeModal.jsx
+﻿// client/src/features/diet/components/WelcomeModal.jsx
 import { useEffect, useRef, useState } from 'react';
 import { saveDiet } from '../../../utils/dietSelection.js';
 

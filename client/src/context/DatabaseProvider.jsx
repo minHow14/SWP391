@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/context/DatabaseProvider.jsx
+﻿// client/src/context/DatabaseProvider.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { api } from '../services/api.js';
 import { getSession, setSession } from '../utils/session.js';

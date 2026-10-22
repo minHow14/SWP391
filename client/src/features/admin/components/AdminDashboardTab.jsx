@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminDashboardTab.jsx
+﻿// client/src/features/admin/components/AdminDashboardTab.jsx
 import { useEffect, useState } from 'react';
 import { Row, Col, Spinner, Alert, Button, Table } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';

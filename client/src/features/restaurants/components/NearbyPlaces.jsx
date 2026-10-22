@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/components/NearbyPlaces.jsx
+﻿// client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../../services/api.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';

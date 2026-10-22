@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/auth/components/AuthHeader.jsx
+﻿// client/src/features/auth/components/AuthHeader.jsx
 import { Nav } from 'react-bootstrap';
 import { Link } from 'react-router';
 

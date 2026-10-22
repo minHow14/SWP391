@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/routes/RouteAccessibility.jsx
+﻿// client/src/routes/RouteAccessibility.jsx
 import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 

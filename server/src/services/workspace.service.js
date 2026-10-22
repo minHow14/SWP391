@@ -76,8 +76,15 @@ export const workspaceService = {
           .map((s) => s[0])
           .join(''),
         category_id: p.post_categories[0]?.category_id || null,
+        category: p.post_categories[0]?.category || null,
         content: p.blog?.content || p.video?.transcript || '',
         image: p.video?.thumbnail_url || null,
+        attachments: (p.attachments || []).map((a) => ({
+          id: a.attachment_id,
+          url: a.file_url,
+          type: a.file_type,
+          name: a.file_name,
+        })),
         vote_count: p.post_votes.reduce(
           (sum, v) => sum + (v.vote_type === 'UPVOTE' ? 1 : -1),
           0

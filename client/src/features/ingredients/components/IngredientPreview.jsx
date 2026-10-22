@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/ingredients/components/IngredientPreview.jsx
+﻿// client/src/features/ingredients/components/IngredientPreview.jsx
 import { useEffect, useRef, useState } from 'react';
 import ContentImage from '../../../components/common/ContentImage.jsx';
 

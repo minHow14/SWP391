@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/chat/components/ChatBox.jsx
+﻿// client/src/features/chat/components/ChatBox.jsx
 import ChatMessage from './ChatMessage.jsx';
 import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';
 import { useChatBox } from '../hooks/useChatBox.js';

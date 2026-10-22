@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/common/SiteStatus.jsx
+﻿// client/src/components/common/SiteStatus.jsx
 import { Alert, Button, Spinner } from 'react-bootstrap';
 
 export default function SiteStatus({ error, onRetry }) {

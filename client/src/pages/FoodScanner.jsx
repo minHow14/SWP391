@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/FoodScanner.jsx
+﻿// client/src/pages/FoodScanner.jsx
 import { useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { analyzeIngredients } from '../utils/foodScanner.js';

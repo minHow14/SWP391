@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Journal.jsx
+﻿// client/src/pages/Journal.jsx
 import { useEffect, useState } from 'react';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import { mealGroups, todayKey, weekDates, totals } from '../utils/journal.js';

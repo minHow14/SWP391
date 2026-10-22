@@ -1,5 +1,5 @@
 // client/src/pages/Community.jsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useCommunity } from '../features/community/hooks/useCommunity.js';
@@ -13,15 +13,31 @@ import '../features/community/styles/community.css';
 export default function Community() {
   const community = useCommunity();
   const [view, setView] = useState('feed');
+  const [filterType, setFilterType] = useState('ALL');
   const [composer, setComposer] = useState(null);
   const [commentId, setCommentId] = useState(null);
   const [reportTarget, setReportTarget] = useState(null);
-  const posts = view === 'mine' ? community.ownPosts : community.feed;
+
+  const allPosts = view === 'mine' ? community.ownPosts : community.feed;
+  const posts = useMemo(() => {
+    if (filterType === 'ALL') return allPosts;
+    return allPosts.filter((p) => p.post_type === filterType || (filterType === 'VIDEO' && p.video_url));
+  }, [allPosts, filterType]);
+
+  const blogCount = useMemo(
+    () => allPosts.filter((p) => p.post_type === 'BLOG' && !p.video_url).length,
+    [allPosts]
+  );
+  const videoCount = useMemo(
+    () => allPosts.filter((p) => p.post_type === 'VIDEO' || Boolean(p.video_url)).length,
+    [allPosts]
+  );
+
   const loading = !community.data || (view === 'mine' && community.mineLoading);
   const error = community.error || (view === 'mine' ? community.mineError : '');
   const commenting =
     community.data?.posts.find((post) => post.post_id === commentId) ||
-    posts.find((post) => post.post_id === commentId);
+    allPosts.find((post) => post.post_id === commentId);
 
   const retry = () => {
     if (view === 'mine') community.retryMine();
@@ -46,7 +62,7 @@ export default function Community() {
               variant="link"
               className={view === 'feed' ? 'is-active' : ''}
               aria-pressed={view === 'feed'}
-              onClick={() => setView('feed')}
+              onClick={() => { setView('feed'); setFilterType('ALL'); }}
             >
               Bảng tin
             </Button>
@@ -54,14 +70,47 @@ export default function Community() {
               variant="link"
               className={view === 'mine' ? 'is-active' : ''}
               aria-pressed={view === 'mine'}
-              onClick={() => setView('mine')}
+              onClick={() => { setView('mine'); setFilterType('ALL'); }}
             >
               Bài viết của tôi
             </Button>
           </nav>
         </section>
+
         <div className="cx-community-stream">
           <CreatePostCard user={community.user} onCreate={() => setComposer({})} />
+
+          {/* Bộ lọc loại nội dung bảng tin: Tất cả, Bài viết, Video */}
+          <div className="d-flex flex-wrap gap-2 my-3">
+            <Button
+              type="button"
+              variant={filterType === 'ALL' ? 'success' : 'light'}
+              size="sm"
+              className="rounded-pill px-3"
+              onClick={() => setFilterType('ALL')}
+            >
+              Tất cả ({allPosts.length})
+            </Button>
+            <Button
+              type="button"
+              variant={filterType === 'BLOG' ? 'success' : 'light'}
+              size="sm"
+              className="rounded-pill px-3"
+              onClick={() => setFilterType('BLOG')}
+            >
+              <i className="bi bi-journal-richtext me-1" /> Bài viết ({blogCount})
+            </Button>
+            <Button
+              type="button"
+              variant={filterType === 'VIDEO' ? 'success' : 'light'}
+              size="sm"
+              className="rounded-pill px-3"
+              onClick={() => setFilterType('VIDEO')}
+            >
+              <i className="bi bi-play-circle-fill me-1" /> Video ({videoCount})
+            </Button>
+          </div>
+
           {community.notice && (
             <Alert
               variant="info"
@@ -72,6 +121,7 @@ export default function Community() {
               {community.notice}
             </Alert>
           )}
+
           {error ? (
             <Alert variant="danger">
               {error}
@@ -96,6 +146,7 @@ export default function Community() {
                   user={community.user}
                   voting={community.votingIds.includes(post.post_id)}
                   onEdit={setComposer}
+                  onDelete={community.removePost}
                   onVote={community.vote}
                   onComment={setCommentId}
                   onReport={setReportTarget}
@@ -107,16 +158,16 @@ export default function Community() {
                   <h2>
                     {view === 'mine' && !community.user
                       ? 'Bài viết của bạn'
-                      : 'Chưa có bài viết'}
+                      : 'Chưa có nội dung phù hợp'}
                   </h2>
                   <p>
                     {view === 'mine' && !community.user
-                      ? 'Đăng nhập để xem và quản lý những bài viết bạn đã chia sẻ.'
-                      : 'Chia sẻ câu chuyện đầu tiên của bạn cùng cộng đồng.'}
+                      ? 'Đăng nhập để xem và quản lý những bài viết hoặc video bạn đã chia sẻ.'
+                      : 'Chia sẻ câu chuyện hoặc video đầu tiên của bạn cùng cộng đồng.'}
                   </p>
                   {community.user ? (
                     <Button variant="success" onClick={() => setComposer({})}>
-                      Tạo bài viết
+                      Tạo bài đăng
                     </Button>
                   ) : (
                     <Button as={Link} to="/dang-nhap" variant="success">
@@ -129,10 +180,12 @@ export default function Community() {
           )}
         </div>
       </Container>
+
       {composer && community.user && (
         <PostComposer
           post={composer}
           user={community.user}
+          categories={community.categories}
           onClose={() => setComposer(null)}
           onSaved={(blog) => {
             community.postSaved(blog);
@@ -155,6 +208,7 @@ export default function Community() {
           target={reportTarget}
           user={community.user}
           onClose={() => setReportTarget(null)}
+          onReportSuccess={(msg) => community.setNotice(msg)}
         />
       )}
     </main>

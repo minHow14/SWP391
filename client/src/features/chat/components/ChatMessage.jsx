@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/chat/components/ChatMessage.jsx
+﻿// client/src/features/chat/components/ChatMessage.jsx
 import { Link } from 'react-router';
 import MarkdownMessage from './MarkdownMessage.jsx';
 

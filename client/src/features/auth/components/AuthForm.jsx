@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/auth/components/AuthForm.jsx
+﻿// client/src/features/auth/components/AuthForm.jsx
 import { useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import AuthHeader from './AuthHeader.jsx';

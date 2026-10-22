@@ -86,6 +86,14 @@ erDiagram
         int post_id PK,FK
         int category_id PK,FK
     }
+    PostAttachment {
+        int attachment_id PK
+        int post_id FK
+        varchar file_url
+        varchar file_type
+        varchar file_name
+        datetime created_at
+    }
     Comment {
         int comment_id PK
         int post_id FK

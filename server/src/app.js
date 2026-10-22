@@ -25,10 +25,17 @@ app.disable('x-powered-by');
 // 2. Gán mã định danh duy nhất (Request ID) cho mọi request để tiện tracing log
 app.use(requestId);
 
-// 3. Bảo mật HTTP Headers bằng Helmet (cho phép cross-origin để FE hiển thị ảnh tĩnh)
+// 3. Bảo mật HTTP Headers bằng Helmet (cho phép cross-origin và nới lỏng media-src để FE phát video, xem ảnh)
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        'media-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
+        'img-src': ["'self'", 'data:', 'blob:', 'http:', 'https:'],
+      },
+    },
   })
 );
 
@@ -57,7 +64,9 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // 7. Phục vụ thư mục tệp tin tĩnh (static files) đã upload an toàn
-app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+const uploadsDirectory = path.resolve(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadsDirectory));
+app.use('/api/uploads', express.static(uploadsDirectory));
 
 // Root endpoint kiểm tra server
 app.get('/', (req, res) => {

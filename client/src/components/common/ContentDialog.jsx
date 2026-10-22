@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/common/ContentDialog.jsx
+﻿// client/src/components/common/ContentDialog.jsx
 import { useEffect, useRef } from 'react';
 
 export default function ContentDialog({ title, children, onClose, className = '', hideHeader = false }) {

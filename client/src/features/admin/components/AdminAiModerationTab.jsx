@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminAiModerationTab.jsx
+﻿// client/src/features/admin/components/AdminAiModerationTab.jsx
 import { useEffect, useState } from 'react';
 import { Table, Button, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';

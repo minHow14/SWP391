@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/layout/Header.jsx
+﻿// client/src/components/layout/Header.jsx
 import { useState } from 'react';
 import { Button, Container, Nav, Navbar } from 'react-bootstrap';
 import { Link, NavLink } from 'react-router';

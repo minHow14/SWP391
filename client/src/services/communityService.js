@@ -1,26 +1,72 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/communityService.js
+// client/src/services/communityService.js
 import apiClient from './apiClient.js';
 
-const UPLOAD_TIMEOUT_MS = 180000;
+const UPLOAD_TIMEOUT_MS = 60000;
 
 export async function getMyPosts(signal) {
   const response = await apiClient.get('/workspace/mine', { signal });
   return response.data;
 }
 
-export async function savePost({ postId, values, attachments }, onUploadProgress) {
-  const body = new FormData();
-  body.append('title', values.title);
-  body.append('content', values.content);
-  if (postId) body.append('retainedAttachmentIds', JSON.stringify(
-    attachments.filter(item => !item.file).map(item => item.id),
-  ));
-  attachments.filter(item => item.file).forEach(item => body.append('attachments', item.file));
-  const response = await apiClient.request({
-    url: postId ? `/blogs/${postId}` : '/blogs', method: postId ? 'PUT' : 'POST',
-    data: body, headers: { 'Content-Type': undefined }, timeout: UPLOAD_TIMEOUT_MS, onUploadProgress,
+export async function uploadPostMedia(files, onUploadProgress) {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('files', file));
+
+  const response = await apiClient.post('/upload/post-media', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
+    timeout: UPLOAD_TIMEOUT_MS,
   });
-  return response.data.blog;
+
+  return response?.data?.files || response?.files || [];
+}
+
+export async function savePost({ postId, values, attachments = [], postType }) {
+  const resolvedType = postType || values.postType || values.post_type || 'BLOG';
+
+  if (resolvedType === 'VIDEO') {
+    const payload = {
+      title: values.title?.trim() || '',
+      video_url: values.videoUrl?.trim() || values.video_url?.trim() || '',
+      thumbnail_url: values.thumbnailUrl?.trim() || values.thumbnail_url?.trim() || null,
+      transcript: values.transcript?.trim() || values.content?.trim() || '',
+      categoryId: values.categoryId ? Number(values.categoryId) : null,
+    };
+
+    const response = await apiClient.request({
+      url: postId ? `/videos/${postId}` : '/videos',
+      method: postId ? 'PUT' : 'POST',
+      data: payload,
+      timeout: UPLOAD_TIMEOUT_MS,
+    });
+
+    return response?.data?.video || response?.video || response?.data || response;
+  }
+
+  const payload = {
+    title: values.title?.trim() || '',
+    content: values.content?.trim() || '',
+    categoryId: values.categoryId ? Number(values.categoryId) : null,
+    attachments: attachments.map((item) => ({
+      url: item.url,
+      type: item.type || 'image',
+      name: item.name || '',
+    })),
+  };
+
+  const response = await apiClient.request({
+    url: postId ? `/blogs/${postId}` : '/blogs',
+    method: postId ? 'PUT' : 'POST',
+    data: payload,
+    timeout: UPLOAD_TIMEOUT_MS,
+  });
+
+  return response?.data?.blog || response?.blog || response?.data || response;
+}
+
+export function deletePost(postId, postType) {
+  const url = postType === 'VIDEO' ? `/videos/${postId}` : `/blogs/${postId}`;
+  return apiClient.delete(url);
 }
 
 export function addPostComment(postId, content) {
@@ -28,6 +74,15 @@ export function addPostComment(postId, content) {
 }
 
 export function togglePostVote({ postId, hasVote }) {
-  return hasVote ? apiClient.delete(`/votes/post/${postId}`)
+  return hasVote
+    ? apiClient.delete(`/votes/post/${postId}`)
     : apiClient.post('/votes', { post_id: postId, vote_type: 'UPVOTE' });
+}
+
+export function createReport({ postId, commentId, reason }) {
+  return apiClient.post('/reports', {
+    ...(postId ? { post_id: postId } : {}),
+    ...(commentId ? { comment_id: commentId } : {}),
+    reason,
+  });
 }

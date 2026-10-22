@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/community/components/CreatePostCard.jsx
+﻿// client/src/features/community/components/CreatePostCard.jsx
 import { Button, Card } from 'react-bootstrap';
 import { Link } from 'react-router';
 

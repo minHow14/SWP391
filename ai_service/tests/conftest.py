@@ -1,19 +1,24 @@
+# ai_service/tests/conftest.py
 import os
-import tempfile
-from pathlib import Path
+import pytest
+from fastapi.testclient import TestClient
 
-# Đặt trước khi import app: test dùng SQLite tạm, không đụng PostgreSQL / ai_agent.db của dev
-# và không phụ thuộc vào file .env.
-_TEST_DIR = Path(tempfile.mkdtemp(prefix="ai_service_tests_"))
-# PG_TEST_DATABASE_URL: chạy cùng bộ test trên PostgreSQL thật (xem vegetarian_db_schema.sql)
-os.environ["DATABASE_URL"] = os.environ.get("PG_TEST_DATABASE_URL") or f"sqlite:///{(_TEST_DIR / 'test.db').as_posix()}"
-os.environ["SQLITE_FALLBACK_PATH"] = str(_TEST_DIR / "fallback.db")
+# Cấu hình biến môi trường kiểm thử cho AI Microservice (Stateless)
+os.environ["INTERNAL_API_KEY"] = "chayxanh_internal_secure_key_2026"
 os.environ["RATE_LIMIT"] = "100000/minute"
 os.environ["DEBUG"] = "false"
-os.environ["AUTH_DEV_MODE"] = "true"
-os.environ["GUEST_DAILY_LIMIT"] = "3"
-# TestClient gọi từ host "testclient": coi như proxy tin cậy để test được X-Forwarded-For
-os.environ["TRUSTED_PROXIES"] = "testclient"
+os.environ["TRUSTED_PROXIES"] = "testclient,127.0.0.1"
 os.environ.setdefault("DEEPSEEK_API_KEY", "test-deepseek-ci-key")
 os.environ.setdefault("OPENAI_API_KEY", "test-openai-ci-key")
 
+from main import app
+
+
+@pytest.fixture
+def internal_headers() -> dict[str, str]:
+    return {"X-Internal-Api-Key": "chayxanh_internal_secure_key_2026"}
+
+
+@pytest.fixture
+def client() -> TestClient:
+    return TestClient(app)

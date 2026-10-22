@@ -70,11 +70,128 @@ export const postRepository = {
     });
   },
 
+  async deletePost(postId, db = prisma) {
+    return db.post.delete({
+      where: { post_id: Number(postId) },
+    });
+  },
+
+  async hardDeletePost(postId, db = prisma) {
+    const id = Number(postId);
+    return db.$transaction(async (tx) => {
+      // 1. Gỡ liên kết post_id ở bảng recipes để không vi phạm khóa ngoại
+      await tx.recipe.updateMany({
+        where: { post_id: id },
+        data: { post_id: null },
+      });
+
+      // 2. Xóa các báo cáo liên quan đến bình luận thuộc bài viết
+      const comments = await tx.comment.findMany({
+        where: { post_id: id },
+        select: { comment_id: true },
+      });
+      const commentIds = comments.map((c) => c.comment_id);
+      if (commentIds.length > 0) {
+        await tx.report.deleteMany({
+          where: { comment_id: { in: commentIds } },
+        });
+        await tx.comment.deleteMany({
+          where: { post_id: id },
+        });
+      }
+
+      // 3. Xóa các báo cáo vi phạm liên kết trực tiếp tới bài viết
+      await tx.report.deleteMany({
+        where: { post_id: id },
+      });
+
+      // 4. Xóa tệp đính kèm, lượt bình chọn và phân loại danh mục
+      await tx.postAttachment.deleteMany({
+        where: { post_id: id },
+      });
+      await tx.postVote.deleteMany({
+        where: { post_id: id },
+      });
+      await tx.postCategory.deleteMany({
+        where: { post_id: id },
+      });
+
+      // 5. Gỡ liên kết video đính kèm ở các bài blog khác nếu có
+      await tx.blog.updateMany({
+        where: { attached_video_id: id },
+        data: { attached_video_id: null },
+      });
+
+      // 6. Xóa chi tiết blog hoặc video
+      await tx.blog.deleteMany({
+        where: { post_id: id },
+      });
+      await tx.video.deleteMany({
+        where: { post_id: id },
+      });
+
+      // 7. Xóa vĩnh viễn bài viết chính khỏi cơ sở dữ liệu
+      return tx.post.delete({
+        where: { post_id: id },
+      });
+    });
+  },
+
   async countPosts(args = {}, db = prisma) {
     return db.post.count(args);
   },
 
   async findPosts(args = {}, db = prisma) {
     return db.post.findMany(args);
+  },
+
+  async findCategoryById(categoryId, db = prisma) {
+    return db.category.findUnique({
+      where: { category_id: Number(categoryId) },
+    });
+  },
+
+  async setPostCategory(postId, categoryId, db = prisma) {
+    const numericPostId = Number(postId);
+    await db.postCategory.deleteMany({
+      where: { post_id: numericPostId },
+    });
+    if (categoryId) {
+      return db.postCategory.create({
+        data: {
+          post_id: numericPostId,
+          category_id: Number(categoryId),
+        },
+      });
+    }
+    return null;
+  },
+
+  async setPostAttachments(postId, attachments = [], db = prisma) {
+    const numericPostId = Number(postId);
+    await db.postAttachment.deleteMany({
+      where: { post_id: numericPostId },
+    });
+    if (attachments && attachments.length > 0) {
+      await db.postAttachment.createMany({
+        data: attachments.map((item) => ({
+          post_id: numericPostId,
+          file_url: item.url,
+          file_type: item.type || 'image',
+          file_name: item.name || null,
+        })),
+      });
+    }
+    return db.postAttachment.findMany({
+      where: { post_id: numericPostId },
+      orderBy: { attachment_id: 'asc' },
+    });
+  },
+
+  async findAttachmentsByPostId(postId, db = prisma) {
+    return db.postAttachment.findMany({
+      where: { post_id: Number(postId) },
+      orderBy: { attachment_id: 'asc' },
+    });
   },
 };

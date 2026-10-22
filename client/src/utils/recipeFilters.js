@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/recipeFilters.js
+﻿// client/src/utils/recipeFilters.js
 export function normalizeSearch(value) {
   return value
     .toLowerCase()

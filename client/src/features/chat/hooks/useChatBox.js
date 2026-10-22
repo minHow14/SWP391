@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/chat/hooks/useChatBox.js
+﻿// client/src/features/chat/hooks/useChatBox.js
 import { useEffect, useRef, useState } from 'react';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import { getChatUsage } from '../../../services/aiApi.js';

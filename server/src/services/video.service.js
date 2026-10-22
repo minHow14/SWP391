@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\services\video.service.js
 import prisma from '../config/prisma.js';
 import { POST_TYPE, POST_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
@@ -8,7 +9,16 @@ export const videoService = {
    * Tạo video mới sử dụng Transaction
    * author_id lấy từ người dùng đã xác thực
    */
-  async createVideo({ author_id, title, video_url, thumbnail_url, duration, transcript }) {
+  async createVideo({
+    author_id,
+    title,
+    video_url,
+    thumbnail_url,
+    duration,
+    transcript,
+    categoryId,
+    category_id,
+  }) {
     const numericAuthorId = Number(author_id);
     if (!numericAuthorId || !title?.trim() || !video_url?.trim()) {
       throw ApiError.badRequest('author_id, title, and video_url are required');
@@ -19,6 +29,17 @@ export const videoService = {
     });
     if (!author) {
       throw ApiError.notFound('Author user not found');
+    }
+
+    const rawCategoryId = categoryId !== undefined ? categoryId : category_id;
+    const numericCategoryId = rawCategoryId ? Number(rawCategoryId) : null;
+    if (numericCategoryId) {
+      const categoryExists = await prisma.category.findUnique({
+        where: { category_id: numericCategoryId },
+      });
+      if (!categoryExists) {
+        throw ApiError.badRequest('Chuyên mục bài viết không tồn tại');
+      }
     }
 
     return await prisma.$transaction(async (tx) => {
@@ -41,9 +62,25 @@ export const videoService = {
         },
       });
 
+      let categoryInfo = null;
+      if (numericCategoryId) {
+        await tx.postCategory.create({
+          data: {
+            post_id: newPost.post_id,
+            category_id: numericCategoryId,
+          },
+        });
+        categoryInfo = await tx.category.findUnique({
+          where: { category_id: numericCategoryId },
+        });
+      }
+
       return {
         ...newPost,
         ...newVideo,
+        category_id: numericCategoryId,
+        categoryId: numericCategoryId,
+        category: categoryInfo,
         author: {
           user_id: author.user_id,
           full_name: author.full_name,
@@ -72,6 +109,11 @@ export const videoService = {
                 full_name: true,
               },
             },
+            post_categories: {
+              include: {
+                category: true,
+              },
+            },
           },
         },
       },
@@ -82,11 +124,17 @@ export const videoService = {
       },
     });
 
-    return videos.map((v) => ({
-      ...v.post,
-      ...v,
-      post: undefined,
-    }));
+    return videos.map((v) => {
+      const firstCat = v.post?.post_categories?.[0];
+      return {
+        ...v.post,
+        ...v,
+        category_id: firstCat?.category_id || null,
+        categoryId: firstCat?.category_id || null,
+        category: firstCat?.category || null,
+        post: undefined,
+      };
+    });
   },
 
   /**
@@ -114,6 +162,11 @@ export const videoService = {
                 full_name: true,
               },
             },
+            post_categories: {
+              include: {
+                category: true,
+              },
+            },
           },
         },
       },
@@ -124,16 +177,24 @@ export const videoService = {
     }
 
     const { post, ...videoData } = video;
+    const firstCat = post?.post_categories?.[0];
     return {
       ...post,
       ...videoData,
+      category_id: firstCat?.category_id || null,
+      categoryId: firstCat?.category_id || null,
+      category: firstCat?.category || null,
     };
   },
 
   /**
    * Cập nhật thông tin video có kiểm tra quyền sở hữu (Ownership Protection)
    */
-  async updateVideo(id, { title, video_url, thumbnail_url, duration, transcript }, currentUser) {
+  async updateVideo(
+    id,
+    { title, video_url, thumbnail_url, duration, transcript, categoryId, category_id },
+    currentUser
+  ) {
     const postId = Number(id);
     if (isNaN(postId)) {
       throw ApiError.badRequest('Invalid video ID format');
@@ -164,6 +225,20 @@ export const videoService = {
       }
     }
 
+    const rawCat = categoryId !== undefined ? categoryId : category_id;
+    let numericCategoryId = undefined;
+    if (rawCat !== undefined) {
+      numericCategoryId = rawCat ? Number(rawCat) : null;
+      if (numericCategoryId) {
+        const categoryExists = await prisma.category.findUnique({
+          where: { category_id: numericCategoryId },
+        });
+        if (!categoryExists) {
+          throw ApiError.badRequest('Chuyên mục bài viết không tồn tại');
+        }
+      }
+    }
+
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
     if (video_url !== undefined) updateData.video_url = video_url.trim();
@@ -171,28 +246,47 @@ export const videoService = {
     if (duration !== undefined) updateData.duration = Number(duration);
     if (transcript !== undefined) updateData.transcript = transcript;
 
-    const updatedVideo = await prisma.video.update({
-      where: { post_id: postId },
-      data: updateData,
-      include: {
-        post: {
-          include: {
-            author: {
-              select: {
-                user_id: true,
-                full_name: true,
+    return await prisma.$transaction(async (tx) => {
+      const updatedVideo = await tx.video.update({
+        where: { post_id: postId },
+        data: updateData,
+        include: {
+          post: {
+            include: {
+              author: {
+                select: {
+                  user_id: true,
+                  full_name: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      });
 
-    const { post, ...videoData } = updatedVideo;
-    return {
-      ...post,
-      ...videoData,
-    };
+      if (numericCategoryId !== undefined) {
+        await tx.postCategory.deleteMany({ where: { post_id: postId } });
+        if (numericCategoryId) {
+          await tx.postCategory.create({
+            data: { post_id: postId, category_id: numericCategoryId },
+          });
+        }
+      }
+
+      const postCat = await tx.postCategory.findFirst({
+        where: { post_id: postId },
+        include: { category: true },
+      });
+
+      const { post, ...videoData } = updatedVideo;
+      return {
+        ...post,
+        ...videoData,
+        category_id: postCat?.category_id || null,
+        categoryId: postCat?.category_id || null,
+        category: postCat?.category || null,
+      };
+    });
   },
 
   /**

@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/mealPlan/components/MealPlanDialog.jsx
+﻿// client/src/features/mealPlan/components/MealPlanDialog.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import TagField from './TagField.jsx';

@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/aiHelpers.js
+﻿// client/src/utils/aiHelpers.js
 // Hàm thuần (không phụ thuộc React) để nối dữ liệu của web với API AI.
 
 const strip = (text) =>

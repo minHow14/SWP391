@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/api.js
+﻿// client/src/services/api.js
 import { getSession, setSession } from '../utils/session.js';
 
 export async function api(path,{method='GET',body,signal,includeMeta=false}={}) {

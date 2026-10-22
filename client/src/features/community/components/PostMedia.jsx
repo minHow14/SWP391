@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/community/components/PostMedia.jsx
+// client/src/features/community/components/PostMedia.jsx
 import ContentImage from '../../../components/common/ContentImage.jsx';
 
 export default function PostMedia({ attachments, preview = false, onRemove }) {
@@ -8,19 +8,19 @@ export default function PostMedia({ attachments, preview = false, onRemove }) {
       className={`cx-post-media ${attachments.length > 1 ? 'is-grid' : ''} ${preview ? 'is-preview' : ''}`}
     >
       {attachments.map((attachment) => (
-        <figure key={attachment.id}>
+        <figure key={attachment.id || attachment.url}>
           {attachment.type === 'video' ? (
             <video
               src={attachment.url}
               controls
               playsInline
               preload="metadata"
-              aria-label={`Video: ${attachment.name}`}
+              aria-label={`Video: ${attachment.name || 'Bài viết'}`}
             />
           ) : (
             <ContentImage
               src={attachment.url}
-              alt={`Ảnh đính kèm: ${attachment.name}`}
+              alt={`Ảnh đính kèm: ${attachment.name || 'Bài viết'}`}
             />
           )}
           {preview && (

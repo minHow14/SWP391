@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/home/components/HomeContentDialog.jsx
+﻿// client/src/features/home/components/HomeContentDialog.jsx
 import { Modal } from 'react-bootstrap';
 import ContentImage from '../../../components/common/ContentImage.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';

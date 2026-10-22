@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/routes/AppRoutes.jsx
+﻿// client/src/routes/AppRoutes.jsx
 import { lazy, Suspense } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { Routes, Route, Navigate } from 'react-router';

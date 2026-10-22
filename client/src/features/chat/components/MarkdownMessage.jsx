@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/chat/components/MarkdownMessage.jsx
+﻿// client/src/features/chat/components/MarkdownMessage.jsx
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 

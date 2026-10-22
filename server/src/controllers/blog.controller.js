@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\blog.controller.js
 import { blogService } from '../services/blog.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

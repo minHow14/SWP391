@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/common/ErrorBoundary.jsx
+﻿// client/src/components/common/ErrorBoundary.jsx
 import { Component } from 'react';
 import { Alert, Button, Container } from 'react-bootstrap';
 

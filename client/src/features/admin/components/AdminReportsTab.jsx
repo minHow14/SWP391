@@ -36,17 +36,27 @@ export default function AdminReportsTab() {
     return unsubscribe;
   }, [fetchReports]);
 
-  const handleResolve = async (reportId, resolutionAction) => {
+  const handleResolve = async (reportId, resolutionAction, isCommentReport) => {
     try {
       await adminService.updateReportStatus(reportId, {
         status: 'RESOLVED',
         resolutionAction,
       });
-      setActionMsg(`Đã xử lý báo cáo thành công (${resolutionAction === 'HIDE_CONTENT' ? 'Đã gỡ bỏ nội dung' : 'Đã duyệt'})`);
+      const actionText =
+        resolutionAction === 'HIDE_CONTENT'
+          ? isCommentReport
+            ? 'Đã gỡ bỏ bình luận vi phạm thành công (Bài viết gốc vẫn được giữ nguyên)'
+            : 'Đã gỡ bỏ bài viết vi phạm thành công'
+          : 'Đã duyệt báo cáo thành công';
+      setActionMsg(actionText);
       emitSyncEvent('REPORT_CHANGED', { reportId });
       if (resolutionAction === 'HIDE_CONTENT') {
-        emitSyncEvent('POST_CHANGED');
-        emitSyncEvent('COMMENT_CHANGED');
+        if (isCommentReport) {
+          emitSyncEvent('COMMENT_CHANGED');
+        } else {
+          emitSyncEvent('POST_CHANGED');
+          emitSyncEvent('COMMENT_CHANGED');
+        }
       }
       fetchReports();
     } catch (err) {
@@ -57,7 +67,7 @@ export default function AdminReportsTab() {
   const handleDismiss = async (reportId) => {
     try {
       await adminService.updateReportStatus(reportId, { status: 'DISMISSED' });
-      setActionMsg('Đã bác bỏ báo cáo vi phạm không chính xác');
+      setActionMsg('Đã bác bỏ báo cáo vi phạm');
       emitSyncEvent('REPORT_CHANGED', { reportId });
       fetchReports();
     } catch (err) {
@@ -128,9 +138,9 @@ export default function AdminReportsTab() {
             </thead>
             <tbody>
               {reports.map((rep) => {
-                const targetTitle = rep.post
-                  ? `[Bài viết] ${rep.post.blog?.title || rep.post.video?.title || 'Bài #' + rep.post.post_id}`
-                  : `[Bình luận] ${rep.comment?.content}`;
+                const isCommentReport = Boolean(rep.comment_id || rep.comment);
+                const postTitle = rep.post?.blog?.title || rep.post?.video?.title || (rep.post_id ? `Bài #${rep.post_id}` : '');
+                const commentText = rep.comment?.content || (rep.comment_id ? `Bình luận #${rep.comment_id}` : '');
 
                 return (
                   <tr key={rep.report_id}>
@@ -140,12 +150,33 @@ export default function AdminReportsTab() {
                       <div className="text-muted" style={{ fontSize: '0.75rem' }}>{rep.reporter?.email}</div>
                     </td>
                     <td>
-                      <div className="small fw-semibold text-truncate" style={{ maxWidth: 260 }} title={targetTitle}>
-                        {targetTitle}
-                      </div>
+                      {isCommentReport ? (
+                        <div>
+                          <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle me-1">
+                            Bình luận
+                          </span>
+                          <span className="small fw-semibold text-dark text-truncate d-inline-block" style={{ maxWidth: 220 }} title={commentText}>
+                            "{commentText}"
+                          </span>
+                          {postTitle && (
+                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                              Thuộc bài viết: <span className="text-secondary">{postTitle}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle me-1">
+                            Bài viết
+                          </span>
+                          <span className="small fw-semibold text-dark text-truncate d-inline-block" style={{ maxWidth: 220 }} title={postTitle}>
+                            {postTitle || 'Bài viết'}
+                          </span>
+                        </div>
+                      )}
                     </td>
                     <td>
-                      <div className="small text-danger text-wrap" style={{ maxWidth: 240 }}>
+                      <div className="small text-danger text-wrap" style={{ maxWidth: 220 }}>
                         {rep.reason}
                       </div>
                     </td>
@@ -164,10 +195,11 @@ export default function AdminReportsTab() {
                             variant="outline-danger"
                             size="sm"
                             className="me-1 rounded-3"
-                            onClick={() => handleResolve(rep.report_id, 'HIDE_CONTENT')}
-                            title="Xác nhận vi phạm & Gỡ bỏ nội dung"
+                            onClick={() => handleResolve(rep.report_id, 'HIDE_CONTENT', isCommentReport)}
+                            title={isCommentReport ? 'Gỡ bỏ bình luận này (Giữ nguyên bài viết)' : 'Gỡ bỏ bài viết này'}
                           >
-                            <i className="bi bi-shield-x me-1" /> Gỡ nội dung
+                            <i className="bi bi-shield-x me-1" />
+                            {isCommentReport ? 'Gỡ bình luận' : 'Gỡ bài viết'}
                           </Button>
                           <Button
                             variant="outline-secondary"

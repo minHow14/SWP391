@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/restaurantDirections.js
+﻿// client/src/utils/restaurantDirections.js
 export function hasCoordinates(place) {
   return Number.isFinite(place?.latitude) && Math.abs(place.latitude) <= 90
     && Number.isFinite(place?.longitude) && Math.abs(place.longitude) <= 180;

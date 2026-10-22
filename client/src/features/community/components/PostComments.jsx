@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/community/components/PostComments.jsx
+﻿// client/src/features/community/components/PostComments.jsx
 import { useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
