@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/server/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -415,14 +416,14 @@ model RestaurantMenuPrice {
   @@map("restaurant_menu_prices")
 }
 
-/// Hạn mức dùng AI mỗi ngày của khách (chatbot + tạo thực đơn dùng chung), do ai_service đọc/ghi.
+/// Hạn mức dùng chung cho chatbot và tạo thực đơn; BE sẽ tiếp quản khi chuyển luồng AI.
 /// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
 model GuestQuota {
-  guest_id   String   @db.VarChar(100)
-  quota_date DateTime @db.Date
-  used_count Int      @default(0)
-  updated_at DateTime @default(now()) @db.Timestamp(6)
+  guestId   String   @map("guest_id") @db.VarChar(100)
+  quotaDate DateTime @map("quota_date") @db.Date
+  usedCount Int      @default(0) @map("used_count")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
-  @@id([guest_id, quota_date])
+  @@id([guestId, quotaDate])
   @@map("guest_quota")
 }
