@@ -29,10 +29,43 @@ model User {
   allergies        UserAllergy[]
   restaurant_reviews RestaurantReview[]
   preferences ProfilePreference?
+  aiGenerations AiGeneration[]
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
+}
+
+enum AiGenerationStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AiGenerationType {
+  CHAT
+  MEAL_PLAN
+}
+
+model AiGeneration {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          Int                @map("user_id")
+  type            AiGenerationType
+  status          AiGenerationStatus @default(PROCESSING)
+  modelName       String             @map("model_name") @db.VarChar(100)
+  requestPayload  Json               @map("request_payload")
+  promptMessages  Json               @map("prompt_messages")
+  responsePayload Json?              @map("response_payload")
+  errorCode       String?            @map("error_code") @db.VarChar(100)
+  errorMessage    String?            @map("error_message")
+  completedAt     DateTime?          @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User               @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt, id], map: "idx_ai_generations_user_created_at")
+  @@index([userId, type, status, createdAt, id], map: "idx_ai_generations_user_type_status_created_at")
+  @@map("ai_generations")
 }
 
 model DietType {
