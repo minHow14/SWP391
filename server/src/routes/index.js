@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\routes\index.js
+// D:/SWP391/SWP391/server/src/routes/index.js
 import express from 'express';
 import authRoutes from './auth.route.js';
 import blogRoutes from './blog.route.js';
@@ -11,6 +11,7 @@ import placesRoutes from './places.route.js';
 import workspaceRoutes from './workspace.route.js';
 import adminRoutes from './admin.route.js';
 import uploadRoutes from './upload.route.js';
+import aiLogRoutes from './aiLogRoutes.js';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use('/places', placesRoutes);
 router.use('/workspace', workspaceRoutes);
 router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/v1/ai-logs', aiLogRoutes);
 
 export default router;
