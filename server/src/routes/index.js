@@ -11,6 +11,7 @@ import placesRoutes from './places.route.js';
 import workspaceRoutes from './workspace.route.js';
 import adminRoutes from './admin.route.js';
 import uploadRoutes from './upload.route.js';
+import reportRoutes from './report.route.js';
 
 const router = express.Router();
 
@@ -25,5 +26,6 @@ router.use('/places', placesRoutes);
 router.use('/workspace', workspaceRoutes);
 router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
+router.use('/reports', reportRoutes);
 
 export default router;

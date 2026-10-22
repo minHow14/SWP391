@@ -1,9 +1,10 @@
-// d:\Projects\FPT\SWP391\server\tests\admin.test.js
+// server/tests/admin.test.js
 import request from 'supertest';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterAll } from 'vitest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
+import { postRepository } from '../src/repositories/post.repository.js';
 
 describe('Admin API & RBAC Boundary', () => {
   const adminToken = generateToken({ user_id: 1, role: 1 });
@@ -84,7 +85,7 @@ describe('Admin API & RBAC Boundary', () => {
     expect(res.body.data.comments).toBeDefined();
   });
 
-  it('supports 2-tier post deletion: hides and sets deleted_at while preserving DB record', async () => {
+  it('supports post deletion: soft-delete (hide) and permanent hard-delete (removes completely from database)', async () => {
     // 1. Tạo post test
     const post = await prisma.post.create({
       data: {
@@ -112,7 +113,7 @@ describe('Admin API & RBAC Boundary', () => {
     expect(postAfterSoft.status).toBe('HIDDEN');
     expect(postAfterSoft.deleted_at).not.toBeNull();
 
-    // 3. Thử xóa với ?permanent=true (vẫn giữ bản ghi trong DB)
+    // 3. Thử xóa vĩnh viễn với ?permanent=true (xóa cứng hoàn toàn khỏi DB)
     const hardRes = await request(app)
       .delete(`/api/admin/posts/${post.post_id}?permanent=true`)
       .set('Authorization', `Bearer ${adminToken}`);
@@ -120,8 +121,7 @@ describe('Admin API & RBAC Boundary', () => {
     expect(hardRes.body.success).toBe(true);
 
     const postAfterHard = await prisma.post.findUnique({ where: { post_id: post.post_id } });
-    expect(postAfterHard).not.toBeNull();
-    expect(postAfterHard.status).toBe('DELETED');
+    expect(postAfterHard).toBeNull();
   });
 
   it('AI Moderation flags content as deleted while preserving record in DB for audit trail', async () => {
@@ -158,5 +158,20 @@ describe('Admin API & RBAC Boundary', () => {
     const checkDb = await prisma.post.findUnique({ where: { post_id: flaggedPost.post_id } });
     expect(checkDb).not.toBeNull();
     expect(checkDb.status).toBe('DELETED');
+  });
+
+  afterAll(async () => {
+    // Dọn dẹp dữ liệu bài viết sinh ra trong test
+    const testPosts = await prisma.post.findMany({
+      where: {
+        blog: {
+          title: { in: ['Flagged Spam Post', 'Vi phạm nghiêm trọng bài viết', 'Test Post For Deletion'] },
+        },
+      },
+      select: { post_id: true },
+    });
+    for (const p of testPosts) {
+      await postRepository.hardDeletePost(p.post_id);
+    }
   });
 });

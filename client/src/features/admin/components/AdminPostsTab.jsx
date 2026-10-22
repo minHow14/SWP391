@@ -51,11 +51,18 @@ export default function AdminPostsTab() {
     }
   };
 
-  const handleDeletePost = async (postId) => {
-    if (!window.confirm('Bạn có chắc muốn xóa bài viết vi phạm này?')) return;
+  const handleDeletePost = async (post) => {
+    const postId = typeof post === 'object' ? post.post_id : post;
+    const currentPost = typeof post === 'object' ? post : posts.find((item) => item.post_id === postId);
+    const postTitle = currentPost?.blog?.title || currentPost?.video?.title || `bài đăng #${postId}`;
+    const contentType = currentPost?.post_type === 'BLOG' ? 'bài viết' : 'video';
+
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${contentType} "${postTitle}"? Hành động này không thể hoàn tác.`)) {
+      return;
+    }
     try {
-      await adminService.deletePost(postId);
-      setActionMsg('Đã xóa bài viết vi phạm');
+      await adminService.deletePost(postId, { permanent: true });
+      setActionMsg(`Đã xóa vĩnh viễn ${contentType} thành công`);
       emitSyncEvent('POST_CHANGED', { postId });
       emitSyncEvent('COMMENT_CHANGED');
       fetchPosts();
@@ -63,6 +70,7 @@ export default function AdminPostsTab() {
       setError(err.message);
     }
   };
+
 
   const handleStartEdit = (post) => {
     setEditingPost(post);
@@ -196,7 +204,7 @@ export default function AdminPostsTab() {
                       <Button variant="outline-primary" size="sm" className="me-1 rounded-3" onClick={() => handleStartEdit(p)} title="Chỉnh sửa nội dung vi phạm">
                         <i className="bi bi-pencil" />
                       </Button>
-                      <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => handleDeletePost(p.post_id)} disabled={p.status === 'DELETED'} title="Gỡ bỏ bài viết">
+                      <Button variant="outline-danger" size="sm" className="rounded-3" onClick={() => handleDeletePost(p)} title={`Xóa vĩnh viễn ${p.post_type === 'BLOG' ? 'bài viết' : 'video'}`} aria-label={`Xóa vĩnh viễn ${p.post_type === 'BLOG' ? 'bài viết' : 'video'}: ${title}`}>
                         <i className="bi bi-trash" />
                       </Button>
                     </td>

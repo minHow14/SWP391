@@ -15,7 +15,8 @@ export const adminService = {
   getPosts: (params = {}) => apiClient.get('/admin/posts', { params }),
   updatePostStatus: (postId, status) => apiClient.patch(`/admin/posts/${postId}/status`, { status }),
   updatePost: (postId, data) => apiClient.put(`/admin/posts/${postId}`, data),
-  deletePost: (postId) => apiClient.delete(`/admin/posts/${postId}`),
+  deletePost: (postId, { permanent = true } = {}) =>
+    apiClient.delete(`/admin/posts/${postId}${permanent ? '?permanent=true' : ''}`),
 
   // FE-03: Quản lý bình luận
   getComments: (params = {}) => apiClient.get('/admin/comments', { params }),

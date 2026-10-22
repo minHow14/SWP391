@@ -168,3 +168,96 @@
   background-color: #f1f5f9;
   color: #475569;
 }
+
+
+/* Segmented Nav cho bộ lọc phân nhóm danh mục */
+.admin-segmented-nav {
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 3px;
+  display: inline-flex;
+  gap: 3px;
+  border: 1px solid #e2e8f0;
+}
+
+.admin-segmented-nav .nav-link {
+  border-radius: 6px;
+  color: #475569;
+  font-weight: 500;
+  font-size: 0.82rem;
+  padding: 0.35rem 0.85rem;
+  transition: all 0.15s ease-in-out;
+  border: 1px solid transparent;
+  background: transparent;
+  white-space: nowrap;
+}
+
+.admin-segmented-nav .nav-link:hover {
+  color: #0f172a;
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.admin-segmented-nav .nav-link.active {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+  border-color: #cbd5e1 !important;
+}
+
+/* Nút mũi tên dropdown ở đầu mỗi chỉ mục STT */
+.admin-stt-toggle {
+  background: transparent;
+  border: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.82rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+
+.admin-stt-toggle:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+}
+
+.admin-stt-arrow {
+  font-size: 0.72rem;
+  color: #64748b;
+  display: inline-block;
+  transition: transform 0.2s ease-in-out;
+}
+
+.admin-stt-arrow.is-rotated {
+  transform: rotate(90deg);
+  color: #15803d;
+}
+
+.admin-stt-toggle:hover .admin-stt-arrow {
+  color: #0f172a;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Chi tiết danh mục mở rộng */
+.admin-category-detail-row {
+  animation: adminFadeIn 0.2s ease-in-out;
+}
+
+@keyframes adminFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

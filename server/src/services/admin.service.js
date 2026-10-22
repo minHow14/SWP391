@@ -1,7 +1,14 @@
-// d:\Projects\FPT\SWP391\server\src\services\admin.service.js
+// server/src/services/admin.service.js
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
+import { postRepository } from '../repositories/post.repository.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 /**
  * FE-01: Quản lý thành viên (Users)
@@ -279,7 +286,10 @@ export const hardDeletePostTx = async (tx, id) => {
     where: { post_id: id },
   });
 
-  // 4. Xóa lượt bình chọn và phân loại danh mục
+  // 4. Xóa tệp đính kèm, lượt bình chọn và phân loại danh mục
+  await tx.postAttachment.deleteMany({
+    where: { post_id: id },
+  });
   await tx.postVote.deleteMany({
     where: { post_id: id },
   });
@@ -287,7 +297,13 @@ export const hardDeletePostTx = async (tx, id) => {
     where: { post_id: id },
   });
 
-  // 5. Xóa chi tiết blog hoặc video
+  // 5. Gỡ liên kết video đính kèm ở các bài blog khác nếu có
+  await tx.blog.updateMany({
+    where: { attached_video_id: id },
+    data: { attached_video_id: null },
+  });
+
+  // 6. Xóa chi tiết blog hoặc video
   await tx.blog.deleteMany({
     where: { post_id: id },
   });
@@ -295,7 +311,7 @@ export const hardDeletePostTx = async (tx, id) => {
     where: { post_id: id },
   });
 
-  // 6. Xóa bản ghi bài viết chính khỏi database
+  // 7. Xóa bản ghi bài viết chính khỏi database
   return tx.post.delete({
     where: { post_id: id },
   });
@@ -317,26 +333,62 @@ export const hardDeleteCommentTx = async (tx, id) => {
 
 export const deletePost = async (postId, { permanent = false } = {}) => {
   const id = Number(postId);
-  const post = await prisma.post.findUnique({ where: { post_id: id } });
+  const post = await prisma.post.findUnique({
+    where: { post_id: id },
+    include: {
+      blog: true,
+      video: true,
+      attachments: true,
+    },
+  });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
-  const now = new Date();
-  // Nếu permanent = true: Đánh dấu DELETED (biến mất khỏi bảng quản lý Admin)
-  // Nếu permanent = false: Đánh dấu HIDDEN (trạng thái Đã ẩn, vẫn hiển thị trên bảng để Admin quản lý/khôi phục)
-  const nextStatus = permanent ? POST_STATUS.DELETED : POST_STATUS.HIDDEN;
-  const nextCommentStatus = permanent ? COMMENT_STATUS.DELETED : COMMENT_STATUS.HIDDEN;
+  if (permanent) {
+    // 1. Thu thập danh sách tệp đính kèm/video trên đĩa để dọn dẹp dung lượng
+    const filesToCleanup = [];
+    if (post.attachments && post.attachments.length > 0) {
+      for (const att of post.attachments) {
+        if (att.file_url) filesToCleanup.push(att.file_url);
+      }
+    }
+    if (post.video) {
+      if (post.video.video_url) filesToCleanup.push(post.video.video_url);
+      if (post.video.thumbnail_url) filesToCleanup.push(post.video.thumbnail_url);
+    }
 
-  // Giữ lại bản ghi trong DB (không xóa cứng khỏi DB)
+    // 2. Xóa cứng hoàn toàn khỏi cơ sở dữ liệu
+    await postRepository.hardDeletePost(id);
+
+    // 3. Dọn dẹp các tệp tĩnh trên đĩa nếu được lưu cục bộ trong /uploads/
+    for (const fileUrl of filesToCleanup) {
+      if (typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
+        const relativeFilePath = fileUrl.replace(/^\//, '');
+        const filePath = path.resolve(__dirname, '../../', relativeFilePath);
+        try {
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        } catch {
+          // Bỏ qua nếu tệp đã không còn trên đĩa
+        }
+      }
+    }
+
+    return { post_id: id, message: 'Xóa vĩnh viễn bài viết hoặc video thành công', permanent: true };
+  }
+
+  const now = new Date();
+  // Nếu permanent = false: Đánh dấu HIDDEN (trạng thái Đã ẩn, vẫn hiển thị trên bảng để Admin quản lý/khôi phục)
   return prisma.$transaction(async (tx) => {
     await tx.comment.updateMany({
       where: { post_id: id },
-      data: { status: nextCommentStatus, deleted_at: now },
+      data: { status: COMMENT_STATUS.HIDDEN, deleted_at: now },
     });
     const updatedPost = await tx.post.update({
       where: { post_id: id },
-      data: { status: nextStatus, deleted_at: now },
+      data: { status: POST_STATUS.HIDDEN, deleted_at: now },
     });
-    return { ...updatedPost, permanent };
+    return { ...updatedPost, permanent: false };
   });
 };
 
@@ -843,14 +895,28 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
   if (!report) throw ApiError.notFound('Không tìm thấy báo cáo');
 
   if (resolutionAction === 'HIDE_CONTENT') {
-    if (report.post_id) {
-      await prisma.$transaction([
-        prisma.comment.updateMany({ where: { post_id: report.post_id }, data: { status: COMMENT_STATUS.DELETED } }),
-        prisma.post.update({ where: { post_id: report.post_id }, data: { status: POST_STATUS.DELETED } }),
-      ]);
-    }
+    const now = new Date();
+    // ĐÚNG NGHIỆP VỤ:
+    // 1. Nếu là báo cáo về BÌNH LUẬN (comment_id có giá trị):
+    // -> CHỈ gỡ bỏ bình luận đó, TUYỆT ĐỐI KHÔNG gỡ bỏ bài viết!
     if (report.comment_id) {
-      await prisma.comment.update({ where: { comment_id: report.comment_id }, data: { status: COMMENT_STATUS.DELETED } });
+      await prisma.comment.update({
+        where: { comment_id: report.comment_id },
+        data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+      });
+    } else if (report.post_id) {
+      // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
+      // -> Gỡ bỏ bài viết đó và các bình luận thuộc bài viết đó
+      await prisma.$transaction([
+        prisma.comment.updateMany({
+          where: { post_id: report.post_id },
+          data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+        }),
+        prisma.post.update({
+          where: { post_id: report.post_id },
+          data: { status: POST_STATUS.DELETED, deleted_at: now },
+        }),
+      ]);
     }
   }
 

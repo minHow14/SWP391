@@ -32,9 +32,10 @@ export const workspaceRepository = {
           author: { select: { user_id: true, full_name: true } },
           blog: true,
           video: true,
-          post_categories: true,
+          post_categories: { include: { category: true } },
           comments: { where: { status: 'ACTIVE' }, include: { user: { select: { full_name: true } } } },
           post_votes: true,
+          attachments: { orderBy: { attachment_id: 'asc' } },
         },
       }),
       db.restaurant.findMany({ include: { restaurant_recipes: { include: { recipe: true } } } }),
@@ -59,17 +60,55 @@ export const workspaceRepository = {
   },
 
   async findMyBlogs(userId, db = prisma) {
-    return db.blog.findMany({
+    const posts = await db.post.findMany({
       where: {
-        post: {
-          author_id: Number(userId),
-          status: { not: 'DELETED' },
-        },
+        author_id: Number(userId),
+        status: { not: 'DELETED' },
+        post_type: { in: ['BLOG', 'VIDEO'] },
       },
       include: {
-        post: { include: { post_categories: true } },
-        attached_video: true,
+        blog: true,
+        video: true,
+        post_categories: {
+          include: {
+            category: true,
+          },
+        },
+        attachments: { orderBy: { attachment_id: 'asc' } },
+        comments: { where: { status: 'ACTIVE' }, include: { user: { select: { full_name: true } } } },
+        post_votes: true,
       },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return posts.map((p) => {
+      const firstCat = p.post_categories?.[0];
+      const blogOrVideo = p.blog || p.video || {};
+      return {
+        ...blogOrVideo,
+        ...p,
+        post: p,
+        category_id: firstCat?.category_id || null,
+        categoryId: firstCat?.category_id || null,
+        category: firstCat?.category || null,
+        content: p.blog?.content || p.video?.transcript || '',
+        video_url: p.video?.video_url || null,
+        thumbnail_url: p.video?.thumbnail_url || null,
+        attachments: (p.attachments || []).map((a) => ({
+          id: a.attachment_id,
+          url: a.file_url,
+          type: a.file_type,
+          name: a.file_name,
+        })),
+        vote_count: (p.post_votes || []).reduce(
+          (sum, v) => sum + (v.vote_type === 'UPVOTE' ? 1 : -1),
+          0
+        ),
+        comments: (p.comments || []).map((c) => ({
+          ...c,
+          user_full_name: c.user?.full_name,
+        })),
+      };
     });
   },
 
