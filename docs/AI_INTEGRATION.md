@@ -1,6 +1,22 @@
 # AI gateway, prompt và kết quả
 
-FE → BE (`/api/ai`) → AI Service (`/api`). Chỉ BE truy cập PostgreSQL. AI không dùng PostgreSQL, SQLite, JWT hoặc khóa database. BE xác thực JWT người dùng, quota khách và quyền admin; AI kiểm tra `X-Internal-Api-Key` tối thiểu 32 ký tự. Không đưa khóa này vào biến `VITE_*`.
+FE → BE (`/api/ai`) → AI Service (`/api`). Chỉ BE truy cập PostgreSQL. AI không dùng PostgreSQL, SQLite, JWT hoặc khóa database. BE xác thực JWT người dùng, quota khách và quyền admin; AI kiểm tra `X-Internal-Api-Key` dùng chung. Không đưa khóa này vào biến `VITE_*`.
+
+## Khóa nội bộ BE → AI
+
+Hai service dùng cùng `INTERNAL_API_KEY`: **32–256 ký tự ASCII hiển thị (mã 33–126), không khoảng trắng, không Unicode hoặc ký tự điều khiển**. Khóa được giữ nguyên, không tự trim hay đổi hoa/thường. Dùng giá trị ngẫu nhiên, ví dụ sinh 32 byte bằng `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`, rồi đặt cùng kết quả vào hai file `.env`. Không commit hoặc ghi giá trị khóa vào log. Khóa test dùng giá trị riêng.
+
+AI bắt buộc có khóa hợp lệ khi khởi động; BE từ chối khởi động nếu biến có giá trị sai định dạng. Nếu BE không khai báo biến này, các chức năng khác vẫn hoạt động nhưng yêu cầu AI nhận `503 AI_NOT_CONFIGURED` trước khi giữ quota hoặc tạo lịch sử. AI dùng so sánh constant-time sau khi kiểm tra định dạng header; khóa thiếu/sai định dạng/sai giá trị đều trả `401 UNAUTHORIZED_INTERNAL`, không chạy inference. Lỗi validation cấu hình AI ẩn giá trị đầu vào và repr không chứa khóa.
+
+| Tình huống | Phản hồi của BE | Lưu trữ/quota |
+| --- | --- | --- |
+| BE chưa cấu hình khóa | `503 AI_NOT_CONFIGURED` | Không giữ quota, không tạo generation |
+| AI trả `401`/`403` do xác thực nội bộ | `503 AI_INTERNAL_AUTH_FAILED` | Hoàn quota về ngày đã giữ; generation thành viên `FAILED`, audit `ERROR` |
+| AI gặp lỗi provider | `502 AI_PROVIDER_ERROR` | Xử lý thất bại và hoàn quota |
+
+BE không chuyển nội dung response lỗi xác thực từ AI ra FE hay DB; audit lưu mã lỗi, phản hồi FE có `meta.requestId` và thông báo an toàn. Xóa cache cũng giữ nguyên mã lỗi nội bộ, không báo thành công khi hai bên lệch khóa.
+
+Khi đổi khóa local: cập nhật cùng giá trị trong `server/.env` và `ai_service/.env`, khởi động lại BE và AI vì cấu hình được nạp khi khởi động. Kiểm tra bằng test HTTP bên dưới; không giải quyết lỗi lệch khóa bằng cách bỏ xác thực.
 
 ## Xác thực và phân quyền
 
@@ -56,3 +72,14 @@ Tạo `server/.env.test` từ `.env.test.example` với DB local kết thúc b�
 Backend Vitest/Supertest dùng PostgreSQL test thật, thay provider bằng fetch fixture trong test. AI Pytest thay mô hình trong test; không tiêu thụ API DeepSeek thật. Có test lưu đủ 7 ngày, prompt retry, lỗi SSE, timeout, hủy, rollback, quota đồng thời/qua ngày và quyền sở hữu. Integration ảnh cần 28 ảnh thật được import vào DB test trước khi chạy; không tạo ảnh giả để pass.
 
 AI dependencies được ghim theo môi trường đã kiểm thử. Không cần cài package SQL/JWT cho AI; file SQLite local cũ không được đọc/ghi hay đưa vào Git.
+
+### Integration HTTP với khóa lệch
+
+Sau khi cài dependencies BE và Python venv, tạo `.env.test` và chuẩn bị DB test:
+
+```powershell
+cd server
+npm run test:ai-internal-auth
+```
+
+Script khởi chạy app FastAPI thật trên port loopback tạm, dùng khóa khác BE để kiểm tra chat/thực đơn, hoàn quota, lịch sử `FAILED` và xóa cache; sau đó khởi động lại AI với khóa khớp để xác nhận phục hồi. Chỉ ghi DB `_test`, không đọc/ghi DB phát triển, không gọi DeepSeek và tự dừng tiến trình con. Mặc định dùng `ai_service/venv`; nếu Python ở nơi khác, đặt biến `AI_TEST_PYTHON` trỏ tới executable phù hợp.
