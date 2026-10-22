@@ -4,10 +4,9 @@ import { aiConfig } from '../config/aiConfig.js';
 import { guestQuotaRepository } from '../repositories/guestQuotaRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { getAiQuotaPeriod, MILLISECONDS_PER_DAY } from '../utils/aiQuotaDate.js';
+import { guestIdSchema, MAX_GUEST_ID_LENGTH } from '../validators/guestQuotaValidator.js';
 
-const MAX_GUEST_ID_LENGTH = 100;
 const TOO_MANY_REQUESTS = 429;
-const guestIdSchema = z.string().trim().min(1).max(MAX_GUEST_ID_LENGTH);
 const quotaDateSchema = z.date().refine((value) => value.getTime() % MILLISECONDS_PER_DAY === 0);
 
 function validateGuestId(guestId) {
@@ -58,10 +57,10 @@ export const guestQuotaService = {
     await guestQuotaRepository.releaseTurn({ guestId: normalizedGuestId, quotaDate });
   },
 
-  async resetUsage({ guestId, now = new Date() }) {
+  async resetUsage({ guestId, now = new Date() }, db) {
     const normalizedGuestId = validateGuestId(guestId);
     const period = getAiQuotaPeriod(now);
-    const usedBefore = await guestQuotaRepository.resetUsage({ guestId: normalizedGuestId, quotaDate: period.quotaDate });
+    const usedBefore = await guestQuotaRepository.resetUsage({ guestId: normalizedGuestId, quotaDate: period.quotaDate }, db);
     return { ...usageData({ guestId: normalizedGuestId, period, used: 0 }), usedBefore };
   },
 };

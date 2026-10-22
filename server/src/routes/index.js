@@ -12,6 +12,7 @@ import workspaceRoutes from './workspace.route.js';
 import adminRoutes from './admin.route.js';
 import uploadRoutes from './upload.route.js';
 import aiLogRoutes from './aiLogRoutes.js';
+import guestQuotaRoutes from './guestQuotaRoutes.js';
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use('/workspace', workspaceRoutes);
 router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/v1/ai-logs', aiLogRoutes);
+router.use('/v1/guest-quotas', guestQuotaRoutes);
 
 export default router;

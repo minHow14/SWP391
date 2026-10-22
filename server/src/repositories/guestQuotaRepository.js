@@ -2,6 +2,10 @@
 import prisma from '../config/prisma.js';
 
 export const guestQuotaRepository = {
+  runTransaction(operation, db = prisma) {
+    return db.$transaction(operation);
+  },
+
   findUsage({ guestId, quotaDate }, db = prisma) {
     return db.guestQuota.findUnique({
       where: { guestId_quotaDate: { guestId, quotaDate } },
