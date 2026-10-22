@@ -1,24 +1,18 @@
+# ai_service/tests/test_meal_planner_stream.py
 import json
 from unittest.mock import AsyncMock, patch
-
 import pytest
 from fastapi.testclient import TestClient
 
-from agents.meal_planner_agent import MealPlannerAgent
-from core.security import reset_guest_usage_for_tests
+from core.config import settings
 from main import app
+from agents.meal_planner_agent import MealPlannerAgent
 from tests.test_meal_planner_agent import make_plan, mock_llm
 from tests.test_meal_planner import sample_meal_plan
 
 client = TestClient(app)
+INTERNAL_HEADERS = {"X-Internal-Api-Key": settings.INTERNAL_API_KEY}
 PAYLOAD = {"height_cm": 165, "weight_kg": 55, "days": 1}
-
-
-@pytest.fixture(autouse=True)
-def clean_usage():
-    reset_guest_usage_for_tests()
-    yield
-    reset_guest_usage_for_tests()
 
 
 def parse_sse(text: str) -> list[tuple[str, dict]]:
@@ -44,7 +38,7 @@ def fake_generate(plan, stages=("calculating", "generating", "validating")):
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
 def test_stream_sends_progress_then_done_with_the_full_plan(mock_generate):
     mock_generate.side_effect = fake_generate(sample_meal_plan())
-    res = client.post("/api/meal-planner/generate/stream", json=PAYLOAD, headers={"X-Guest-Id": "stream-ok"})
+    res = client.post("/api/meal-planner/generate/stream", json=PAYLOAD, headers=INTERNAL_HEADERS)
     assert res.status_code == 200
     assert res.headers["content-type"].startswith("text/event-stream")
 
@@ -56,40 +50,31 @@ def test_stream_sends_progress_then_done_with_the_full_plan(mock_generate):
     name, done = events[-1]
     assert done["success"] is True
     assert done["meta"]["requestId"].startswith("req_")
-    assert done["data"]["weekly_plan"] and done["data"]["chat"]["items"]
-    usage = client.get("/api/meal-planner/usage", headers={"X-Guest-Id": "stream-ok"}).json()["data"]
-    assert usage["used_plans"] == 1
+    assert done["data"]["weekly_plan"]
 
 
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
-def test_stream_error_event_refunds_the_guest_turn(mock_generate):
+def test_stream_error_event_when_generation_fails(mock_generate):
     async def failing(*args, on_progress=None, **kwargs):
         await on_progress({"stage": "generating", "message": "Đang tạo thực đơn..."})
         raise RuntimeError("provider exploded")
 
     mock_generate.side_effect = failing
-    res = client.post("/api/meal-planner/generate/stream", json=PAYLOAD, headers={"X-Guest-Id": "stream-fail"})
+    res = client.post("/api/meal-planner/generate/stream", json=PAYLOAD, headers=INTERNAL_HEADERS)
     events = parse_sse(res.text)
     assert [name for name, _ in events] == ["progress", "error"]
     error = events[-1][1]
     assert error["success"] is False
     assert error["error"]["code"] == "AI_PROVIDER_ERROR"
-    assert "provider exploded" not in res.text  # DEBUG tắt trong test
-    usage = client.get("/api/meal-planner/usage", headers={"X-Guest-Id": "stream-fail"}).json()["data"]
-    assert usage["used_plans"] == 0
+    assert "provider exploded" not in res.text
 
 
-@patch("api.meal_planner.meal_planner_agent.generate_plan", new_callable=AsyncMock)
-def test_stream_quota_and_validation_errors_come_before_the_stream(mock_generate):
-    mock_generate.side_effect = lambda *a, **k: sample_meal_plan()
-    headers = {"X-Guest-Id": "stream-quota"}
-    for _ in range(3):
-        client.post("/api/meal-planner/generate", json=PAYLOAD, headers=headers)
-    blocked = client.post("/api/meal-planner/generate/stream", json=PAYLOAD, headers=headers)
-    assert blocked.status_code == 429
-    assert blocked.json()["error"]["code"] == "MEAL_PLAN_QUOTA_EXCEEDED"
-
-    invalid = client.post("/api/meal-planner/generate/stream", json={"height_cm": 10, "weight_kg": 60})
+def test_stream_validation_error_before_stream():
+    invalid = client.post(
+        "/api/meal-planner/generate/stream",
+        json={"height_cm": 10, "weight_kg": 60},
+        headers=INTERNAL_HEADERS,
+    )
     assert invalid.status_code == 422
 
 

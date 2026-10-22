@@ -6,6 +6,8 @@ import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
 import { postRepository } from '../repositories/post.repository.js';
+import { aiRepository } from '../repositories/ai.repository.js';
+import { aiService } from './ai.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -646,13 +648,11 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
         data: { status: POST_STATUS.PUBLISHED },
       });
 
-      await prisma.ai_logs.create({
-        data: {
-          model_name: 'deepseek-chat',
-          action: 'MODERATION_MANUAL_OVERRIDE',
-          status: 'SUCCESS',
-          error_feedback: `Admin phê duyệt nội dung bài viết ID ${id}. Ghi chú: ${notes || 'Không có'}`,
-        },
+      await aiRepository.createLog({
+        modelName: 'deepseek-chat',
+        action: 'MODERATION_MANUAL_OVERRIDE',
+        status: 'SUCCESS',
+        errorFeedback: `Admin phê duyệt nội dung bài viết ID ${id}. Ghi chú: ${notes || 'Không có'}`,
       });
       return updated;
     }
@@ -667,14 +667,15 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
         where: { post_id: id },
         data: { status: POST_STATUS.DELETED, deleted_at: new Date() },
       });
-      await tx.ai_logs.create({
-        data: {
-          model_name: 'deepseek-chat',
+      await aiRepository.createLog(
+        {
+          modelName: 'deepseek-chat',
           action: 'MODERATION_MANUAL_OVERRIDE',
           status: 'SUCCESS',
-          error_feedback: `Admin kiểm duyệt và gỡ bỏ bài viết ID ${id}. Ghi chú: ${notes || 'Nội dung vi phạm'}`,
+          errorFeedback: `Admin kiểm duyệt và gỡ bỏ bài viết ID ${id}. Ghi chú: ${notes || 'Nội dung vi phạm'}`,
         },
-      });
+        tx
+      );
       return res;
     });
 
@@ -691,13 +692,11 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
         data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false },
       });
 
-      await prisma.ai_logs.create({
-        data: {
-          model_name: 'deepseek-chat',
-          action: 'MODERATION_MANUAL_OVERRIDE',
-          status: 'SUCCESS',
-          error_feedback: `Admin phê duyệt bình luận ID ${id}. Ghi chú: ${notes || 'Không có'}`,
-        },
+      await aiRepository.createLog({
+        modelName: 'deepseek-chat',
+        action: 'MODERATION_MANUAL_OVERRIDE',
+        status: 'SUCCESS',
+        errorFeedback: `Admin phê duyệt bình luận ID ${id}. Ghi chú: ${notes || 'Không có'}`,
       });
       return updated;
     }
@@ -708,14 +707,15 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
         where: { comment_id: id },
         data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
       });
-      await tx.ai_logs.create({
-        data: {
-          model_name: 'deepseek-chat',
+      await aiRepository.createLog(
+        {
+          modelName: 'deepseek-chat',
           action: 'MODERATION_MANUAL_OVERRIDE',
           status: 'SUCCESS',
-          error_feedback: `Admin kiểm duyệt và gỡ bỏ bình luận ID ${id}. Ghi chú: ${notes || 'Bình luận vi phạm'}`,
+          errorFeedback: `Admin kiểm duyệt và gỡ bỏ bình luận ID ${id}. Ghi chú: ${notes || 'Bình luận vi phạm'}`,
         },
-      });
+        tx
+      );
       return res;
     });
 
@@ -729,7 +729,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
  * FE-06 & FE-07: Giám sát mô hình AI, xem logs & metrics
  */
 export const getAiModelsStatus = async () => {
-  const logs = await prisma.ai_logs.findMany({
+  const logs = await aiRepository.findLogs({
     orderBy: { created_at: 'desc' },
     take: 100,
   });
@@ -747,7 +747,7 @@ export const getAiModelsStatus = async () => {
       name: 'Chatbot Dinh Dưỡng',
       type: 'Tư vấn thực đơn & hỏi đáp',
       provider: 'DeepSeek Chat',
-      actions: ['CHATBOT_GUEST_QUERY'],
+      actions: ['CHATBOT_GUEST_QUERY', 'CHAT_STREAM_GUEST', 'CHAT_STREAM_USER'],
     },
     {
       id: 'moderation',
@@ -759,7 +759,7 @@ export const getAiModelsStatus = async () => {
   ];
 
   return models.map((m) => {
-    const modelLogs = logs.filter((l) => m.actions.includes(l.action));
+    const modelLogs = logs.filter((l) => m.actions.some((prefix) => l.action?.startsWith(prefix)));
     const totalCalls = modelLogs.length;
     const errorCalls = modelLogs.filter((l) => l.status === 'ERROR').length;
     const successRate = totalCalls > 0 ? Math.round(((totalCalls - errorCalls) / totalCalls) * 100) : 100;
@@ -776,7 +776,7 @@ export const getAiModelsStatus = async () => {
   });
 };
 
-export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action = '', status = '' }) => {
+export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action = '', status = '', search = '' }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
 
@@ -784,10 +784,16 @@ export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action =
   if (modelName) where.model_name = { contains: modelName, mode: 'insensitive' };
   if (action) where.action = action;
   if (status) where.status = status;
+  if (search) {
+    where.OR = [
+      { action: { contains: search, mode: 'insensitive' } },
+      { error_feedback: { contains: search, mode: 'insensitive' } },
+    ];
+  }
 
   const [total, logs] = await Promise.all([
-    prisma.ai_logs.count({ where }),
-    prisma.ai_logs.findMany({
+    aiRepository.countLogs(where),
+    aiRepository.findLogs({
       where,
       skip,
       take,
@@ -800,9 +806,9 @@ export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action =
 
 export const getAiMetrics = async () => {
   const [total, successCount, errorCount, flaggedCount] = await Promise.all([
-    prisma.ai_logs.count(),
-    prisma.ai_logs.count({ where: { status: 'SUCCESS' } }),
-    prisma.ai_logs.count({ where: { status: 'ERROR' } }),
+    aiRepository.countLogs(),
+    aiRepository.countLogs({ status: 'SUCCESS' }),
+    aiRepository.countLogs({ status: 'ERROR' }),
     prisma.post.count({ where: { status: POST_STATUS.HIDDEN_BY_AI } }),
   ]);
 
@@ -818,27 +824,66 @@ export const getAiMetrics = async () => {
 };
 
 /**
+ * Thống kê chi tiết hoạt động AI theo ngày, chức năng và mô hình
+ */
+export const getAiLogStats = async ({ date_from = null, date_to = null }) => {
+  return aiRepository.getLogStats({ dateFrom: date_from, dateTo: date_to });
+};
+
+/**
+ * Xem thông tin hạn mức của khách (X-Guest-Id)
+ */
+export const getGuestQuota = async (guestId) => {
+  return aiRepository.getGuestUsage(guestId);
+};
+
+/**
+ * Đặt lại hạn mức của khách về 0 (Admin reset)
+ */
+export const resetGuestQuota = async ({ guestId, adminId }) => {
+  const usageBefore = await aiRepository.getGuestUsage(guestId);
+  await aiRepository.resetGuestQuota(guestId);
+  await aiRepository.createLog({
+    modelName: 'admin',
+    action: `ADMIN_RESET_GUEST_QUOTA_${guestId}`,
+    status: 'SUCCESS',
+    errorFeedback: `Quản trị viên ID ${adminId} đặt lại hạn mức. Lượt đã dùng trước đó: ${usageBefore.used}`,
+  });
+  const updatedUsage = await aiRepository.getGuestUsage(guestId);
+  return { ...updatedUsage, used_before: usageBefore.used };
+};
+
+/**
+ * Yêu cầu AI Microservice dọn dẹp bộ nhớ đệm chatbot
+ */
+export const clearChatbotCache = async (adminId) => {
+  const cleared = await aiService.clearChatbotCache();
+  await aiRepository.createLog({
+    modelName: 'admin',
+    action: 'ADMIN_CLEAR_CHATBOT_CACHE',
+    status: 'SUCCESS',
+    errorFeedback: `Quản trị viên ID ${adminId} đã xóa bộ nhớ đệm chatbot. Đã xóa: ${cleared}`,
+  });
+  return { cleared };
+};
+
+/**
  * FE-08: Can thiệp thủ công kết quả AI
  */
 export const interveneAiAction = async ({ logId = null, modelName, action, correctionType, feedback }) => {
   if (logId) {
     const id = Number(logId);
-    return prisma.ai_logs.update({
-      where: { log_id: id },
-      data: {
-        error_feedback: `[Đã can thiệp thủ công: ${correctionType}] ${feedback}`,
-        status: 'RESOLVED_BY_ADMIN',
-      },
+    return aiRepository.updateLog(id, {
+      error_feedback: `[Đã can thiệp thủ công: ${correctionType}] ${feedback}`,
+      status: 'RESOLVED_BY_ADMIN',
     });
   }
 
-  return prisma.ai_logs.create({
-    data: {
-      model_name: modelName || 'deepseek-chat',
-      action: action || 'MANUAL_INTERVENTION',
-      status: 'RESOLVED_BY_ADMIN',
-      error_feedback: `[Can thiệp: ${correctionType}] ${feedback}`,
-    },
+  return aiRepository.createLog({
+    modelName: modelName || 'deepseek-chat',
+    action: action || 'MANUAL_INTERVENTION',
+    status: 'RESOLVED_BY_ADMIN',
+    errorFeedback: `[Can thiệp: ${correctionType}] ${feedback}`,
   });
 };
 
@@ -962,7 +1007,7 @@ export const getDashboardStats = async () => {
       orderBy: { created_at: 'desc' },
       include: { reporter: { select: { full_name: true } } },
     }),
-    prisma.ai_logs.findMany({
+    aiRepository.findLogs({
       take: 5,
       orderBy: { created_at: 'desc' },
     }),

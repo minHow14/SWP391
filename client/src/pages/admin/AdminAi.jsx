@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/admin/AdminAi.jsx
+﻿// client/src/pages/admin/AdminAi.jsx
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';

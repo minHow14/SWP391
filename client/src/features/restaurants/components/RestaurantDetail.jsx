@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/components/RestaurantDetail.jsx
+﻿// client/src/features/restaurants/components/RestaurantDetail.jsx
 import { useState } from 'react';
 import ContentDialog from '../../../components/common/ContentDialog.jsx';
 import ContentImage from '../../../components/common/ContentImage.jsx';

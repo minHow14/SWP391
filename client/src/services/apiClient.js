@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/apiClient.js
+﻿// client/src/services/apiClient.js
 import axios from 'axios';
 import { getSession, setSession } from '../utils/session.js';
 

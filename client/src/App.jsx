@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/App.jsx
+﻿// client/src/App.jsx
 import AppRoutes from './routes/AppRoutes.jsx';
 import ErrorBoundary from './components/common/ErrorBoundary.jsx';
 

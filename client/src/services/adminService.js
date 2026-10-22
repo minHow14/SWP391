@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/adminService.js
+﻿// client/src/services/adminService.js
 import apiClient from './apiClient.js';
 
 export const adminService = {

@@ -1,3 +1,4 @@
+// server/prisma/seed.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -122,7 +123,7 @@ async function main() {
   } catch (imageErr) {
     console.warn('⚠️ Cảnh báo khi nạp ảnh nguyên liệu:', imageErr.message);
   }
-  console.log('✅ Import dữ liệu mẫu vào PostgreSQL thành công!');
+  console.log('✅ Import dữ liệu thực tế vào PostgreSQL thành công!');
   console.log('----------------------------------------------------');
   console.log('📋 Thống kê số lượng dữ liệu đã nạp & xác thực:');
 
@@ -138,6 +139,11 @@ async function main() {
     mealPlanDetailsCount,
     foodDiariesCount,
     swapsCount,
+    commentsCount,
+    reportsCount,
+    reviewsCount,
+    notificationsCount,
+    aiLogsCount,
   ] = await Promise.all([
     prisma.user.count(),
     prisma.post.count(),
@@ -150,6 +156,11 @@ async function main() {
     prisma.mealPlanDetail.count(),
     prisma.foodDiary.count(),
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM ingredient_alternatives`,
+    prisma.comment.count(),
+    prisma.report.count(),
+    prisma.restaurantReview.count(),
+    prisma.notification.count(),
+    prisma.ai_logs.count(),
   ]);
 
   console.log(`   - Chế độ ăn (diet_types):           ${dietTypesCount}`);
@@ -158,10 +169,15 @@ async function main() {
   console.log(`   - Đổi nguyên liệu (alternatives):   ${swapsCount[0]?.count ?? 0}`);
   console.log(`   - Người dùng (users):               ${usersCount}`);
   console.log(`   - Bài đăng cộng đồng (posts):       ${postsCount}`);
+  console.log(`   - Bình luận (comments):             ${commentsCount}`);
+  console.log(`   - Báo cáo vi phạm (reports):        ${reportsCount}`);
   console.log(`   - Công thức nấu ăn (recipes):       ${recipesCount}`);
   console.log(`   - Kế hoạch tuần (meal_plans):       ${mealPlansCount} (với ${mealPlanDetailsCount} chi tiết bữa ăn)`);
   console.log(`   - Nhật ký ăn uống (food_diaries):   ${foodDiariesCount}`);
   console.log(`   - Nhà hàng chay (restaurants):      ${restaurantsCount}`);
+  console.log(`   - Đánh giá nhà hàng (reviews):      ${reviewsCount}`);
+  console.log(`   - Thông báo hệ thống:               ${notificationsCount}`);
+  console.log(`   - Nhật ký giám sát AI (ai_logs):    ${aiLogsCount}`);
   console.log('----------------------------------------------------');
 
   // Xác thực mật khẩu tài khoản mẫu
@@ -174,10 +190,16 @@ async function main() {
     throw new Error('Cảnh báo: Mật khẩu của tài khoản mẫu admin hoặc user không khớp.');
   }
 
-  console.log('🔑 Tài khoản mẫu đã xác thực sẵn sàng đăng nhập:');
-  console.log('   - Admin: admin@swp391.com      | Mật khẩu: 123456 (Role: 1, ACTIVE)');
-  console.log('   - User:  user@swp391.com       | Mật khẩu: 123456 (Role: 2, ACTIVE)');
-  console.log('   - User:  lan.nguyen@swp391.com | Mật khẩu: 123456 (Role: 2, ACTIVE)');
+  console.log('🔑 Tài khoản mẫu đã xác thực sẵn sàng đăng nhập (Mật khẩu chung: 123456):');
+  console.log('   - Admin:      admin@swp391.com      | Quản Trị Viên (Role 1, ACTIVE)');
+  console.log('   - User:       user@swp391.com       | Trần Minh Quân (Role 2, ACTIVE - Thuần chay)');
+  console.log('   - User:       lan.nguyen@swp391.com | Nguyễn Mai Lan (Role 2, ACTIVE - Lacto-Ovo)');
+  console.log('   - User:       hoang.nam@swp391.com  | Lê Hoàng Nam (Role 2, ACTIVE - Đầu bếp video)');
+  console.log('   - User:       thuy.duong@swp391.com | Phạm Thùy Dương (Role 2, ACTIVE - Eat Clean)');
+  console.log('   - User:       duc.huy@swp391.com    | Vũ Đức Huy (Role 2, ACTIVE - Chay Phật giáo)');
+  console.log('   - User:       quynh.anh@swp391.com  | Đặng Quỳnh Anh (Role 2, ACTIVE - Keto Chay)');
+  console.log('   - User Khóa:  minh.tri@swp391.com   | Bùi Minh Trí (Role 2, LOCKED - Test quản trị)');
+  console.log('   - User Xóa:   ngoc.hoa@swp391.com   | Hoàng Ngọc Hoa (Role 2, DELETED - Test khôi phục)');
   console.log('----------------------------------------------------');
   console.log('🎉 Toàn bộ cơ sở dữ liệu đã sẵn sàng cho ứng dụng ChayXanh!');
 }

@@ -229,6 +229,42 @@ export const interveneAi = asyncHandler(async (req, res) => {
   });
 });
 
+export const getAiLogStats = asyncHandler(async (req, res) => {
+  const stats = await adminService.getAiLogStats(req.query);
+  return sendSuccess(res, {
+    message: 'Lấy thống kê hoạt động AI thành công',
+    data: stats,
+  });
+});
+
+export const getGuestQuota = asyncHandler(async (req, res) => {
+  const quota = await adminService.getGuestQuota(req.params.guestId);
+  return sendSuccess(res, {
+    message: 'Lấy hạn mức khách thành công',
+    data: quota,
+  });
+});
+
+export const resetGuestQuota = asyncHandler(async (req, res) => {
+  const guestId = req.body.guest_id || req.body.guestId;
+  const result = await adminService.resetGuestQuota({
+    guestId,
+    adminId: req.user.user_id,
+  });
+  return sendSuccess(res, {
+    message: 'Đặt lại hạn mức khách thành công',
+    data: result,
+  });
+});
+
+export const clearChatCache = asyncHandler(async (req, res) => {
+  const result = await adminService.clearChatbotCache(req.user.user_id);
+  return sendSuccess(res, {
+    message: 'Đã xóa bộ nhớ đệm chatbot thành công',
+    data: result,
+  });
+});
+
 // FE-09: Quản lý báo cáo
 export const getReports = asyncHandler(async (req, res) => {
   const result = await adminService.getReports(req.query);

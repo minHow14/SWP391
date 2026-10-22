@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/chat/hooks/useChatRequest.js
+﻿// client/src/features/chat/hooks/useChatRequest.js
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';
 import { chatHistory, dietTypeToAi, friendlyAiError, isQuotaError, planToMenuContext } from '../../../utils/aiHelpers.js';

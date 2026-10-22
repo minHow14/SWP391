@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/layout/Footer.jsx
+﻿// client/src/components/layout/Footer.jsx
 import { Container, Nav } from 'react-bootstrap';
 import { Link } from 'react-router';
 

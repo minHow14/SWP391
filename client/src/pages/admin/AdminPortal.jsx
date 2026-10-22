@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/admin/AdminPortal.jsx
+﻿// client/src/pages/admin/AdminPortal.jsx
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Nav, Alert } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';

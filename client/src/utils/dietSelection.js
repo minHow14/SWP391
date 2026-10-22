@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/dietSelection.js
+﻿// client/src/utils/dietSelection.js
 import { DIET_TYPE_IDS } from '../constants/dietTypes.js';
 
 export const dietOptions = [

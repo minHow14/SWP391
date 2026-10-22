@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/profile/components/HealthProfileNotice.jsx
+﻿// client/src/features/profile/components/HealthProfileNotice.jsx
 import { Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 

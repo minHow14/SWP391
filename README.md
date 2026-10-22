@@ -35,7 +35,7 @@
 - **Quản lý Bình luận:** Kiểm tra tương tác, ẩn hoặc xóa bình luận spam/quảng cáo.
 - **Quản lý Danh mục:** Thêm, sửa, xóa danh mục món ăn & công thức nấu chay (có kiểm tra ràng buộc dữ liệu).
 - **Kiểm duyệt AI:** Xem xét các bài viết và bình luận bị AI gắn cờ ẩn trước khi quyết định phê duyệt khôi phục hoặc xóa vĩnh viễn.
-- **Giám sát Mô hình AI:** Theo dõi trạng thái hoạt động của 3 mô hình (Gợi ý thực đơn, Chatbot tư vấn, Kiểm duyệt tự động) và tra cứu nhật ký `ai_logs`.
+- **Giám sát Mô hình AI:** Theo dõi trạng thái hoạt động của các mô hình (Gợi ý thực đơn, Chatbot tư vấn, Kiểm duyệt tự động) và tra cứu nhật ký `ai_logs`.
 - **Can thiệp Thủ công AI:** Ghi nhận điều chỉnh, phản hồi sửa lỗi khi AI đưa ra kết quả chưa chuẩn xác.
 - **Quản lý Báo cáo:** Xử lý các phản ánh vi phạm từ người dùng trong cộng đồng.
 
@@ -47,12 +47,14 @@
 | :--- | :--- | :--- | :--- |
 | **Frontend (`client/`)** | React | `^19.2.8` | Vite `^8.3.0`, React-Bootstrap `^2.10.10`, Bootstrap 5, Bootstrap Icons, Axios `^1.14.0`, React Router `^8.4.0` |
 | **Backend (`server/`)** | Node.js (ESM), Express | `^5.2.1` | Prisma ORM `^6.19.3`, PostgreSQL, Zod `^4.6.5`, bcryptjs `^3.0.3`, jsonwebtoken `^9.0.3`, Vitest `^5.0.3`, Supertest |
-| **AI Service (`ai_service/`)** | Python, FastAPI | `3.11+` | LangChain, DeepSeek API (v4 Fallback), SQLModel, SQLAlchemy, SlowAPI, Pydantic v2, Pytest |
-| **Database** | PostgreSQL | `>= 15.0` | Prisma Schema (30 bảng), Raw SQL, connection pooling |
+| **AI Service (`ai_service/`)** | Python, FastAPI | `3.11+` | LangChain, DeepSeek API (v4 Fallback), SlowAPI, Pydantic v2, Pytest |
+| **Database** | PostgreSQL | `>= 15.0` | Prisma Schema (30 bảng), Raw SQL, Connection Pooling |
 
 ---
 
 ## 4. 🏛️ Kiến trúc tổng quan
+
+Kiến trúc hệ thống tuân thủ mô hình **Microservices với AI Gateway Pattern**. Backend Express đóng vai trò API Gateway duy nhất kiểm soát toàn bộ lưu lượng, xác thực người dùng, giới hạn hạn ngạch (Guest Quota & Rate Limit) và lưu vết nhật ký (`ai_logs`). AI Microservice là dịch vụ tính toán phi trạng thái (stateless), tuyệt đối không kết nối trực tiếp vào cơ sở dữ liệu và chỉ giao tiếp với Backend qua khóa nội bộ bảo mật.
 
 ```mermaid
 flowchart TD
@@ -60,24 +62,23 @@ flowchart TD
         Client["React 19 + Vite + React-Bootstrap<br/>Axios Interceptor + React Router<br/>(Port 5173)"]
     end
 
-    subgraph BackendLayer ["2. Backend Core Server (server/)"]
-        Server["Express.js 5 + Layered Architecture<br/>JWT Auth & RBAC (Role 1: Admin, Role 2: User)<br/>(Port 5000)"]
+    subgraph BackendLayer ["2. Backend Core Server / AI Gateway (server/)"]
+        Server["Express.js 5 + Layered Architecture<br/>JWT Auth & RBAC (Role 1: Admin, Role 2: User)<br/>Guest Quota & AI Logging Manager<br/>(Port 5000)"]
     end
 
     subgraph AILayer ["3. AI Microservice (ai_service/)"]
-        AIService["FastAPI + LangChain<br/>Internal API Key Auth<br/>(Port 8000)"]
+        AIService["FastAPI + LangChain<br/>Stateless Microservice<br/>Auth: X-Internal-Api-Key<br/>(Port 8000)"]
     end
 
-    subgraph DataLayer ["4. Persistence & Models"]
+    subgraph DataLayer ["4. Persistence & External Models"]
         DB[("PostgreSQL 15+ Database<br/>(vegetarian_db)")]
         DeepSeek["DeepSeek LLM Engine"]
     end
 
-    Client -- "HTTP / REST API / Bearer Token" --> Server
-    Client -- "Streaming Chatbot SSE" --> AIService
+    Client -- "HTTP / REST API / Bearer Token / SSE" --> Server
     Server -- "Prisma Client (ACID, Raw Queries)" --> DB
-    Server -- "X-Internal-Api-Key" --> AIService
-    AIService -- "Prompt & Moderation" --> DeepSeek
+    Server -- "Internal HTTP + X-Internal-Api-Key" --> AIService
+    AIService -- "Prompt & Streaming Completion" --> DeepSeek
 ```
 
 ---
@@ -89,30 +90,32 @@ SWP391/
 ├── client/                     # Frontend React SPA
 │   ├── src/
 │   │   ├── components/         # Header, Footer, SiteLayout, AuthForm...
+│   │   ├── features/admin/     # Các bảng & modal phân rã cho Admin Portal (<250 dòng)
 │   │   ├── pages/              # Trang công cộng (Home, Recipes, Community, Profile...)
-│   │   │   └── admin/          # Cổng Quản trị AdminPortal & 8 Tab chức năng
-│   │   ├── services/           # apiClient.js (Axios), adminService.js
+│   │   │   └── admin/          # Cổng Quản trị AdminPortal & các Tab chức năng
+│   │   ├── services/           # apiClient.js, adminService.js, aiApi.js
 │   │   ├── lib/                # DatabaseContext, api.js, recipeFilters.js...
 │   │   ├── Admin.css           # Giao diện Quản trị đồng bộ màu xanh ChayXanh
 │   │   └── App.jsx             # React Router định tuyến (kèm /admin)
-│   └── test/                   # Kiểm thử logic FE & Admin (32 tests)
+│   └── test/                   # Kiểm thử logic FE & Admin (63 tests)
 │
 ├── server/                     # Backend REST API
 │   ├── src/
-│   │   ├── config/             # Kết nối Prisma Client
+│   │   ├── config/             # Kết nối Prisma Client, cấu hình env
 │   │   ├── constants/          # Roles, Status, HttpStatus
-│   │   ├── controllers/        # Tiếp nhận request & trả envelope JSON
+│   │   ├── controllers/        # Tiếp nhận request & trả envelope JSON (kèm ai.controller.js)
 │   │   ├── middlewares/        # authMiddleware (JWT, RBAC), validation, error
-│   │   ├── routes/             # Định tuyến RESTful (kèm /api/admin)
-│   │   ├── services/           # Logic nghiệp vụ (kèm admin.service.js)
+│   │   ├── repositories/       # Tầng truy xuất dữ liệu Prisma (kèm ai.repository.js)
+│   │   ├── routes/             # Định tuyến RESTful (kèm /api/ai, /api/chat, /api/meal-planner)
+│   │   ├── services/           # Logic nghiệp vụ (kèm ai.service.js, admin.service.js)
 │   │   └── utils/              # apiResponse, apiError, jwt
 │   ├── prisma/                 # schema.prisma & seed.sql (dữ liệu thật)
-│   └── tests/                  # Kiểm thử tự động Vitest (28 tests)
+│   └── tests/                  # Kiểm thử tự động Vitest (63 tests)
 │
-├── ai_service/                 # AI Microservice Python FastAPI
+├── ai_service/                 # AI Microservice Python FastAPI (Stateless)
 │   ├── agents/                 # Chatbot Agent & Meal Planner Agent
-│   ├── api/                    # Routers: /api/chat, /api/meal-planner
-│   └── core/                   # Cấu hình DeepSeek LLM & Rate Limiting
+│   ├── api/                    # Routers: /api/chat, /api/meal-planner, /api/admin-actions
+│   └── core/                   # Cấu hình DeepSeek LLM, Security (X-Internal-Api-Key), Logging
 │
 ├── docs/                       # Tài liệu thiết kế ERD & OpenAPI
 └── README.md                   # Hướng dẫn toàn diện dự án
@@ -132,7 +135,7 @@ SWP391/
 ## 7. 🚀 Hướng dẫn cài đặt & Khởi động Local từng bước
 
 ### Bước 1: Khởi tạo Cơ sở dữ liệu PostgreSQL
-Mở `psql` hoặc pgAdmin và tạo database:
+Mở terminal `psql` hoặc pgAdmin và tạo database:
 ```sql
 CREATE DATABASE vegetarian_db;
 ```
@@ -141,10 +144,10 @@ CREATE DATABASE vegetarian_db;
 ```bash
 cd server
 npm install
-# Tạo file .env và điền thông tin (xem Mục 8)
+# Tạo file .env và điền các thông số theo bảng ở Mục 8
 npm run prisma:generate
 npm run prisma:push
-npm run seed            # Nạp dữ liệu chuẩn từ seed.sql và xác thực tài khoản mẫu
+npm run seed                    # Nạp dữ liệu chuẩn từ seed.sql và xác thực tài khoản mẫu
 npm run dev
 ```
 > Server sẽ hoạt động tại: `http://localhost:5000` (Kiểm tra sức khỏe: `http://localhost:5000/health`)
@@ -157,9 +160,9 @@ npm run dev
 ```bash
 cd ai_service
 python -m venv venv
-.\venv\Scripts\Activate.ps1    # Trên Windows (hoặc: source venv/bin/activate trên Linux/macOS)
+.\venv\Scripts\Activate.ps1      # Trên Windows PowerShell (hoặc: source venv/bin/activate trên Linux/macOS)
 pip install -r requirements.txt
-# Tạo file .env và cấu hình DEEPSEEK_API_KEY
+# Tạo file .env và điền thông số (đặc biệt INTERNAL_API_KEY và DEEPSEEK_API_KEY) theo Mục 8
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 > AI Service sẽ hoạt động tại: `http://localhost:8000` (Swagger docs: `http://localhost:8000/docs`)
@@ -177,7 +180,7 @@ npm run dev
 ## 8. 🔐 Bảng biến môi trường (Environment Variables)
 
 ### 1. `server/.env`
-| Biến môi trường | Giá trị mẫu | Mô tả |
+| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
 | :--- | :--- | :--- |
 | `PORT` | `5000` | Cổng HTTP của Backend Server |
 | `NODE_ENV` | `development` | Môi trường phát triển |
@@ -185,20 +188,24 @@ npm run dev
 | `DATABASE_URL` | `postgresql://postgres:123456@localhost:5432/vegetarian_db` | Chuỗi kết nối PostgreSQL qua Prisma |
 | `JWT_SECRET` | `swp391_jwt_secret_key_super_secure_vegetarian_2026` | Khóa bí mật ký mã hóa JWT |
 | `JWT_EXPIRES_IN` | `7d` | Thời hạn của Access Token |
-| `INTERNAL_API_KEY` | `chayxanh_internal_secure_key_2026` | Khóa xác thực nội bộ giữa BE và AI Service |
+| `AI_SERVICE_URL` | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice |
+| `INTERNAL_API_KEY` | `chayxanh_internal_secure_key_2026` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
+| `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
 
 ### 2. `ai_service/.env`
-| Biến môi trường | Giá trị mẫu | Mô tả |
+| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
 | :--- | :--- | :--- |
-| `PORT` | `8000` | Cổng HTTP của AI Microservice |
 | `INTERNAL_API_KEY` | `chayxanh_internal_secure_key_2026` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
-| `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối DeepSeek LLM |
-| `DATABASE_URL` | `postgresql://postgres:123456@localhost:5432/vegetarian_db` | Kết nối đọc dữ liệu nguyên liệu |
+| `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối API DeepSeek LLM Engine |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | Mô hình ngôn ngữ mặc định |
+| `DEBUG` | `True` | Chế độ debug |
+| `SECRET_KEY` | `ai-service-secret-key-development-2026` | Khóa nội bộ FastAPI |
+| `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:5000` | Danh sách origin cho phép |
 
 ### 3. `client/.env`
-| Biến môi trường | Giá trị mẫu | Mô tả |
+| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
 | :--- | :--- | :--- |
-| `VITE_API_URL` | `/api` | Base URL gọi API (được proxy qua Vite sang port 5000) |
+| `VITE_API_URL` | `/api` | Base URL gọi API Backend (được proxy qua Vite sang port 5000) |
 
 ---
 
@@ -207,24 +214,31 @@ npm run dev
 ### Backend (`server/`)
 - `npm run dev`: Chạy server ở chế độ giám sát tự tải lại (nodemon).
 - `npm start`: Khởi động server production.
-- `npm test`: Chạy bộ 28 kiểm thử tự động với Vitest (bao gồm kiểm thử ranh giới Quản trị & RBAC).
+- `npm test`: Chạy bộ 63 kiểm thử tự động với Vitest (bao gồm AI Gateway, Repository, Quản trị & RBAC).
 - `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
 - `npm run prisma:push`: Đồng bộ cấu trúc `schema.prisma` trực tiếp vào PostgreSQL.
-- `npm run seed`: Nạp dữ liệu kiểm thử thực tế từ `seed.sql`.
+- `npm run seed`: Nạp dữ liệu chuẩn từ `seed.sql`.
 
 ### Frontend (`client/`)
 - `npm run dev`: Khởi động Vite dev server.
 - `npm run build`: Đóng gói ứng dụng thành phẩm (Production build).
-- `npm test`: Chạy bộ 32 bài kiểm thử với Node.js Test Runner (bao gồm kiểm thử Admin Service).
+- `npm test`: Chạy bộ 63 bài kiểm thử với Node.js Test Runner (bao gồm kiểm thử Admin Service, AI APIs và components).
 - `npm run preview`: Chạy thử bản build đã đóng gói trên máy local.
+
+### AI Microservice (`ai_service/`)
+- `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`: Khởi động máy chủ phát triển FastAPI.
+- `pytest`: Chạy bộ 75 kiểm thử tự động với Pytest (bao gồm Chatbot Agent, Meal Planner SSE stream, Xác thực X-Internal-Api-Key, Tính toán Dinh dưỡng & Rate Limiting).
+
+> **Tổng số bài kiểm thử tự động toàn dự án: 201 tests (Backend: 63, Frontend: 63, AI Service: 75) - 100% Passed.**
 
 ---
 
 ## 10. 📚 Link tài liệu API & ERD
 
-- **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](file:///d:/Projects/FPT/SWP391/docs/ERD.md)
+- **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
+- **Tài liệu Báo cáo Kiểm toán Hệ thống:** Lưu trữ tại [`PROJECT_AUDIT_REPORT.md`](PROJECT_AUDIT_REPORT.md)
 - **Tài liệu Swagger / OpenAPI:** Truy cập trực tiếp tại `http://localhost:8000/docs` khi AI Service khởi chạy.
-- **Quy chuẩn lập trình:** Chi tiết tại [`AGENTS.md`](file:///d:/Projects/FPT/SWP391/AGENTS.md) và [`client/AGENTS.md`](file:///d:/Projects/FPT/SWP391/client/AGENTS.md).
+- **Quy chuẩn lập trình:** Chi tiết tại [`AGENTS.md`](AGENTS.md), [`server/AGENTS.md`](server/AGENTS.md), [`client/AGENTS.md`](client/AGENTS.md), và [`ai_service/AGENTS.md`](ai_service/AGENTS.md).
 
 ---
 
@@ -271,7 +285,10 @@ npm test
 2. **Lỗi 403 Forbidden khi truy cập `/api/admin/*`:**
    - *Nguyên nhân:* Đang dùng tài khoản thành viên thông thường (Role 2).
    - *Khắc phục:* Đăng nhập bằng tài khoản Quản trị viên `admin@swp391.com` / `123456`.
-3. **Lỗi `ReferenceError: window is not defined` khi chạy test Frontend:**
+3. **Lỗi 401 Unauthorized khi Backend gọi AI Service:**
+   - *Nguyên nhân:* `INTERNAL_API_KEY` trong `server/.env` không khớp với `INTERNAL_API_KEY` trong `ai_service/.env`.
+   - *Khắc phục:* Kiểm tra và đồng bộ giá trị khóa bí mật giữa hai file môi trường.
+4. **Lỗi `ReferenceError: window is not defined` khi chạy test Frontend:**
    - *Nguyên nhân:* Môi trường Node.js không có sẵn đối tượng browser.
    - *Khắc phục:* Đảm bảo các file test có mock `globalThis.window` và `sessionStorage` tương thích trước khi gọi hàm.
 

@@ -12,6 +12,7 @@ import workspaceRoutes from './workspace.route.js';
 import adminRoutes from './admin.route.js';
 import uploadRoutes from './upload.route.js';
 import reportRoutes from './report.route.js';
+import aiRoutes from './ai.route.js';
 
 const router = express.Router();
 
@@ -27,5 +28,11 @@ router.use('/workspace', workspaceRoutes);
 router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/reports', reportRoutes);
+
+// AI Assistant & Dinh dưỡng (Chatbot & Tạo thực đơn cá nhân hóa)
+router.use('/ai', aiRoutes);
+// Alias tương thích ngược cho client
+router.use('/chat', aiRoutes);
+router.use('/meal-planner', aiRoutes);
 
 export default router;

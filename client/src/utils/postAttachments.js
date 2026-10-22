@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/postAttachments.js
+﻿// client/src/utils/postAttachments.js
 export const POST_MEDIA_ACCEPT =
   'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,video/ogg';
 export const MAX_POST_ATTACHMENTS = 6;

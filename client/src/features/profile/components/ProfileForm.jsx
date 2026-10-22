@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/profile/components/ProfileForm.jsx
+﻿// client/src/features/profile/components/ProfileForm.jsx
 import { Link } from 'react-router';
 import { Button, Spinner } from 'react-bootstrap';
 import { normalizeSearch } from '../../../utils/recipeFilters.js';

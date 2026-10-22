@@ -1,4 +1,4 @@
-// client/src/features/admin/components/AdminCategoriesTab.jsx
+﻿// client/src/features/admin/components/AdminCategoriesTab.jsx
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Table, Button, Form, Spinner, Alert, Row, Col, Nav } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -12,10 +12,9 @@ const getCategoryType = (cat) => {
   const hasPosts = (cat.post_categories?.length || cat._count?.post_categories || 0) > 0;
   if (hasRecipes && !hasPosts) return 'RECIPE';
   if (hasPosts && !hasRecipes) return 'BLOG';
-  if (/món|salad|gỏi|súp|canh|xào|chiên|kho|lẩu|điểm tâm|bánh|chè|tráng miệng|thức uống|chay/i.test(cat.name)) {
-    return 'RECIPE';
-  }
-  return 'BLOG';
+  return /món|salad|gỏi|súp|canh|xào|chiên|kho|lẩu|điểm tâm|bánh|chè|tráng miệng|thức uống|chay/i.test(cat.name)
+    ? 'RECIPE'
+    : 'BLOG';
 };
 
 export default function AdminCategoriesTab() {
@@ -231,21 +230,18 @@ export default function AdminCategoriesTab() {
 
       {/* Modal Chi tiết Công thức / Bài viết */}
       <AdminCategoryPreviewModal
-        show={!!previewItem}
-        onHide={() => setPreviewItem(null)}
+        show={!!previewItem} onHide={() => setPreviewItem(null)}
         item={previewItem}
         itemType={previewType}
       />
 
       {/* Modal Thêm / Sửa Danh mục */}
       <AdminCategoryFormModal
-        show={showModal}
-        onHide={() => setShowModal(false)}
+        show={showModal} onHide={() => setShowModal(false)}
         modalMode={modalMode}
         targetType={targetType}
         setTargetType={setTargetType}
-        categoryName={categoryName}
-        setCategoryName={setCategoryName}
+        categoryName={categoryName} setCategoryName={setCategoryName}
         onSubmit={handleSave}
       />
     </div>

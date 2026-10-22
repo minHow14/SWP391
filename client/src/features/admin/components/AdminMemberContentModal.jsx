@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminMemberContentModal.jsx
+﻿// client/src/features/admin/components/AdminMemberContentModal.jsx
 import { Modal, Spinner } from 'react-bootstrap';
 
 export default function AdminMemberContentModal({ content, loading, onHide }) {

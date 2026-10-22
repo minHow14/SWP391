@@ -5,3 +5,4 @@ export * from './comment.repository.js';
 export * from './vote.repository.js';
 export * from './place.repository.js';
 export * from './workspace.repository.js';
+export * from './ai.repository.js';

@@ -1,6 +1,6 @@
 // server/tests/report.test.js
 import request from 'supertest';
-import { describe, expect, it, afterAll } from 'vitest';
+import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
@@ -9,6 +9,49 @@ import { postRepository } from '../src/repositories/post.repository.js';
 describe('Report System Integration (Post & Comment)', () => {
   const user1Token = generateToken({ user_id: 1, role: 1 });
   const user2Token = generateToken({ user_id: 2, role: 2 });
+
+  const cleanupTestData = async () => {
+    // Dọn dẹp các báo cáo và bài viết kiểm thử
+    await prisma.report.deleteMany({
+      where: {
+        reason: {
+          in: [
+            'Bài viết có dấu hiệu quảng cáo sai sự thật',
+            'Bình luận xúc phạm người dùng khác',
+            'Báo cáo bài viết để admin gỡ bỏ',
+            'Bài viết chứa thông tin lừa đảo',
+          ],
+        },
+      },
+    });
+    const testPosts = await prisma.post.findMany({
+      where: {
+        blog: {
+          title: {
+            in: [
+              'User 2 Own Post',
+              'User 1 Post For Testing Report',
+              'Post with comment for report test',
+              'Bài viết vi phạm chuẩn bị bị gỡ bỏ',
+              'Vi phạm nghiêm trọng bài viết',
+            ],
+          },
+        },
+      },
+      select: { post_id: true },
+    });
+    for (const p of testPosts) {
+      await postRepository.hardDeletePost(p.post_id);
+    }
+  };
+
+  beforeAll(async () => {
+    await cleanupTestData();
+  });
+
+  afterAll(async () => {
+    await cleanupTestData();
+  });
 
   it('rejects unauthenticated report submissions with 401', async () => {
     const res = await request(app)
@@ -196,23 +239,5 @@ describe('Report System Integration (Post & Comment)', () => {
       where: { post_id: postToHide.post_id },
     });
     expect(commentsAfter.every((c) => c.status === 'DELETED')).toBe(true);
-  });
-
-  afterAll(async () => {
-    // Dọn dẹp dữ liệu test để không làm rác cơ sở dữ liệu mẫu
-    await prisma.report.deleteMany({
-      where: { reason: { in: ['Bài viết có dấu hiệu quảng cáo sai sự thật', 'Bình luận xúc phạm người dùng khác', 'Báo cáo bài viết để admin gỡ bỏ'] } },
-    });
-    const testPosts = await prisma.post.findMany({
-      where: {
-        blog: {
-          title: { in: ['User 2 Own Post', 'User 1 Post For Testing Report', 'Post with comment for report test', 'Bài viết vi phạm chuẩn bị bị gỡ bỏ'] },
-        },
-      },
-      select: { post_id: true },
-    });
-    for (const p of testPosts) {
-      await postRepository.hardDeletePost(p.post_id);
-    }
   });
 });

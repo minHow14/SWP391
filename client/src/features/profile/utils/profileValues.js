@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/profile/utils/profileValues.js
+﻿// client/src/features/profile/utils/profileValues.js
 function normalizeGenderValue(gender) {
   if (!gender) return '';
   const s = String(gender).trim().toUpperCase();

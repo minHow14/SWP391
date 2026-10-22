@@ -1,9 +1,8 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/services/aiApi.js
+// client/src/services/aiApi.js
 import { getSession } from '../utils/session.js';
 
-// Dịch vụ AI (FastAPI). Mặc định đi qua proxy của Vite: /ai-api -> http://127.0.0.1:8000/api
-// (xem vite.config.js). Khi deploy, đặt VITE_AI_API_URL trỏ thẳng tới dịch vụ AI.
-const AI_BASE = (import.meta.env?.VITE_AI_API_URL || '/ai-api').replace(/\/$/, '');
+// Toàn bộ cuộc gọi AI đi qua Backend Gateway API (/api)
+const AI_BASE = (import.meta.env?.VITE_API_URL || '/api').replace(/\/$/, '');
 const GUEST_KEY = 'chayxanh-guest-id';
 let memoryGuestId;
 
@@ -44,12 +43,16 @@ function headers(hasBody) {
 
 async function toError(response) {
   const result = await response.json().catch(() => null);
-  const error = result?.error;
+  const message =
+    result?.message ||
+    result?.error?.message ||
+    (typeof result?.error === 'string' ? result.error : null);
+  const code = result?.errorCode || result?.error?.code || `HTTP_${response.status}`;
   return new AiApiError({
     status: response.status,
-    code: error?.code || `HTTP_${response.status}`,
-    message: typeof error === 'string' ? error : error?.message,
-    details: error?.details,
+    code,
+    message,
+    details: result?.errors || result?.error?.details,
     requestId: result?.meta?.requestId || response.headers.get('X-Request-Id') || undefined,
   });
 }
@@ -73,7 +76,12 @@ export async function aiRequest(path, options = {}) {
   const response = await send(path, options);
   if (!response.ok) throw await toError(response);
   const result = await response.json().catch(() => null);
-  if (!result?.success) throw new AiApiError({ status: response.status, message: 'Phản hồi không hợp lệ từ dịch vụ AI.' });
+  if (!result?.success) {
+    throw new AiApiError({
+      status: response.status,
+      message: result?.message || 'Phản hồi không hợp lệ từ dịch vụ AI.',
+    });
+  }
   return result.data;
 }
 
@@ -119,8 +127,7 @@ export function createSseParser(onEvent) {
 }
 
 /**
- * POST và đọc luồng SSE. `onEvent(name, payload)` được gọi cho mỗi sự kiện.
- * Lỗi trả về trước khi stream bắt đầu (400, 422, 429...) được ném như AiApiError.
+ * POST và đọc luồng SSE qua Backend Gateway.
  */
 async function postStream(path, body, { signal, onEvent }) {
   const response = await send(path, { method: 'POST', body, signal });
@@ -147,21 +154,21 @@ async function postStream(path, body, { signal, onEvent }) {
 function errorFromEvent(payload) {
   const error = payload?.error;
   return new AiApiError({
-    code: error?.code || 'AI_PROVIDER_ERROR',
-    message: error?.message,
-    details: error?.details,
+    code: error?.code || payload?.errorCode || 'AI_PROVIDER_ERROR',
+    message: error?.message || payload?.message,
+    details: error?.details || payload?.errors,
     requestId: payload?.meta?.requestId,
   });
 }
 
-export const getChatUsage = (signal) => aiRequest('/chat/usage', { signal });
+export const getChatUsage = (signal) => aiRequest('/ai/chat/usage', { signal });
 
 /** Hỏi chatbot và nhận câu trả lời dần dần. Trả về { remaining } khi xong. */
 export async function streamChat({ message, history, dietaryType, menuContext, signal, onToken }) {
   let remaining = null;
   let failure = null;
   await postStream(
-    '/chat/stream',
+    '/ai/chat/stream',
     {
       message,
       ...(history?.length ? { history } : {}),
@@ -185,7 +192,7 @@ export async function streamChat({ message, history, dietaryType, menuContext, s
 export async function streamMealPlan({ request, signal, onProgress }) {
   let plan = null;
   let failure = null;
-  await postStream('/meal-planner/generate/stream', request, {
+  await postStream('/ai/meal-planner/generate/stream', request, {
     signal,
     onEvent(name, payload) {
       if (name === 'progress') onProgress?.(payload?.data ?? {});
@@ -198,7 +205,7 @@ export async function streamMealPlan({ request, signal, onProgress }) {
   return plan;
 }
 
-// ----- Quản trị (chỉ tài khoản Admin) -----
+// ----- Quản trị (Gọi Backend API Gateway tập trung) -----
 const query = (params) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params || {})) {
@@ -207,10 +214,10 @@ const query = (params) => {
   const text = search.toString();
   return text ? `?${text}` : '';
 };
-export const adminListLogs = (params, signal) => aiRequest(`/admin/ai-logs${query(params)}`, { signal });
-export const adminLogStats = (params, signal) => aiRequest(`/admin/ai-logs/stats${query(params)}`, { signal });
+export const adminListLogs = (params, signal) => aiRequest(`/admin/ai/logs${query(params)}`, { signal });
+export const adminLogStats = (params, signal) => aiRequest(`/admin/ai/stats${query(params)}`, { signal });
 export const adminGetGuestQuota = (guestId, signal) =>
-  aiRequest(`/admin/guest-quota/${encodeURIComponent(guestId)}`, { signal });
+  aiRequest(`/admin/ai/guest-quota/${encodeURIComponent(guestId)}`, { signal });
 export const adminResetGuestQuota = (guestId) =>
-  aiRequest('/admin/guest-quota/reset', { method: 'POST', body: { guest_id: guestId } });
-export const adminClearChatCache = () => aiRequest('/admin/chatbot-cache/clear', { method: 'POST' });
+  aiRequest('/admin/ai/guest-quota/reset', { method: 'POST', body: { guest_id: guestId } });
+export const adminClearChatCache = () => aiRequest('/admin/ai/chatbot-cache/clear', { method: 'POST' });

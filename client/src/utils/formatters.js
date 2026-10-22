@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/formatters.js
+﻿// client/src/utils/formatters.js
 export function formatDuration(seconds) {
   return `${Math.floor(seconds / 60)
     .toString()

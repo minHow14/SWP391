@@ -1,4 +1,4 @@
-// client/src/features/admin/components/AdminPostsTab.jsx
+﻿// client/src/features/admin/components/AdminPostsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -70,7 +70,6 @@ export default function AdminPostsTab() {
       setError(err.message);
     }
   };
-
 
   const handleStartEdit = (post) => {
     setEditingPost(post);

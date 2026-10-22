@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/Profile.jsx
+﻿// client/src/pages/Profile.jsx
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
 import ProfileForm from '../features/profile/components/ProfileForm.jsx';

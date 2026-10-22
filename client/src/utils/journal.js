@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/utils/journal.js
+﻿// client/src/utils/journal.js
 
 export const mealGroups = [
   { id: 'breakfast', name: 'Bữa Sáng', icon: 'sun-fill', tone: 'amber' },

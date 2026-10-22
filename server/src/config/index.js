@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\config\index.js
 import dotenv from 'dotenv';
 
 // Tải biến môi trường từ .env
@@ -32,7 +33,13 @@ export const config = Object.freeze({
     secret: jwtSecret || 'development-only-change-me-before-production',
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
+
+  // Cấu hình kết nối AI Microservice
+  ai: {
+    url: process.env.AI_SERVICE_URL || 'http://127.0.0.1:8000',
+    internalApiKey: process.env.INTERNAL_API_KEY || 'chayxanh_internal_secure_key_2026',
+    guestDailyLimit: parseInt(process.env.GUEST_DAILY_LIMIT || '3', 10),
+  },
 });
 
 export default config;
-

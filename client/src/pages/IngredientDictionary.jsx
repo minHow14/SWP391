@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/pages/IngredientDictionary.jsx
+﻿// client/src/pages/IngredientDictionary.jsx
 import { useState } from 'react';
 import IngredientPreview from '../features/ingredients/components/IngredientPreview.jsx';
 import { useDatabase } from '../hooks/useDatabase.js';

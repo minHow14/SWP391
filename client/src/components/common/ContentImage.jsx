@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/components/common/ContentImage.jsx
+﻿// client/src/components/common/ContentImage.jsx
 import { useState } from 'react';
 
 export default function ContentImage({ src, alt, className = '', emptyText = 'Chưa có ảnh' }) {

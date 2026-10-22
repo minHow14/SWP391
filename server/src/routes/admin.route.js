@@ -50,9 +50,20 @@ router.post('/moderation/resolve', adminController.resolveAiFlaggedItem);
 router.get('/ai/models', adminController.getAiModels);
 router.get('/ai/logs', adminController.getAiLogs);
 router.get('/ai/metrics', adminController.getAiMetrics);
+router.get('/ai/stats', adminController.getAiLogStats);
 
-// FE-08: Can thiệp thủ công AI
+// Alias hỗ trợ tương thích ngược với các trang quản trị
+router.get('/ai-logs', adminController.getAiLogs);
+router.get('/ai-logs/stats', adminController.getAiLogStats);
+router.get('/guest-quota/:guestId', adminController.getGuestQuota);
+router.post('/guest-quota/reset', adminController.resetGuestQuota);
+router.post('/chatbot-cache/clear', adminController.clearChatCache);
+
+// FE-08: Can thiệp thủ công AI & Quản lý hạn mức
 router.post('/ai/intervene', adminController.interveneAi);
+router.get('/ai/guest-quota/:guestId', adminController.getGuestQuota);
+router.post('/ai/guest-quota/reset', adminController.resetGuestQuota);
+router.post('/ai/chatbot-cache/clear', adminController.clearChatCache);
 
 // FE-09: Quản lý báo cáo vi phạm
 router.get('/reports', adminController.getReports);

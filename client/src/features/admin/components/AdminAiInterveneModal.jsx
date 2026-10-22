@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/admin/components/AdminAiInterveneModal.jsx
+﻿// client/src/features/admin/components/AdminAiInterveneModal.jsx
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
