@@ -1,5 +1,31 @@
 # Sơ đồ Cơ sở Dữ liệu (Entity Relationship Diagram - ERD)
 
+## Lịch sử sinh AI
+
+`AiGeneration` ánh xạ bảng hiện có `ai_generations`; chỉ BE ghi dữ liệu. `promptMessages` là các snapshot `{modelName, attempt, messages}`; `responsePayload` giữ toàn bộ kết quả chat/thực đơn. Không có bản ghi lịch sử cho khách. Chi tiết: [AI_INTEGRATION.md](AI_INTEGRATION.md).
+
+```mermaid
+erDiagram
+    User ||--o{ AiGeneration : owns
+    AiGeneration {
+        uuid id PK
+        int userId FK
+        enum type "CHAT | MEAL_PLAN"
+        enum status "PROCESSING | COMPLETED | FAILED"
+        string modelName
+        json requestPayload
+        json promptMessages
+        json responsePayload
+        string errorCode
+        string errorMessage
+        datetime completedAt
+        datetime createdAt
+        datetime updatedAt
+    }
+```
+
+## Các bảng nghiệp vụ
+
 Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với file cấu hình Prisma (`server/prisma/schema.prisma`).
 
 ```mermaid
