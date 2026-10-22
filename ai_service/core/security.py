@@ -7,6 +7,7 @@ from fastapi import Header, HTTPException, Request, status
 from pydantic import BaseModel
 
 from core.config import settings
+from core.internal_api_key import is_valid_internal_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def verify_internal_api_key(
     có kèm header X-Internal-Api-Key khớp với biến môi trường INTERNAL_API_KEY.
     """
     expected_key = settings.INTERNAL_API_KEY
-    if not x_internal_api_key or not secrets.compare_digest(x_internal_api_key, expected_key):
+    if not is_valid_internal_api_key(x_internal_api_key) or not secrets.compare_digest(x_internal_api_key, expected_key):
         logger.warning("Rejected unauthorized call to AI service: Missing or invalid X-Internal-Api-Key")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

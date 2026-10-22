@@ -32,6 +32,23 @@ def test_verify_internal_api_key_invalid_raises_401():
     assert exc_info.value.detail["code"] == "UNAUTHORIZED_INTERNAL"
 
 
+@pytest.mark.parametrize("key", ["A" * 32 + "é", "A" * 32 + "đ", "A" * 32 + "\n", "A" * 257])
+def test_malformed_header_returns_401_without_secret_in_logs(key, caplog):
+    with pytest.raises(HTTPException) as caught:
+        verify_internal_api_key(key)
+    assert caught.value.status_code == 401
+    assert key not in caplog.text
+    assert settings.INTERNAL_API_KEY not in caplog.text
+
+
+def test_non_ascii_http_header_is_rejected_without_a_server_error():
+    response = client.post("/api/chat", json={"message": "Kiểm tra định dạng khóa"}, headers={
+        b"X-Internal-Api-Key": b"A" * 32 + b"\xe9",
+    })
+    assert response.status_code == 401
+    assert response.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
+
+
 def test_api_endpoint_rejects_missing_internal_key():
     """Mọi endpoint nghiệp vụ /api/* từ chối nếu không có header X-Internal-Api-Key."""
     res = client.post("/api/chat", json={"message": "Xin chào"})

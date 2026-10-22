@@ -6,6 +6,12 @@ from typing import Annotated
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
+from core.internal_api_key import (
+    MAX_KEY_LENGTH,
+    MIN_KEY_LENGTH,
+    is_valid_internal_api_key,
+)
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -17,10 +23,18 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
+        hide_input_in_errors=True,
     )
 
     # Khóa xác thực nội bộ bắt buộc Backend Node.js gửi kèm header X-Internal-Api-Key
-    INTERNAL_API_KEY: str = Field(min_length=32)
+    INTERNAL_API_KEY: str = Field(min_length=MIN_KEY_LENGTH, max_length=MAX_KEY_LENGTH, repr=False)
+
+    @field_validator("INTERNAL_API_KEY")
+    @classmethod
+    def validate_internal_api_key(cls, value: str) -> str:
+        if not is_valid_internal_api_key(value):
+            raise ValueError("INTERNAL_API_KEY must use printable ASCII characters without whitespace.")
+        return value
 
     # DeepSeek: chatbot hỏi đáp và sinh thực đơn tuần
     DEEPSEEK_API_KEY: str = ""
