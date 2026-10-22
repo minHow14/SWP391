@@ -4,10 +4,18 @@ import { EventEmitter } from 'node:events';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
+import { aiConfig } from '../src/config/aiConfig.js';
 import prisma from '../src/config/prisma.js';
 import { aiService } from '../src/services/ai.service.js';
 import { aiLogService } from '../src/services/aiLogService.js';
 
+vi.mock('../src/config/aiConfig.js', async (importOriginal) => {
+  const original = await importOriginal();
+  return { aiConfig: { ...original.aiConfig } };
+});
+
+const ORIGINAL_TIMEOUT_MS = aiConfig.timeoutMs;
+const TEST_UPSTREAM_TIMEOUT_MS = 1000;
 const GUEST_PREFIX = `gateway-${randomUUID()}`;
 const KEY_HEADERS = { 'Content-Type': 'text/event-stream' };
 const upstreamDone = { success: true, status: 'completed', meta: { modelName: 'gateway-test-model' } };
@@ -17,7 +25,7 @@ const chat = (payload = { message: 'Kiểm thử gateway' }) => request(app).pos
 const usage = () => prisma.guestQuota.findFirst({ where: { guestId } });
 
 beforeEach(() => { guestId = `${GUEST_PREFIX}-${randomUUID()}`; });
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { aiConfig.timeoutMs = ORIGINAL_TIMEOUT_MS; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
   await prisma.guestQuota.deleteMany({ where: { guestId: { startsWith: GUEST_PREFIX } } });
   await prisma.$disconnect();
@@ -147,12 +155,17 @@ describe('AI gateway regression tests against the isolated database', () => {
   });
 
   it('times out an upstream request and refunds its reservation', async () => {
-    vi.stubGlobal('fetch', vi.fn((_url, { signal }) => new Promise((_resolve, reject) => {
+    // Exercise cancellation within the test deadline regardless of the deployment timeout.
+    aiConfig.timeoutMs = TEST_UPSTREAM_TIMEOUT_MS;
+    const upstream = vi.fn((_url, { signal }) => new Promise((_resolve, reject) => {
       signal.addEventListener('abort', () => reject(signal.reason), { once: true });
-    })));
+    }));
+    vi.stubGlobal('fetch', upstream);
     const response = await chat();
     expect(response.status).toBe(504);
     expect(response.body.errorCode).toBe('AI_TIMEOUT');
+    expect(upstream).toHaveBeenCalledOnce();
+    expect(upstream.mock.calls[0][1].signal.aborted).toBe(true);
     expect((await usage()).usedCount).toBe(0);
   });
 
