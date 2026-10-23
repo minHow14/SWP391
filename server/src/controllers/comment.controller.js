@@ -12,8 +12,11 @@ export const createComment = asyncHandler(async (req, res) => {
 });
 
 export const getCommentsByPost = asyncHandler(async (req, res) => {
-  const comments = await commentService.getCommentsByPost(req.params.postId);
-  return sendSuccess(res, { comments });
+  const result = await commentService.getCommentsByPost(req.params.postId, req.query);
+  if (result && result.meta) {
+    return sendSuccess(res, { comments: result.comments, meta: result.meta });
+  }
+  return sendSuccess(res, { comments: result });
 });
 
 export const updateComment = asyncHandler(async (req, res) => {

@@ -1,4 +1,4 @@
-﻿// client/src/pages/Restaurants.jsx
+// client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -30,15 +30,20 @@ export default function Restaurants() {
   const map = useRef(null);
   const search = normalizeSearch(query.trim());
   const filtered = places.filter((place) => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address} ${place.dishes}`).includes(search)).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'vi') : sort === 'price' ? a.price.length - b.price.length : b.rating - a.rating);
-  const visibleNearby = nearbyPlaces.filter(place => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address}`).includes(search));
+  const visibleNearby = nearbyPlaces
+    .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
+    .filter((place) => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address}`).includes(search));
   const mapPlaces = [...filtered, ...visibleNearby];
   const selected = mapPlaces.find((place) => place.id === selectedId) || mapPlaces[0];
   const hasLocation = mapPlaces.some(hasCoordinates);
   const mapSelection = hasCoordinates(selected) ? selected : mapPlaces.find(hasCoordinates);
 
   function selectPlace(place) {
-    if (place.source === 'ziomap') { setQuery(''); setType('all'); setCity('all'); }
-    setSelectedId(place.id);
+    setQuery('');
+    setType('all');
+    setCity('all');
+    const matchedInCatalog = places.find((p) => p.id === place.restaurant_id || p.id === place.id);
+    setSelectedId(matchedInCatalog ? matchedInCatalog.id : place.id);
     setPopupOpen(true);
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }

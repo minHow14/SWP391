@@ -51,9 +51,9 @@ export const commentService = {
   },
 
   /**
-   * Lấy danh sách bình luận đang hoạt động của bài viết
+   * Lấy danh sách bình luận đang hoạt động của bài viết, hỗ trợ phân trang
    */
-  async getCommentsByPost(postId) {
+  async getCommentsByPost(postId, query = {}) {
     const numericPostId = Number(postId);
     if (isNaN(numericPostId)) {
       throw ApiError.badRequest('Invalid post ID format');
@@ -64,22 +64,56 @@ export const commentService = {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 
-    return await commentRepository.findMany({
-      where: {
-        post_id: numericPostId,
-        status: COMMENT_STATUS.ACTIVE,
-      },
-      include: {
-        user: {
-          select: {
-            user_id: true,
-            full_name: true,
-          },
+    const where = {
+      post_id: numericPostId,
+      status: COMMENT_STATUS.ACTIVE,
+    };
+
+    const hasPagination = query.page !== undefined || query.limit !== undefined;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const include = {
+      user: {
+        select: {
+          user_id: true,
+          full_name: true,
         },
       },
-      orderBy: {
-        created_at: 'desc',
-      },
+    };
+
+    const orderBy = {
+      created_at: 'desc',
+    };
+
+    if (hasPagination) {
+      const [total, comments] = await Promise.all([
+        commentRepository.count({ where }),
+        commentRepository.findMany({
+          where,
+          include,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      return {
+        comments,
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    return await commentRepository.findMany({
+      where,
+      include,
+      orderBy,
     });
   },
 

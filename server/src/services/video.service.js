@@ -1,8 +1,11 @@
 // d:\Projects\FPT\SWP391\server\src\services\video.service.js
 import prisma from '../config/prisma.js';
-import { POST_TYPE, POST_STATUS } from '../constants/index.js';
+import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
+import { postRepository } from '../repositories/post.repository.js';
+import { userRepository } from '../repositories/user.repository.js';
+import { categoryRepository } from '../repositories/category.repository.js';
 
 export const videoService = {
   /**
@@ -24,9 +27,7 @@ export const videoService = {
       throw ApiError.badRequest('author_id, title, and video_url are required');
     }
 
-    const author = await prisma.user.findUnique({
-      where: { user_id: numericAuthorId },
-    });
+    const author = await userRepository.findById(numericAuthorId);
     if (!author) {
       throw ApiError.notFound('Author user not found');
     }
@@ -34,9 +35,7 @@ export const videoService = {
     const rawCategoryId = categoryId !== undefined ? categoryId : category_id;
     const numericCategoryId = rawCategoryId ? Number(rawCategoryId) : null;
     if (numericCategoryId) {
-      const categoryExists = await prisma.category.findUnique({
-        where: { category_id: numericCategoryId },
-      });
+      const categoryExists = await categoryRepository.findById(numericCategoryId);
       if (!categoryExists) {
         throw ApiError.badRequest('Chuyên mục bài viết không tồn tại');
       }
@@ -91,40 +90,62 @@ export const videoService = {
   },
 
   /**
-   * Lấy danh sách tất cả video đang hoạt động
+   * Lấy danh sách tất cả video đang hoạt động, hỗ trợ phân trang và lọc
    */
-  async getAllVideos() {
-    const videos = await prisma.video.findMany({
-      where: {
-        post: {
-          status: { not: POST_STATUS.DELETED },
-        },
+  async getAllVideos(query = {}) {
+    const where = {
+      post: {
+        status: POST_STATUS.PUBLISHED,
       },
-      include: {
-        post: {
-          include: {
-            author: {
-              select: {
-                user_id: true,
-                full_name: true,
-              },
+    };
+
+    if (query.categoryId || query.category_id) {
+      const catId = Number(query.categoryId || query.category_id);
+      where.post.post_categories = {
+        some: {
+          category_id: catId,
+        },
+      };
+    }
+
+    if (query.search) {
+      const searchStr = String(query.search).trim();
+      where.OR = [
+        { title: { contains: searchStr, mode: 'insensitive' } },
+        { transcript: { contains: searchStr, mode: 'insensitive' } },
+      ];
+    }
+
+    const hasPagination = query.page !== undefined || query.limit !== undefined;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const include = {
+      post: {
+        include: {
+          author: {
+            select: {
+              user_id: true,
+              full_name: true,
             },
-            post_categories: {
-              include: {
-                category: true,
-              },
+          },
+          post_categories: {
+            include: {
+              category: true,
             },
           },
         },
       },
-      orderBy: {
-        post: {
-          created_at: 'desc',
-        },
-      },
-    });
+    };
 
-    return videos.map((v) => {
+    const orderBy = {
+      post: {
+        created_at: 'desc',
+      },
+    };
+
+    const formatVideo = (v) => {
       const firstCat = v.post?.post_categories?.[0];
       return {
         ...v.post,
@@ -134,7 +155,38 @@ export const videoService = {
         category: firstCat?.category || null,
         post: undefined,
       };
+    };
+
+    if (hasPagination) {
+      const [total, videos] = await Promise.all([
+        prisma.video.count({ where }),
+        postRepository.findAllVideos({
+          where,
+          include,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      return {
+        videos: videos.map(formatVideo),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    const videos = await postRepository.findAllVideos({
+      where,
+      include,
+      orderBy,
     });
+
+    return videos.map(formatVideo);
   },
 
   /**
@@ -146,14 +198,9 @@ export const videoService = {
       throw ApiError.badRequest('Invalid video ID format');
     }
 
-    const video = await prisma.video.findFirst({
-      where: {
-        post_id: postId,
-        post: {
-          status: { not: POST_STATUS.DELETED },
-        },
-      },
-      include: {
+    const video = await postRepository.findVideoById(
+      postId,
+      {
         post: {
           include: {
             author: {
@@ -169,10 +216,10 @@ export const videoService = {
             },
           },
         },
-      },
-    });
+      }
+    );
 
-    if (!video || !video.post) {
+    if (!video || !video.post || video.post.status === POST_STATUS.DELETED) {
       throw ApiError.notFound('Video not found');
     }
 
@@ -200,17 +247,12 @@ export const videoService = {
       throw ApiError.badRequest('Invalid video ID format');
     }
 
-    const existingVideo = await prisma.video.findFirst({
-      where: {
-        post_id: postId,
-        post: {
-          status: { not: POST_STATUS.DELETED },
-        },
-      },
-      include: {
+    const existingVideo = await postRepository.findVideoById(
+      postId,
+      {
         post: true,
-      },
-    });
+      }
+    );
 
     if (!existingVideo || existingVideo.post.status === POST_STATUS.DELETED) {
       throw ApiError.notFound('Video not found or has been deleted');
@@ -230,9 +272,7 @@ export const videoService = {
     if (rawCat !== undefined) {
       numericCategoryId = rawCat ? Number(rawCat) : null;
       if (numericCategoryId) {
-        const categoryExists = await prisma.category.findUnique({
-          where: { category_id: numericCategoryId },
-        });
+        const categoryExists = await categoryRepository.findById(numericCategoryId);
         if (!categoryExists) {
           throw ApiError.badRequest('Chuyên mục bài viết không tồn tại');
         }
@@ -298,9 +338,7 @@ export const videoService = {
       throw ApiError.badRequest('Invalid video ID format');
     }
 
-    const post = await prisma.post.findUnique({
-      where: { post_id: postId },
-    });
+    const post = await postRepository.findPostById(postId);
 
     if (!post || post.post_type !== POST_TYPE.VIDEO) {
       throw ApiError.notFound('Video post not found');
@@ -319,9 +357,19 @@ export const videoService = {
       return { message: 'Video is already deleted' };
     }
 
-    await prisma.post.update({
-      where: { post_id: postId },
-      data: { status: POST_STATUS.DELETED },
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.comment.updateMany({
+        where: { post_id: postId, status: { not: COMMENT_STATUS.DELETED } },
+        data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+      });
+      await tx.post.update({
+        where: { post_id: postId },
+        data: {
+          status: POST_STATUS.DELETED,
+          deleted_at: now,
+        },
+      });
     });
 
     return { message: 'Video deleted successfully' };

@@ -12,8 +12,11 @@ export const createVideo = asyncHandler(async (req, res) => {
 });
 
 export const getAllVideos = asyncHandler(async (req, res) => {
-  const videos = await videoService.getAllVideos();
-  return sendSuccess(res, { videos });
+  const result = await videoService.getAllVideos(req.query);
+  if (result && result.meta) {
+    return sendSuccess(res, { videos: result.videos, meta: result.meta });
+  }
+  return sendSuccess(res, { videos: result });
 });
 
 export const getVideoById = asyncHandler(async (req, res) => {

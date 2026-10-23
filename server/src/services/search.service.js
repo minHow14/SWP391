@@ -1,5 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\services\search.service.js
-import prisma from '../config/prisma.js';
+import { postRepository } from '../repositories/post.repository.js';
+import { placeRepository } from '../repositories/place.repository.js';
 import { POST_STATUS } from '../constants/index.js';
 import { ApiError } from '../utils/index.js';
 
@@ -7,17 +8,19 @@ export const searchService = {
   /**
    * Tìm kiếm toàn cục Blog và Video theo từ khóa trên PostgreSQL
    */
-  async globalSearch(rawQuery) {
+  async globalSearch(rawQuery, { limit = 20 } = {}) {
     const query = rawQuery ? String(rawQuery).trim() : '';
     if (!query) {
       throw ApiError.badRequest('Query parameter "q" is required');
     }
 
+    const take = Math.min(50, Math.max(1, Number(limit) || 20));
+
     const [matchedBlogs, matchedVideos] = await Promise.all([
-      prisma.blog.findMany({
+      postRepository.findAllBlogs({
         where: {
           post: {
-            status: { not: POST_STATUS.DELETED },
+            status: POST_STATUS.PUBLISHED,
           },
           OR: [
             { title: { contains: query, mode: 'insensitive' } },
@@ -42,12 +45,13 @@ export const searchService = {
             created_at: 'desc',
           },
         },
+        take,
       }),
 
-      prisma.video.findMany({
+      postRepository.findAllVideos({
         where: {
           post: {
-            status: { not: POST_STATUS.DELETED },
+            status: POST_STATUS.PUBLISHED,
           },
           OR: [
             { title: { contains: query, mode: 'insensitive' } },
@@ -71,6 +75,7 @@ export const searchService = {
             created_at: 'desc',
           },
         },
+        take,
       }),
     ]);
 
@@ -105,10 +110,10 @@ export const searchService = {
     const lowerKeyword = keyword.toLowerCase();
 
     // 1. Tìm video gợi ý từ cơ sở dữ liệu
-    const matchedVideos = await prisma.video.findMany({
+    const matchedVideos = await postRepository.findAllVideos({
       where: {
         post: {
-          status: { not: POST_STATUS.DELETED },
+          status: POST_STATUS.PUBLISHED,
         },
         OR: [
           { title: { contains: keyword, mode: 'insensitive' } },
@@ -148,7 +153,7 @@ export const searchService = {
       .sort((a, b) => b.matchScore - a.matchScore);
 
     // 2. Tìm quán ăn gợi ý theo tên nhà hàng hoặc theo món ăn phục vụ
-    const matchedRestaurants = await prisma.restaurant.findMany({
+    const matchedRestaurants = await placeRepository.findRestaurants({
       where: {
         OR: [
           { name: { contains: keyword, mode: 'insensitive' } },

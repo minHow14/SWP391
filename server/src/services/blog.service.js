@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import prisma from '../config/prisma.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
-import { POST_TYPE, POST_STATUS } from '../constants/index.js';
+import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
 
@@ -117,46 +117,68 @@ export const blogService = {
   },
 
   /**
-   * Lấy danh sách tất cả Blog còn hoạt động (không bị xóa mềm)
+   * Lấy danh sách tất cả Blog còn hoạt động (không bị xóa mềm), hỗ trợ phân trang và lọc
    */
-  async getAllBlogs() {
-    const blogs = await postRepository.findAllBlogs({
-      where: {
-        post: {
-          status: { not: POST_STATUS.DELETED },
-        },
+  async getAllBlogs(query = {}) {
+    const where = {
+      post: {
+        status: POST_STATUS.PUBLISHED,
       },
-      include: {
-        post: {
-          include: {
-            author: {
-              select: {
-                user_id: true,
-                full_name: true,
-              },
+    };
+
+    if (query.categoryId || query.category_id) {
+      const catId = Number(query.categoryId || query.category_id);
+      where.post.post_categories = {
+        some: {
+          category_id: catId,
+        },
+      };
+    }
+
+    if (query.search) {
+      const searchStr = String(query.search).trim();
+      where.OR = [
+        { title: { contains: searchStr, mode: 'insensitive' } },
+        { content: { contains: searchStr, mode: 'insensitive' } },
+      ];
+    }
+
+    const hasPagination = query.page !== undefined || query.limit !== undefined;
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const include = {
+      post: {
+        include: {
+          author: {
+            select: {
+              user_id: true,
+              full_name: true,
             },
-            post_categories: {
-              include: {
-                category: true,
-              },
+          },
+          post_categories: {
+            include: {
+              category: true,
             },
-            attachments: {
-              orderBy: {
-                attachment_id: 'asc',
-              },
+          },
+          attachments: {
+            orderBy: {
+              attachment_id: 'asc',
             },
           },
         },
-        attached_video: true,
       },
-      orderBy: {
-        post: {
-          created_at: 'desc',
-        },
-      },
-    });
+      attached_video: true,
+    };
 
-    return blogs.map((b) => {
+    const orderBy = {
+      post: {
+        created_at: 'desc',
+      },
+    };
+
+    const formatBlog = (b) => {
       const { post, ...blogData } = b;
       const firstCat = post?.post_categories?.[0];
       const attachments = (post?.attachments || []).map((a) => ({
@@ -174,7 +196,38 @@ export const blogService = {
         category: firstCat?.category || null,
         attachments,
       };
+    };
+
+    if (hasPagination) {
+      const [total, blogs] = await Promise.all([
+        prisma.blog.count({ where }),
+        postRepository.findAllBlogs({
+          where,
+          include,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      return {
+        blogs: blogs.map(formatBlog),
+        meta: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+    }
+
+    const blogs = await postRepository.findAllBlogs({
+      where,
+      include,
+      orderBy,
     });
+
+    return blogs.map(formatBlog);
   },
 
   /**
@@ -390,27 +443,22 @@ export const blogService = {
       }
     }
 
-    // Thu thập danh sách tệp đính kèm trên đĩa để dọn dẹp bộ nhớ
-    const attachments = post.attachments || [];
-
-    // Xóa cứng hoàn toàn khỏi cơ sở dữ liệu kèm tất cả liên kết phụ thuộc
-    await postRepository.hardDeletePost(postId);
-
-    // Dọn dẹp tệp tĩnh trên đĩa (nếu có)
-    for (const att of attachments) {
-      if (att.file_url && att.file_url.startsWith('/uploads/posts/')) {
-        const relativeFilePath = att.file_url.replace(/^\//, '');
-        const filePath = path.resolve(__dirname, '../../', relativeFilePath);
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
-          }
-        } catch {
-          // Bỏ qua nếu tệp đã không còn trên đĩa
-        }
-      }
+    if (post.status === POST_STATUS.DELETED) {
+      return { message: 'Bài viết đã ở trạng thái đã xóa' };
     }
 
-    return { message: 'Bài viết đã được xóa hoàn toàn khỏi hệ thống' };
+    const now = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.comment.updateMany({
+        where: { post_id: postId, status: { not: COMMENT_STATUS.DELETED } },
+        data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+      });
+      await tx.post.update({
+        where: { post_id: postId },
+        data: { status: POST_STATUS.DELETED, deleted_at: now },
+      });
+    });
+
+    return { message: 'Bài viết đã được xóa thành công' };
   },
 };

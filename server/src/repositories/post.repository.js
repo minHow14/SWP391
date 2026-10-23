@@ -78,7 +78,7 @@ export const postRepository = {
 
   async hardDeletePost(postId, db = prisma) {
     const id = Number(postId);
-    return db.$transaction(async (tx) => {
+    const execute = async (tx) => {
       // 1. Gỡ liên kết post_id ở bảng recipes để không vi phạm khóa ngoại
       await tx.recipe.updateMany({
         where: { post_id: id },
@@ -134,7 +134,9 @@ export const postRepository = {
       return tx.post.delete({
         where: { post_id: id },
       });
-    });
+    };
+
+    return typeof db.$transaction === 'function' ? db.$transaction(execute) : execute(db);
   },
 
   async countPosts(args = {}, db = prisma) {

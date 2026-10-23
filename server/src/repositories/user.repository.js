@@ -1,6 +1,16 @@
 // D:/SWP391/SWP391/server/src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
 
+export const DEFAULT_USER_SAFE_SELECT = {
+  user_id: true,
+  email: true,
+  full_name: true,
+  role: true,
+  status: true,
+  created_at: true,
+  deleted_at: true,
+};
+
 export const userRepository = {
   findAuthIdentityById(userId, db = prisma) {
     return db.user.findUnique({
@@ -9,32 +19,42 @@ export const userRepository = {
     });
   },
 
-  async findByEmail(email, select = null, db = prisma) {
+  async findByEmail(email, select = DEFAULT_USER_SAFE_SELECT, db = prisma) {
     return db.user.findUnique({
       where: { email },
-      ...(select ? { select } : {}),
+      select,
     });
   },
 
-  async findById(userId, select = null, db = prisma) {
+  async findByEmailWithPassword(email, db = prisma) {
+    return db.user.findUnique({
+      where: { email },
+      select: {
+        ...DEFAULT_USER_SAFE_SELECT,
+        password_hash: true,
+      },
+    });
+  },
+
+  async findById(userId, select = DEFAULT_USER_SAFE_SELECT, db = prisma) {
     return db.user.findUnique({
       where: { user_id: Number(userId) },
-      ...(select ? { select } : {}),
+      select,
     });
   },
 
-  async create(data, select = null, db = prisma) {
+  async create(data, select = DEFAULT_USER_SAFE_SELECT, db = prisma) {
     return db.user.create({
       data,
-      ...(select ? { select } : {}),
+      select,
     });
   },
 
-  async update(userId, data, select = null, db = prisma) {
+  async update(userId, data, select = DEFAULT_USER_SAFE_SELECT, db = prisma) {
     return db.user.update({
       where: { user_id: Number(userId) },
       data,
-      ...(select ? { select } : {}),
+      select,
     });
   },
 
@@ -77,6 +97,10 @@ export const userRepository = {
   },
 
   async findMany(args = {}, db = prisma) {
-    return db.user.findMany(args);
+    const finalArgs = { ...args };
+    if (!finalArgs.select && !finalArgs.include) {
+      finalArgs.select = DEFAULT_USER_SAFE_SELECT;
+    }
+    return db.user.findMany(finalArgs);
   },
 };

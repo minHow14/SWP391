@@ -1,7 +1,8 @@
+// d:\Projects\FPT\SWP391\server\src\services\places.service.js
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
-import prisma from '../config/prisma.js';
+import { placeRepository } from '../repositories/place.repository.js';
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
@@ -76,20 +77,7 @@ const byDistance = (a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infin
 /** Quán trong DB nằm trong bán kính, xếp từ gần đến xa. */
 export async function findNearbyLocal({ lat, lng, radiusKm }) {
   const origin = { latitude: lat, longitude: lng };
-  const restaurants = await prisma.restaurant.findMany({
-    where: {
-      latitude: { not: null },
-      longitude: { not: null },
-    },
-    include: {
-      diet_type: true,
-      restaurant_recipes: {
-        include: {
-          recipe: true,
-        },
-      },
-    },
-  });
+  const restaurants = await placeRepository.findNearbyCandidates({ lat, lng, radiusKm });
 
   return restaurants
     .map((restaurant) => toPlace(restaurant, origin))
@@ -100,7 +88,7 @@ export async function findNearbyLocal({ lat, lng, radiusKm }) {
 /** Tìm quán trong DB theo tên quán hoặc tên món (không dấu, cho phép gõ sai nhẹ). */
 export async function searchLocal({ query, lat, lng }) {
   const origin = lat !== undefined && lng !== undefined ? { latitude: lat, longitude: lng } : null;
-  const restaurants = await prisma.restaurant.findMany({
+  const restaurants = await placeRepository.findRestaurants({
     include: {
       diet_type: true,
       restaurant_recipes: {

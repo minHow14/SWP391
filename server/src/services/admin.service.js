@@ -8,6 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { postRepository } from '../repositories/post.repository.js';
+import { userRepository } from '../repositories/user.repository.js';
+import { commentRepository } from '../repositories/comment.repository.js';
+import { categoryRepository } from '../repositories/category.repository.js';
+import { reportRepository } from '../repositories/report.repository.js';
 import { aiService } from './ai.service.js';
 import { guestQuotaService } from './guestQuotaService.js';
 import { guestQuotaAdminService } from './guestQuotaAdminService.js';
@@ -33,8 +37,8 @@ export const getUsers = async ({ page = 1, limit = 10, search = '', status = '',
   }
 
   const [total, users] = await Promise.all([
-    prisma.user.count({ where }),
-    prisma.user.findMany({
+    userRepository.count({ where }),
+    userRepository.findMany({
       where,
       skip,
       take,
@@ -63,14 +67,16 @@ export const getUsers = async ({ page = 1, limit = 10, search = '', status = '',
 
 export const getUserContent = async (userId) => {
   const targetId = Number(userId);
-  const user = await prisma.user.findUnique({
-    where: { user_id: targetId },
-    select: { user_id: true, full_name: true, email: true, status: true },
+  const user = await userRepository.findById(targetId, {
+    user_id: true,
+    full_name: true,
+    email: true,
+    status: true,
   });
   if (!user) throw ApiError.notFound('Không tìm thấy thành viên');
 
   const [posts, comments] = await Promise.all([
-    prisma.post.findMany({
+    postRepository.findPosts({
       where: { author_id: targetId },
       orderBy: { created_at: 'desc' },
       include: {
@@ -79,7 +85,7 @@ export const getUserContent = async (userId) => {
         post_categories: { include: { category: true } },
       },
     }),
-    prisma.comment.findMany({
+    commentRepository.findMany({
       where: { user_id: targetId },
       orderBy: { created_at: 'desc' },
       include: {
@@ -128,12 +134,14 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
 
   const now = new Date();
   return prisma.$transaction(async (tx) => {
+    // Chỉ soft-delete các bình luận đang hoạt động (không đè lên bình luận đã xóa từ trước)
     await tx.comment.updateMany({
-      where: { user_id: id },
+      where: { user_id: id, status: { not: COMMENT_STATUS.DELETED } },
       data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
     });
+    // Chỉ soft-delete các bài viết chưa bị xóa từ trước
     await tx.post.updateMany({
-      where: { author_id: id },
+      where: { author_id: id, status: { not: POST_STATUS.DELETED } },
       data: { status: POST_STATUS.DELETED, deleted_at: now },
     });
     return tx.user.update({
@@ -152,15 +160,20 @@ export const restoreUser = async (userId) => {
     throw ApiError.badRequest('Tài khoản này không ở trạng thái đã xóa');
   }
 
+  const userDeletedAt = user.deleted_at;
+
   return prisma.$transaction(async (tx) => {
-    await tx.comment.updateMany({
-      where: { user_id: id, status: COMMENT_STATUS.DELETED },
-      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
-    });
-    await tx.post.updateMany({
-      where: { author_id: id, status: POST_STATUS.DELETED },
-      data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
-    });
+    // Chỉ khôi phục bài viết và bình luận bị xóa cùng lúc với tài khoản (tránh hồi sinh bài/comment vi phạm đã xóa trước đó)
+    if (userDeletedAt) {
+      await tx.comment.updateMany({
+        where: { user_id: id, status: COMMENT_STATUS.DELETED, deleted_at: userDeletedAt },
+        data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+      });
+      await tx.post.updateMany({
+        where: { author_id: id, status: POST_STATUS.DELETED, deleted_at: userDeletedAt },
+        data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
+      });
+    }
     return tx.user.update({
       where: { user_id: id },
       data: { status: USER_STATUS.ACTIVE, deleted_at: null },
@@ -385,8 +398,9 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
   const now = new Date();
   // Nếu permanent = false: Đánh dấu HIDDEN (trạng thái Đã ẩn, vẫn hiển thị trên bảng để Admin quản lý/khôi phục)
   return prisma.$transaction(async (tx) => {
+    // Chỉ ẩn các bình luận đang ACTIVE
     await tx.comment.updateMany({
-      where: { post_id: id },
+      where: { post_id: id, status: COMMENT_STATUS.ACTIVE },
       data: { status: COMMENT_STATUS.HIDDEN, deleted_at: now },
     });
     const updatedPost = await tx.post.update({
@@ -405,11 +419,16 @@ export const restorePost = async (postId) => {
     throw ApiError.badRequest('Bài đăng này không ở trạng thái ẩn hoặc đã xóa');
   }
 
+  const postDeletedAt = post.deleted_at;
+
   return prisma.$transaction(async (tx) => {
-    await tx.comment.updateMany({
-      where: { post_id: id, status: { in: [COMMENT_STATUS.HIDDEN, COMMENT_STATUS.DELETED] } },
-      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
-    });
+    // Chỉ khôi phục các bình luận bị ẩn cùng lúc với bài đăng (không khôi phục các bình luận vi phạm hay đã bị xóa từ trước)
+    if (postDeletedAt) {
+      await tx.comment.updateMany({
+        where: { post_id: id, status: COMMENT_STATUS.HIDDEN, deleted_at: postDeletedAt },
+        data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+      });
+    }
     return tx.post.update({
       where: { post_id: id },
       data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
@@ -513,7 +532,7 @@ export const restoreComment = async (commentId) => {
  * FE-04: Quản lý danh mục
  */
 export const getCategories = async () => {
-  return prisma.category.findMany({
+  return categoryRepository.findMany({
     orderBy: { category_id: 'asc' },
     include: {
       recipes: {
@@ -556,10 +575,10 @@ export const createCategory = async ({ name }) => {
   const trimmed = name?.trim();
   if (!trimmed) throw ApiError.badRequest('Tên danh mục không được để trống');
 
-  const existing = await prisma.category.findUnique({ where: { name: trimmed } });
+  const existing = await categoryRepository.findByName(trimmed);
   if (existing) throw ApiError.conflict('Tên danh mục đã tồn tại');
 
-  return prisma.category.create({ data: { name: trimmed } });
+  return categoryRepository.create({ name: trimmed });
 };
 
 export const updateCategory = async ({ categoryId, name }) => {
@@ -567,35 +586,36 @@ export const updateCategory = async ({ categoryId, name }) => {
   const trimmed = name?.trim();
   if (!trimmed) throw ApiError.badRequest('Tên danh mục không được để trống');
 
-  const category = await prisma.category.findUnique({ where: { category_id: id } });
+  const category = await categoryRepository.findById(id);
   if (!category) throw ApiError.notFound('Không tìm thấy danh mục');
 
-  const existing = await prisma.category.findFirst({
+  const existing = await categoryRepository.findFirst({
     where: { name: trimmed, category_id: { not: id } },
   });
   if (existing) throw ApiError.conflict('Tên danh mục đã được sử dụng');
 
-  return prisma.category.update({
-    where: { category_id: id },
-    data: { name: trimmed },
-  });
+  return categoryRepository.update(id, { name: trimmed });
 };
 
 export const deleteCategory = async (categoryId) => {
   const id = Number(categoryId);
-  const category = await prisma.category.findUnique({
-    where: { category_id: id },
-    include: {
-      _count: { select: { post_categories: true, recipes: true } },
-    },
-  });
+  const category = await categoryRepository.findById(id);
   if (!category) throw ApiError.notFound('Không tìm thấy danh mục');
 
-  if (category._count.post_categories > 0 || category._count.recipes > 0) {
+  const [postCategoryCount, recipeCount] = await Promise.all([
+    postRepository.countPosts({
+      where: { post_categories: { some: { category_id: id } } },
+    }),
+    prisma.recipe.count({
+      where: { category_id: id },
+    }),
+  ]);
+
+  if (postCategoryCount > 0 || recipeCount > 0) {
     throw ApiError.badRequest('Không thể xóa danh mục đang có bài viết hoặc công thức nấu ăn liên kết');
   }
 
-  return prisma.category.delete({ where: { category_id: id } });
+  return categoryRepository.delete(id);
 };
 
 /**
@@ -863,8 +883,8 @@ export const getReports = async ({ page = 1, limit = 10, status = '' }) => {
   if (status) where.status = status;
 
   const [total, reports] = await Promise.all([
-    prisma.report.count({ where }),
-    prisma.report.findMany({
+    reportRepository.count({ where }),
+    reportRepository.findMany({
       where,
       skip,
       take,
@@ -898,10 +918,7 @@ export const getReports = async ({ page = 1, limit = 10, status = '' }) => {
 
 export const updateReportStatus = async ({ reportId, status, resolutionAction = 'NONE' }) => {
   const id = Number(reportId);
-  const report = await prisma.report.findUnique({
-    where: { report_id: id },
-    include: { post: true, comment: true },
-  });
+  const report = await reportRepository.findById(id, { post: true, comment: true });
   if (!report) throw ApiError.notFound('Không tìm thấy báo cáo');
 
   if (resolutionAction === 'HIDE_CONTENT') {
@@ -910,9 +927,9 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     // 1. Nếu là báo cáo về BÌNH LUẬN (comment_id có giá trị):
     // -> CHỈ gỡ bỏ bình luận đó, TUYỆT ĐỐI KHÔNG gỡ bỏ bài viết!
     if (report.comment_id) {
-      await prisma.comment.update({
-        where: { comment_id: report.comment_id },
-        data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
+      await commentRepository.update(report.comment_id, {
+        status: COMMENT_STATUS.DELETED,
+        deleted_at: now,
       });
     } else if (report.post_id) {
       // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
@@ -930,11 +947,7 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     }
   }
 
-  return prisma.report.update({
-    where: { report_id: id },
-    data: { status },
-    include: { reporter: { select: { full_name: true } } },
-  });
+  return reportRepository.update(id, { status }, { reporter: { select: { full_name: true } } });
 };
 
 /**

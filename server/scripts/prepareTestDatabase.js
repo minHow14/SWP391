@@ -12,7 +12,7 @@ const databaseName = databaseUrl.pathname.slice(1);
 if (!/^[a-zA-Z0-9_]+_test$/.test(databaseName)) throw new Error('Refusing to prepare a database without the _test suffix.');
 if (!['localhost', '127.0.0.1', '[::1]'].includes(databaseUrl.hostname)) throw new Error('This helper only prepares a local test database.');
 const psql = process.env.PSQL_PATH || 'psql';
-const connectionArgs = ['-h', databaseUrl.hostname, '-p', databaseUrl.port || '5432', '-U', decodeURIComponent(databaseUrl.username), '-v', 'ON_ERROR_STOP=1', '-q'];
+const connectionArgs = ['-h', databaseUrl.hostname, '-p', databaseUrl.port || '5432', '-U', decodeURIComponent(databaseUrl.username), '-w', '-v', 'ON_ERROR_STOP=1', '-q'];
 const childEnvironment = { ...process.env, PGPASSWORD: decodeURIComponent(databaseUrl.password) };
 
 function executeSql(database, sql) {

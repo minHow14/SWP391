@@ -7,3 +7,5 @@ export * from './place.repository.js';
 export * from './workspace.repository.js';
 export * from './aiLogRepository.js';
 export * from './guestQuotaRepository.js';
+export * from './report.repository.js';
+export * from './category.repository.js';

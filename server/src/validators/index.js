@@ -8,6 +8,7 @@ export * from './vote.validator.js';
 export * from './search.validator.js';
 export * from './workspace.validator.js';
 export * from './report.validator.js';
+export * from './admin.validator.js';
 
 import { idParamsSchema, postIdParamsSchema } from './common.validator.js';
 import { registerSchema, loginSchema, updateMeSchema } from './auth.validator.js';
