@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/client/src/features/chat/hooks/useChatRequest.js
 // client/src/features/chat/hooks/useChatRequest.js
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';
@@ -43,7 +44,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
             : message
         )
       );
-      if (remaining !== null && remaining !== undefined) { setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining_questions: remaining, remaining } : previous)); } else { getChatUsage().then(setUsage).catch(() => {}); }
+      setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining: remaining } : previous));
     } catch (failure) {
       if (current.signal.aborted) {
         update({ pending: false });

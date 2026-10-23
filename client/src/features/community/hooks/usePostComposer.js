@@ -1,4 +1,4 @@
-// client/src/features/community/hooks/usePostComposer.js
+// D:/SWP391/SWP391/client/src/features/community/hooks/usePostComposer.js
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -233,8 +233,8 @@ export function usePostComposer({ post = {}, onSaved }) {
     attachments,
     selectFiles,
     removeAttachment,
-    submit: form.handleSubmit(submit),
-    busy: submitting.current || uploading,
+    submit: (event) => form.handleSubmit(submit)(event),
+    busy: form.formState.isSubmitting || uploading,
     error,
     uploading,
     progress,

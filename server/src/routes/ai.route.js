@@ -1,19 +1,20 @@
-// d:\Projects\FPT\SWP391\server\src\routes\ai.route.js
+// D:/SWP391/SWP391/server/src/routes/ai.route.js
 import { Router } from 'express';
 import * as aiController from '../controllers/ai.controller.js';
-import { optionalAuthenticate } from '../middlewares/authMiddleware.js';
+import { authenticateAiCaller } from '../middlewares/aiIdentityMiddleware.js';
+import { aiChatSchema, aiMealPlanSchema, validateAiBody } from '../validators/aiRequestValidator.js';
 
 const router = Router();
 
-// Gắn optionalAuthenticate để nhận diện nếu người dùng đã đăng nhập
-router.use(optionalAuthenticate);
+// Token đã gửi lên phải hợp lệ; chỉ yêu cầu không có token mới được xử lý như khách.
+router.use(authenticateAiCaller);
 
 // Quản lý hạn mức câu hỏi của khách & tài khoản
 router.get('/usage', aiController.getUsage);
 router.get('/chat/usage', aiController.getUsage);
 
 // Streaming Server-Sent Events qua AI Microservice
-router.post('/chat/stream', aiController.streamChat);
-router.post('/meal-planner/generate/stream', aiController.streamMealPlan);
+router.post('/chat/stream', validateAiBody(aiChatSchema), aiController.streamChat);
+router.post('/meal-planner/generate/stream', validateAiBody(aiMealPlanSchema), aiController.streamMealPlan);
 
 export default router;

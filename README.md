@@ -48,13 +48,13 @@
 | **Frontend (`client/`)** | React | `^19.2.8` | Vite `^8.3.0`, React-Bootstrap `^2.10.10`, Bootstrap 5, Bootstrap Icons, Axios `^1.14.0`, React Router `^8.4.0` |
 | **Backend (`server/`)** | Node.js (ESM), Express | `^5.2.1` | Prisma ORM `^6.19.3`, PostgreSQL, Zod `^4.6.5`, bcryptjs `^3.0.3`, jsonwebtoken `^9.0.3`, Vitest `^5.0.3`, Supertest |
 | **AI Service (`ai_service/`)** | Python, FastAPI | `3.11+` | LangChain, DeepSeek API (v4 Fallback), SlowAPI, Pydantic v2, Pytest |
-| **Database** | PostgreSQL | `>= 15.0` | Prisma Schema (30 bảng), Raw SQL, Connection Pooling |
+| **Database** | PostgreSQL | `>= 15.0` | Prisma Schema + Migrations, Raw SQL, Connection Pooling |
 
 ---
 
 ## 4. 🏛️ Kiến trúc tổng quan
 
-Kiến trúc hệ thống tuân thủ mô hình **Microservices với AI Gateway Pattern**. Backend Express đóng vai trò API Gateway duy nhất kiểm soát toàn bộ lưu lượng, xác thực người dùng, giới hạn hạn ngạch (Guest Quota & Rate Limit) và lưu vết nhật ký (`ai_logs`). AI Microservice là dịch vụ tính toán phi trạng thái (stateless), tuyệt đối không kết nối trực tiếp vào cơ sở dữ liệu và chỉ giao tiếp với Backend qua khóa nội bộ bảo mật.
+Kiến trúc hệ thống tuân thủ mô hình **Microservices với AI Gateway Pattern**. Backend Express đóng vai trò API Gateway duy nhất kiểm soát toàn bộ lưu lượng, xác thực người dùng, giới hạn hạn ngạch (Guest Quota & Rate Limit) và lưu nhật ký (`ai_logs`), đầu vào/prompt/kết quả của thành viên (`ai_generations`). AI Microservice là dịch vụ tính toán phi trạng thái (stateless), tuyệt đối không kết nối trực tiếp vào cơ sở dữ liệu và chỉ giao tiếp với Backend qua khóa nội bộ bảo mật.
 
 ```mermaid
 flowchart TD
@@ -97,7 +97,7 @@ SWP391/
 │   │   ├── lib/                # DatabaseContext, api.js, recipeFilters.js...
 │   │   ├── Admin.css           # Giao diện Quản trị đồng bộ màu xanh ChayXanh
 │   │   └── App.jsx             # React Router định tuyến (kèm /admin)
-│   └── test/                   # Kiểm thử logic FE & Admin (63 tests)
+│   └── test/                   # Kiểm thử logic FE & Admin
 │
 ├── server/                     # Backend REST API
 │   ├── src/
@@ -105,12 +105,12 @@ SWP391/
 │   │   ├── constants/          # Roles, Status, HttpStatus
 │   │   ├── controllers/        # Tiếp nhận request & trả envelope JSON (kèm ai.controller.js)
 │   │   ├── middlewares/        # authMiddleware (JWT, RBAC), validation, error
-│   │   ├── repositories/       # Tầng truy xuất dữ liệu Prisma (kèm ai.repository.js)
-│   │   ├── routes/             # Định tuyến RESTful (kèm /api/ai, /api/chat, /api/meal-planner)
+│   │   ├── repositories/       # Prisma: quota, nhật ký và lịch sử AI
+│   │   ├── routes/             # Định tuyến RESTful (/api/ai, /api/v1/ai-generations)
 │   │   ├── services/           # Logic nghiệp vụ (kèm ai.service.js, admin.service.js)
 │   │   └── utils/              # apiResponse, apiError, jwt
-│   ├── prisma/                 # schema.prisma & seed.sql (dữ liệu thật)
-│   └── tests/                  # Kiểm thử tự động Vitest (63 tests)
+│   ├── prisma/                 # schema.prisma, migrations/ & seed.sql
+│   └── tests/                  # Kiểm thử tự động Vitest
 │
 ├── ai_service/                 # AI Microservice Python FastAPI (Stateless)
 │   ├── agents/                 # Chatbot Agent & Meal Planner Agent
@@ -146,8 +146,8 @@ cd server
 npm install
 # Tạo file .env và điền các thông số theo bảng ở Mục 8
 npm run prisma:generate
-npm run prisma:push
-npm run seed                    # Nạp dữ liệu chuẩn từ seed.sql và xác thực tài khoản mẫu
+npx prisma migrate deploy
+npm run seed                    # Chỉ khởi tạo dữ liệu khi DB mới
 npm run dev
 ```
 > Server sẽ hoạt động tại: `http://localhost:5000` (Kiểm tra sức khỏe: `http://localhost:5000/health`)
@@ -156,6 +156,8 @@ npm run dev
 - **Quản trị viên (Admin - Role 1):** `admin@swp391.com` | Mật khẩu: `123456` *(Đăng nhập vào thẳng Dashboard `/admin`)*
 - **Người dùng thường (User - Role 2):** `user@swp391.com` | Mật khẩu: `123456`
 
+Với DB đang có dữ liệu/lịch sử migration cũ, xem [hướng dẫn baseline](docs/AI_INTEGRATION.md) trước khi chạy migrate; không chấp nhận reset.
+
 ### Bước 3: Khởi chạy AI Microservice (Port 8000)
 ```bash
 cd ai_service
@@ -163,7 +165,7 @@ python -m venv venv
 .\venv\Scripts\Activate.ps1      # Trên Windows PowerShell (hoặc: source venv/bin/activate trên Linux/macOS)
 pip install -r requirements.txt
 # Tạo file .env và điền thông số (đặc biệt INTERNAL_API_KEY và DEEPSEEK_API_KEY) theo Mục 8
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 > AI Service sẽ hoạt động tại: `http://localhost:8000` (Swagger docs: `http://localhost:8000/docs`)
 
@@ -179,6 +181,8 @@ npm run dev
 
 ## 8. 🔐 Bảng biến môi trường (Environment Variables)
 
+Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằng `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`; đặt cùng INTERNAL_API_KEY cho BE/AI, JWT_SECRET dùng key khác.
+
 ### 1. `server/.env`
 | Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
 | :--- | :--- | :--- |
@@ -186,20 +190,20 @@ npm run dev
 | `NODE_ENV` | `development` | Môi trường phát triển |
 | `CLIENT_URL` | `http://localhost:5173` | Địa chỉ Frontend cho phép CORS |
 | `DATABASE_URL` | `postgresql://postgres:123456@localhost:5432/vegetarian_db` | Chuỗi kết nối PostgreSQL qua Prisma |
-| `JWT_SECRET` | `swp391_jwt_secret_key_super_secure_vegetarian_2026` | Khóa bí mật ký mã hóa JWT |
+| `JWT_SECRET` | `Key ngẫu nhiên riêng của BE` | Khóa bí mật ký mã hóa JWT |
 | `JWT_EXPIRES_IN` | `7d` | Thời hạn của Access Token |
 | `AI_SERVICE_URL` | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice |
-| `INTERNAL_API_KEY` | `chayxanh_internal_secure_key_2026` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
+| `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
+| `AI_TIMEOUT_MS` | `180000` | Tổng thời gian chờ AI tối đa trên BE (ms) |
 | `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
 
 ### 2. `ai_service/.env`
 | Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
 | :--- | :--- | :--- |
-| `INTERNAL_API_KEY` | `chayxanh_internal_secure_key_2026` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
+| `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
 | `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối API DeepSeek LLM Engine |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | Mô hình ngôn ngữ mặc định |
 | `DEBUG` | `True` | Chế độ debug |
-| `SECRET_KEY` | `ai-service-secret-key-development-2026` | Khóa nội bộ FastAPI |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:5000` | Danh sách origin cho phép |
 
 ### 3. `client/.env`
@@ -214,27 +218,29 @@ npm run dev
 ### Backend (`server/`)
 - `npm run dev`: Chạy server ở chế độ giám sát tự tải lại (nodemon).
 - `npm start`: Khởi động server production.
-- `npm test`: Chạy bộ 63 kiểm thử tự động với Vitest (bao gồm AI Gateway, Repository, Quản trị & RBAC).
+- `npm test`: Chạy Vitest/Supertest trên DB `_test` (AI Gateway, lưu prompt/kết quả, quota, Repository, Quản trị & RBAC).
+- `npm run test:prepare`: Tạo/reset schema public của DB local `_test`, apply migrations và seed SQL.
+- `npm run prisma:migrate -- --name <ten_thay_doi>`: Sinh/áp dụng migration local bằng Prisma Migrate.
 - `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
-- `npm run prisma:push`: Đồng bộ cấu trúc `schema.prisma` trực tiếp vào PostgreSQL.
+- Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
 - `npm run seed`: Nạp dữ liệu chuẩn từ `seed.sql`.
 
 ### Frontend (`client/`)
 - `npm run dev`: Khởi động Vite dev server.
 - `npm run build`: Đóng gói ứng dụng thành phẩm (Production build).
-- `npm test`: Chạy bộ 63 bài kiểm thử với Node.js Test Runner (bao gồm kiểm thử Admin Service, AI APIs và components).
+- `npm test`: Chạy các bài kiểm thử với Node.js Test Runner (bao gồm kiểm thử Admin Service, AI APIs và components).
 - `npm run preview`: Chạy thử bản build đã đóng gói trên máy local.
 
 ### AI Microservice (`ai_service/`)
-- `uvicorn main:app --host 0.0.0.0 --port 8000 --reload`: Khởi động máy chủ phát triển FastAPI.
-- `pytest`: Chạy bộ 75 kiểm thử tự động với Pytest (bao gồm Chatbot Agent, Meal Planner SSE stream, Xác thực X-Internal-Api-Key, Tính toán Dinh dưỡng & Rate Limiting).
+- `uvicorn main:app --host 127.0.0.1 --port 8000 --reload`: Khởi động máy chủ phát triển FastAPI.
+- `pytest`: Chạy các kiểm thử tự động với Pytest (bao gồm Chatbot Agent, Meal Planner SSE stream, Xác thực X-Internal-Api-Key, Tính toán Dinh dưỡng & Rate Limiting).
 
-> **Tổng số bài kiểm thử tự động toàn dự án: 201 tests (Backend: 63, Frontend: 63, AI Service: 75) - 100% Passed.**
 
 ---
 
 ## 10. 📚 Link tài liệu API & ERD
 
+- **AI Gateway, persistence & migration:** [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md), [`docs/ai-openapi.json`](docs/ai-openapi.json).
 - **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
 - **Tài liệu Báo cáo Kiểm toán Hệ thống:** Lưu trữ tại [`PROJECT_AUDIT_REPORT.md`](PROJECT_AUDIT_REPORT.md)
 - **Tài liệu Swagger / OpenAPI:** Truy cập trực tiếp tại `http://localhost:8000/docs` khi AI Service khởi chạy.
@@ -244,21 +250,31 @@ npm run dev
 
 ## 11. 🧪 Hướng dẫn chạy Test trên DB Test riêng
 
-Để đảm bảo không ảnh hưởng đến dữ liệu đang vận hành, thực hiện kiểm thử trên database độc lập:
+Backend bắt buộc nạp `.env.test`, tên DB kết thúc bằng `_test`. Không dùng DB phát triển để chạy test.
 
-```bash
-# 1. Tạo database kiểm thử trong PostgreSQL
-psql -U postgres -c "CREATE DATABASE vegetarian_test_db;"
-
-# 2. Khởi tạo schema và seed dữ liệu vào DB test
+```powershell
 cd server
-$env:DATABASE_URL="postgresql://postgres:123456@localhost:5432/vegetarian_test_db"
-npx prisma db push
-node prisma/seed.js
-
-# 3. Chạy toàn bộ test suite
+Copy-Item .env.test.example .env.test
+# Điền DATABASE_URL, JWT_SECRET, INTERNAL_API_KEY và PSQL_PATH trong .env.test.
+# JWT_SECRET và INTERNAL_API_KEY dùng giá trị ngẫu nhiên riêng cho test.
+npm run test:prepare
 npm test
+npm run test:database
 ```
+
+`test:prepare` reset schema public của DB test local, áp dụng migration thật rồi seed SQL. Integration ảnh (`npm run test:ingredient-images`) cần 28 ảnh nguyên liệu thật được import vào DB test; xem tài liệu AI integration. Mỗi file test chạy tuần tự để tránh xung đột fixture cũ.
+
+```powershell
+cd ../client
+npm test
+npm run lint
+npm run build
+cd ../ai_service
+.\venv\Scripts\python.exe -m pytest tests -q
+.\venv\Scripts\python.exe -m ruff check agents api core schemas main.py tests
+```
+
+Provider được thay thế chỉ trong test; test không gọi DeepSeek thật. Các file `.env`, `.env.test` không được commit.
 
 ---
 

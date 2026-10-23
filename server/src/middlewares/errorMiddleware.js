@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\middlewares\errorMiddleware.js
+// D:/SWP391/SWP391/server/src/middlewares/errorMiddleware.js
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
@@ -49,8 +49,8 @@ export const globalErrorHandler = (err, req, res, next) => {
     errorCode = 'RESOURCE_NOT_FOUND';
   }
 
-  const isProduction = process.env.NODE_ENV === 'production';
-  console.error(`[Error Handler ${statusCode}][${errorCode}]:`, message);
+  if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR && !err.statusCode) message = 'Lỗi máy chủ nội bộ';
+  console.error(`[Error Handler ${statusCode}][${errorCode}]`);
 
   const errorsList = Array.isArray(err.details)
     ? err.details
@@ -65,9 +65,9 @@ export const globalErrorHandler = (err, req, res, next) => {
     message,
     errorCode,
     errors: errorsList,
+    meta: { requestId: req.id, ...(err.resetAt ? { resetAt: err.resetAt } : {}) },
     // Thuộc tính tương thích ngược cho client/test cũ
     error: message,
     ...(err.details ? { details: err.details } : {}),
-    ...(!isProduction && err.stack ? { stack: err.stack } : {}),
   });
 };

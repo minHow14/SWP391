@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\tests\ai.test.js
+// D:/SWP391/SWP391/server/tests/ai.test.js
 import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
@@ -17,9 +17,9 @@ describe('AI Gateway & Admin Management API Boundary', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toBeDefined();
-    expect(res.body.data.daily_limit).toBe(3);
-    expect(res.body.data.guest_id).toBe('test-vitest-guest-001');
-    expect(res.body.data.is_authenticated).toBe(false);
+    expect(res.body.data.dailyLimit).toBe(3);
+    expect(res.body.data.guestId).toBe('test-vitest-guest-001');
+    expect(res.body.data.isAuthenticated).toBe(false);
     expect(typeof res.body.data.remaining).toBe('number');
   });
 
@@ -30,9 +30,10 @@ describe('AI Gateway & Admin Management API Boundary', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.is_authenticated).toBe(true);
-    expect(res.body.data.daily_limit).toBe(999);
-    expect(res.body.data.remaining).toBe(999);
+    expect(res.body.data.isAuthenticated).toBe(true);
+    expect(res.body.data.dailyLimit).toBeNull();
+    expect(res.body.data.unlimited).toBe(true);
+    expect(res.body.data.remaining).toBeNull();
   });
 
   it('GET /api/admin/ai/stats rejects non-admin users with 403 Forbidden', async () => {
@@ -53,16 +54,16 @@ describe('AI Gateway & Admin Management API Boundary', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data).toBeDefined();
-    expect(Array.isArray(res.body.data.by_day)).toBe(true);
-    expect(Array.isArray(res.body.data.by_feature)).toBe(true);
-    expect(Array.isArray(res.body.data.by_model)).toBe(true);
+    expect(Array.isArray(res.body.data.byDay)).toBe(true);
+    expect(Array.isArray(res.body.data.byFeature)).toBe(true);
+    expect(Array.isArray(res.body.data.byModel)).toBe(true);
   });
 
   it('POST /api/admin/ai/guest-quota/reset successfully resets guest quota for Admin', async () => {
     const res = await request(app)
       .post('/api/admin/ai/guest-quota/reset')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ guest_id: 'test-vitest-guest-001' });
+      .send({ guestId: 'test-vitest-guest-001' });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);

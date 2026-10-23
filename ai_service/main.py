@@ -1,23 +1,23 @@
+# D:/SWP391/SWP391/ai_service/main.py
 # ai_service/main.py
 import logging
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
-from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
-from core.config import settings
-from core.database import init_db
-from core.ratelimit import limiter
 from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
+from core.config import settings
+from core.ratelimit import limiter
+from core.security import verify_internal_api_key
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,6 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Dịch vụ AI chạy ở chế độ Stateless (không kết nối PostgreSQL)
-    init_db()
     logger.info("AI Service started successfully.")
     yield
     logger.info("AI Service shutdown.")
@@ -84,9 +83,8 @@ def error_response(request: Request, status_code: int, code: str, message: str, 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
-    return error_response(
-        request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", jsonable_encoder(exc.errors())
-    )
+    errors = [{"field": ".".join(str(part) for part in item["loc"][1:]), "message": item["msg"]} for item in exc.errors()]
+    return error_response(request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", errors)
 
 
 @app.exception_handler(RateLimitExceeded)
@@ -115,12 +113,12 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
-    logger.error(f"Unhandled error in AI service: {exc}", exc_info=True)
+    logger.error("Unhandled AI error exceptionType=%s", type(exc).__name__)
     return error_response(request, 500, "INTERNAL_ERROR", "Đã xảy ra lỗi máy chủ trong dịch vụ AI.")
 
 
 # Root Endpoint
-@app.get("/", tags=["Root"])
+@app.get("/", tags=["Root"], dependencies=[Depends(verify_internal_api_key)])
 async def root():
     return {
         "success": True,
@@ -151,4 +149,4 @@ app.include_router(admin_actions_router, prefix="/api")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

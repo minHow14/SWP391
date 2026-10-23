@@ -9,6 +9,8 @@
     "dev": "nodemon src/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:prepare": "node scripts/prepareTestDatabase.js",
+    "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
@@ -17,6 +19,7 @@
     "db:repair-ingredients": "node prisma/repair-ingredients.js",
     "db:import-ingredient-images": "node prisma/import-ingredient-images.js",
     "test:database": "node tests/workspace.integration.mjs",
+    "test:ai-internal-auth": "node tests/ai-internal-auth.integration.mjs",
     "test:ingredient-images": "node tests/ingredient-images.integration.mjs",
     "assets:sync": "node scripts/sync-ingredient-assets.js",
     "seed": "node prisma/seed.js"

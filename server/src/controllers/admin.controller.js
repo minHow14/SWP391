@@ -1,8 +1,9 @@
-// d:\Projects\FPT\SWP391\server\src\controllers\admin.controller.js
+// D:/SWP391/SWP391/server/src/controllers/admin.controller.js
 import * as adminService from '../services/admin.service.js';
 import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
+import { legacyAiLogResponse } from '../utils/legacyAiLogResponse.js';
 
 // FE-01: Quản lý thành viên
 export const getUsers = asyncHandler(async (req, res) => {
@@ -207,7 +208,7 @@ export const getAiLogs = asyncHandler(async (req, res) => {
   const result = await adminService.getAiLogs(req.query);
   return sendSuccess(res, {
     message: 'Lấy lịch sử hoạt động AI thành công',
-    data: result.logs,
+    data: result.logs.map(legacyAiLogResponse),
     meta: { page: result.page, limit: result.limit, total: result.total },
   });
 });
@@ -225,7 +226,7 @@ export const interveneAi = asyncHandler(async (req, res) => {
   const result = await adminService.interveneAiAction(req.body);
   return sendSuccess(res, {
     message: 'Can thiệp thủ công kết quả AI thành công',
-    data: result,
+    data: legacyAiLogResponse(result),
   });
 });
 
@@ -309,6 +310,6 @@ export const getDashboardStats = asyncHandler(async (req, res) => {
   const stats = await adminService.getDashboardStats();
   return sendSuccess(res, {
     message: 'Lấy dữ liệu thống kê tổng quan thành công',
-    data: stats,
+    data: { ...stats, ai: { ...stats.ai, recentLogs: stats.ai.recentLogs.map(legacyAiLogResponse) } },
   });
 });

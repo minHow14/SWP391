@@ -1,10 +1,9 @@
+// D:/SWP391/SWP391/server/tests/workspace.integration.mjs
+import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
-import dotenv from 'dotenv';
 import request from 'supertest';
 import {PrismaClient} from '@prisma/client';
-dotenv.config({quiet:true});
-if(new URL(process.env.DATABASE_URL).pathname!=='/vegetarian_db')throw new Error('Expected vegetarian_db');
 const {default:app}=await import('../src/app.js');
 const db=new PrismaClient({log:[]});
 const suffix=randomUUID();

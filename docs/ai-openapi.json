@@ -1,0 +1,382 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chay Xanh AI Gateway",
+    "version": "1.0.0",
+    "description": "BE owns authentication, quota and persistence. Keep SSE per approved project exception. History stores validated request and complete AI result for authenticated members only."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000"
+    }
+  ],
+  "paths": {
+    "/api/ai/usage": {
+      "get": {
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "responses": {
+          "200": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          }
+        }
+      }
+    },
+    "/api/ai/chat/stream": {
+      "post": {
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE token/progress and done/error. done.meta.generationId is set for members after persistence.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "422": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "429": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "502": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "503": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "504": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          }
+        }
+      }
+    },
+    "/api/ai/meal-planner/generate/stream": {
+      "post": {
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MealPlanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE token/progress and done/error. done.meta.generationId is set for members after persistence.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "422": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "429": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "502": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "503": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "504": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          }
+        }
+      }
+    },
+    "/api/v1/ai-generations": {
+      "get": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
+          },
+          "401": {
+            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
+          },
+          "404": {
+            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
+          }
+        },
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "CHAT",
+                "MEAL_PLAN"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PROCESSING",
+                "COMPLETED",
+                "FAILED"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "/api/v1/ai-generations/{id}": {
+      "get": {
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "401": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          },
+          "404": {
+            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "ChatRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 5000
+          },
+          "history": {
+            "default": [],
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": [
+                    "user",
+                    "assistant"
+                  ]
+                },
+                "content": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 8000
+                }
+              },
+              "required": [
+                "role",
+                "content"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "dietaryType": {
+            "type": "string",
+            "enum": [
+              "vegan",
+              "lacto",
+              "ovo",
+              "lacto_ovo"
+            ]
+          },
+          "menuContext": {
+            "type": "string",
+            "maxLength": 8000
+          }
+        },
+        "required": [
+          "message",
+          "history"
+        ],
+        "additionalProperties": false
+      },
+      "MealPlanRequest": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "heightCm": {
+            "type": "number",
+            "exclusiveMinimum": 50,
+            "exclusiveMaximum": 260
+          },
+          "weightKg": {
+            "type": "number",
+            "exclusiveMinimum": 20,
+            "exclusiveMaximum": 300
+          },
+          "bmi": {
+            "type": "number",
+            "exclusiveMinimum": 8,
+            "exclusiveMaximum": 100
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 120
+          },
+          "gender": {
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              "other",
+              "unspecified"
+            ]
+          },
+          "goal": {
+            "type": "string",
+            "enum": [
+              "weight_loss",
+              "muscle_gain",
+              "maintenance"
+            ]
+          },
+          "activityLevel": {
+            "type": "string",
+            "enum": [
+              "sedentary",
+              "light",
+              "moderate",
+              "active",
+              "very_active"
+            ]
+          },
+          "dietaryType": {
+            "type": "string",
+            "enum": [
+              "vegan",
+              "lacto",
+              "ovo",
+              "lacto_ovo"
+            ]
+          },
+          "allergies": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "availableIngredients": {
+            "maxItems": 100,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "heightCm",
+          "weightKg"
+        ],
+        "additionalProperties": false
+      }
+    }
+  }
+}

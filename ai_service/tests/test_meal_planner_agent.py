@@ -1,18 +1,20 @@
+# D:/SWP391/SWP391/ai_service/tests/test_meal_planner_agent.py
 import copy
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from agents.meal_planner_agent import (
     DailyMealPlan,
     GeneratedMealPlan,
     MealItem,
-    MealPlanProfile,
     MealPlannerAgent,
+    MealPlanProfile,
     validate_plan,
 )
 from core.nutrition import calculate_targets
 
-PROFILE = dict(height_cm=165, weight_kg=55, age=25, gender="female", goal="maintenance", activity_level="light")
+PROFILE = {"height_cm": 165, "weight_kg": 55, "age": 25, "gender": "female", "goal": "maintenance", "activity_level": "light"}
 TARGETS = calculate_targets(**PROFILE)
 DAY_NAMES = ["Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy", "Chủ Nhật"]
 
@@ -86,7 +88,7 @@ def test_validate_plan_accepts_matching_plan():
 
 def test_validate_plan_flags_wrong_day_count_and_allergen():
     plan = make_plan(3, lunch_name="Đậu phụ sốt cà", lunch_ingredients=["Đậu phụ 150g"])
-    hard, soft = validate_plan(plan, TARGETS, 7, ["soy"])
+    hard, _soft = validate_plan(plan, TARGETS, 7, ["soy"])
     assert any("đúng 7 ngày" in h for h in hard)
     assert any("dị ứng 'soy'" in h for h in hard)
 
@@ -101,7 +103,7 @@ def test_validate_plan_flags_calorie_and_protein_gaps_as_soft():
 
 @pytest.mark.asyncio
 async def test_prompt_contains_precomputed_targets():
-    plan, structured = await run_agent([make_plan(7)])
+    _plan, structured = await run_agent([make_plan(7)])
     prompt = structured.ainvoke.call_args.args[0][1].content
     assert f"Calo mục tiêu mỗi ngày: {TARGETS.target_calories} kcal" in prompt
     assert f"BMR: {TARGETS.bmr} kcal" in prompt
@@ -126,7 +128,7 @@ async def test_bmi_from_web_is_used():
 
 @pytest.mark.asyncio
 async def test_retries_after_format_error():
-    plan, structured = await run_agent([ValueError("Truncated JSON syntax"), make_plan(7)])
+    _plan, structured = await run_agent([ValueError("Truncated JSON syntax"), make_plan(7)])
     assert structured.ainvoke.call_count == 2
 
 
@@ -185,7 +187,7 @@ async def test_retries_when_pantry_ingredients_are_ignored():
 @pytest.mark.asyncio
 async def test_vegan_plan_with_egg_is_regenerated():
     with_egg = make_plan(7, lunch_name="Cơm chiên trứng", lunch_ingredients=["Cơm 150g", "Trứng gà 1 quả"])
-    plan, structured = await run_agent([with_egg, make_plan(7)], dietary_type="vegan")
+    _plan, structured = await run_agent([with_egg, make_plan(7)], dietary_type="vegan")
     assert structured.ainvoke.call_count == 2
     feedback = structured.ainvoke.call_args_list[1].args[0][-1].content
     assert "vegan" in feedback

@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/server/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -28,10 +29,43 @@ model User {
   allergies        UserAllergy[]
   restaurant_reviews RestaurantReview[]
   preferences ProfilePreference?
+  aiGenerations AiGeneration[]
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
+}
+
+enum AiGenerationStatus {
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AiGenerationType {
+  CHAT
+  MEAL_PLAN
+}
+
+model AiGeneration {
+  id              String             @id @default(uuid()) @db.Uuid
+  userId          Int                @map("user_id")
+  type            AiGenerationType
+  status          AiGenerationStatus @default(PROCESSING)
+  modelName       String             @map("model_name") @db.VarChar(100)
+  requestPayload  Json               @map("request_payload")
+  promptMessages  Json               @map("prompt_messages")
+  responsePayload Json?              @map("response_payload")
+  errorCode       String?            @map("error_code") @db.VarChar(100)
+  errorMessage    String?            @map("error_message")
+  completedAt     DateTime?          @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user            User               @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt, id], map: "idx_ai_generations_user_created_at")
+  @@index([userId, type, status, createdAt, id], map: "idx_ai_generations_user_type_status_created_at")
+  @@map("ai_generations")
 }
 
 model DietType {
@@ -335,13 +369,15 @@ model Notification {
 }
 
 /// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-model ai_logs {
-  log_id         Int       @id @default(autoincrement())
-  model_name     String    @db.VarChar(100)
+model AiLog {
+  logId          Int       @id @default(autoincrement()) @map("log_id")
+  modelName      String    @map("model_name") @db.VarChar(100)
   action         String    @db.VarChar(100)
   status         String    @db.VarChar(20)
-  error_feedback String?
-  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  errorFeedback  String?   @map("error_feedback")
+  createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("ai_logs")
 }
 
 model IngredientDetails {
@@ -429,14 +465,15 @@ model RestaurantMenuPrice {
   @@map("restaurant_menu_prices")
 }
 
-/// Hạn mức dùng AI mỗi ngày của khách (chatbot + tạo thực đơn dùng chung), do ai_service đọc/ghi.
+/// BE quản lý hạn mức dùng chung cho chatbot và tạo thực đơn.
 /// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
 model GuestQuota {
-  guest_id   String   @db.VarChar(100)
-  quota_date DateTime @db.Date
-  used_count Int      @default(0)
-  updated_at DateTime @default(now()) @db.Timestamp(6)
+  guestId             String   @map("guest_id") @db.VarChar(100)
+  quotaDate           DateTime @map("quota_date") @db.Date
+  usedCount           Int      @default(0) @map("used_count")
+  reservationRevision Int      @default(0) @map("reservation_revision")
+  updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 
-  @@id([guest_id, quota_date])
+  @@id([guestId, quotaDate])
   @@map("guest_quota")
 }

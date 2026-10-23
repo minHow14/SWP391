@@ -1,3 +1,4 @@
+# D:/SWP391/SWP391/.github/workflows/ci.yml
 name: CI Pipeline - Code Quality & Automated Tests
 
 on:
@@ -57,11 +58,11 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres_password
-          POSTGRES_DB: vegetarian_db
+          POSTGRES_DB: vegetarian_db_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d vegetarian_db_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -70,7 +71,7 @@ jobs:
       PORT: 5000
       NODE_ENV: test
       CLIENT_URL: http://localhost:5173
-      DATABASE_URL: "postgresql://postgres:postgres_password@localhost:5432/vegetarian_db"
+      DATABASE_URL: "postgresql://postgres:postgres_password@localhost:5432/vegetarian_db_test"
       JWT_SECRET: "ci_test_super_secret_jwt_key_swp391_2026"
       JWT_EXPIRES_IN: "7d"
       AI_SERVICE_URL: "http://127.0.0.1:8000"

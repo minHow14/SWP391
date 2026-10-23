@@ -1,19 +1,20 @@
+# D:/SWP391/SWP391/ai_service/core/meal_chat.py
 """Định dạng thực đơn cho khung chat của frontend: bubble { title, text, items[], footer }."""
-from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import Field
 
 from agents.meal_planner_agent import DailyMealPlan, GeneratedMealPlan
+from schemas.base import CamelModel
 
 DISCLAIMER = "Thực đơn mang tính tham khảo, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng."
 
 
-class ChatBubble(BaseModel):
+class ChatBubble(CamelModel):
     """Cùng cấu trúc với tin nhắn trợ lý trong ChatBox.jsx."""
     title: str
     text: str
-    items: List[str] = []
-    footer: Optional[str] = None
+    items: list[str] = Field(default_factory=list)
+    footer: str | None = None
 
 
 def _day_line(day: DailyMealPlan) -> str:

@@ -1,10 +1,12 @@
+# D:/SWP391/SWP391/ai_service/api/admin_actions.py
 # ai_service/api/admin_actions.py
 from typing import Any
+
 from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
 
 from agents.chatbot_agent import chatbot_agent
 from core.security import verify_internal_api_key
+from schemas.base import CamelModel
 
 router = APIRouter(
     prefix="/admin",
@@ -13,12 +15,13 @@ router = APIRouter(
 )
 
 
-class CacheClearData(BaseModel):
+class CacheClearData(CamelModel):
     cleared: int
 
 
-class CacheClearResponse(BaseModel):
+class CacheClearResponse(CamelModel):
     success: bool = True
+    message: str = "Đã xóa bộ nhớ đệm chatbot."
     data: CacheClearData
     meta: dict[str, Any]
 
