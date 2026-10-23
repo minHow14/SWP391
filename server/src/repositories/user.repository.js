@@ -103,4 +103,47 @@ export const userRepository = {
     }
     return db.user.findMany(finalArgs);
   },
+
+  async findWithPasswordById(userId, db = prisma) {
+    return db.user.findUnique({
+      where: { user_id: Number(userId) },
+      select: {
+        ...DEFAULT_USER_SAFE_SELECT,
+        password_hash: true,
+      },
+    });
+  },
+
+  async updatePassword(userId, password_hash, db = prisma) {
+    return db.user.update({
+      where: { user_id: Number(userId) },
+      data: { password_hash },
+      select: DEFAULT_USER_SAFE_SELECT,
+    });
+  },
+
+  async addHealthHistory(userId, { weight, bmi, recorded_date }, db = prisma) {
+    return db.healthHistory.create({
+      data: {
+        user_id: Number(userId),
+        weight: Number(weight),
+        bmi: bmi !== undefined && bmi !== null ? Number(bmi) : null,
+        ...(recorded_date ? { recorded_date: new Date(recorded_date) } : {}),
+      },
+    });
+  },
+
+  async getHealthHistories(userId, db = prisma) {
+    return db.healthHistory.findMany({
+      where: { user_id: Number(userId) },
+      orderBy: [{ recorded_date: 'desc' }, { history_id: 'desc' }],
+    });
+  },
+
+  async findHealthProfile(userId, db = prisma) {
+    return db.healthProfile.findUnique({
+      where: { user_id: Number(userId) },
+      include: { diet_type: true },
+    });
+  },
 };

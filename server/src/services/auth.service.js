@@ -290,6 +290,114 @@ export const authService = {
       status: user.status,
     };
   },
+
+  /**
+   * Thay đổi mật khẩu tài khoản người dùng
+   */
+  async changePassword(userId, { old_password, oldPassword, current_password, currentPassword, new_password, newPassword }) {
+    const user_id = Number(userId);
+    const oldPass = currentPassword || current_password || oldPassword || old_password;
+    const newPass = newPassword || new_password;
+
+    if (!oldPass || !newPass) {
+      throw ApiError.badRequest('Mật khẩu hiện tại và mật khẩu mới là bắt buộc');
+    }
+
+    if (newPass.length < 8) {
+      throw ApiError.badRequest('Mật khẩu mới phải có tối thiểu 8 ký tự');
+    }
+
+    const user = await userRepository.findWithPasswordById(user_id);
+    if (!user) {
+      throw ApiError.notFound('Không tìm thấy tài khoản người dùng');
+    }
+
+    const isMatch = await comparePassword(oldPass, user.password_hash);
+    if (!isMatch) {
+      throw ApiError.badRequest('Mật khẩu hiện tại không chính xác');
+    }
+
+    if (oldPass === newPass) {
+      throw ApiError.badRequest('Mật khẩu mới không được trùng với mật khẩu hiện tại');
+    }
+
+    const newHash = await hashPassword(newPass);
+    await userRepository.updatePassword(user_id, newHash);
+
+    return { message: 'Đổi mật khẩu thành công' };
+  },
+
+  /**
+   * Ghi nhận cân nặng mới và lưu vào lịch sử theo dõi sức khỏe
+   */
+  async recordWeight(userId, { weight, recorded_date, recordedDate }) {
+    const user_id = Number(userId);
+    const numericWeight = Number(weight);
+    if (!numericWeight || numericWeight < 20 || numericWeight > 350) {
+      throw ApiError.badRequest('Cân nặng phải từ 20kg đến 350kg');
+    }
+
+    const dateVal = recorded_date || recordedDate || new Date();
+
+    return prisma.$transaction(async (tx) => {
+      // 1. Đọc chiều cao từ health_profile để tự động tính chỉ số BMI
+      const profile = await tx.healthProfile.findUnique({ where: { user_id } });
+      let calculatedBmi = null;
+      if (profile?.height && profile.height > 0) {
+        const heightMeters = profile.height / 100;
+        calculatedBmi = Number((numericWeight / (heightMeters * heightMeters)).toFixed(1));
+      }
+
+      // 2. Thêm vào bảng health_histories
+      const record = await tx.healthHistory.create({
+        data: {
+          user_id,
+          weight: numericWeight,
+          bmi: calculatedBmi,
+          recorded_date: new Date(dateVal),
+        },
+      });
+
+      // 3. Cập nhật cân nặng mới nhất vào bảng health_profiles
+      await tx.healthProfile.upsert({
+        where: { user_id },
+        create: { user_id, weight: numericWeight },
+        update: { weight: numericWeight },
+      });
+
+      return {
+        ...record,
+        height: profile?.height || null,
+        bmi: calculatedBmi,
+      };
+    });
+  },
+
+  /**
+   * Lấy lịch sử theo dõi cân nặng và chỉ số BMI của người dùng
+   */
+  async getHealthHistory(userId) {
+    const user_id = Number(userId);
+    const [profile, histories] = await Promise.all([
+      userRepository.findHealthProfile(user_id),
+      userRepository.getHealthHistories(user_id),
+    ]);
+
+    return {
+      currentProfile: profile ? {
+        height: profile.height,
+        weight: profile.weight,
+        diet_type: profile.diet_type?.name || null,
+        health_goal: profile.health_goal,
+      } : null,
+      histories: histories.map((h) => ({
+        history_id: h.history_id,
+        weight: h.weight,
+        bmi: h.bmi,
+        recorded_date: h.recorded_date,
+      })),
+    };
+  },
 };
 
 export const authenticationService = authService;

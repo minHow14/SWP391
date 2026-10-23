@@ -15,6 +15,7 @@ import { reportRepository } from '../repositories/report.repository.js';
 import { aiService } from './ai.service.js';
 import { guestQuotaService } from './guestQuotaService.js';
 import { guestQuotaAdminService } from './guestQuotaAdminService.js';
+import { notificationService } from './notification.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -868,6 +869,14 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
         }),
       ]);
     }
+  }
+
+  if (report.reporter_id) {
+    const statusText = status === REPORT_STATUS.RESOLVED ? 'Đã giải quyết' : status === REPORT_STATUS.DISMISSED ? 'Đã bác bỏ' : status;
+    notificationService.notify({
+      user_id: report.reporter_id,
+      content: `Báo cáo vi phạm của bạn đã được quản trị viên xử lý (${statusText}).`,
+    }).catch(() => {});
   }
 
   return reportRepository.update(id, { status }, { reporter: { select: { full_name: true } } });

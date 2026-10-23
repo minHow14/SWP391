@@ -47,7 +47,6 @@ export default function NearbyPlaces({ onResults, onSelect }) {
     setState({ status: 'loading', places: [], message: '', origin: null });
     onResults?.([]);
     let origin = DEFAULT_POSITION;
-    let note = '';
     if (!useDefault) {
       try {
         origin = await getPosition();
@@ -56,8 +55,6 @@ export default function NearbyPlaces({ onResults, onSelect }) {
         setState({ status: 'denied', places: [], message: error.message, origin: null });
         return;
       }
-    } else {
-      note = 'Đang dùng vị trí trung tâm TP.HCM (Quận 1).';
     }
     try {
       if (current.signal.aborted) return;
@@ -87,6 +84,7 @@ export default function NearbyPlaces({ onResults, onSelect }) {
         };
       });
 
+      let note = '';
       if (places.length > 0) {
         note = useDefault
           ? `Đã tìm thấy ${places.length} quán chay quanh khu vực TP.HCM.`

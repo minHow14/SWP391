@@ -16,6 +16,7 @@ import guestQuotaRoutes from './guestQuotaRoutes.js';
 import reportRoutes from './report.route.js';
 import aiRoutes from './ai.route.js';
 import aiGenerationRoutes from './aiGenerationRoutes.js';
+import notificationRoutes from './notification.route.js';
 
 const router = express.Router();
 
@@ -40,6 +41,7 @@ v1Router.use('/guest-quotas', guestQuotaRoutes);
 v1Router.use('/reports', reportRoutes);
 v1Router.use('/ai', aiRoutes);
 v1Router.use('/ai-generations', aiGenerationRoutes);
+v1Router.use('/notifications', notificationRoutes);
 
 // Gắn chuẩn v1
 router.use('/v1', v1Router);
@@ -60,5 +62,6 @@ router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/reports', reportRoutes);
 router.use('/ai', aiRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

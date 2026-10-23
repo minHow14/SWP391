@@ -14,9 +14,10 @@ export * from './aiLogValidator.js';
 export * from './aiRequestValidator.js';
 export * from './guestQuotaValidator.js';
 export * from './internalApiKeyValidator.js';
+export * from './notification.validator.js';
 
 import { idParamsSchema, postIdParamsSchema } from './common.validator.js';
-import { registerSchema, loginSchema, updateMeSchema } from './auth.validator.js';
+import { registerSchema, loginSchema, updateMeSchema, changePasswordSchema, recordWeightSchema } from './auth.validator.js';
 import { createBlogSchema, updateBlogSchema } from './blog.validator.js';
 import { createVideoSchema, updateVideoSchema } from './video.validator.js';
 import { createCommentSchema, updateCommentSchema } from './comment.validator.js';
@@ -30,6 +31,8 @@ export const schemas = {
   register: registerSchema,
   login: loginSchema,
   updateMe: updateMeSchema,
+  changePassword: changePasswordSchema,
+  recordWeight: recordWeightSchema,
   createBlog: createBlogSchema,
   updateBlog: updateBlogSchema,
   createVideo: createVideoSchema,

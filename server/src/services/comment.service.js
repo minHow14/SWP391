@@ -5,6 +5,7 @@ import { userRepository } from '../repositories/user.repository.js';
 import { POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
+import { notificationService } from './notification.service.js';
 
 export const commentService = {
   /**
@@ -46,6 +47,16 @@ export const commentService = {
         },
       }
     );
+
+    // Gửi thông báo đến tác giả bài viết nếu người bình luận không phải chính tác giả
+    if (targetPost.author_id && targetPost.author_id !== numericUserId) {
+      const commenterName = authorUser.full_name || 'Một thành viên';
+      const snippet = content.trim().length > 40 ? `${content.trim().slice(0, 40)}...` : content.trim();
+      notificationService.notify({
+        user_id: targetPost.author_id,
+        content: `${commenterName} đã bình luận vào bài viết của bạn: "${snippet}"`,
+      }).catch(() => {});
+    }
 
     return newComment;
   },

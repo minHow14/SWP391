@@ -52,3 +52,21 @@ export const updateMe = asyncHandler(async (req, res) => {
   return sendSuccess(res, { user });
 });
 
+export const changePassword = asyncHandler(async (req, res) => {
+  const result = await authService.changePassword(req.user.user_id, req.body);
+  return sendSuccess(res, result);
+});
+
+export const recordWeight = asyncHandler(async (req, res) => {
+  const record = await authService.recordWeight(req.user.user_id, req.body);
+  return sendCreated(res, {
+    message: 'Ghi nhận cân nặng thành công',
+    record,
+  });
+});
+
+export const getHealthHistory = asyncHandler(async (req, res) => {
+  const history = await authService.getHealthHistory(req.user.user_id);
+  return sendSuccess(res, history);
+});
+

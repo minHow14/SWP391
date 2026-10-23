@@ -1,9 +1,10 @@
-﻿// client/src/components/layout/Header.jsx
+// client/src/components/layout/Header.jsx
 import { useState } from 'react';
 import { Button, Container, Nav, Navbar } from 'react-bootstrap';
 import { Link, NavLink } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';
 import { setSession } from '../../utils/session.js';
+import NotificationBell from './NotificationBell.jsx';
 
 const MENU_ITEMS = [
   { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check', path: '/kiem-tra-mon' },
@@ -48,6 +49,7 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
               </Button>
               <div className="account-buttons">
                 {user ? <>
+                  <NotificationBell />
                   <Button as={Link} to={user.role === 1 ? '/admin' : '/ho-so'} variant={user.role === 1 ? 'success' : 'light'} className="cx-account-profile" onClick={closeMenu}>
                     <i className={`bi ${user.role === 1 ? 'bi-shield-shaded' : 'bi-person-circle'}`} aria-hidden="true" />
                     <span className="text-truncate">{user.role === 1 ? 'Quản trị' : user.full_name}</span>

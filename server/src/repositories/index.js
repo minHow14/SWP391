@@ -10,3 +10,4 @@ export * from './category.repository.js';
 export * from './aiLogRepository.js';
 export * from './guestQuotaRepository.js';
 export * from './aiGenerationRepository.js';
+export * from './notification.repository.js';

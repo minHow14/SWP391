@@ -15,3 +15,4 @@ export * as aiController from './ai.controller.js';
 export * as aiGenerationController from './aiGenerationController.js';
 export * as aiLogController from './aiLogController.js';
 export * as guestQuotaController from './guestQuotaController.js';
+export * as notificationController from './notification.controller.js';

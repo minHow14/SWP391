@@ -17,3 +17,4 @@ export * from './aiStreamService.js';
 export * from './aiTransportService.js';
 export * from './guestQuotaService.js';
 export * from './guestQuotaAdminService.js';
+export * from './notification.service.js';

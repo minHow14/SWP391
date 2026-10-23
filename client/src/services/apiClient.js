@@ -1,4 +1,4 @@
-﻿// client/src/services/apiClient.js
+// client/src/services/apiClient.js
 import axios from 'axios';
 import { getSession, setSession } from '../utils/session.js';
 
@@ -39,7 +39,13 @@ apiClient.interceptors.response.use(
       }
     }
 
+    const firstDetail =
+      Array.isArray(responseData?.errors) && responseData.errors[0]?.message
+        ? responseData.errors[0].message
+        : null;
+
     const message =
+      firstDetail ||
       responseData?.message ||
       responseData?.error ||
       error.message ||
