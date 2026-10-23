@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/ai.controller.js
+// d:\Projects\FPT\SWP391\server\src/controllers/ai.controller.js
 import { aiService } from '../services/ai.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

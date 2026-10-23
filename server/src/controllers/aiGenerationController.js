@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/aiGenerationController.js
+// d:\Projects\FPT\SWP391\server\src/controllers/aiGenerationController.js
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { aiGenerationService } from '../services/aiGenerationService.js';
 

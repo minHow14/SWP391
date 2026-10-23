@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/sseParser.test.js
+// d:\Projects\FPT\SWP391\server\tests/sseParser.test.js
 import { expect, it } from 'vitest';
 import { createSseParser } from '../src/utils/sseParser.js';
 

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/scripts/prepareTestDatabase.js
+// d:\Projects\FPT\SWP391\server\scripts/prepareTestDatabase.js
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';

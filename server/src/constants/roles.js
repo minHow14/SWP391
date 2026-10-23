@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\constants\roles.js
 /**
  * Định nghĩa vai trò người dùng (Roles) trong hệ thống
  */

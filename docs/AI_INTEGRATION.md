@@ -20,7 +20,7 @@ Khi đổi khóa local: cập nhật cùng giá trị trong `server/.env` và `a
 
 ## Xác thực và phân quyền
 
-BE dùng `authenticationService` và `userRepository` để xác thực JWT, validate `user_id` là số nguyên hợp lệ với PostgreSQL, rồi đọc danh tính/quyền hiện tại từ DB. Token hết hạn, sai chữ ký, thiếu/sai claim hoặc tài khoản không còn tồn tại trả 401; tài khoản bị khóa, xóa mềm hoặc không hoạt động trả 403. Quyền trong JWT không thay thế quyền trong DB; thu hồi quyền admin có hiệu lực với cả token đã cấp. Lỗi DB không chuyển ngầm người gọi thành khách.
+BE dùng `authService` và `userRepository` để xác thực JWT, validate `user_id` là số nguyên hợp lệ với PostgreSQL, rồi đọc danh tính/quyền hiện tại từ DB. Token hết hạn, sai chữ ký, thiếu/sai claim hoặc tài khoản không còn tồn tại trả 401; tài khoản bị khóa, xóa mềm hoặc không hoạt động trả 403. Quyền trong JWT không thay thế quyền trong DB; thu hồi quyền admin có hiệu lực với cả token đã cấp. Lỗi DB không chuyển ngầm người gọi thành khách.
 
 Chỉ yêu cầu không có Authorization mới đi theo luồng khách. BE tự tạo header gọi AI từ danh tính đã kiểm tra: `X-User-Id` hoặc `X-Guest-Id`, kèm khóa nội bộ và request ID. Header `X-User-Id`, `X-User-Role`, `X-Internal-Api-Key` do FE tự gửi không quyết định quyền và không được chuyển tiếp nguyên trạng. JWT người dùng không được gửi sang AI.
 

@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\video.controller.js
 import { videoService } from '../services/video.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

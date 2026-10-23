@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/routes/ai.route.js
+// d:\Projects\FPT\SWP391\server\src/routes/ai.route.js
 import { Router } from 'express';
 import * as aiController from '../controllers/ai.controller.js';
 import { authenticateAiCaller } from '../middlewares/aiIdentityMiddleware.js';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/prisma/seed.js
+// d:\Projects\FPT\SWP391\server\prisma\seed.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';

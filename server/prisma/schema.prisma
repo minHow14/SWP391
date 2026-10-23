@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/prisma/schema.prisma
+// d:\Projects\FPT\SWP391\server\prisma\schema.prisma
 generator client {
   provider = "prisma-client-js"
 }

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/validators/aiGenerationValidator.js
+// d:\Projects\FPT\SWP391\server\src/validators/aiGenerationValidator.js
 import { z } from 'zod';
 import { ApiError } from '../utils/apiError.js';
 

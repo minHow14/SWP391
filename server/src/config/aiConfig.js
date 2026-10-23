@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/config/aiConfig.js
+// d:\Projects\FPT\SWP391\server\src/config/aiConfig.js
 import { z } from 'zod';
 import './index.js';
 import { internalApiKeySchema } from '../validators/internalApiKeyValidator.js';

@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\utils\jwt.js
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import config from '../config/index.js';

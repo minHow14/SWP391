@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/middlewares/aiIdentityMiddleware.js
+// d:\Projects\FPT\SWP391\server\src/middlewares/aiIdentityMiddleware.js
 import { optionalAuthenticate } from './authMiddleware.js';
 
 export const authenticateAiCaller = optionalAuthenticate;

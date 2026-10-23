@@ -9,6 +9,11 @@ export * from './search.validator.js';
 export * from './workspace.validator.js';
 export * from './report.validator.js';
 export * from './admin.validator.js';
+export * from './aiGenerationValidator.js';
+export * from './aiLogValidator.js';
+export * from './aiRequestValidator.js';
+export * from './guestQuotaValidator.js';
+export * from './internalApiKeyValidator.js';
 
 import { idParamsSchema, postIdParamsSchema } from './common.validator.js';
 import { registerSchema, loginSchema, updateMeSchema } from './auth.validator.js';

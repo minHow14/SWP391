@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/routes/guestQuotaRoutes.js
+// d:\Projects\FPT\SWP391\server\src/routes/guestQuotaRoutes.js
 import { Router } from 'express';
 import { getGuestQuota, resetGuestQuota } from '../controllers/guestQuotaController.js';
 import { ROLES } from '../constants/roles.js';

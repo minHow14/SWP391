@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\places.controller.js
 import { z } from 'zod';
 import { ok, fail } from '../utils/apiResponse.js';
 import {

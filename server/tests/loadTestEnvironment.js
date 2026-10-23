@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/loadTestEnvironment.js
+// d:\Projects\FPT\SWP391\server\tests/loadTestEnvironment.js
 import dotenv from 'dotenv';
 
 dotenv.config({ path: new URL('../.env.test', import.meta.url), override: true, quiet: true });

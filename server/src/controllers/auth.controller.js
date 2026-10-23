@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\auth.controller.js
 import { authService } from '../services/auth.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

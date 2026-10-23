@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/guestQuotaService.js
+// d:\Projects\FPT\SWP391\server\src/services/guestQuotaService.js
 import { z } from 'zod';
 import { aiConfig } from '../config/aiConfig.js';
 import { guestQuotaRepository } from '../repositories/guestQuotaRepository.js';

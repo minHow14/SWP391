@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/admin.service.js
+// d:\Projects\FPT\SWP391\server\src\services\admin.service.js
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
@@ -269,83 +269,6 @@ export const updatePost = async ({ postId, title, content }) => {
   return prisma.post.findUnique({
     where: { post_id: id },
     include: { blog: true, video: true, author: { select: { full_name: true } } },
-  });
-};
-
-/**
- * Hàm nội bộ xóa cứng bài viết kèm toàn bộ dữ liệu phụ thuộc trong Transaction
- * @param {object} tx - Prisma transaction client
- * @param {number} id - Mã bài viết (post_id)
- */
-export const hardDeletePostTx = async (tx, id) => {
-  // 1. Gỡ liên kết post_id ở bảng recipes để không vi phạm khóa ngoại
-  await tx.recipe.updateMany({
-    where: { post_id: id },
-    data: { post_id: null },
-  });
-
-  // 2. Tìm và xóa báo cáo liên quan đến các bình luận thuộc bài viết này
-  const comments = await tx.comment.findMany({
-    where: { post_id: id },
-    select: { comment_id: true },
-  });
-  const commentIds = comments.map((c) => c.comment_id);
-  if (commentIds.length > 0) {
-    await tx.report.deleteMany({
-      where: { comment_id: { in: commentIds } },
-    });
-    await tx.comment.deleteMany({
-      where: { post_id: id },
-    });
-  }
-
-  // 3. Xóa báo cáo vi phạm liên kết trực tiếp tới bài viết
-  await tx.report.deleteMany({
-    where: { post_id: id },
-  });
-
-  // 4. Xóa tệp đính kèm, lượt bình chọn và phân loại danh mục
-  await tx.postAttachment.deleteMany({
-    where: { post_id: id },
-  });
-  await tx.postVote.deleteMany({
-    where: { post_id: id },
-  });
-  await tx.postCategory.deleteMany({
-    where: { post_id: id },
-  });
-
-  // 5. Gỡ liên kết video đính kèm ở các bài blog khác nếu có
-  await tx.blog.updateMany({
-    where: { attached_video_id: id },
-    data: { attached_video_id: null },
-  });
-
-  // 6. Xóa chi tiết blog hoặc video
-  await tx.blog.deleteMany({
-    where: { post_id: id },
-  });
-  await tx.video.deleteMany({
-    where: { post_id: id },
-  });
-
-  // 7. Xóa bản ghi bài viết chính khỏi database
-  return tx.post.delete({
-    where: { post_id: id },
-  });
-};
-
-/**
- * Hàm nội bộ xóa cứng bình luận và các báo cáo vi phạm liên quan trong Transaction
- * @param {object} tx - Prisma transaction client
- * @param {number} id - Mã bình luận (comment_id)
- */
-export const hardDeleteCommentTx = async (tx, id) => {
-  await tx.report.deleteMany({
-    where: { comment_id: id },
-  });
-  return tx.comment.delete({
-    where: { comment_id: id },
   });
 };
 

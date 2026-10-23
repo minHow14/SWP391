@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/aiGenerationService.js
+// d:\Projects\FPT\SWP391\server\src/services/aiGenerationService.js
 import { aiGenerationRepository } from '../repositories/aiGenerationRepository.js';
 import { aiLogService } from './aiLogService.js';
 import { aiGatewayError } from '../utils/aiGatewayError.js';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/user.repository.js
+// d:\Projects\FPT\SWP391\server\src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
 
 export const DEFAULT_USER_SAFE_SELECT = {

@@ -1,10 +1,10 @@
-// D:/SWP391/SWP391/server/src/middlewares/authMiddleware.js
-import { authenticationService } from '../services/authenticationService.js';
+// d:\Projects\FPT\SWP391\server\src\middlewares\authMiddleware.js
+import { authService } from '../services/auth.service.js';
 import { ApiError } from '../utils/apiError.js';
 
 export const authenticate = async (req, res, next) => {
   try {
-    req.user = await authenticationService.authenticate(req.headers.authorization);
+    req.user = await authService.authenticate(req.headers.authorization);
     next();
   } catch (error) {
     next(error);

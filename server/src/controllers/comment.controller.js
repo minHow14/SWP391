@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\comment.controller.js
 import { commentService } from '../services/comment.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

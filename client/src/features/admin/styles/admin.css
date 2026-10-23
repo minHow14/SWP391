@@ -263,3 +263,78 @@
     transform: translateY(0);
   }
 }
+
+/* KPI Card tương tác & chuyển hướng */
+.kpi-card-clickable {
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.kpi-card-clickable:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 25px rgba(21, 128, 61, 0.09);
+  border-color: #86efac;
+}
+
+.kpi-card-clickable:focus-visible {
+  outline: 2px solid var(--cx-admin-green);
+  outline-offset: 2px;
+}
+
+/* Thao tác quản trị nhanh (Quick Actions) */
+.admin-quick-action-btn {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  transition: all 0.15s ease-in-out;
+}
+
+.admin-quick-action-btn:hover {
+  background-color: var(--cx-admin-soft);
+  border-color: var(--cx-admin-green-light);
+  color: var(--cx-admin-green) !important;
+  transform: translateY(-1px);
+}
+
+/* Avatar biểu tượng chữ cái người dùng */
+.admin-avatar-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e0f2fe, #bae6fd);
+  color: #0369a1;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Trạng thái hệ thống (Status Dot) */
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-dot-online {
+  background-color: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.75;
+  }
+}
+
+.border-dashed {
+  border-style: dashed !important;
+}

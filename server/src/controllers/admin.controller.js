@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/admin.controller.js
+// d:\Projects\FPT\SWP391\server\src/controllers/admin.controller.js
 import * as adminService from '../services/admin.service.js';
 import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/routes/aiLogRoutes.js
+// d:\Projects\FPT\SWP391\server\src/routes/aiLogRoutes.js
 import { Router } from 'express';
 import { listAiLogs, getAiLogStats } from '../controllers/aiLogController.js';
 import { ROLES } from '../constants/roles.js';

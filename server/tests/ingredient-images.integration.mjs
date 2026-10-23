@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/ingredient-images.integration.mjs
+// d:\Projects\FPT\SWP391\server\tests/ingredient-images.integration.mjs
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';

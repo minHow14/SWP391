@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/aiGenerationRepository.js
+// d:\Projects\FPT\SWP391\server\src/repositories/aiGenerationRepository.js
 import prisma from '../config/prisma.js';
 
 const GENERATION_SELECT = {
