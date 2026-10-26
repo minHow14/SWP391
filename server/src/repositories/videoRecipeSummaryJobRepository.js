@@ -73,6 +73,9 @@ export const videoRecipeSummaryJobRepository = {
       errorCode: error.errorCode || 'VIDEO_JOB_FAILED', errorMessage: error.errorCode ? error.message.slice(0, 500) : 'Không thể xử lý video. Vui lòng thử lại.' } }, db);
   },
   async recoverExpired({ maxAttempts, retryMs }, db = prisma) {
+    await db.videoRecipeSummaryJob.updateMany({ where: { status: 'PENDING', attempt: { gte: maxAttempts } },
+      data: { status: 'FAILED', activeUserId: null, ...releasedLease, completedAt: new Date(),
+        errorCode: 'VIDEO_JOB_RETRIES_EXHAUSTED', errorMessage: 'Tác vụ đã hết số lần thử. Vui lòng thử lại.' } });
     const expired = { status: 'PROCESSING', leaseExpiresAt: { lte: new Date() } };
     await db.videoRecipeSummaryJob.updateMany({ where: { ...expired, attempt: { gte: maxAttempts } },
       data: { status: 'FAILED', activeUserId: null, ...releasedLease, completedAt: new Date(),

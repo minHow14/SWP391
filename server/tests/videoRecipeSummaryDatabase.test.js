@@ -59,6 +59,12 @@ describe('video recipe persistence with isolated PostgreSQL', () => {
     await jobs.recoverExpired({ maxAttempts: 3, retryMs: 1 });
     expect(await jobs.findSource(source())).toMatchObject({ status: 'PENDING', transcript, leaseToken: null });
   });
+  it('releases a queued account slot when the configured attempt budget is lowered', async () => {
+    await jobs.create(source({ attempt: 2 }));
+    await jobs.recoverExpired({ maxAttempts: 1, retryMs: 1 });
+    expect(await jobs.findSource(source())).toMatchObject({ status: 'FAILED', activeUserId: null, errorCode: 'VIDEO_JOB_RETRIES_EXHAUSTED' });
+    await expect(jobs.create(source({ videoId: 'AnotherId12' }))).resolves.toBeTruthy();
+  });
   it('commits result and completion together and rejects stale completion', async () => {
     await jobs.create(source());
     const job = await jobs.claim({ leaseMs: 90_000, maxAttempts: 3 });

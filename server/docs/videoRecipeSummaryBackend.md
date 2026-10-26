@@ -95,6 +95,8 @@ HTTP 429 should include Retry-After. Worker delays by at least that duration or 
 
 The account's active slot and source/version uniqueness are enforced by PostgreSQL. Expired workers are fenced by leaseToken and expiry on every write. Completion and result insertion share one transaction. If DeepSeek fails after a saved transcript, retry skips Groq. No guest quota is consumed, and no other user's cached result is shared.
 
+If the configured attempt budget is reduced, queued jobs that already reached the new limit are marked FAILED and release the account slot; they do not remain unclaimable forever. Their validated transcript checkpoint remains available for an explicit retry.
+
 ## Verification
 
 Populate `server/.env.test` with a separate local DB whose name ends in `_test`. Never put secrets into commits. The existing test loader refuses databases without this suffix.
