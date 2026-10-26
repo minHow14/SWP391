@@ -47,7 +47,7 @@ export const CITY_HUBS = [
 ];
 
 export const HCM_HUBS = CITY_HUBS[0].hubs;
-export const RADIUS_OPTIONS = [3, 5, 10, 20];
+export const RADIUS_OPTIONS = [3, 5, 10];
 export const DIET_OPTIONS = [
   { id: null, label: 'Tất cả chế độ' },
   { id: 1, label: 'Thuần Chay' },

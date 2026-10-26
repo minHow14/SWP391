@@ -39,7 +39,7 @@ test('CITY_HUBS contains major Vietnam cities and valid district hubs with GPS c
 });
 
 test('RADIUS_OPTIONS and DIET_OPTIONS have expected values', () => {
-  assert.deepEqual(RADIUS_OPTIONS, [3, 5, 10, 20]);
+  assert.deepEqual(RADIUS_OPTIONS, [3, 5, 10]);
   assert.ok(Array.isArray(DIET_OPTIONS));
   assert.ok(DIET_OPTIONS.some((d) => d.id === null));
   assert.ok(DIET_OPTIONS.some((d) => d.id === 1)); // Vegan

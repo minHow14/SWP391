@@ -386,8 +386,8 @@ export default function NearbyPlaces({
           {places.length === 0 ? (
             <p className="cx-nearby-note" role="status">
               Chưa có quán nào trong bán kính {radiusKm} km quanh vị trí này. Bạn có thể{' '}
-              <button type="button" onClick={() => handleRadiusSelect(20)}>
-                mở rộng bán kính 20 km
+              <button type="button" onClick={() => handleRadiusSelect(10)}>
+                mở rộng bán kính 10 km
               </button>{' '}
               hoặc chọn khu vực / tỉnh thành khác.
             </p>
