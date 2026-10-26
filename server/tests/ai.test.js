@@ -1,16 +1,25 @@
 // D:/SWP391/SWP391/server/tests/ai.test.js
-import { describe, it, expect } from 'vitest';
+import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { ROLES } from '../src/constants/roles.js';
+import prisma from '../src/config/prisma.js';
+import { createGuestSession } from './helpers/guestSession.js';
+
+let guestSession;
+beforeAll(async () => { guestSession = await createGuestSession(app); });
+afterAll(async () => {
+  await prisma.guestQuota.deleteMany({ where: { guestId: guestSession.guestId } });
+  await prisma.$disconnect();
+});
 
 describe('AI Gateway & Admin Management API Boundary', () => {
   const adminToken = generateToken({ user_id: 1, role: ROLES.ADMIN });
   const userToken = generateToken({ user_id: 2, role: ROLES.USER });
 
-  it('GET /api/ai/usage returns guest quota for unauthenticated requests with X-Guest-Id', async () => {
-    const res = await request(app)
+  it('GET /api/ai/usage uses the signed cookie and ignores X-Guest-Id', async () => {
+    const res = await guestSession.agent
       .get('/api/ai/usage')
       .set('X-Guest-Id', 'test-vitest-guest-001');
 
@@ -18,7 +27,7 @@ describe('AI Gateway & Admin Management API Boundary', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data).toBeDefined();
     expect(res.body.data.dailyLimit).toBe(3);
-    expect(res.body.data.guestId).toBe('test-vitest-guest-001');
+    expect(res.body.data.guestId).toBe(guestSession.guestId);
     expect(res.body.data.isAuthenticated).toBe(false);
     expect(typeof res.body.data.remaining).toBe('number');
   });
@@ -63,11 +72,11 @@ describe('AI Gateway & Admin Management API Boundary', () => {
     const res = await request(app)
       .post('/api/admin/ai/guest-quota/reset')
       .set('Authorization', `Bearer ${adminToken}`)
-      .send({ guestId: 'test-vitest-guest-001' });
+      .send({ guestId: guestSession.guestId });
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data.guestId).toBe('test-vitest-guest-001');
+    expect(res.body.data.guestId).toBe(guestSession.guestId);
     expect(res.body.data.used).toBe(0);
   });
 });

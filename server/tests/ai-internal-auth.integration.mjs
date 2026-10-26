@@ -8,12 +8,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import request from 'supertest';
+import { createGuestSession } from './helpers/guestSession.js';
 
 const AI_DIRECTORY = fileURLToPath(new URL('../../ai_service/', import.meta.url));
 const PYTHON = process.env.AI_TEST_PYTHON || path.join(AI_DIRECTORY, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const BE_KEY = process.env.INTERNAL_API_KEY;
 const GUEST_ID = `internal-http-${randomUUID()}`;
-let child, prisma, member, admin;
+let child, prisma, member, admin, guestSession;
 
 async function waitUntilHealthy(url) {
   for (let attempt = 0; attempt < 50; attempt++) {
@@ -63,6 +64,7 @@ try {
   process.env.AI_TIMEOUT_MS = '10000';
   const { default: app } = await import('../src/app.js');
   ({ default: prisma } = await import('../src/config/prisma.js'));
+  guestSession = await createGuestSession(app);
   const { generateToken } = await import('../src/utils/jwt.js');
   const data = (name, role) => ({ email: `${GUEST_ID}-${name}@example.invalid`, full_name: name, role, password_hash: 'unused-test-hash' });
   member = await prisma.user.create({ data: data('member', 2) });
@@ -72,11 +74,11 @@ try {
     ['chat/stream', { message: 'Kiểm tra khóa lệch' }],
     ['meal-planner/generate/stream', { heightCm: 170, weightKg: 65 }],
   ]) {
-    const response = await request(app).post(`/api/ai/${route}`).set('X-Guest-Id', GUEST_ID).send(body);
+    const response = await guestSession.agent.post(`/api/ai/${route}`).send(body);
     assert.equal(response.status, 503);
     assert.equal(response.body.errorCode, 'AI_INTERNAL_AUTH_FAILED');
     assert.ok(!JSON.stringify(response.body).includes(BE_KEY));
-    assert.equal((await prisma.guestQuota.findFirst({ where: { guestId: GUEST_ID } })).usedCount, 0);
+    assert.equal((await prisma.guestQuota.findFirst({ where: { guestId: guestSession.guestId } })).usedCount, 0);
   }
   const failed = await request(app).post('/api/ai/chat/stream')
     .set('Authorization', `Bearer ${generateToken({ user_id: member.user_id })}`).send({ message: 'Kiểm tra lịch sử thất bại' });
@@ -99,7 +101,7 @@ try {
   if (prisma) {
     const ids = [member?.user_id, admin?.user_id].filter(Boolean);
     await prisma.user.deleteMany({ where: { user_id: { in: ids } } });
-    await prisma.guestQuota.deleteMany({ where: { guestId: GUEST_ID } });
+    if (guestSession) await prisma.guestQuota.deleteMany({ where: { guestId: guestSession.guestId } });
     await prisma.$disconnect();
   }
 }

@@ -1,0 +1,3 @@
+// D:/SWP391/SWP391/server/src/constants/guestIdentity.js
+export const AI_GUEST_COOKIE_NAME = 'chayxanh_ai_guest';
+export const AI_GUEST_COOKIE_PATH = '/api/ai';
