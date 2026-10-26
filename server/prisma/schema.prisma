@@ -30,10 +30,73 @@ model User {
   restaurant_reviews RestaurantReview[]
   preferences ProfilePreference?
   aiGenerations AiGeneration[]
+  videoRecipeSummaryJobs VideoRecipeSummaryJob[]
+  videoRecipeSummaries VideoRecipeSummary[]
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
+}
+
+enum VideoRecipeSummaryJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum VideoRecipeSummaryJobStage {
+  VALIDATING_VIDEO
+  FETCHING_AUDIO
+  TRANSCRIBING
+  SUMMARIZING
+  SAVING_RESULT
+}
+
+model VideoRecipeSummaryJob {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         Int                        @map("user_id")
+  activeUserId   Int?                       @unique(map: "uq_video_recipe_jobs_active_user") @map("active_user_id")
+  videoId        String                     @map("video_id") @db.VarChar(11)
+  videoUrl       String                     @map("video_url") @db.VarChar(255)
+  pipelineVersion String                    @map("pipeline_version") @db.VarChar(20)
+  status         VideoRecipeSummaryJobStatus @default(PENDING)
+  stage          VideoRecipeSummaryJobStage  @default(VALIDATING_VIDEO)
+  attempt        Int                        @default(0)
+  availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  leaseToken     String?                    @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
+  metadata       Json?
+  transcript     Json?
+  errorCode      String?                    @map("error_code") @db.VarChar(100)
+  errorMessage   String?                    @map("error_message") @db.VarChar(500)
+  completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+  summary        VideoRecipeSummary?
+
+  @@unique([userId, videoId, pipelineVersion], map: "uq_video_recipe_jobs_user_source_version")
+  @@index([status, availableAt, createdAt, id], map: "idx_video_recipe_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_video_recipe_jobs_expired_lease")
+  @@index([userId, createdAt, id], map: "idx_video_recipe_jobs_user_created")
+  @@map("video_recipe_summary_jobs")
+}
+
+model VideoRecipeSummary {
+  id        String                @id @default(uuid()) @db.Uuid
+  jobId     String                @unique(map: "uq_video_recipe_summaries_job") @map("job_id") @db.Uuid
+  userId    Int                   @map("user_id")
+  videoId   String                @map("video_id") @db.VarChar(11)
+  videoUrl  String                @map("video_url") @db.VarChar(255)
+  recipe    Json
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  job       VideoRecipeSummaryJob @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User                  @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt, id], map: "idx_video_recipe_summaries_user_created")
+  @@map("video_recipe_summaries")
 }
 
 enum AiGenerationStatus {
