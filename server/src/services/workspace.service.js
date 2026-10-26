@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { workspaceRepository } from '../repositories/workspace.repository.js';
 import { ApiError } from '../utils/apiError.js';
+import { defaultPlacePhoto } from './places.service.js';
 
 export const ingredientImageUrl = (ingredientId) =>
   `/api/workspace/ingredients/${ingredientId}/image`;
@@ -108,7 +109,8 @@ export const workspaceService = {
         price_range: d?.price_range || 'Chưa cập nhật',
         price: d?.price_range || '',
         separate: d?.separate_kitchen ?? null,
-        image: p.image_url,
+        image: p.image_url || defaultPlacePhoto(p.name || p.restaurant_id),
+        image_url: p.image_url || defaultPlacePhoto(p.name || p.restaurant_id),
         dishes: p.restaurant_recipes.map((link) => link.recipe.recipe_name).join(', '),
         menu: p.restaurant_recipes.map((link) => ({
           name: link.recipe.recipe_name,
@@ -493,7 +495,7 @@ export const workspaceService = {
         data: {
           name: data.name,
           address: data.address,
-          image_url: data.image_url || null,
+          image_url: data.image_url || defaultPlacePhoto(data.name),
           diet_type_id: data.diet_type_id,
           latitude: data.latitude,
           longitude: data.longitude,
