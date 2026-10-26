@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/vitest.config.js
+// d:\Projects\FPT\SWP391\server\vitest.config.js
 import { defineConfig } from 'vitest/config';
 import './tests/loadTestEnvironment.js';
 

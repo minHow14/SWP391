@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/aiLogDate.js
+// d:\Projects\FPT\SWP391\server\src/utils/aiLogDate.js
 import { MILLISECONDS_PER_DAY } from './aiQuotaDate.js';
 
 export function getAiLogDateRange({ dateFrom, dateTo }) {

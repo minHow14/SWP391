@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/sseParser.js
+// d:\Projects\FPT\SWP391\server\src/utils/sseParser.js
 const MAX_BUFFER_LENGTH = 1_048_576;
 const EVENT_BOUNDARY = /\r\n\r\n|\n\n|\r\r/;
 

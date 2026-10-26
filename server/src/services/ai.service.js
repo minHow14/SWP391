@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/ai.service.js
+// d:\Projects\FPT\SWP391\server\src/services/ai.service.js
 import { guestQuotaService } from './guestQuotaService.js';
 import { clearAiChatCache } from './aiTransportService.js';
 import { streamAiResponse } from './aiStreamService.js';

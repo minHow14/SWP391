@@ -1,9 +1,9 @@
-﻿// client/src/features/auth/components/AuthForm.jsx
+// client/src/features/auth/components/AuthForm.jsx
 import { useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import AuthHeader from './AuthHeader.jsx';
 import { Link, useNavigate } from 'react-router';
-import { api } from '../../../services/api.js';
+import { authService } from '../../../services/authService.js';
 import { setSession } from '../../../utils/session.js';
 import { getAuthDestination } from '../utils/authRedirect.js';
 
@@ -19,16 +19,24 @@ export default function AuthForm({ isRegister = false }) {
     const form=new FormData(event.currentTarget);
     setBusy(true);
     try {
-      const result = await api(`/auth/${isRegister ? 'register' : 'login'}`, {
-        method: 'POST',
-        body: {
-          email: form.get('email') || form.get('account'),
-          password: form.get('password'),
-          ...(isRegister ? { full_name: form.get('full_name') } : {}),
-        },
-      });
-      setSession({ token: result.token, user: result.user });
-      navigate(getAuthDestination({ user: result.user, isRegister }), { replace: true });
+      const payload = {
+        email: form.get('email') || form.get('account'),
+        password: form.get('password'),
+        ...(isRegister ? { full_name: form.get('full_name') } : {}),
+      };
+      const result = isRegister ? await authService.register(payload) : await authService.login(payload);
+
+
+
+
+
+
+
+
+      const user = result?.user || result?.data?.user;
+      const token = result?.token || result?.data?.token;
+      setSession({ token, user });
+      navigate(getAuthDestination({ user, isRegister }), { replace: true });
     } catch (error) {
       setMessage(error.message);
     } finally {

@@ -22,6 +22,8 @@ export { loadCatalog };
 
 // Endpoints công khai
 router.get('/catalog', workspaceController.getCatalog);
+router.get('/recipes', workspaceController.getRecipes);
+router.get('/ingredients', workspaceController.getIngredients);
 router.get('/ingredients/:id/image', workspaceController.getIngredientImage);
 
 // Tất cả các route bên dưới đều yêu cầu xác thực JWT Bearer

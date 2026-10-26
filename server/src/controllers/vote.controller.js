@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\controllers\vote.controller.js
 import { voteService } from '../services/vote.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

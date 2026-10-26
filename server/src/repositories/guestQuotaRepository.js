@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/guestQuotaRepository.js
+// d:\Projects\FPT\SWP391\server\src/repositories/guestQuotaRepository.js
 import prisma from '../config/prisma.js';
 
 export const guestQuotaRepository = {

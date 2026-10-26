@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/validators/aiLogValidator.js
+// d:\Projects\FPT\SWP391\server\src/validators/aiLogValidator.js
 import { z } from 'zod';
 import { AI_LOG_FEATURE, AI_LOG_LIMITS, AI_LOG_STATUS } from '../constants/aiLogs.js';
 import { ApiError } from '../utils/apiError.js';

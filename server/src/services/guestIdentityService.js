@@ -39,7 +39,7 @@ function verifyCookie({ token, key, now }) {
     const claims = jwt.verify(token, key, { algorithms: [COOKIE_ALGORITHM],
       audience: COOKIE_AUDIENCE, issuer: COOKIE_ISSUER,
       clockTimestamp: Math.floor(now.getTime() / MILLISECONDS_PER_SECOND) });
-    return claimsSchema.parse(claims).guestId;
+    return claimsSchema.parse(claims);
   } catch { throw invalidCookie(); }
 }
 
@@ -58,6 +58,8 @@ export const guestIdentityService = {
     const key = signingKey();
     const token = readCookie(cookieHeader);
     if (!token) return createSession({ key, now });
-    return { guestId: `guest:${verifyCookie({ token, key, now })}` };
+    const claims = verifyCookie({ token, key, now });
+    return { guestId: `guest:${claims.guestId}`, token,
+      expiresAt: new Date(claims.exp * MILLISECONDS_PER_SECOND) };
   },
 };

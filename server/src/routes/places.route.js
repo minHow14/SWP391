@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\routes\places.route.js
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { getNearby, searchPlaces } from '../controllers/places.controller.js';

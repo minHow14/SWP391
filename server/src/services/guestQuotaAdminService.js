@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/guestQuotaAdminService.js
+// d:\Projects\FPT\SWP391\server\src/services/guestQuotaAdminService.js
 import { AI_LOG_STATUS } from '../constants/aiLogs.js';
 import { guestQuotaRepository } from '../repositories/guestQuotaRepository.js';
 import { guestQuotaAdminSchema, parseGuestQuotaInput } from '../validators/guestQuotaValidator.js';

@@ -38,4 +38,25 @@ export const commentRepository = {
   async count(args = {}, db = prisma) {
     return db.comment.count(args);
   },
+
+  async countDeleted(db = prisma) {
+    return db.comment.count({ where: { status: 'DELETED' } });
+  },
+
+  async countExpiredDeleted(threshold, db = prisma) {
+    return db.comment.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } });
+  },
+
+  async findExpiredDeletedCommentIds(threshold, db = prisma) {
+    return db.comment.findMany({
+      where: { status: 'DELETED', deleted_at: { lte: threshold } },
+      select: { comment_id: true },
+    });
+  },
+
+  async deleteCommentsByIds(commentIds, db = prisma) {
+    return db.comment.deleteMany({
+      where: { comment_id: { in: commentIds } },
+    });
+  },
 };

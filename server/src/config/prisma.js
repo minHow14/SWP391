@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\config\prisma.js
 import { PrismaClient } from '@prisma/client';
 import config from './index.js';
 

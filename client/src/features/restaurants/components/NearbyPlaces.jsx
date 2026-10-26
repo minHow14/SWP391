@@ -1,29 +1,39 @@
-﻿// client/src/features/restaurants/components/NearbyPlaces.jsx
+// client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../../services/api.js';
+import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
 
-// TP.HCM (Quận 1) khi người dùng không cho phép lấy vị trí.
+// TP.HCM (Quận 1) khi người dùng không cho phép lấy vị trí hoặc bấm "Tìm tại TP.HCM"
 const DEFAULT_POSITION = { lat: 10.7769, lng: 106.7009 };
-const RADIUS_KM = 5;
+const RADIUS_KM = 10;
 
 function getPosition() {
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation) {
-      reject(new Error('Trình duyệt không hỗ trợ định vị.'));
+      reject(new Error('Trình duyệt không hỗ trợ định vị GPS.'));
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (result) => resolve({ lat: result.coords.latitude, lng: result.coords.longitude }),
-      () => reject(new Error('Không lấy được vị trí của bạn.')),
+      (err) => {
+        let msg = 'Không lấy được vị trí của bạn.';
+        if (err.code === 1) {
+          msg = 'Bạn đã từ chối quyền truy cập vị trí trên trình duyệt.';
+        } else if (err.code === 2) {
+          msg = 'Vị trí hiện tại không khả dụng.';
+        } else if (err.code === 3) {
+          msg = 'Quá thời gian xác định vị trí.';
+        }
+        reject(new Error(msg));
+      },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     );
   });
 }
 
 /**
- * Tìm thêm quán chay quanh vị trí người dùng qua /api/places/nearby (nguồn bản đồ ZIOMAP).
- * Chỉ hiển thị quán lấy từ bản đồ; quán trong hệ thống đã có ở danh sách bên dưới.
+ * Tìm quán chay quanh vị trí người dùng qua /api/places/nearby.
+ * Hiển thị tất cả quán trong bán kính (cả quán trong hệ thống và quán từ bản đồ trực tuyến nếu có).
  */
 export default function NearbyPlaces({ onResults, onSelect }) {
   const [state, setState] = useState({ status: 'idle', places: [], message: '', origin: null });
@@ -37,7 +47,6 @@ export default function NearbyPlaces({ onResults, onSelect }) {
     setState({ status: 'loading', places: [], message: '', origin: null });
     onResults?.([]);
     let origin = DEFAULT_POSITION;
-    let note = '';
     if (!useDefault) {
       try {
         origin = await getPosition();
@@ -46,23 +55,53 @@ export default function NearbyPlaces({ onResults, onSelect }) {
         setState({ status: 'denied', places: [], message: error.message, origin: null });
         return;
       }
-    } else {
-      note = 'Đang dùng vị trí mặc định (Quận 1, TP.HCM).';
     }
     try {
       if (current.signal.aborted) return;
-      const response = await api(`/places/nearby?lat=${origin.lat}&lng=${origin.lng}&radius_km=${RADIUS_KM}&limit=10`, { signal: current.signal, includeMeta: true });
+      const response = await placeService.getNearbyPlaces({ lat: origin.lat, lng: origin.lng, radiusKm: RADIUS_KM, limit: 10 }, { signal: current.signal });
+
+
+
       if (current.signal.aborted) return;
-      const result = response.data;
-      const places = (result.places || []).filter((place) => place.source !== 'local').map(place => ({
-        ...place, city: useDefault ? 'TP.HCM' : 'Quanh bạn', hours: 'Chưa cập nhật', type: 'external',
-      }));
-      if (response.meta?.ziomap === 'unavailable') note += ' Dịch vụ tìm quán đang gián đoạn. Các quán trong hệ thống vẫn hiển thị bên dưới.';
-      if (response.meta?.ziomap === 'not_configured') note += ' Chưa cấu hình dịch vụ tìm thêm quán. Các quán trong hệ thống vẫn hiển thị bên dưới.';
+      const result = response?.data ?? response;
+      const rawPlaces = Array.isArray(result?.places) ? result.places : Array.isArray(result) ? result : [];
+      
+      const places = rawPlaces.map((place) => {
+        const isExternal = place.source === 'ziomap';
+        return {
+          ...place,
+          id: place.id || (place.restaurant_id ? `local_${place.restaurant_id}` : `place_${Math.random()}`),
+          city: place.city || (place.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
+          hours: place.hours || 'Chưa cập nhật',
+          type: isExternal
+            ? 'external'
+            : place.diet_type_id === 5
+              ? 'buddhist'
+              : place.diet_type_id === 1
+                ? 'vegan'
+                : 'separate',
+          image: place.image || place.image_url,
+        };
+      });
+
+      let note = '';
+      if (places.length > 0) {
+        note = useDefault
+          ? `Đã tìm thấy ${places.length} quán chay quanh khu vực TP.HCM.`
+          : `Đã tìm thấy ${places.length} quán chay trong bán kính ${RADIUS_KM} km gần bạn.`;
+      } else {
+        note = `Chưa tìm thấy quán chay nào trong bán kính ${RADIUS_KM} km quanh vị trí này.`;
+        if (response?.meta?.ziomap === 'not_configured') {
+          note += ' (Dịch vụ bản đồ ZIOMAP chưa cấu hình API key).';
+        }
+      }
+
       setState({ status: 'done', places, message: note, origin });
       onResults?.(places);
     } catch (error) {
-      if (!current.signal.aborted) setState({ status: 'error', places: [], message: error.message, origin });
+      if (!current.signal.aborted) {
+        setState({ status: 'error', places: [], message: error.message, origin });
+      }
     }
   }
 
@@ -72,23 +111,44 @@ export default function NearbyPlaces({ onResults, onSelect }) {
       <div className="cx-nearby-head">
         <div>
           <h2 id="nearby-title"><i className="bi bi-compass-fill" aria-hidden="true" /> Quán chay quanh bạn</h2>
-          <p>Tìm thêm quán chay trong bán kính {RADIUS_KM} km từ bản đồ trực tuyến.</p>
+          <p>Tìm quán chay trong bán kính {RADIUS_KM} km sắp xếp từ gần đến xa.</p>
         </div>
-        <div className="cx-nearby-actions"><button type="button" onClick={() => search(false)} disabled={status === 'loading'}>
-          {status === 'loading' ? 'Đang tìm…' : 'Quán gần tôi'}
-        </button><button type="button" onClick={() => search(true)} disabled={status === 'loading'}>Tìm tại TP.HCM</button></div>
+        <div className="cx-nearby-actions">
+          <button type="button" onClick={() => search(false)} disabled={status === 'loading'}>
+            {status === 'loading' ? 'Đang tìm…' : 'Quán gần tôi'}
+          </button>
+          <button type="button" onClick={() => search(true)} disabled={status === 'loading'}>
+            Tìm tại TP.HCM
+          </button>
+        </div>
       </div>
       {status === 'denied' && (
-        <p className="cx-nearby-note" role="alert">{message} Bạn có thể <button type="button" onClick={() => search(true)}>dùng vị trí mặc định ở TP.HCM</button>.</p>
+        <p className="cx-nearby-note" role="alert">
+          {message} Bạn có thể{' '}
+          <button type="button" onClick={() => search(true)}>
+            dùng vị trí mặc định ở TP.HCM
+          </button>.
+        </p>
       )}
       {status === 'error' && (
-        <p className="cx-nearby-note is-error" role="alert">{message} <button type="button" onClick={() => search(true)}>Thử lại</button></p>
+        <p className="cx-nearby-note is-error" role="alert">
+          {message}{' '}
+          <button type="button" onClick={() => search(true)}>
+            Thử lại với vị trí TP.HCM
+          </button>
+        </p>
       )}
       {status === 'done' && (
         <>
           {message && <p className="cx-nearby-note">{message}</p>}
           {places.length === 0 ? (
-            <p className="cx-nearby-note" role="status">Chưa có quán nào từ bản đồ quanh vị trí này. Hãy xem danh sách quán trong hệ thống bên dưới.</p>
+            <p className="cx-nearby-note" role="status">
+              Chưa có quán nào quanh vị trí này. Bạn có thể{' '}
+              <button type="button" onClick={() => search(true)}>
+                xem quán tại TP.HCM
+              </button>{' '}
+              hoặc xem danh sách bên dưới.
+            </p>
           ) : (
             <ul className="cx-nearby-list">
               {places.map((place) => (
@@ -101,7 +161,11 @@ export default function NearbyPlaces({ onResults, onSelect }) {
                     {Number.isFinite(place.distance_m) && <span>{formatDistance(place.distance_m)}</span>}
                     {place.rating > 0 && <span>★ {place.rating}</span>}
                     <button type="button" onClick={() => onSelect?.(place)}>Xem bản đồ</button>
-                    <a href={place.maps_url} target="_blank" rel="noreferrer noopener"><i className="bi bi-sign-turn-right-fill" aria-hidden="true" /> Chỉ đường</a>
+                    {place.maps_url && (
+                      <a href={place.maps_url} target="_blank" rel="noreferrer noopener">
+                        <i className="bi bi-sign-turn-right-fill" aria-hidden="true" /> Chỉ đường
+                      </a>
+                    )}
                   </div>
                 </li>
               ))}

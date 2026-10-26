@@ -28,3 +28,23 @@ export const updateMeSchema = updateSchema({
     .refine((ids) => new Set(ids).size === ids.length, 'Nguyên liệu dị ứng bị trùng')
     .optional(),
 });
+
+export const changePasswordSchema = z.object({
+  old_password: z.string().min(1).max(128).optional(),
+  oldPassword: z.string().min(1).max(128).optional(),
+  current_password: z.string().min(1).max(128).optional(),
+  currentPassword: z.string().min(1).max(128).optional(),
+  new_password: z.string().min(8).max(128).optional(),
+  newPassword: z.string().min(8).max(128).optional(),
+}).refine(
+  (data) =>
+    Boolean(data.old_password || data.oldPassword || data.current_password || data.currentPassword) &&
+    Boolean(data.new_password || data.newPassword),
+  { message: 'Mật khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký tự) là bắt buộc' }
+);
+
+export const recordWeightSchema = z.object({
+  weight: z.coerce.number().min(20, 'Cân nặng tối thiểu là 20kg').max(350, 'Cân nặng tối đa là 350kg'),
+  recorded_date: z.string().optional(),
+  recordedDate: z.string().optional(),
+});

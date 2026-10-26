@@ -20,7 +20,7 @@ export default function AdminPostsTab() {
     setError('');
     try {
       const res = await adminService.getPosts({ postType: typeFilter, status: statusFilter, search, limit: 50 });
-      setPosts(res.data);
+      setPosts(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       setError(err.message || 'Không thể tải danh sách bài viết');
     } finally {
@@ -121,7 +121,7 @@ export default function AdminPostsTab() {
           </Col>
           <Col xs={6} md={3}>
             <Form.Select size="sm" className="rounded-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-              <option value="">Tất cả thể loại</option>
+              <option value="">Tất cả bài viết & video nấu ăn</option>
               <option value="BLOG">Bài viết Blog chia sẻ</option>
               <option value="VIDEO">Video nấu ăn chay</option>
             </Form.Select>

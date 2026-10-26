@@ -1,8 +1,8 @@
-﻿// client/src/pages/Restaurants.jsx
+// client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
-import { api } from '../services/api.js';
+import { workspaceService } from '../services/workspaceService.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
 import ContentImage from '../components/common/ContentImage.jsx';
 import ContentDialog from '../components/common/ContentDialog.jsx';
@@ -30,15 +30,20 @@ export default function Restaurants() {
   const map = useRef(null);
   const search = normalizeSearch(query.trim());
   const filtered = places.filter((place) => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address} ${place.dishes}`).includes(search)).sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'vi') : sort === 'price' ? a.price.length - b.price.length : b.rating - a.rating);
-  const visibleNearby = nearbyPlaces.filter(place => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address}`).includes(search));
+  const visibleNearby = nearbyPlaces
+    .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
+    .filter((place) => (type === 'all' || place.type === type) && (city === 'all' || place.city === city) && normalizeSearch(`${place.name} ${place.address}`).includes(search));
   const mapPlaces = [...filtered, ...visibleNearby];
   const selected = mapPlaces.find((place) => place.id === selectedId) || mapPlaces[0];
   const hasLocation = mapPlaces.some(hasCoordinates);
   const mapSelection = hasCoordinates(selected) ? selected : mapPlaces.find(hasCoordinates);
 
   function selectPlace(place) {
-    if (place.source === 'ziomap') { setQuery(''); setType('all'); setCity('all'); }
-    setSelectedId(place.id);
+    setQuery('');
+    setType('all');
+    setCity('all');
+    const matchedInCatalog = places.find((p) => p.id === place.restaurant_id || p.id === place.id);
+    setSelectedId(matchedInCatalog ? matchedInCatalog.id : place.id);
     setPopupOpen(true);
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -50,7 +55,26 @@ export default function Restaurants() {
     const name = values.get('name').trim();
     const address = values.get('address').trim();
     if (!name || !address) return;
-    try{const place=await api('/workspace/restaurants',{method:'POST',body:{name,address,city:proposalCity,diet_type_id:values.get('type')==='buddhist'?5:values.get('type')==='separate'?4:1,latitude:values.get('latitude')?Number(values.get('latitude')):null,longitude:values.get('longitude')?Number(values.get('longitude')):null}});await reload();setQuery('');setType('all');setCity('all');setSelectedId(place.restaurant_id);setPopupOpen(true);setProposing(false);setNotice('Đã thêm địa điểm mới.');}catch(e){setNotice(e.message);}
+    try {
+      const place = await workspaceService.suggestRestaurant({
+        name,
+        address,
+        city: proposalCity,
+        diet_type_id: values.get('type') === 'buddhist' ? 5 : values.get('type') === 'separate' ? 4 : 1,
+        latitude: values.get('latitude') ? Number(values.get('latitude')) : null,
+        longitude: values.get('longitude') ? Number(values.get('longitude')) : null,
+      });
+      await reload();
+      setQuery('');
+      setType('all');
+      setCity('all');
+      setSelectedId(place.restaurant_id || place.id);
+      setPopupOpen(true);
+      setProposing(false);
+      setNotice('Đã thêm địa điểm mới.');
+    } catch (e) {
+      setNotice(e.message);
+    }
   }
 
   return (
@@ -77,7 +101,7 @@ export default function Restaurants() {
           {hasLocation ? <><RestaurantMap places={mapPlaces} selected={mapSelection} onSelect={selectPlace} /><button type="button" className="cx-map-reopen" onClick={() => setPopupOpen(!popupOpen)} aria-expanded={popupOpen}><i className="bi bi-geo-alt-fill" aria-hidden="true" /> {popupOpen ? 'Ẩn thông tin quán' : 'Xem thông tin quán'}</button>{popupOpen && <article className="cx-map-place-popup"><button type="button" className="cx-map-popup-close" aria-label="Đóng thông tin trên bản đồ" onClick={() => setPopupOpen(false)}>×</button><div className="cx-map-popup-photo"><ContentImage src={selected.image} alt="Ảnh minh họa quán đang chọn" />{selected.rating > 0 && <span>⭐ {selected.rating}</span>}</div><div className="cx-map-popup-body"><small>{typeName(selected.type)}</small><h2>{selected.name}</h2><p>📍 {selected.address}</p><div><span>◷ {selected.hours}</span><span>Địa điểm</span></div><a href={directions(selected)} target="_blank" rel="noreferrer">🧭 Chỉ đường tới quán</a></div></article>}</> : <div className="cx-map-no-results"><i className="bi bi-map" aria-hidden="true" /><p>Chọn bộ lọc khác để hiển thị địa điểm trên bản đồ.</p></div>}
         </section>
       </div>
-      {detail && <RestaurantDetail key={detail.id} place={places.find(p=>p.id===detail.id)||detail} user={user} onClose={() => setDetail(null)} onReview={async(review)=>{await api(`/workspace/restaurants/${detail.id}/reviews`,{method:'POST',body:{stars:review.stars,text:review.text}});await reload();}} />}
+      {detail && <RestaurantDetail key={detail.id} place={places.find(p=>p.id===detail.id)||detail} user={user} onClose={() => setDetail(null)} onReview={async(review)=>{await workspaceService.reviewRestaurant(detail.id, { stars: review.stars, text: review.text });await reload();}} />}
       {proposing && <ContentDialog title="Đề Xuất Quán Chay Mới" onClose={() => setProposing(false)}><form className="cx-proposal-form" onSubmit={addProposal}><p>Chia sẻ địa điểm bạn yêu thích với cộng đồng. Có thể để trống tọa độ nếu chưa xác định.</p><label>Tên quán<input name="name" required maxLength={120} placeholder="Tên quán chay" /></label><label>Địa chỉ<input name="address" required maxLength={220} placeholder="Số nhà, đường, quận..." /></label><div><label>Khu vực<select name="city">{Array.from(new Set(places.map(place=>place.city))).map(city=><option key={city}>{city}</option>)}</select></label><label>Phân loại<select name="type">{restaurantTypes.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label></div><label>Vĩ độ<input name="latitude" type="number" min="-90" max="90" step="any" /></label><label>Kinh độ<input name="longitude" type="number" min="-180" max="180" step="any" /></label><button type="submit">Lưu Quán Chay</button></form></ContentDialog>}
     </main>
   );

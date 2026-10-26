@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/aiGatewayError.js
+// d:\Projects\FPT\SWP391\server\src/utils/aiGatewayError.js
 import { ApiError } from './apiError.js';
 
 export function aiGatewayError({ status = 502, code = 'AI_PROVIDER_ERROR', message = 'Dịch vụ AI gặp sự cố. Vui lòng thử lại.' } = {}) {

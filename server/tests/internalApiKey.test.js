@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/internalApiKey.test.js
+// d:\Projects\FPT\SWP391\server\tests/internalApiKey.test.js
 import { expect, it } from 'vitest';
 import { internalApiKeySchema } from '../src/validators/internalApiKeyValidator.js';
 

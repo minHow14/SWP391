@@ -1,11 +1,15 @@
-﻿// client/src/features/profile/components/ProfileForm.jsx
+// client/src/features/profile/components/ProfileForm.jsx
+import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Spinner } from 'react-bootstrap';
 import { normalizeSearch } from '../../../utils/recipeFilters.js';
 import { todayKey } from '../../../utils/journal.js';
 import { useProfileForm } from '../hooks/useProfileForm.js';
+import ChangePasswordModal from './ChangePasswordModal.jsx';
+import WeightTracker from './WeightTracker.jsx';
 
 export default function ProfileForm({ userId, catalog }) {
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
   const { account, values, setValues, error, notice, setNotice, busy, setRetry, search, setSearch, change, save } = useProfileForm({ userId });
 
   if (!values) {
@@ -47,7 +51,18 @@ export default function ProfileForm({ userId, catalog }) {
         <form onSubmit={save}>
           <fieldset disabled={busy} className="cx-profile-fields">
             <section className="cx-profile-section">
-              <h2>Thông tin tài khoản</h2>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <h2 className="mb-0">Thông tin tài khoản</h2>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => setShowPasswordModal(true)}
+                  type="button"
+                >
+                  <i className="bi bi-key-fill me-1" aria-hidden="true" /> Đổi mật khẩu
+                </Button>
+              </div>
+
               <div className="cx-profile-grid">
                 <label>
                   Họ và tên
@@ -65,6 +80,7 @@ export default function ProfileForm({ userId, catalog }) {
                   <input value={account?.email || ''} readOnly type="email" autoComplete="email" />
                 </label>
               </div>
+
               <div className="cx-profile-account-meta">
                 <span>Mã tài khoản: {account?.user_id}</span>
                 <span>Trạng thái: {account?.status}</span>
@@ -207,6 +223,19 @@ export default function ProfileForm({ userId, catalog }) {
             </Button>
           </div>
         </form>
+
+        <WeightTracker
+          height={values.height}
+          currentWeight={values.weight}
+          onWeightRecorded={(newWeight) => {
+            setValues((previous) => ({ ...previous, weight: newWeight }));
+          }}
+        />
+
+        <ChangePasswordModal
+          show={showPasswordModal}
+          onHide={() => setShowPasswordModal(false)}
+        />
       </div>
     </main>
   );

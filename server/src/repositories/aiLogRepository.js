@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/aiLogRepository.js
+// d:\Projects\FPT\SWP391\server\src/repositories/aiLogRepository.js
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { AI_LOG_FEATURE, AI_LOG_LIMITS } from '../constants/aiLogs.js';

@@ -1,5 +1,4 @@
 // D:/SWP391/SWP391/server/tests/aiGateway.test.js
-import { randomUUID } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
@@ -8,6 +7,7 @@ import { aiConfig } from '../src/config/aiConfig.js';
 import prisma from '../src/config/prisma.js';
 import { aiService } from '../src/services/ai.service.js';
 import { aiLogService } from '../src/services/aiLogService.js';
+import { createGuestSession } from './helpers/guestSession.js';
 
 vi.mock('../src/config/aiConfig.js', async (importOriginal) => {
   const original = await importOriginal();
@@ -16,18 +16,22 @@ vi.mock('../src/config/aiConfig.js', async (importOriginal) => {
 
 const ORIGINAL_TIMEOUT_MS = aiConfig.timeoutMs;
 const TEST_UPSTREAM_TIMEOUT_MS = 1000;
-const GUEST_PREFIX = `gateway-${randomUUID()}`;
 const KEY_HEADERS = { 'Content-Type': 'text/event-stream' };
 const upstreamDone = { success: true, status: 'completed', meta: { modelName: 'gateway-test-model' } };
-let guestId;
+let guestId, guestSession;
+const guestIds = [];
 const sse = (events) => new Response(events.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join(''), { headers: KEY_HEADERS });
-const chat = (payload = { message: 'Kiểm thử gateway' }) => request(app).post('/api/ai/chat/stream').set('X-Guest-Id', guestId).send(payload);
+const chat = (payload = { message: 'Kiểm thử gateway' }) => guestSession.agent.post('/api/ai/chat/stream').send(payload);
 const usage = () => prisma.guestQuota.findFirst({ where: { guestId } });
 
-beforeEach(() => { guestId = `${GUEST_PREFIX}-${randomUUID()}`; });
+beforeEach(async () => {
+  guestSession = await createGuestSession(app);
+  guestId = guestSession.guestId;
+  guestIds.push(guestId);
+});
 afterEach(() => { aiConfig.timeoutMs = ORIGINAL_TIMEOUT_MS; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
-  await prisma.guestQuota.deleteMany({ where: { guestId: { startsWith: GUEST_PREFIX } } });
+  await prisma.guestQuota.deleteMany({ where: { guestId: { in: guestIds } } });
   await prisma.$disconnect();
 });
 
@@ -64,8 +68,8 @@ describe('AI gateway regression tests against the isolated database', () => {
       ['done', { ...upstreamDone, remaining: 999, ...(url.includes('meal-planner') && { data: { weeklyPlan: [{ dayNumber: 1 }] } }) }],
     ]));
     vi.stubGlobal('fetch', upstream);
-    const mealPlan = () => request(app).post('/api/ai/meal-planner/generate/stream')
-      .set('X-Guest-Id', guestId).send({ heightCm: 170, weightKg: 65, days: 1 });
+    const mealPlan = () => guestSession.agent.post('/api/ai/meal-planner/generate/stream')
+      .send({ heightCm: 170, weightKg: 65, days: 1 });
     expect((await chat()).text).toContain('"remaining":2');
     expect((await mealPlan()).text).toContain('"remaining":1');
     expect((await chat()).text).toContain('"remaining":0');
@@ -73,7 +77,7 @@ describe('AI gateway regression tests against the isolated database', () => {
     expect(denied.status).toBe(429);
     expect(denied.body.errorCode).toBe('AI_QUOTA_EXCEEDED');
     expect(upstream).toHaveBeenCalledTimes(3);
-    const status = await request(app).get('/api/ai/usage').set('X-Guest-Id', guestId);
+    const status = await guestSession.agent.get('/api/ai/usage');
     expect(status.body.data).toMatchObject({ used: 3, remaining: 0, dailyLimit: 3 });
   });
 
@@ -82,8 +86,8 @@ describe('AI gateway regression tests against the isolated database', () => {
       ...upstreamDone, ...(url.includes('meal-planner') && { data: { weeklyPlan: [{ dayNumber: 1 }] } }),
     }]]));
     vi.stubGlobal('fetch', upstream);
-    const responses = await Promise.all(Array.from({ length: 8 }, (_, index) => index % 2 ? chat() : request(app)
-      .post('/api/ai/meal-planner/generate/stream').set('X-Guest-Id', guestId).send({ heightCm: 170, weightKg: 65, days: 1 })));
+    const responses = await Promise.all(Array.from({ length: 8 }, (_, index) => index % 2 ? chat() : guestSession.agent
+      .post('/api/ai/meal-planner/generate/stream').send({ heightCm: 170, weightKg: 65, days: 1 })));
     expect(responses.filter((response) => response.status === 200)).toHaveLength(3);
     expect(responses.filter((response) => response.status === 429)).toHaveLength(5);
     expect(upstream).toHaveBeenCalledTimes(3);
@@ -93,7 +97,7 @@ describe('AI gateway regression tests against the isolated database', () => {
   it('reads quota from BE without calling AI or consuming a turn', async () => {
     const upstream = vi.fn(); vi.stubGlobal('fetch', upstream);
     for (let index = 0; index < 2; index++) {
-      const response = await request(app).get('/api/ai/usage').set('X-Guest-Id', guestId);
+      const response = await guestSession.agent.get('/api/ai/usage');
       expect(response.status).toBe(200);
       expect(response.body.data).toMatchObject({ used: 0, remaining: 3 });
     }
@@ -104,8 +108,8 @@ describe('AI gateway regression tests against the isolated database', () => {
   it.each(['chatbot', 'mealPlanner'])('refunds an SSE error for %s without recording SUCCESS', async (feature) => {
     vi.stubGlobal('fetch', vi.fn(async () => sse([['error', { success: false, errorCode: 'AI_PROVIDER_ERROR', message: 'PRIVATE_PROVIDER_DETAIL' }]])));
     const before = await prisma.aiLog.count({ where: { status: 'SUCCESS' } });
-    const response = feature === 'chatbot' ? await chat() : await request(app)
-      .post('/api/ai/meal-planner/generate/stream').set('X-Guest-Id', guestId).send({ heightCm: 170, weightKg: 65 });
+    const response = feature === 'chatbot' ? await chat() : await guestSession.agent
+      .post('/api/ai/meal-planner/generate/stream').send({ heightCm: 170, weightKg: 65 });
     expect(response.status).toBe(200);
     expect(response.text).toContain('event: error');
     expect(response.text).not.toContain('PRIVATE_PROVIDER_DETAIL');

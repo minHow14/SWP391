@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/ai-internal-auth.integration.mjs
+// d:\Projects\FPT\SWP391\server\tests/ai-internal-auth.integration.mjs
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';

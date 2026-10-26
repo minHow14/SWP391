@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/aiStreamService.js
+// d:\Projects\FPT\SWP391\server\src/services/aiStreamService.js
 import { aiConfig } from '../config/aiConfig.js';
 import { aiGatewayError, aiErrorEnvelope, normalizeAiError } from '../utils/aiGatewayError.js';
 import { aiGenerationService } from './aiGenerationService.js';

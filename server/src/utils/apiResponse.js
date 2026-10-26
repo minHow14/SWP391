@@ -3,23 +3,36 @@ import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
  * Trả về phản hồi thành công chuẩn RESTful theo API Contract thống nhất
- * Thỏa mãn cả chuẩn mới { success, message, data, meta } lẫn tính tương thích ngược
+ * Format: { success: true, message: string, data: any, meta?: object }
  * @param {import('express').Response} res - Express response
  * @param {object|any} payload - Dữ liệu trả về (object hoặc array)
  * @param {number} statusCode - HTTP status code (mặc định 200)
+ * @param {object} extraMeta - Metadata bổ sung nếu có
  */
-export const sendSuccess = (res, payload = {}, statusCode = HTTP_STATUS.OK) => {
+export const sendSuccess = (res, payload = {}, statusCode = HTTP_STATUS.OK, extraMeta = {}) => {
   const isObject = typeof payload === 'object' && payload !== null && !Array.isArray(payload);
 
   const message = isObject && payload.message ? payload.message : 'Thành công';
   const meta = isObject && payload.meta ? payload.meta : undefined;
+  const requestId = res.locals?.requestId;
 
-  // Lấy data cốt lõi: nếu payload đã có data thì dùng, ngược lại data là chính payload
+  let combinedMeta = undefined;
+  if (meta || Object.keys(extraMeta).length > 0 || requestId) {
+    combinedMeta = {
+      ...(requestId ? { requestId } : {}),
+      ...(meta || {}),
+      ...(extraMeta || {}),
+    };
+    if (Object.keys(combinedMeta).length === 0) {
+      combinedMeta = undefined;
+    }
+  }
+
+  // Lấy data cốt lõi: nếu payload đã có field `data` thì dùng, ngược lại bóc tách message và meta
   let data;
   if (isObject && 'data' in payload) {
     data = payload.data;
   } else if (isObject) {
-    // Loại bỏ message và meta ra khỏi data wrapper
     const { message: _m, meta: _meta, ...rest } = payload;
     data = rest;
   } else {
@@ -30,8 +43,8 @@ export const sendSuccess = (res, payload = {}, statusCode = HTTP_STATUS.OK) => {
     success: true,
     message,
     data,
-    ...(meta ? { meta } : {}),
-    // Giữ các trường ở cấp root nếu có để đảm bảo 100% tương thích ngược
+    ...(combinedMeta ? { meta: combinedMeta } : {}),
+    // Giữ các trường cấp root từ payload để tương thích ngược 100% với FE và integration tests
     ...(isObject ? payload : {}),
   };
 
@@ -65,6 +78,7 @@ export const sendError = (
 ) => {
   const message = typeof error === 'string' ? error : error?.message || 'Lỗi máy chủ';
   const errorsList = Array.isArray(details) ? details : details ? [details] : [];
+  const requestId = res.locals?.requestId;
 
   const responseBody = {
     success: false,
@@ -72,8 +86,13 @@ export const sendError = (
     errorCode,
     errors: errorsList,
     // Thuộc tính tương thích ngược cho client/test cũ
-    error: message,
-    ...(details ? { details } : {}),
+    error: {
+      code: errorCode,
+      message,
+      ...(details !== null && details !== undefined ? { details } : {}),
+    },
+    ...(details !== null && details !== undefined ? { details } : {}),
+    ...(requestId ? { meta: { requestId } } : {}),
   };
 
   return res.status(statusCode).json(responseBody);

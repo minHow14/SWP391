@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/aiTransportService.js
+// d:\Projects\FPT\SWP391\server\src/services/aiTransportService.js
 import { once } from 'node:events';
 import { aiConfig } from '../config/aiConfig.js';
 import { HTTP_STATUS } from '../constants/httpStatus.js';

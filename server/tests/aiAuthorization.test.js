@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/aiAuthorization.test.js
+// d:\Projects\FPT\SWP391\server\tests/aiAuthorization.test.js
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';

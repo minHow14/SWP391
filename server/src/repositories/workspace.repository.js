@@ -262,4 +262,47 @@ export const workspaceRepository = {
       WHERE restaurant_id = ${Number(restaurantId)}
     `;
   },
+
+  async getIngredientImage(ingredientId, db = prisma) {
+    return db.$queryRaw`
+      SELECT mime_type, image_data, source_url
+      FROM ingredient_images
+      WHERE ingredient_id = ${Number(ingredientId)}
+    `;
+  },
+
+  async findRecipes({ where = {}, skip, take, include, orderBy } = {}, db = prisma) {
+    return db.recipe.findMany({
+      where,
+      skip,
+      take,
+      include: include || {
+        category: true,
+        diet_type: true,
+        recipe_ingredients: { include: { ingredient: true } },
+      },
+      orderBy: orderBy || { recipe_id: 'asc' },
+    });
+  },
+
+  async countRecipes(where = {}, db = prisma) {
+    return db.recipe.count({ where });
+  },
+
+  async findIngredients({ where = {}, skip, take, orderBy } = {}, db = prisma) {
+    return db.ingredient.findMany({
+      where,
+      skip,
+      take,
+      orderBy: orderBy || { ingredient_id: 'asc' },
+    });
+  },
+
+  async countIngredients(where = {}, db = prisma) {
+    return db.ingredient.count({ where });
+  },
+
+  async countRestaurants(where = {}, db = prisma) {
+    return db.restaurant.count({ where });
+  },
 };

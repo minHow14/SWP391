@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/aiQuota.test.js
+// d:\Projects\FPT\SWP391\server\tests/aiQuota.test.js
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import prisma from '../src/config/prisma.js';

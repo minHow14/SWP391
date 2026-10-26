@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/middlewares/validationMiddleware.js
+// d:\Projects\FPT\SWP391\server\src/middlewares/validationMiddleware.js
 import { ApiError } from '../utils/apiError.js';
 
 export const validate = (schema, location = 'body') => (req, res, next) => {

@@ -19,7 +19,10 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// 1. Tắt header X-Powered-By mặc định để tránh lộ công nghệ
+// 1. Tin cậy reverse proxy lớp 1 để nhận chính xác IP thực của client
+app.set('trust proxy', 1);
+
+// 2. Tắt header X-Powered-By mặc định để tránh lộ công nghệ
 app.disable('x-powered-by');
 
 // 2. Gán mã định danh duy nhất (Request ID) cho mọi request để tiện tracing log

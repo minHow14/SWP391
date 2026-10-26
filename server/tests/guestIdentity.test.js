@@ -47,11 +47,11 @@ describe('server-issued AI guest identity', () => {
     expect(guestQuotaRepository.findUsage).toHaveBeenCalledWith(expect.objectContaining({
       guestId: response.body.data.guestId,
     }));
-    const header = response.headers['set-cookie'][0];
+    const header = response.headers['set-cookie'][1];
     expect(header).toContain(`${AI_GUEST_COOKIE_NAME}=`);
     expect(header).toContain('HttpOnly');
     expect(header).toContain('SameSite=Lax');
-    expect(header).toContain('Path=/api/ai');
+    expect(header).toContain('Path=/api;');
     expect(header).toContain('Expires=');
     expect(header).not.toContain('Secure');
   });
@@ -69,7 +69,40 @@ describe('server-issued AI guest identity', () => {
     const second = await agent.get('/api/ai/chat/usage').set('X-Guest-Id', randomUUID());
     expect(second.status).toBe(200);
     expect(second.body.data.guestId).toBe(first.body.data.guestId);
-    expect(second.headers['set-cookie']).toBeUndefined();
+    expect(second.headers['set-cookie'][1].split(';')[0]).toBe(first.headers['set-cookie'][1].split(';')[0]);
+  });
+
+  it.each([
+    ['/api/ai/usage', '/api/v1/ai/usage'],
+    ['/api/v1/ai/usage', '/api/ai/usage'],
+  ])('shares the guest identity across %s and %s', async (firstPath, secondPath) => {
+    const agent = request.agent(app);
+    const first = await agent.get(firstPath);
+    const second = await agent.get(secondPath);
+    const third = await agent.get(firstPath);
+    expect([first.status, second.status, third.status]).toEqual([200, 200, 200]);
+    expect(second.body.data.guestId).toBe(first.body.data.guestId);
+    expect(third.body.data.guestId).toBe(first.body.data.guestId);
+  });
+
+  it.each(['/api/ai/usage', '/api/v1/ai/usage'])('migrates a narrow cookie without duplicate-cookie failures via %s', async (firstPath) => {
+    const agent = request.agent(app);
+    const guestId = randomUUID();
+    const expires = Math.floor(Date.now() / 1000) + 600;
+    const token = signedToken({ guestId, exp: expires });
+    agent.jar.setCookie(`${cookie(token)}; Path=/api/ai`, '127.0.0.1', '/api/ai');
+    const first = await agent.get(firstPath);
+    const legacy = await agent.get('/api/ai/usage');
+    const versioned = await agent.get('/api/v1/ai/usage');
+    expect([first.status, legacy.status, versioned.status]).toEqual([200, 200, 200]);
+    expect(legacy.body.data.guestId).toBe(first.body.data.guestId);
+    expect(versioned.body.data.guestId).toBe(first.body.data.guestId);
+    expect(first.headers['set-cookie'][0]).toContain('Path=/api/ai');
+    expect(first.headers['set-cookie'][0]).toContain('Expires=Thu, 01 Jan 1970');
+    if (firstPath === '/api/ai/usage') {
+      expect(first.body.data.guestId).toBe(`guest:${guestId}`);
+      expect(first.headers['set-cookie'][1]).toContain(new Date(expires * 1000).toUTCString());
+    }
   });
 
   it('rejects a modified payload without querying quota', async () => {

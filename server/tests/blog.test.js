@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
+import { postRepository } from '../src/repositories/post.repository.js';
 
 describe('Blog API & Post Creation Workflow', () => {
   const authorToken = generateToken({ user_id: 1, role: 2 });
@@ -112,7 +113,7 @@ describe('Blog API & Post Creation Workflow', () => {
       });
     expect(adminUpdateRes.status).toBe(200);
 
-    // 7. Hard delete blog post by author
+    // 7. Soft delete blog post by author
     const deleteRes = await request(app)
       .delete(`/api/blogs/${createdPostId}`)
       .set('Authorization', `Bearer ${authorToken}`);
@@ -123,10 +124,15 @@ describe('Blog API & Post Creation Workflow', () => {
     const stillPresent = afterDeleteRes.body.data.blogs.find((b) => b.post_id === createdPostId);
     expect(stillPresent).toBeUndefined();
 
-    // 9. Verify in database: completely removed from database
+    // 9. Verify in database: soft-deleted according to 30-day retention policy
     const postRecord = await prisma.post.findUnique({
       where: { post_id: createdPostId },
     });
-    expect(postRecord).toBeNull();
+    expect(postRecord).not.toBeNull();
+    expect(postRecord.status).toBe('DELETED');
+    expect(postRecord.deleted_at).not.toBeNull();
+
+    // Dọn dẹp dữ liệu bài viết sau test
+    await postRepository.hardDeletePost(createdPostId);
   });
 });

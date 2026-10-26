@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/scripts/prepareTestDatabase.js
+// d:\Projects\FPT\SWP391\server\scripts/prepareTestDatabase.js
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -12,7 +12,7 @@ const databaseName = databaseUrl.pathname.slice(1);
 if (!/^[a-zA-Z0-9_]+_test$/.test(databaseName)) throw new Error('Refusing to prepare a database without the _test suffix.');
 if (!['localhost', '127.0.0.1', '[::1]'].includes(databaseUrl.hostname)) throw new Error('This helper only prepares a local test database.');
 const psql = process.env.PSQL_PATH || 'psql';
-const connectionArgs = ['-h', databaseUrl.hostname, '-p', databaseUrl.port || '5432', '-U', decodeURIComponent(databaseUrl.username), '-v', 'ON_ERROR_STOP=1', '-q'];
+const connectionArgs = ['-h', databaseUrl.hostname, '-p', databaseUrl.port || '5432', '-U', decodeURIComponent(databaseUrl.username), '-w', '-v', 'ON_ERROR_STOP=1', '-q'];
 const childEnvironment = { ...process.env, PGPASSWORD: decodeURIComponent(databaseUrl.password) };
 
 function executeSql(database, sql) {
@@ -30,4 +30,10 @@ const migration = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], 
 });
 if (migration.status !== 0) throw new Error(`Could not apply migrations to the test database: ${migration.stderr}`);
 executeSql(databaseName, fs.readFileSync(path.join(SERVER_DIRECTORY, 'prisma/seed.sql'), 'utf8'));
+const importImages = spawnSync(process.execPath, [path.join(SERVER_DIRECTORY, 'scripts/import-ingredient-images.js')], {
+  cwd: SERVER_DIRECTORY, env: childEnvironment, encoding: 'utf8', windowsHide: true,
+});
+if (importImages.status !== 0) {
+  process.stderr.write(`Warning importing test ingredient images: ${importImages.stderr || importImages.error}\n`);
+}
 process.stdout.write(`Prepared isolated database ${databaseName}. Development data was not modified.\n`);

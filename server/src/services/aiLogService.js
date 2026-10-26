@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/aiLogService.js
+// d:\Projects\FPT\SWP391\server\src/services/aiLogService.js
 import { AI_LOG_STATUS } from '../constants/aiLogs.js';
 import { aiLogRepository } from '../repositories/aiLogRepository.js';
 import {

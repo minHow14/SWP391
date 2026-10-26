@@ -41,7 +41,13 @@ apiClient.interceptors.response.use(
       }
     }
 
+    const firstDetail =
+      Array.isArray(responseData?.errors) && responseData.errors[0]?.message
+        ? responseData.errors[0].message
+        : null;
+
     const message =
+      firstDetail ||
       responseData?.message ||
       responseData?.error ||
       error.message ||
