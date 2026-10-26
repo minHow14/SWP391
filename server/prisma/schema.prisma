@@ -45,6 +45,7 @@ enum AiGenerationStatus {
 enum AiGenerationType {
   CHAT
   MEAL_PLAN
+  FOOD_SCAN
 }
 
 model AiGeneration {

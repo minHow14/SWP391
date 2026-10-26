@@ -59,6 +59,7 @@ Nếu cả DB không thể ghi, BE trả `AI_STORAGE_ERROR`; bản ghi có thể
 | `GET /api/ai/usage` | Khách hoặc thành viên | Quota camelCase; thành viên `unlimited: true`, `remaining: null` |
 | `POST /api/ai/chat/stream` | Khách hoặc thành viên | SSE `token`, `done`, `error` |
 | `POST /api/ai/meal-planner/generate/stream` | Khách hoặc thành viên | SSE `progress`, `done`, `error` |
+| `POST /api/ai/food-scanner/analyze` | Khách hoặc thành viên | Phân tích ảnh món ăn/bao bì; kết quả JSON chuẩn camelCase |
 | `GET /api/v1/ai-generations` | Thành viên | Lịch sử của chính mình; `page`, `limit` (≤100), `type`, `status` |
 | `GET /api/v1/ai-generations/:id` | Chủ sở hữu | Đầu vào, kết quả, trạng thái; người khác nhận 404 |
 | `GET /api/v1/ai-logs`, `/stats` | Admin | Nhật ký/thống kê; phân trang trong `meta` |

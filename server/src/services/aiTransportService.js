@@ -56,6 +56,14 @@ export async function readAiStream({ response, onEvent, res, signal }) {
   }
 }
 
+export async function sendAiJson(options) {
+  const response = await sendAiRequest(options);
+  const json = await response.json().catch(() => {
+    throw aiGatewayError();
+  });
+  return json;
+}
+
 export async function clearAiChatCache() {
   const response = await sendAiRequest({
     path: '/api/admin/chatbot-cache/clear', signal: AbortSignal.timeout(aiConfig.timeoutMs),
