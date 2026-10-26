@@ -47,6 +47,8 @@ Job states: PENDING, PROCESSING, COMPLETED, FAILED. Stages: VALIDATING_VIDEO, FE
 
 A video's duration must be positive and <=660 seconds. Unknown duration, inaccessible sources, live streams, playlists and missing audio fail before AI processing. A page returning HTTP 200 is not sufficient validation. The inspector does not download media or run user-controlled shell text.
 
+A metadata subprocess deadline reports VIDEO_METADATA_TIMEOUT and uses the bounded retry policy; it is not reported as a permanently inaccessible video. Worker cancellation/lease loss still takes precedence over subprocess timeout classification.
+
 ## Internal Phase 2 contract
 
 Both calls are BE → FastAPI and require `X-Internal-Api-Key` matching `INTERNAL_API_KEY`. Redirects are rejected, response size is bounded, and the worker uses a separate video timeout. These endpoints are not implemented by Phase 1.

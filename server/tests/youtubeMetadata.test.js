@@ -33,4 +33,8 @@ describe('metadata gate before AI', () => {
     await expect(inspector.inspect(SOURCE)).rejects.toMatchObject({ errorCode: 'VIDEO_INSPECTOR_UNAVAILABLE' });
     await expect(inspector.inspect(SOURCE)).rejects.not.toThrow('SECRET_STDERR');
   });
+  it('classifies a metadata deadline as retryable instead of an inaccessible video', async () => {
+    const inspector = createYoutubeMetadataService({ execute: vi.fn().mockRejectedValue(Object.assign(new Error('PRIVATE_TIMEOUT_DETAIL'), { killed: true, signal: 'SIGTERM' })) });
+    await expect(inspector.inspect(SOURCE)).rejects.toMatchObject({ errorCode: 'VIDEO_METADATA_TIMEOUT', retryable: true, statusCode: 504 });
+  });
 });

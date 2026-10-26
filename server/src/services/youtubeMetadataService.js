@@ -26,6 +26,9 @@ function inspectionFailure(error, signal) {
   if (signal?.aborted) return signal.reason;
   if (error.errorCode) return error;
   if (error.code === 'ENOENT') return videoRecipeSummaryError({ status: 503, code: 'VIDEO_INSPECTOR_UNAVAILABLE', message: 'Công cụ kiểm tra video chưa được cấu hình.' });
+  if (error.code === 'ETIMEDOUT' || (error.killed && error.signal === 'SIGTERM' && error.code !== 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER')) {
+    return videoRecipeSummaryError({ status: 504, code: 'VIDEO_METADATA_TIMEOUT', message: 'Kiểm tra video đã quá thời gian chờ. Hệ thống sẽ thử lại.', retryable: true });
+  }
   return metadataError('VIDEO_UNAVAILABLE', 'Không thể kiểm tra video YouTube. Vui lòng kiểm tra link và thử lại.');
 }
 
