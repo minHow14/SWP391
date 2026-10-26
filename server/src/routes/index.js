@@ -16,6 +16,7 @@ import guestQuotaRoutes from './guestQuotaRoutes.js';
 import reportRoutes from './report.route.js';
 import aiRoutes from './ai.route.js';
 import aiGenerationRoutes from './aiGenerationRoutes.js';
+import { videoRecipeSummaryJobRoutes, videoRecipeSummaryRoutes } from './videoRecipeSummaryRoutes.js';
 
 const router = express.Router();
 
@@ -35,5 +36,7 @@ router.use('/v1/guest-quotas', guestQuotaRoutes);
 router.use('/reports', reportRoutes);
 router.use('/ai', aiRoutes);
 router.use('/v1/ai-generations', aiGenerationRoutes);
+router.use('/v1/video-recipe-summary-jobs', videoRecipeSummaryJobRoutes);
+router.use('/v1/video-recipe-summaries', videoRecipeSummaryRoutes);
 
 export default router;
