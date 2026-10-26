@@ -2,6 +2,7 @@
 import asyncio
 import os
 import subprocess
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -29,9 +30,13 @@ async def _read_bounded(stream: asyncio.StreamReader, limit: int) -> bytes:
 
 
 async def _watch_directory(
-    process: asyncio.subprocess.Process, limits: ProcessLimits
+    process: asyncio.subprocess.Process,
+    limits: ProcessLimits,
+    cancelled: threading.Event | None,
 ) -> None:
     while process.returncode is None:
+        if cancelled is not None and cancelled.is_set():
+            raise asyncio.CancelledError
         if limits.directory:
             size = sum(
                 path.stat().st_size
@@ -78,14 +83,17 @@ async def _start_process(arguments: list[str]) -> asyncio.subprocess.Process:
     )
 
 
-async def run_video_process(arguments: list[str], limits: ProcessLimits) -> str:
-    """Run only explicit argument lists; bound output, disk usage and child lifetime."""
+async def _run_video_process_native(
+    arguments: list[str],
+    limits: ProcessLimits,
+    cancelled: threading.Event | None = None,
+) -> str:
     process = await _start_process(arguments)
     tasks = [
         asyncio.create_task(_read_bounded(process.stdout, limits.output_limit_bytes)),
         asyncio.create_task(_read_bounded(process.stderr, limits.output_limit_bytes)),
         asyncio.create_task(process.wait()),
-        asyncio.create_task(_watch_directory(process, limits)),
+        asyncio.create_task(_watch_directory(process, limits, cancelled)),
     ]
     try:
         output, _, code, _ = await asyncio.wait_for(
@@ -105,3 +113,28 @@ async def run_video_process(arguments: list[str], limits: ProcessLimits) -> str:
             task.cancel()
         await asyncio.shield(_terminate_process(process))
         await asyncio.gather(*tasks, return_exceptions=True)
+
+
+def _run_on_windows_loop(
+    arguments: list[str], limits: ProcessLimits, cancelled: threading.Event
+) -> str:
+    with asyncio.Runner(loop_factory=asyncio.ProactorEventLoop) as runner:
+        return runner.run(_run_video_process_native(arguments, limits, cancelled))
+
+
+async def run_video_process(arguments: list[str], limits: ProcessLimits) -> str:
+    """Keep Windows reload compatible while bounding and cancelling owned processes."""
+    loop = asyncio.get_running_loop()
+    if os.name != "nt" or isinstance(loop, asyncio.ProactorEventLoop):
+        return await _run_video_process_native(arguments, limits)
+    # Uvicorn reload uses a Selector loop on Windows, without subprocess support.
+    cancelled = threading.Event()
+    worker = asyncio.create_task(
+        asyncio.to_thread(_run_on_windows_loop, arguments, limits, cancelled)
+    )
+    try:
+        return await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        cancelled.set()
+        await asyncio.gather(worker, return_exceptions=True)
+        raise

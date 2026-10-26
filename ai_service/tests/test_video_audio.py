@@ -9,6 +9,7 @@ import pytest
 
 from core.video_recipe_errors import VideoRecipeError
 from schemas.video_recipe import VideoTranscriptionRequest
+from services import video_process
 from services.video_audio import prepare_video_audio
 from services.video_process import ProcessLimits, run_video_process
 from tests.test_video_recipe_schemas import request_payload
@@ -131,3 +132,49 @@ async def test_subprocess_timeout_terminates_owned_process() -> None:
             ProcessLimits(timeout_seconds=0.05),
         )
     assert failure.value.code == "VIDEO_MEDIA_TIMEOUT"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows reload event loop")
+def test_subprocess_supports_windows_selector_loop() -> None:
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        output = runner.run(
+            run_video_process(
+                [sys.executable, "-c", "print('local-process-ready')"],
+                ProcessLimits(timeout_seconds=5),
+            )
+        )
+    assert output.strip() == "local-process-ready"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows reload event loop")
+def test_selector_loop_cancellation_waits_for_child_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    processes = []
+    start_process = video_process._start_process
+
+    async def capture_process(arguments: list[str]) -> asyncio.subprocess.Process:
+        process = await start_process(arguments)
+        processes.append(process)
+        return process
+
+    async def cancel_work() -> None:
+        task = asyncio.create_task(
+            run_video_process(
+                [sys.executable, "-c", "import time; time.sleep(30)"],
+                ProcessLimits(timeout_seconds=5),
+            )
+        )
+        try:
+            async with asyncio.timeout(5):
+                while not processes:
+                    await asyncio.sleep(0.01)
+        finally:
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+    monkeypatch.setattr(video_process, "_start_process", capture_process)
+    with asyncio.Runner(loop_factory=asyncio.SelectorEventLoop) as runner:
+        runner.run(cancel_work())
+    assert processes[0].returncode is not None
