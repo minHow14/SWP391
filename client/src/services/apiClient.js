@@ -1,4 +1,4 @@
-﻿// client/src/services/apiClient.js
+// D:/SWP391/SWP391/client/src/services/apiClient.js
 import axios from 'axios';
 import { getSession, setSession } from '../utils/session.js';
 
@@ -32,9 +32,11 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     const responseData = error.response?.data;
 
+    if (axios.isCancel(error)) return Promise.reject(error);
     if (status === 401) {
       const session = getSession();
-      if (session?.token) {
+      const authorization = error.config?.headers?.Authorization;
+      if (session?.token && authorization === `Bearer ${session.token}`) {
         setSession(null);
       }
     }
@@ -45,7 +47,12 @@ apiClient.interceptors.response.use(
       error.message ||
       'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.';
 
-    return Promise.reject(new Error(message));
+    const normalized = Object.assign(new Error(message, { cause: error }), {
+      status, code: responseData?.errorCode || error.code || 'NETWORK_ERROR',
+      errorCode: responseData?.errorCode, requestId: responseData?.meta?.requestId,
+      details: responseData?.errors,
+    });
+    return Promise.reject(normalized);
   }
 );
 
