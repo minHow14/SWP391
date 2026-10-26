@@ -32,6 +32,26 @@ export const mapsUrl = ({ latitude, longitude, place_id }) =>
 
 const GENERIC_QUERY_WORDS = new Set(['chay', 'quan', 'nha', 'hang', 'mon', 'an', 'vegan', 'vegetarian']);
 
+export const VEGETARIAN_COVER_PHOTOS = [
+  'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80',
+  'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=800&q=80',
+];
+
+export const defaultPlacePhoto = (key = '') => {
+  const str = String(key ?? '');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  }
+  return VEGETARIAN_COVER_PHOTOS[Math.abs(hash) % VEGETARIAN_COVER_PHOTOS.length];
+};
+
 const distanceMeters = (from, to) =>
   from && to?.latitude != null && to?.longitude != null
     ? getDistance(from, { latitude: to.latitude, longitude: to.longitude })
@@ -45,28 +65,35 @@ const dishesOf = (restaurant) => {
   return [...new Set(recipeNames)];
 };
 
-const toPlace = (restaurant, origin, extra = {}) => {
+const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
   const lat = restaurant.latitude != null ? Number(restaurant.latitude) : null;
   const lng = restaurant.longitude != null ? Number(restaurant.longitude) : null;
   const location = lat != null && lng != null ? { latitude: lat, longitude: lng } : null;
 
   return {
     id: `local_${restaurant.restaurant_id}`,
-    source: 'local',
+    source: restaurant.source || 'local',
     restaurant_id: restaurant.restaurant_id,
     name: restaurant.name,
     address: restaurant.address,
+    city: restaurant.details?.city || (restaurant.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
+    hours: restaurant.details?.hours || 'Chưa cập nhật',
+    price_range: restaurant.details?.price_range || 'Theo thời giá',
+    separate: restaurant.details?.separate_kitchen ?? null,
     latitude: lat,
     longitude: lng,
     phone: restaurant.phone ?? null,
     diet_type_id: restaurant.diet_type_id ?? null,
     diet_type: restaurant.diet_type?.name ?? null,
     rating: restaurant.rating != null ? Number(restaurant.rating) : null,
-    image_url: restaurant.image_url ?? null,
-    place_id: null,
+    image_url:
+      restaurant.image_url ||
+      defaultPlacePhoto(restaurant.name || restaurant.restaurant_id),
+    place_id: restaurant.place_id ?? null,
     distance_m: origin && location ? distanceMeters(origin, location) : null,
+    user_distance_m: userOrigin && location ? distanceMeters(userOrigin, location) : null,
     maps_url: location
-      ? mapsUrl({ latitude: lat, longitude: lng, place_id: null })
+      ? mapsUrl({ latitude: lat, longitude: lng, place_id: restaurant.place_id })
       : null,
     ...extra,
   };
@@ -75,12 +102,12 @@ const toPlace = (restaurant, origin, extra = {}) => {
 const byDistance = (a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity);
 
 /** Quán trong DB nằm trong bán kính, xếp từ gần đến xa. */
-export async function findNearbyLocal({ lat, lng, radiusKm }) {
+export async function findNearbyLocal({ lat, lng, radiusKm, userOrigin = null, dietTypeId = null }) {
   const origin = { latitude: lat, longitude: lng };
-  const restaurants = await placeRepository.findNearbyCandidates({ lat, lng, radiusKm });
+  const restaurants = await placeRepository.findNearbyCandidates({ lat, lng, radiusKm, dietTypeId });
 
   return restaurants
-    .map((restaurant) => toPlace(restaurant, origin))
+    .map((restaurant) => toPlace(restaurant, origin, {}, userOrigin))
     .filter((place) => place.distance_m !== null && place.distance_m <= radiusKm * 1000)
     .sort(byDistance);
 }
@@ -177,12 +204,23 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
  * Tìm quán qua ZIOMAP (tương thích Places API v1, khoảng 5 credit mỗi lần gọi). Chỉ gọi khi có
  * ZIOMAP_API_KEY; kết quả cache 24 giờ theo ô toạ độ (~100 m) để tránh gọi lặp và tiết kiệm phí.
  */
-export async function searchZiomap({ query, lat, lng, radiusKm, limit }) {
+export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigin = null }) {
   if (!process.env.ZIOMAP_API_KEY) return { places: [], skipped: true, cached: false };
 
   const cacheKey = [normalize(query), lat.toFixed(3), lng.toFixed(3), radiusKm, limit].join('|');
   const hit = ziomapCache.get(cacheKey);
-  if (hit) return { places: hit, skipped: false, cached: true };
+  if (hit) {
+    const cachedPlaces = userOrigin
+      ? hit.map((p) => ({
+          ...p,
+          user_distance_m:
+            p.latitude != null && p.longitude != null
+              ? distanceMeters(userOrigin, { latitude: p.latitude, longitude: p.longitude })
+              : null,
+        }))
+      : hit;
+    return { places: cachedPlaces, skipped: false, cached: true };
+  }
 
   const body = await requestZiomap({ query, lat, lng, radiusKm, limit });
   const origin = { latitude: lat, longitude: lng };
@@ -205,10 +243,19 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit }) {
       rating: p.rating ?? null,
       place_id: p.id,
       distance_m: distanceMeters(origin, location),
+      user_distance_m: userOrigin ? distanceMeters(userOrigin, location) : null,
       maps_url: mapsUrl({ ...location, place_id: p.id }),
     };
   });
   ziomapCache.set(cacheKey, places);
+
+  // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test (bất đồng bộ, không chặn response)
+  if (process.env.NODE_ENV !== 'test') {
+    placeRepository.saveExternalPlaces(places).catch((err) => {
+      console.warn('[places.service] Lỗi tự động lưu cache ZIOMAP vào DB:', err.message);
+    });
+  }
+
   return { places, skipped: false, cached: false };
 }
 

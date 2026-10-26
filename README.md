@@ -25,7 +25,7 @@
 - **Kiểm tra món ăn & Quét thành phần:** Tự động phát hiện nguyên liệu động vật tiềm ẩn theo từng trường phái ăn chay (Thuần chay, Ăn chay có trứng/sữa, Chay Phật giáo kiêng ngũ vị tân, Keto chay, Eat Clean).
 - **Đổi món chay thông minh:** Gợi ý nguyên liệu và món chay thay thế tương đương về cấu trúc dinh dưỡng.
 - **Từ điển nguyên liệu chay:** Tra cứu chỉ số calo, đạm, đường, béo và nguồn gốc thực vật.
-- **Khám phá công thức & Quán chay:** Bộ lọc kết hợp không dấu, tìm quán ăn theo bán kính GPS.
+- **Khám phá công thức & Bản đồ Quán chay:** Định vị GPS thời gian thực (hiệu ứng Radar Pulse), tính khoảng cách kép (`user_distance_m`), hệ thống Hubs đa tỉnh thành (TP.HCM, Hà Nội, Đà Nẵng, Cần Thơ, Huế), tùy chỉnh bán kính quét (3 - 20 km), lọc theo chế độ ăn (Thuần chay, Chay Phật giáo, Chay trứng sữa), tích hợp dịch vụ ZIOMAP kết hợp cơ chế Read-through Caching vào PostgreSQL (<100ms), tự động hiển thị ảnh đại diện và trạng thái mở/đóng cửa (`🟢 Đang mở cửa` / `🔴 Đã đóng cửa`).
 - **Nhật ký dinh dưỡng cá nhân:** Ghi nhận khẩu phần calo theo ngày/tuần theo múi giờ địa phương.
 
 ### Phân hệ Quản trị viên (Admin Portal - `/admin`)
@@ -198,6 +198,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
 | `AI_TIMEOUT_MS` | `180000` | Tổng thời gian chờ AI tối đa trên BE (ms) |
 | `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
+| `ZIOMAP_API_KEY` | `Key API ZIOMAP` | Khóa API ZIOMAP dùng cho tìm kiếm và bổ sung địa điểm bản đồ quán chay (Tùy chọn) |
 
 ### 2. `ai_service/.env`
 | Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
