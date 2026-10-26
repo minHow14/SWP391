@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest';
-import { repairIngredientDetails } from '../prisma/repair-ingredients.js';
+import { repairIngredientDetails } from '../scripts/repair-ingredients.js';
 
 function fixture(name, existing) {
   const saved = [];

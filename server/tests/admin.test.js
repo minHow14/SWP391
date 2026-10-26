@@ -160,6 +160,68 @@ describe('Admin API & RBAC Boundary', () => {
     expect(checkDb.status).toBe('DELETED');
   });
 
+  it('AI Moderation accepts DELETE action and restores with lowercase approve', async () => {
+    // 1. Tạo post test bị gắn cờ để test action: 'DELETE'
+    const postToDelete = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'HIDDEN_BY_AI',
+        blog: {
+          create: {
+            title: 'Flagged Spam Post',
+            content: 'Nội dung spam thử nghiệm DELETE',
+          },
+        },
+      },
+    });
+
+    const deleteRes = await request(app)
+      .post('/api/admin/moderation/resolve')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        entityType: 'POST',
+        entityId: postToDelete.post_id,
+        action: 'DELETE',
+        notes: 'Gỡ bỏ với action DELETE',
+      });
+
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.success).toBe(true);
+    const postDeleted = await prisma.post.findUnique({ where: { post_id: postToDelete.post_id } });
+    expect(postDeleted.status).toBe('DELETED');
+
+    // 2. Tạo post test bị gắn cờ để test action: 'approve' (lowercase)
+    const postToApprove = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'HIDDEN_BY_AI',
+        blog: {
+          create: {
+            title: 'Flagged Spam Post',
+            content: 'Nội dung hợp lệ sau kiểm tra',
+          },
+        },
+      },
+    });
+
+    const approveRes = await request(app)
+      .post('/api/admin/moderation/resolve')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        entityType: 'POST',
+        entityId: postToApprove.post_id,
+        action: 'approve',
+        notes: 'Phê duyệt lại với action approve chữ thường',
+      });
+
+    expect(approveRes.status).toBe(200);
+    expect(approveRes.body.success).toBe(true);
+    const postApproved = await prisma.post.findUnique({ where: { post_id: postToApprove.post_id } });
+    expect(postApproved.status).toBe('PUBLISHED');
+  });
+
   afterAll(async () => {
     // Dọn dẹp dữ liệu bài viết sinh ra trong test
     const testPosts = await prisma.post.findMany({

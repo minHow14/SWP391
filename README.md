@@ -93,9 +93,10 @@ SWP391/
 │   │   ├── features/admin/     # Các bảng & modal phân rã cho Admin Portal (<250 dòng)
 │   │   ├── pages/              # Trang công cộng (Home, Recipes, Community, Profile...)
 │   │   │   └── admin/          # Cổng Quản trị AdminPortal & các Tab chức năng
-│   │   ├── services/           # apiClient.js, adminService.js, aiApi.js
-│   │   ├── lib/                # DatabaseContext, api.js, recipeFilters.js...
-│   │   ├── Admin.css           # Giao diện Quản trị đồng bộ màu xanh ChayXanh
+│   │   ├── services/           # apiClient.js, authService.js, workspaceService.js, placeService.js...
+│   │   ├── context/            # DatabaseProvider, databaseContext
+│   │   ├── hooks/              # Custom hooks (useDatabase, useAuth...)
+│   │   ├── utils/              # Tiện ích session, syncEvents, helpers...
 │   │   └── App.jsx             # React Router định tuyến (kèm /admin)
 │   └── test/                   # Kiểm thử logic FE & Admin
 │
@@ -105,11 +106,12 @@ SWP391/
 │   │   ├── constants/          # Roles, Status, HttpStatus
 │   │   ├── controllers/        # Tiếp nhận request & trả envelope JSON (kèm ai.controller.js)
 │   │   ├── middlewares/        # authMiddleware (JWT, RBAC), validation, error
-│   │   ├── repositories/       # Prisma: quota, nhật ký và lịch sử AI
+│   │   ├── repositories/       # Nơi duy nhất gọi Prisma Client (tách SRP theo model)
 │   │   ├── routes/             # Định tuyến RESTful (/api/ai, /api/v1/ai-generations)
 │   │   ├── services/           # Logic nghiệp vụ (kèm ai.service.js, admin.service.js)
 │   │   └── utils/              # apiResponse, apiError, jwt
-│   ├── prisma/                 # schema.prisma, migrations/ & seed.sql
+│   ├── prisma/                 # schema.prisma, migrations/, seed.js & seed.sql
+│   ├── scripts/                # Script bảo trì: import-ingredient-images, repair, sync-assets
 │   └── tests/                  # Kiểm thử tự động Vitest
 │
 ├── ai_service/                 # AI Microservice Python FastAPI (Stateless)
@@ -224,6 +226,9 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
 - Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
 - `npm run seed`: Nạp dữ liệu chuẩn từ `seed.sql`.
+- `npm run db:repair-ingredients`: Cập nhật chi tiết dinh dưỡng nguyên liệu từ catalog chuẩn (`scripts/repair-ingredients.js`).
+- `npm run db:import-ingredient-images`: Tải và lưu trữ binary ảnh nguyên liệu vào PostgreSQL (`scripts/import-ingredient-images.js`).
+- `npm run assets:sync`: Đồng bộ nguồn ảnh nguyên liệu từ Wikimedia (`scripts/sync-ingredient-assets.js`).
 
 ### Frontend (`client/`)
 - `npm run dev`: Khởi động Vite dev server.
@@ -242,7 +247,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 
 - **AI Gateway, persistence & migration:** [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md), [`docs/ai-openapi.json`](docs/ai-openapi.json).
 - **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
-- **Tài liệu Báo cáo Kiểm toán Hệ thống:** Lưu trữ tại [`PROJECT_AUDIT_REPORT.md`](PROJECT_AUDIT_REPORT.md)
+
 - **Tài liệu Swagger / OpenAPI:** Truy cập trực tiếp tại `http://localhost:8000/docs` khi AI Service khởi chạy.
 - **Quy chuẩn lập trình:** Chi tiết tại [`AGENTS.md`](AGENTS.md), [`server/AGENTS.md`](server/AGENTS.md), [`client/AGENTS.md`](client/AGENTS.md), và [`ai_service/AGENTS.md`](ai_service/AGENTS.md).
 

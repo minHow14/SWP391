@@ -30,4 +30,10 @@ const migration = spawnSync(process.execPath, [prismaCli, 'migrate', 'deploy'], 
 });
 if (migration.status !== 0) throw new Error(`Could not apply migrations to the test database: ${migration.stderr}`);
 executeSql(databaseName, fs.readFileSync(path.join(SERVER_DIRECTORY, 'prisma/seed.sql'), 'utf8'));
+const importImages = spawnSync(process.execPath, [path.join(SERVER_DIRECTORY, 'scripts/import-ingredient-images.js')], {
+  cwd: SERVER_DIRECTORY, env: childEnvironment, encoding: 'utf8', windowsHide: true,
+});
+if (importImages.status !== 0) {
+  process.stderr.write(`Warning importing test ingredient images: ${importImages.stderr || importImages.error}\n`);
+}
 process.stdout.write(`Prepared isolated database ${databaseName}. Development data was not modified.\n`);

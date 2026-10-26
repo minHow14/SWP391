@@ -196,4 +196,32 @@ export const postRepository = {
       orderBy: { attachment_id: 'asc' },
     });
   },
+
+  async countDeleted(db = prisma) {
+    return db.post.count({ where: { status: 'DELETED' } });
+  },
+
+  async countExpiredDeleted(threshold, db = prisma) {
+    return db.post.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } });
+  },
+
+  async findExpiredDeletedPostIds(threshold, db = prisma) {
+    return db.post.findMany({
+      where: { status: 'DELETED', deleted_at: { lte: threshold } },
+      select: { post_id: true },
+    });
+  },
+
+  async unlinkRecipesByPostIds(postIds, db = prisma) {
+    return db.recipe.updateMany({
+      where: { post_id: { in: postIds } },
+      data: { post_id: null },
+    });
+  },
+
+  async deletePostsByIds(postIds, db = prisma) {
+    return db.post.deleteMany({
+      where: { post_id: { in: postIds } },
+    });
+  },
 };

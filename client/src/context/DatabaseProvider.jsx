@@ -1,6 +1,7 @@
-﻿// client/src/context/DatabaseProvider.jsx
+// client/src/context/DatabaseProvider.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { api } from '../services/api.js';
+import { workspaceService } from '../services/workspaceService.js';
+import { authService } from '../services/authService.js';
 import { getSession, setSession } from '../utils/session.js';
 import { DatabaseContext } from './databaseContext.js';
 import { subscribeSyncEvent } from '../utils/syncEvents.js';
@@ -12,7 +13,7 @@ export function DatabaseProvider({ children }) {
 
   const reload = useCallback(async () => {
     try {
-      const catalog = await api('/workspace/catalog');
+      const catalog = await workspaceService.getCatalog();
       setData(catalog);
       setError('');
       return catalog;
@@ -24,7 +25,8 @@ export function DatabaseProvider({ children }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    api('/workspace/catalog', { signal: controller.signal })
+    workspaceService
+      .getCatalog({ signal: controller.signal })
       .then((catalog) => {
         setData(catalog);
         setError('');
@@ -41,10 +43,12 @@ export function DatabaseProvider({ children }) {
     window.addEventListener('chayxanh-session', sync);
     const session = getSession();
     if (session?.token) {
-      api('/auth/me')
+      authService
+        .getMe()
         .then((result) => {
-          if (active && getSession()?.token === session.token) {
-            setSession({ ...session, user: result.user });
+          const fetchedUser = result?.user || result?.data?.user;
+          if (active && fetchedUser && getSession()?.token === session.token) {
+            setSession({ ...session, user: fetchedUser });
           }
         })
         .catch(() => {});

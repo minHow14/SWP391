@@ -42,6 +42,32 @@ export function normalizeGender(val) {
   throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
 }
 
+async function syncHealthProfileWeightHistory(userId, profile, tx) {
+  if (profile.weight == null) return;
+  const numericWeight = Number(profile.weight);
+  if (numericWeight < 20 || numericWeight > 350) return;
+
+  const latestHistories = await userRepository.getHealthHistories(userId, tx);
+  const latest = latestHistories[0];
+  if (latest && Number(latest.weight) === numericWeight) return;
+
+  let calculatedBmi = null;
+  const currentHeight = profile.height != null
+    ? Number(profile.height)
+    : (await userRepository.findHealthProfile(userId, tx))?.height;
+
+  if (currentHeight && currentHeight > 0) {
+    const heightMeters = currentHeight / 100;
+    calculatedBmi = Number((numericWeight / (heightMeters * heightMeters)).toFixed(1));
+  }
+
+  await userRepository.addHealthHistory(
+    userId,
+    { weight: numericWeight, bmi: calculatedBmi, recorded_date: new Date() },
+    tx
+  );
+}
+
 export const authService = {
   /**
    * Đăng ký tài khoản người dùng mới
@@ -255,12 +281,10 @@ export const authService = {
         await userRepository.upsertHealthProfile(user_id, profile, tx);
 
         if (profile.health_goal !== undefined) {
-          await tx.profilePreference.upsert({
-            where: { user_id },
-            create: { user_id, goal: profile.health_goal },
-            update: { goal: profile.health_goal },
-          });
+          await userRepository.upsertProfilePreference(user_id, profile.health_goal, tx);
         }
+
+        await syncHealthProfileWeightHistory(user_id, profile, tx);
       }
 
       if (allergy_ids !== undefined) {
@@ -341,29 +365,22 @@ export const authService = {
 
     return prisma.$transaction(async (tx) => {
       // 1. Đọc chiều cao từ health_profile để tự động tính chỉ số BMI
-      const profile = await tx.healthProfile.findUnique({ where: { user_id } });
+      const profile = await userRepository.findHealthProfile(user_id, tx);
       let calculatedBmi = null;
       if (profile?.height && profile.height > 0) {
         const heightMeters = profile.height / 100;
         calculatedBmi = Number((numericWeight / (heightMeters * heightMeters)).toFixed(1));
       }
 
-      // 2. Thêm vào bảng health_histories
-      const record = await tx.healthHistory.create({
-        data: {
-          user_id,
-          weight: numericWeight,
-          bmi: calculatedBmi,
-          recorded_date: new Date(dateVal),
-        },
-      });
+      // 2. Thêm vào bảng health_histories qua repository
+      const record = await userRepository.addHealthHistory(
+        user_id,
+        { weight: numericWeight, bmi: calculatedBmi, recorded_date: dateVal },
+        tx
+      );
 
-      // 3. Cập nhật cân nặng mới nhất vào bảng health_profiles
-      await tx.healthProfile.upsert({
-        where: { user_id },
-        create: { user_id, weight: numericWeight },
-        update: { weight: numericWeight },
-      });
+      // 3. Cập nhật cân nặng mới nhất vào bảng health_profiles qua repository
+      await userRepository.upsertHealthProfile(user_id, { weight: numericWeight }, tx);
 
       return {
         ...record,

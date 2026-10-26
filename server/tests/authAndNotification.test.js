@@ -149,6 +149,28 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.data.currentProfile.weight).toBe(68.5);
   });
 
+  test('syncs weight history when profile is updated with weight', async () => {
+    // Cập nhật profile với cân nặng mới 72kg
+    const patchRes = await request(app)
+      .patch('/api/v1/auth/me')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        health_profile: {
+          height: 170,
+          weight: 72,
+        },
+      });
+    expect(patchRes.status).toBe(200);
+
+    const historyRes = await request(app)
+      .get('/api/v1/auth/me/health-history')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(historyRes.status).toBe(200);
+    const latest = historyRes.body.data.histories[0];
+    expect(latest.weight).toBe(72);
+    expect(latest.bmi).toBe(24.9);
+  });
+
   // --- KIỂM THỬ HỆ THỐNG THÔNG BÁO ---
   test('auto-triggers notification when another user comments on post', async () => {
     // User 2 bình luận vào bài viết của User 1

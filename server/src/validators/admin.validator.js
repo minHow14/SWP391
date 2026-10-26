@@ -33,7 +33,7 @@ export const updateCategorySchema = z.object({
 export const resolveAiFlaggedItemSchema = z.object({
   entityType: z.enum(['POST', 'COMMENT', 'post', 'comment']),
   entityId: z.coerce.number().int().positive(),
-  action: z.enum(['APPROVE', 'REJECT', 'REMOVE', 'approve', 'reject', 'remove']),
+  action: z.enum(['APPROVE', 'REJECT', 'REMOVE', 'DELETE', 'approve', 'reject', 'remove', 'delete']),
   notes: z.string().trim().max(500).optional(),
 }).strict();
 

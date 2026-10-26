@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\scripts\import-ingredient-images.js
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,14 +7,21 @@ import { ingredientCatalog } from './ingredient-catalog.js';
 import { ingredientImageUrl } from '../src/services/workspace.service.js';
 
 const assetDirectory = new URL('../../client/public/ingredient-assets/', import.meta.url);
-const normalize = value => value.replaceAll('_', ' ').toLowerCase();
-const plain = value => (value || '').replace(/<[^>]*>/g, '').replaceAll('&amp;', '&').replace(/\s+/g, ' ').trim();
+const normalize = (value) => value.replaceAll('_', ' ').toLowerCase();
+const plain = (value) => (value || '').replace(/<[^>]*>/g, '').replaceAll('&amp;', '&').replace(/\s+/g, ' ').trim();
 
 const WIKIMEDIA_USER_AGENT = 'ChayXanh-SWP391/1.0 (https://github.com/swp391; contact: support@chayxanh.local)';
 const DUMMY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 async function photoInfo(entry) {
-  const params = new URLSearchParams({ action: 'query', format: 'json', prop: 'imageinfo', iiprop: 'url|extmetadata', iiurlwidth: '640', titles: `File:${entry.photoFile}` });
+  const params = new URLSearchParams({
+    action: 'query',
+    format: 'json',
+    prop: 'imageinfo',
+    iiprop: 'url|extmetadata',
+    iiurlwidth: '640',
+    titles: `File:${entry.photoFile}`,
+  });
   const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
     headers: { 'User-Agent': WIKIMEDIA_USER_AGENT },
     signal: AbortSignal.timeout(5000),
@@ -33,8 +41,8 @@ export async function importIngredientImages(db = prisma) {
     const filename = entry.image_url.split('/').at(-1);
     let image_data = await readFile(new URL(filename, assetDirectory)).catch(() => null);
     let mime_type = filename.endsWith('.svg') ? 'image/svg+xml' : filename.endsWith('.png') ? 'image/png' : 'image/jpeg';
-    let info = sources.find(p => normalize(p.title) === normalize(`File:${entry.photoFile}`))?.imageinfo?.[0];
-    
+    let info = sources.find((p) => normalize(p.title) === normalize(`File:${entry.photoFile}`))?.imageinfo?.[0];
+
     // Thử tải thông tin và dữ liệu ảnh từ Wikimedia Commons nếu thiếu ảnh local
     if (!image_data && !filename.endsWith('.svg')) {
       try {
@@ -68,7 +76,12 @@ export async function importIngredientImages(db = prisma) {
     const license = plain(info?.extmetadata?.LicenseShortName?.value) || 'Original project illustration';
     if (/GFDL/.test(license) && !licenseText) {
       try {
-        const params = new URLSearchParams({ action: 'parse', format: 'json', page: 'Commons:GNU Free Documentation License, version 1.2', prop: 'text' });
+        const params = new URLSearchParams({
+          action: 'parse',
+          format: 'json',
+          page: 'Commons:GNU Free Documentation License, version 1.2',
+          prop: 'text',
+        });
         const response = await fetch(`https://commons.wikimedia.org/w/api.php?${params}`, {
           headers: { 'User-Agent': WIKIMEDIA_USER_AGENT },
           signal: AbortSignal.timeout(5000),
@@ -80,36 +93,59 @@ export async function importIngredientImages(db = prisma) {
         /* Bỏ qua lỗi lấy license text */
       }
     }
-    assets.push({ ...entry, image_data, mime_type, attribution: plain(info?.extmetadata?.Artist?.value), source_url: info?.descriptionurl || null, license });
+    assets.push({
+      ...entry,
+      image_data,
+      mime_type,
+      attribution: plain(info?.extmetadata?.Artist?.value),
+      source_url: info?.descriptionurl || null,
+      license,
+    });
   }
   let imported = 0;
-  await db.$transaction(async tx => {
-    await tx.$executeRaw`CREATE TABLE IF NOT EXISTS ingredient_images (
+  await db.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`CREATE TABLE IF NOT EXISTS ingredient_images (
       ingredient_id INTEGER PRIMARY KEY REFERENCES ingredients(ingredient_id) ON DELETE CASCADE,
       mime_type VARCHAR(50) NOT NULL, image_data BYTEA NOT NULL,
       attribution TEXT, source_url TEXT, license TEXT, license_text TEXT
     )`;
-    for (const asset of assets) {
-      const ingredient = await tx.ingredient.findUnique({ where: { name: asset.name } });
-      if (!ingredient) continue;
-      const { image_data, mime_type, attribution, source_url, license } = asset;
-      const text = /GFDL/.test(license) ? licenseText : null;
-      await tx.$executeRaw`INSERT INTO ingredient_images (ingredient_id, mime_type, image_data, attribution, source_url, license, license_text)
+      for (const asset of assets) {
+        const ingredient = await tx.ingredient.findUnique({ where: { name: asset.name } });
+        if (!ingredient) continue;
+        const { image_data, mime_type, attribution, source_url, license } = asset;
+        const text = /GFDL/.test(license) ? licenseText : null;
+        await tx.$executeRaw`INSERT INTO ingredient_images (ingredient_id, mime_type, image_data, attribution, source_url, license, license_text)
         VALUES (${ingredient.ingredient_id}, ${mime_type}, ${image_data}, ${attribution}, ${source_url}, ${license}, ${text})
         ON CONFLICT (ingredient_id) DO UPDATE SET mime_type = EXCLUDED.mime_type, image_data = EXCLUDED.image_data,
           attribution = EXCLUDED.attribution, source_url = EXCLUDED.source_url, license = EXCLUDED.license, license_text = EXCLUDED.license_text`;
-      const details = await tx.ingredientDetails.findUnique({ where: { ingredient_id: ingredient.ingredient_id } });
-      if (details && (!details.image_url || details.image_url.startsWith('/ingredient-assets/') || details.image_url === '/demo-assets/mushroom-soup.webp')) {
-        await tx.ingredientDetails.update({ where: { ingredient_id: ingredient.ingredient_id }, data: { image_url: ingredientImageUrl(ingredient.ingredient_id) } });
+        const details = await tx.ingredientDetails.findUnique({ where: { ingredient_id: ingredient.ingredient_id } });
+        if (
+          details &&
+          (!details.image_url ||
+            details.image_url.startsWith('/ingredient-assets/') ||
+            details.image_url === '/demo-assets/mushroom-soup.webp')
+        ) {
+          await tx.ingredientDetails.update({
+            where: { ingredient_id: ingredient.ingredient_id },
+            data: { image_url: ingredientImageUrl(ingredient.ingredient_id) },
+          });
+        }
+        imported++;
       }
-      imported++;
-    }
-  }, { timeout: 60000 });
+    },
+    { timeout: 60000 }
+  );
   return imported;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try { console.log(`Đã lưu ${await importIngredientImages()} ảnh nguyên liệu trực tiếp trong PostgreSQL.`); }
-  catch (error) { console.error(error.message); process.exitCode = 1; }
-  finally { await prisma.$disconnect(); }
+  try {
+    console.log(`Đã lưu ${await importIngredientImages()} ảnh nguyên liệu trực tiếp trong PostgreSQL.`);
+  } catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+  } finally {
+    await prisma.$disconnect();
+  }
 }

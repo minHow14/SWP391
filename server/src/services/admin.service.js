@@ -192,12 +192,7 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
 
   const where = {};
   if (postType) where.post_type = postType;
-  if (status) {
-    where.status = status;
-  } else {
-    // Mặc định: loại bỏ các bài viết đã xóa vĩnh viễn (DELETED) khỏi bảng danh sách quản lý
-    where.status = { not: POST_STATUS.DELETED };
-  }
+  if (status) where.status = status;
   if (search) {
     where.OR = [
       { blog: { title: { contains: search, mode: 'insensitive' } } },
@@ -584,12 +579,13 @@ export const getAiFlaggedContent = async () => {
 export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes = '' }) => {
   const id = Number(entityId);
   const type = entityType?.toUpperCase();
+  const normalizedAction = action?.toUpperCase();
 
   if (type === 'POST') {
     const post = await prisma.post.findUnique({ where: { post_id: id } });
     if (!post) throw ApiError.notFound('Không tìm thấy bài viết');
 
-    if (action === 'APPROVE') {
+    if (normalizedAction === 'APPROVE') {
       const updated = await prisma.post.update({
         where: { post_id: id },
         data: { status: POST_STATUS.PUBLISHED },
@@ -630,7 +626,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
     if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
 
-    if (action === 'APPROVE') {
+    if (normalizedAction === 'APPROVE') {
       const updated = await prisma.comment.update({
         where: { comment_id: id },
         data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false },

@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Alert, Spinner, Badge, Card, Row, Col } from 'react-bootstrap';
 import { authService } from '../../../services/authService.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import { formatRecordedDateTime } from '../../../utils/formatters.js';
 
 function getBmiBadge(bmi) {
   if (!bmi || bmi <= 0) {
@@ -33,10 +35,14 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
     setError('');
     try {
       const response = await authService.getHealthHistory({ limit: 20 });
-      const rawList = Array.isArray(response?.data)
-        ? response.data
+      const rawList = Array.isArray(response?.data?.histories)
+        ? response.data.histories
+        : Array.isArray(response?.histories)
+        ? response.histories
         : Array.isArray(response?.data?.history)
         ? response.data.history
+        : Array.isArray(response?.data)
+        ? response.data
         : Array.isArray(response)
         ? response
         : [];
@@ -50,6 +56,13 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
 
   useEffect(() => {
     loadHistory();
+  }, [loadHistory, currentWeight]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSyncEvent(['USER_CHANGED'], () => {
+      loadHistory();
+    });
+    return unsubscribe;
   }, [loadHistory]);
 
   const handleRecord = async (e) => {
@@ -67,6 +80,7 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
       const res = await authService.recordWeight({ weight: weightNum });
       setSubmitSuccess(`Đã ghi nhận ${weightNum} kg thành công!`);
       setNewWeight('');
+      emitSyncEvent('USER_CHANGED');
       if (onWeightRecorded) {
         onWeightRecorded(weightNum, res?.record?.bmi || res?.data?.record?.bmi || res?.data?.bmi);
       }
@@ -114,7 +128,7 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
                 step="0.1"
                 min="20"
                 max="350"
-                placeholder={currentWeight ? `Hiện tại: ${currentWeight} kg` : 'Ví dụ: 62.5'}
+                placeholder={currentWeight ? `Nhập số kg (VD: ${currentWeight})` : 'Ví dụ: 62.5'}
                 value={newWeight}
                 onChange={(e) => {
                   setNewWeight(e.target.value);
@@ -135,6 +149,20 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
                 )}
               </Button>
             </Col>
+            {currentWeight && !newWeight && (
+              <Col xs={12} className="mt-1">
+                <span className="text-muted small">
+                  Gợi ý:{' '}
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 text-success text-decoration-none fw-semibold"
+                    onClick={() => setNewWeight(String(currentWeight))}
+                  >
+                    Điền nhanh {currentWeight} kg hiện tại
+                  </button>
+                </span>
+              </Col>
+            )}
           </Row>
         </Form>
 
@@ -181,16 +209,8 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
             </thead>
             <tbody>
               {history.map((record) => {
-                const dateStr = record.recorded_at
-                  ? new Date(record.recorded_at).toLocaleString('vi-VN', {
-                      timeZone: 'Asia/Bangkok',
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })
-                  : 'N/A';
+                const rawDate = record.recorded_date || record.recordedDate || record.recorded_at || record.createdAt;
+                const dateStr = formatRecordedDateTime(rawDate);
                 return (
                   <tr key={record.history_id}>
                     <td className="small">{dateStr}</td>

@@ -146,4 +146,43 @@ export const userRepository = {
       include: { diet_type: true },
     });
   },
+
+  async upsertProfilePreference(userId, goal, db = prisma) {
+    const numericUserId = Number(userId);
+    return db.profilePreference.upsert({
+      where: { user_id: numericUserId },
+      create: { user_id: numericUserId, goal },
+      update: { goal },
+    });
+  },
+
+  async countDeleted(db = prisma) {
+    return db.user.count({ where: { status: 'DELETED' } });
+  },
+
+  async countExpiredDeleted(threshold, db = prisma) {
+    return db.user.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } });
+  },
+
+  async findPendingPurgeUsers(limit = 10, db = prisma) {
+    return db.user.findMany({
+      where: { status: 'DELETED' },
+      select: { user_id: true, full_name: true, email: true, deleted_at: true },
+      take: limit,
+      orderBy: { deleted_at: 'asc' },
+    });
+  },
+
+  async findExpiredDeletedUserIds(threshold, db = prisma) {
+    return db.user.findMany({
+      where: { status: 'DELETED', deleted_at: { lte: threshold } },
+      select: { user_id: true },
+    });
+  },
+
+  async deleteUsersByIds(userIds, db = prisma) {
+    return db.user.deleteMany({
+      where: { user_id: { in: userIds } },
+    });
+  },
 };

@@ -1,10 +1,12 @@
 // client/src/features/admin/components/AdminDashboardTab.jsx
 import { useEffect, useState } from 'react';
-import { Row, Col, Spinner, Alert, Button, Table, Badge } from 'react-bootstrap';
+import { Row, Col, Spinner, Alert, Button, Badge } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { subscribeSyncEvent } from '../../../utils/syncEvents.js';
 import AdminKpiCard from './AdminKpiCard.jsx';
 import AdminQuickActions from './AdminQuickActions.jsx';
+import AdminRecentReports from './AdminRecentReports.jsx';
+import AdminRecentAiLogs from './AdminRecentAiLogs.jsx';
 
 export default function AdminDashboardTab({ onNavigateTab }) {
   const [stats, setStats] = useState(null);
@@ -30,12 +32,15 @@ export default function AdminDashboardTab({ onNavigateTab }) {
     fetchStats();
 
     const unsubscribe = subscribeSyncEvent('*', () => {
-      adminService.getDashboardStats().then((res) => {
-        if (res?.data) {
-          setStats(res.data);
-          setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
-        }
-      }).catch(() => {});
+      adminService
+        .getDashboardStats()
+        .then((res) => {
+          if (res?.data) {
+            setStats(res.data);
+            setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
+          }
+        })
+        .catch(() => {});
     });
     return unsubscribe;
   }, []);
@@ -52,8 +57,13 @@ export default function AdminDashboardTab({ onNavigateTab }) {
   if (error) {
     return (
       <Alert variant="danger" className="d-flex align-items-center justify-content-between rounded-3">
-        <span><i className="bi bi-exclamation-octagon-fill me-2" />{error}</span>
-        <Button variant="outline-danger" size="sm" onClick={fetchStats}>Thử lại</Button>
+        <span>
+          <i className="bi bi-exclamation-octagon-fill me-2" />
+          {error}
+        </span>
+        <Button variant="outline-danger" size="sm" onClick={fetchStats}>
+          Thử lại
+        </Button>
       </Alert>
     );
   }
@@ -63,14 +73,15 @@ export default function AdminDashboardTab({ onNavigateTab }) {
       <div className="text-center py-5 border rounded-3 bg-light">
         <i className="bi bi-bar-chart text-muted display-4" />
         <p className="mt-2 text-muted">Chưa có số liệu tổng quan hệ thống</p>
-        <Button variant="success" size="sm" onClick={fetchStats}>Tải lại</Button>
+        <Button variant="success" size="sm" onClick={fetchStats}>
+          Tải lại
+        </Button>
       </div>
     );
   }
 
-  const activePercent = stats.members.total > 0
-    ? Math.round((stats.members.active / stats.members.total) * 100)
-    : 100;
+  const activePercent =
+    stats.members.total > 0 ? Math.round((stats.members.active / stats.members.total) * 100) : 100;
 
   const urgentCount = stats.reports.pending + (stats.content.hiddenByAi || 0);
 
@@ -81,7 +92,11 @@ export default function AdminDashboardTab({ onNavigateTab }) {
         <div>
           <h4 className="fw-bold mb-1 text-dark d-flex align-items-center gap-2">
             <span>Tổng Quan Hoạt Động Hệ Thống</span>
-            <Badge bg="success" className="bg-opacity-10 text-success border border-success-subtle fw-normal" style={{ fontSize: '0.75rem' }}>
+            <Badge
+              bg="success"
+              className="bg-opacity-10 text-success border border-success-subtle fw-normal"
+              style={{ fontSize: '0.75rem' }}
+            >
               <i className="bi bi-broadcast me-1" /> Trực tiếp
             </Badge>
           </h4>
@@ -141,7 +156,9 @@ export default function AdminDashboardTab({ onNavigateTab }) {
             badgeVariant="warning"
             subtext={`${stats.ai.successRequests} thành công · ${stats.ai.errorRequests} gặp sự cố`}
             progressPercent={stats.ai.accuracyRate}
-            progressVariant={stats.ai.accuracyRate >= 90 ? 'success' : stats.ai.accuracyRate >= 70 ? 'warning' : 'danger'}
+            progressVariant={
+              stats.ai.accuracyRate >= 90 ? 'success' : stats.ai.accuracyRate >= 70 ? 'warning' : 'danger'
+            }
             onClick={() => onNavigateTab('ai-monitor')}
           />
         </Col>
@@ -160,132 +177,10 @@ export default function AdminDashboardTab({ onNavigateTab }) {
         </Col>
       </Row>
 
-      {/* Chi tiết hoạt động gần đây */}
+      {/* Chi tiết hoạt động gần đây (Tách component nhỏ) */}
       <Row className="g-4 mb-4">
-        {/* Panel 1: Báo cáo vi phạm chờ xử lý */}
-        <Col xs={12} lg={6}>
-          <div className="admin-card h-100 overflow-hidden d-flex flex-column">
-            <div className="admin-card-header d-flex justify-content-between align-items-center">
-              <div className="d-flex align-items-center gap-2">
-                <i className="bi bi-flag-fill text-danger" />
-                <h6 className="fw-bold mb-0 text-dark">Báo cáo vi phạm chờ xử lý</h6>
-                {stats.reports.pending > 0 && (
-                  <Badge bg="danger" pill className="px-2" style={{ fontSize: '0.7rem' }}>
-                    {stats.reports.pending}
-                  </Badge>
-                )}
-              </div>
-              <Button variant="link" size="sm" className="p-0 text-success text-decoration-none fw-semibold small" onClick={() => onNavigateTab('reports')}>
-                Xem tất cả &rarr;
-              </Button>
-            </div>
-            <div className="p-0 flex-grow-1">
-              {stats.reports.recent.length === 0 ? (
-                <div className="text-center py-5 text-muted small">
-                  <i className="bi bi-check-circle text-success fs-3 d-block mb-1" />
-                  Không có báo cáo vi phạm nào gần đây
-                </div>
-              ) : (
-                <Table responsive hover className="mb-0 align-middle admin-table">
-                  <thead>
-                    <tr>
-                      <th className="ps-3">Người báo cáo & Nội dung</th>
-                      <th className="text-end pe-3">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.reports.recent.map((rep) => (
-                      <tr key={rep.report_id} className="cursor-pointer" onClick={() => onNavigateTab('reports')}>
-                        <td className="ps-3">
-                          <div className="d-flex align-items-center gap-2">
-                            <div className="admin-avatar-circle">
-                              {(rep.reporter.full_name || 'U').charAt(0).toUpperCase()}
-                            </div>
-                            <div className="overflow-hidden">
-                              <div className="fw-semibold small text-truncate">{rep.reporter.full_name}</div>
-                              <div className="text-muted small text-truncate" style={{ maxWidth: 280 }}>{rep.reason}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="text-end pe-3">
-                          <span className={`cx-badge ${rep.status === 'PENDING' ? 'cx-badge-locked' : 'cx-badge-active'}`}>
-                            {rep.status === 'PENDING' ? 'Chờ duyệt' : 'Đã giải quyết'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </div>
-          </div>
-        </Col>
-
-        {/* Panel 2: Nhật ký AI gần nhất */}
-        <Col xs={12} lg={6}>
-          <div className="admin-card h-100 overflow-hidden d-flex flex-column">
-            <div className="admin-card-header d-flex justify-content-between align-items-center">
-              <div className="d-flex align-items-center gap-2">
-                <i className="bi bi-cpu-fill text-primary" />
-                <h6 className="fw-bold mb-0 text-dark">Nhật ký tác vụ AI gần nhất</h6>
-              </div>
-              <Button variant="link" size="sm" className="p-0 text-success text-decoration-none fw-semibold small" onClick={() => onNavigateTab('ai-monitor')}>
-                Xem chi tiết &rarr;
-              </Button>
-            </div>
-            <div className="p-0 flex-grow-1">
-              {stats.ai.recentLogs.length === 0 ? (
-                <div className="text-center py-5 text-muted small">
-                  <i className="bi bi-cpu text-muted fs-3 d-block mb-1" />
-                  Chưa có nhật ký hoạt động nào
-                </div>
-              ) : (
-                <Table responsive hover className="mb-0 align-middle admin-table">
-                  <thead>
-                    <tr>
-                      <th className="ps-3">Tác vụ & Mô hình</th>
-                      <th className="text-end pe-3">Trạng thái</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.ai.recentLogs.map((log) => {
-                      const actionLabel =
-                        log.action === 'SPAM_DETECTION' ? 'Kiểm duyệt Spam' :
-                        log.action === 'CHATBOT_GUEST_QUERY' ? 'Chatbot Tư vấn' :
-                        log.action === 'NUTRIENT_ANALYSIS' ? 'Phân tích Món' :
-                        log.action === 'MODERATION_MANUAL_OVERRIDE' ? 'Ghi đè thủ công' : log.action;
-                      return (
-                        <tr key={log.log_id} className="cursor-pointer" onClick={() => onNavigateTab('ai-monitor')}>
-                          <td className="ps-3">
-                            <div className="d-flex align-items-center gap-2">
-                              <Badge bg="light" text="dark" className="border fw-normal" style={{ fontSize: '0.72rem' }}>
-                                {log.model_name || 'deepseek'}
-                              </Badge>
-                              <span className="small fw-semibold text-truncate">{actionLabel}</span>
-                            </div>
-                            {log.error_feedback && (
-                              <div className="text-danger small text-truncate mt-1" style={{ maxWidth: 280 }}>
-                                <i className="bi bi-info-circle me-1" />{log.error_feedback}
-                              </div>
-                            )}
-                          </td>
-                          <td className="text-end pe-3">
-                            <span className={`cx-badge ${
-                              log.status === 'SUCCESS' ? 'cx-badge-active' :
-                              log.status === 'RESOLVED_BY_ADMIN' ? 'cx-badge-info' : 'cx-badge-danger'
-                            }`}>
-                              {log.status === 'SUCCESS' ? 'Thành công' : log.status === 'RESOLVED_BY_ADMIN' ? 'Đã can thiệp' : 'Gặp lỗi'}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </Table>
-              )}
-            </div>
-          </div>
-        </Col>
+        <AdminRecentReports reports={stats.reports} onNavigateTab={onNavigateTab} />
+        <AdminRecentAiLogs ai={stats.ai} onNavigateTab={onNavigateTab} />
       </Row>
 
       {/* System Status Banner */}

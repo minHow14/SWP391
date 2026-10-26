@@ -97,7 +97,7 @@ model HealthProfile {
 model HealthHistory {
   history_id    Int       @id @default(autoincrement())
   user_id       Int
-  recorded_date DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
+  recorded_date DateTime? @default(now()) @db.Timestamptz(6)
   weight        Float     @db.Real
   bmi           Float?    @db.Real
   user          User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)

@@ -1,6 +1,6 @@
 // client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../../services/api.js';
+import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
 
 // TP.HCM (Quận 1) khi người dùng không cho phép lấy vị trí hoặc bấm "Tìm tại TP.HCM"
@@ -58,10 +58,10 @@ export default function NearbyPlaces({ onResults, onSelect }) {
     }
     try {
       if (current.signal.aborted) return;
-      const response = await api(
-        `/places/nearby?lat=${origin.lat}&lng=${origin.lng}&radius_km=${RADIUS_KM}&limit=10`,
-        { signal: current.signal, includeMeta: true }
-      );
+      const response = await placeService.getNearbyPlaces({ lat: origin.lat, lng: origin.lng, radiusKm: RADIUS_KM, limit: 10 }, { signal: current.signal });
+
+
+
       if (current.signal.aborted) return;
       const result = response?.data ?? response;
       const rawPlaces = Array.isArray(result?.places) ? result.places : Array.isArray(result) ? result : [];

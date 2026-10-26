@@ -14,6 +14,17 @@ const setRefreshTokenCookie = (res, refreshToken) => {
   });
 };
 
+const extractRefreshToken = (req) => {
+  if (req.cookies?.refreshToken) return req.cookies.refreshToken;
+  if (req.body?.refreshToken) return req.body.refreshToken;
+  const cookieHeader = req.headers?.cookie;
+  if (typeof cookieHeader === 'string') {
+    const match = /(?:^|;\s*)refreshToken=([^;]*)/.exec(cookieHeader);
+    if (match) return decodeURIComponent(match[1]);
+  }
+  return null;
+};
+
 export const register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
   setRefreshTokenCookie(res, result.refreshToken);
@@ -27,7 +38,7 @@ export const login = asyncHandler(async (req, res) => {
 });
 
 export const refreshToken = asyncHandler(async (req, res) => {
-  const rawToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  const rawToken = extractRefreshToken(req);
   const result = await authService.refreshToken(rawToken);
   return sendSuccess(res, result);
 });
