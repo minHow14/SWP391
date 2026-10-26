@@ -8,8 +8,12 @@ from core.video_recipe_config import MAX_VIDEO_DURATION_SECONDS
 from schemas.base import CamelModel
 
 VideoId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{11}$")]
-Seconds = Annotated[float, Field(ge=0, le=MAX_VIDEO_DURATION_SECONDS, allow_inf_nan=False)]
-ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+Seconds = Annotated[
+    float, Field(ge=0, le=MAX_VIDEO_DURATION_SECONDS, allow_inf_nan=False)
+]
+ShortText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
 SourceIndex = Annotated[int, Field(strict=True, ge=0)]
 SourceIndexes = Annotated[list[SourceIndex], Field(min_length=1, max_length=2000)]
 
@@ -32,7 +36,9 @@ class VideoTranscriptionRequest(CamelModel):
 class VideoSegment(CamelModel):
     start_seconds: Seconds
     end_seconds: Seconds
-    text: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)]
+    text: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=10_000)
+    ]
 
 
 class VideoTranscript(CamelModel):
@@ -44,7 +50,10 @@ class VideoTranscript(CamelModel):
     def valid_timeline(self) -> Self:
         previous_end = 0.0
         for segment in self.segments:
-            if segment.start_seconds < previous_end or segment.end_seconds <= segment.start_seconds:
+            if (
+                segment.start_seconds < previous_end
+                or segment.end_seconds <= segment.start_seconds
+            ):
                 raise ValueError("Các đoạn lời nói phải đúng thứ tự.")
             if segment.end_seconds > self.duration_seconds:
                 raise ValueError("Đoạn lời nói vượt thời lượng audio.")
@@ -56,13 +65,25 @@ class VideoTranscript(CamelModel):
 
 class VideoIngredient(CamelModel):
     name: ShortText
-    quantity: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)] | None
-    unit: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)] | None
+    quantity: (
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+        ]
+        | None
+    )
+    unit: (
+        Annotated[
+            str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)
+        ]
+        | None
+    )
     source_segment_indexes: SourceIndexes
 
 
 class VideoRecipeStep(CamelModel):
-    instruction: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+    instruction: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
+    ]
     source_segment_indexes: SourceIndexes
 
 

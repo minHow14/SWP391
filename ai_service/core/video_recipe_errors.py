@@ -15,5 +15,10 @@ class VideoRecipeError(Exception):
         return self.message
 
     def envelope(self) -> dict:
-        return {"success": False, "message": self.message, "errorCode": self.code,
-                "errors": [], "retryAfterMs": self.retry_after_ms}
+        return {
+            "success": False,
+            "message": self.message,
+            "errorCode": self.code,
+            "errors": [],
+            "retryAfterMs": self.retry_after_ms,
+        }

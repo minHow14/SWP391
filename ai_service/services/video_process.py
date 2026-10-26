@@ -21,17 +21,27 @@ async def _read_bounded(stream: asyncio.StreamReader, limit: int) -> bytes:
     while chunk := await stream.read(65_536):
         size += len(chunk)
         if size > limit:
-            raise VideoRecipeError("VIDEO_MEDIA_LIMIT", "Dữ liệu xử lý âm thanh vượt giới hạn.")
+            raise VideoRecipeError(
+                "VIDEO_MEDIA_LIMIT", "Dữ liệu xử lý âm thanh vượt giới hạn."
+            )
         chunks.append(chunk)
     return b"".join(chunks)
 
 
-async def _watch_directory(process: asyncio.subprocess.Process, limits: ProcessLimits) -> None:
+async def _watch_directory(
+    process: asyncio.subprocess.Process, limits: ProcessLimits
+) -> None:
     while process.returncode is None:
         if limits.directory:
-            size = sum(path.stat().st_size for path in limits.directory.iterdir() if path.is_file())
+            size = sum(
+                path.stat().st_size
+                for path in limits.directory.iterdir()
+                if path.is_file()
+            )
             if size > limits.max_directory_bytes:
-                raise VideoRecipeError("VIDEO_MEDIA_LIMIT", "Tệp âm thanh tải về vượt giới hạn.")
+                raise VideoRecipeError(
+                    "VIDEO_MEDIA_LIMIT", "Tệp âm thanh tải về vượt giới hạn."
+                )
         await asyncio.sleep(0.1)
 
 
@@ -39,9 +49,16 @@ async def _terminate_process(process: asyncio.subprocess.Process) -> None:
     if process.returncode is not None:
         return
     if os.name == "nt":
-        killer = await asyncio.create_subprocess_exec("taskkill", "/PID", str(process.pid), "/T", "/F",
-            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
-            creationflags=subprocess.CREATE_NO_WINDOW)
+        killer = await asyncio.create_subprocess_exec(
+            "taskkill",
+            "/PID",
+            str(process.pid),
+            "/T",
+            "/F",
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.DEVNULL,
+            creationflags=subprocess.CREATE_NO_WINDOW,
+        )
         await killer.wait()
     if process.returncode is None:
         try:
@@ -51,21 +68,38 @@ async def _terminate_process(process: asyncio.subprocess.Process) -> None:
     await process.wait()
 
 
+async def _start_process(arguments: list[str]) -> asyncio.subprocess.Process:
+    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
+    return await asyncio.create_subprocess_exec(
+        *arguments,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        creationflags=flags,
+    )
+
+
 async def run_video_process(arguments: list[str], limits: ProcessLimits) -> str:
     """Run only explicit argument lists; bound output, disk usage and child lifetime."""
-    flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-    process = await asyncio.create_subprocess_exec(*arguments, stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE, creationflags=flags)
-    tasks = [asyncio.create_task(_read_bounded(process.stdout, limits.output_limit_bytes)),
-             asyncio.create_task(_read_bounded(process.stderr, limits.output_limit_bytes)),
-             asyncio.create_task(process.wait()), asyncio.create_task(_watch_directory(process, limits))]
+    process = await _start_process(arguments)
+    tasks = [
+        asyncio.create_task(_read_bounded(process.stdout, limits.output_limit_bytes)),
+        asyncio.create_task(_read_bounded(process.stderr, limits.output_limit_bytes)),
+        asyncio.create_task(process.wait()),
+        asyncio.create_task(_watch_directory(process, limits)),
+    ]
     try:
-        output, _, code, _ = await asyncio.wait_for(asyncio.gather(*tasks), limits.timeout_seconds)
+        output, _, code, _ = await asyncio.wait_for(
+            asyncio.gather(*tasks), limits.timeout_seconds
+        )
         if code != 0:
-            raise VideoRecipeError("VIDEO_AUDIO_UNAVAILABLE", "Không lấy hoặc giải mã được âm thanh video.")
+            raise VideoRecipeError(
+                "VIDEO_AUDIO_UNAVAILABLE", "Không lấy hoặc giải mã được âm thanh video."
+            )
         return output.decode("utf-8", errors="replace")
     except TimeoutError as failure:
-        raise VideoRecipeError("VIDEO_MEDIA_TIMEOUT", "Xử lý âm thanh đã quá thời gian chờ.", status=504) from failure
+        raise VideoRecipeError(
+            "VIDEO_MEDIA_TIMEOUT", "Xử lý âm thanh đã quá thời gian chờ.", status=504
+        ) from failure
     finally:
         for task in tasks:
             task.cancel()
