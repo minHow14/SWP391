@@ -257,3 +257,44 @@ test('X-Request-Id của client được giữ nguyên', async () => {
     .query(DISTRICT_1);
   assert.equal(res.body.meta.requestId, 'req_from_client');
 });
+
+test('nearby hỗ trợ user_lat và user_lng để trả về user_distance_m cho từng địa điểm', async () => {
+  const userPos = { user_lat: 10.7500, user_lng: 106.6500 };
+  const res = await request(app)
+    .get('/api/places/nearby')
+    .query({ ...DISTRICT_1, ...userPos, radius_km: 5, limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  const places = res.body.data.places;
+  assert.ok(places.length > 0);
+  assert.ok(places.every((p) => typeof p.user_distance_m === 'number' && p.user_distance_m > 0));
+});
+
+test('nearby hỗ trợ bán kính tìm kiếm tùy chỉnh radius_km', async () => {
+  const resSmall = await request(app)
+    .get('/api/places/nearby')
+    .query({ ...DISTRICT_1, radius_km: 0.5, limit: 10 });
+  assert.equal(resSmall.status, 200);
+  const placesSmall = resSmall.body.data.places;
+  assert.ok(placesSmall.every((p) => p.distance_m <= 500));
+});
+
+test('nearby hỗ trợ lọc theo chế độ ăn diet_type_id', async () => {
+  const res = await request(app)
+    .get('/api/places/nearby')
+    .query({ ...DISTRICT_1, radius_km: 5, diet_type_id: 1, limit: 10 });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  assert.ok(res.body.data.places.every((p) => p.diet_type_id === 1));
+});
+
+test('nearby trả về image_url hợp lệ cho tất cả địa điểm quán chay', async () => {
+  const res = await request(app)
+    .get('/api/places/nearby')
+    .query({ ...DISTRICT_1, radius_km: 5, limit: 5 });
+  assert.equal(res.status, 200);
+  const places = res.body.data.places;
+  assert.ok(places.length > 0);
+  assert.ok(places.every((p) => typeof p.image_url === 'string' && p.image_url.startsWith('http')));
+});

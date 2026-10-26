@@ -244,6 +244,11 @@ erDiagram
         float rating
         decimal latitude
         decimal longitude
+        varchar source
+        varchar place_id UK
+        varchar status
+        datetime created_at
+        datetime updated_at
     }
     RestaurantDetails {
         int restaurant_id PK,FK

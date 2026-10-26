@@ -1,21 +1,79 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/styles/nearbyPlaces.css */
+/* client/src/features/restaurants/styles/nearbyPlaces.css */
 /* Khối "Quán chay quanh bạn" trên trang Quán Chay */
 .cx-nearby { max-width: 1380px; margin: 18px auto 0; padding: 16px 20px; border: 1px solid #d9e8e0; border-radius: 20px; background: #f4fbf7; }
 .cx-nearby-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.cx-nearby-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: #065f46; }
-.cx-nearby-head h2 .bi { color: #059669; margin-right: 6px; }
+.cx-nearby-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px; }
+.cx-nearby-head h2 .bi { color: #059669; }
 .cx-nearby-head p { margin: 2px 0 0; font-size: 12px; color: #52645c; }
-.cx-nearby-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.cx-nearby-actions > button { border: 0; border-radius: 12px; padding: 9px 16px; background: #15803d; color: #fff; font-size: 13px; font-weight: 700; }
-.cx-nearby-actions > button:last-child { background: #e0f0e6; color: #047857; }
-.cx-nearby-actions > button:disabled { opacity: 0.6; }
+.cx-nearby-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cx-nearby-actions > button { border: 1px solid transparent; border-radius: 12px; padding: 9px 16px; background: #15803d; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease-in-out; }
+.cx-nearby-actions > button:hover:not(:disabled) { filter: brightness(1.08); }
+.cx-nearby-actions > button:nth-child(2) { background: #e0f0e6; color: #047857; border-color: #bfe3d0; }
+.cx-nearby-actions > button:nth-child(2):hover:not(:disabled) { background: #d0ebd8; }
+.cx-nearby-actions > button.is-active { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35); }
+.cx-nearby-actions > button:disabled { opacity: 0.6; cursor: not-allowed; }
+.cx-btn-refresh-gps { border: 1px solid #c2e2d1 !important; border-radius: 12px; padding: 9px 14px; background: #fff !important; color: #059669 !important; font-size: 12px !important; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
+.cx-btn-refresh-gps:hover:not(:disabled) { background: #effcf5 !important; }
+
+/* Thanh bán kính tìm kiếm & Chế độ ăn & Trạng thái GPS */
+.cx-nearby-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e1eee7; }
+.cx-nearby-filter-group { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; }
+.cx-nearby-radius, .cx-nearby-diet { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #475569; }
+.cx-nearby-radius > span, .cx-nearby-diet > span { font-weight: 700; color: #065f46; }
+.cx-nearby-radius-chips, .cx-nearby-diet-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.cx-nearby-radius-chips button, .cx-nearby-diet-chips button { border: 1px solid #cde4d8; border-radius: 999px; background: #fff; color: #374151; padding: 4px 11px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
+.cx-nearby-radius-chips button:hover:not(:disabled), .cx-nearby-diet-chips button:hover:not(:disabled) { background: #f0fdf4; border-color: #86efac; }
+.cx-nearby-radius-chips button.is-active, .cx-nearby-diet-chips button.is-active { background: #059669; color: #fff; border-color: #059669; font-weight: 750; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); }
+.cx-nearby-user-status .cx-gps-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 700; border: 1px solid #a7f3d0; }
+
+/* Khu vực Đa tỉnh thành & Quận huyện */
+.cx-nearby-city-section { margin-top: 12px; display: grid; gap: 8px; }
+.cx-nearby-city-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cx-city-tab-btn { border: 1px solid #d1fae5; border-radius: 10px; background: #e6f7ef; color: #047857; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
+.cx-city-tab-btn:hover:not(:disabled) { background: #d5f2e3; }
+.cx-city-tab-btn.is-active { background: #047857; color: #fff; border-color: #047857; box-shadow: 0 2px 6px rgba(4, 120, 87, 0.25); }
+
+.cx-nearby-hubs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; background: #eaf5ef; font-size: 12px; }
+.cx-nearby-hubs-title { font-weight: 800; color: #065f46; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
+.cx-nearby-hub-btn { border: 1px solid #c2e2d1; border-radius: 8px; background: #fff; color: #065f46; padding: 5px 11px; font-size: 11px; font-weight: 650; cursor: pointer; transition: all 0.15s ease; }
+.cx-nearby-hub-btn:hover:not(:disabled) { background: #f0fdf4; }
+.cx-nearby-hub-btn.is-active { background: #15803d; color: #fff; border-color: #15803d; font-weight: 750; box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25); }
+
 .cx-nearby-note { margin: 12px 0 0; font-size: 13px; color: #475569; }
 .cx-nearby-note.is-error { color: #b91c1c; }
-.cx-nearby-note button { border: 0; padding: 0; background: transparent; color: #047857; text-decoration: underline; font-size: inherit; }
-.cx-nearby-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
-.cx-nearby-list li { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 14px; background: #fff; border: 1px solid #e2eee7; }
-.cx-nearby-list strong { display: block; font-size: 14px; }
-.cx-nearby-list li > div:first-child span { font-size: 12px; color: #64748b; }
-.cx-nearby-meta { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #475569; }
-.cx-nearby-meta a { color: #047857; font-weight: 700; text-decoration: none; }
-.cx-nearby-meta button { border: 1px solid #bbefcd; border-radius: 8px; background: #effcf5; color: #047857; padding: 5px 9px; font-size: inherit; font-weight: 700; }
+.cx-nearby-note button { border: 0; padding: 0; background: transparent; color: #047857; text-decoration: underline; font-size: inherit; cursor: pointer; font-weight: 600; }
+
+/* Danh sách quán chay lân cận có Thumbnail */
+.cx-nearby-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; }
+.cx-nearby-item { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px; border-radius: 14px; background: #fff; border: 1px solid #e2eee7; box-shadow: 0 1px 4px rgba(0,0,0,0.03); transition: border-color 0.15s ease; }
+.cx-nearby-item:hover { border-color: #a7f3d0; }
+.cx-nearby-thumb-wrap { width: 72px; height: 72px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: #f1f5f9; display: grid; place-items: center; border: 1px solid #e2e8f0; }
+.cx-place-thumb { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cx-nearby-info { flex: 1; min-width: 220px; }
+.cx-nearby-header-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cx-nearby-header-row strong { font-size: 14px; color: #1e293b; }
+.cx-status-open { font-size: 10.5px; font-weight: 750; color: #15803d; background: #dcfce7; padding: 2px 7px; border-radius: 6px; border: 1px solid #bbf7d0; display: inline-flex; align-items: center; }
+.cx-status-closed { font-size: 10.5px; font-weight: 750; color: #b91c1c; background: #fee2e2; padding: 2px 7px; border-radius: 6px; border: 1px solid #fecaca; display: inline-flex; align-items: center; }
+.cx-nearby-address { font-size: 12px; color: #64748b; margin-top: 3px; display: block; line-height: 1.4; }
+.cx-nearby-hours { font-size: 11px; color: #047857; margin-top: 4px; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
+
+.cx-nearby-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: #475569; flex-wrap: wrap; margin-left: auto; }
+.cx-user-dist-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 6px; background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 11px; border: 1px solid #bfdbfe; }
+.cx-nearby-meta a { display: inline-flex; align-items: center; gap: 4px; color: #047857; font-weight: 700; text-decoration: none; padding: 6px 11px; border-radius: 8px; background: #e0f0e6; transition: background 0.15s; }
+.cx-nearby-meta a:hover { background: #d0ebd8; }
+.cx-nearby-meta button { border: 1px solid #bbefcd; border-radius: 8px; background: #effcf5; color: #047857; padding: 6px 11px; font-size: inherit; font-weight: 700; cursor: pointer; transition: background 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+.cx-nearby-meta button:hover { background: #e0f9ec; }
+
+/* Marker vị trí người dùng (User GPS Pulsing Pin) */
+.cx-user-marker-wrapper { display: grid; place-items: center; width: 32px; height: 32px; }
+.cx-user-pulse-dot { position: relative; width: 24px; height: 24px; display: grid; place-items: center; }
+.cx-user-pulse-core { width: 18px; height: 18px; border-radius: 50%; background: #2563eb; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; box-shadow: 0 0 0 2.5px #fff, 0 3px 8px rgba(37,99,235,0.45); z-index: 2; }
+.cx-user-pulse-ring { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: rgba(37, 99, 235, 0.4); animation: cx-user-pulse 2s infinite ease-out; z-index: 1; }
+@keyframes cx-user-pulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* Nút quay về vị trí của tôi trên bản đồ */
+.cx-map-recenter-user { position: absolute; z-index: 2; top: 18px; right: 17px; padding: 8px 13px; border: 1px solid #bfdbfe; border-radius: 12px; background: #fff; color: #1d4ed8; font-size: 11px; font-weight: 750; box-shadow: 0 3px 10px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 5px; cursor: pointer; transition: background 0.15s; }
+.cx-map-recenter-user:hover { background: #eff6ff; border-color: #93c5fd; }
