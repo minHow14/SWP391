@@ -52,4 +52,5 @@ export const videoRecipeJobParamsSchema = z.object({ jobId: z.uuid() }).strict()
 export const videoRecipeSummaryParamsSchema = z.object({ summaryId: z.uuid() }).strict();
 export const videoRecipePageSchema = z.object({ page: z.coerce.number().int().min(1).max(1_000_000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(10), status: z.enum(Object.values(VIDEO_RECIPE_STATUS)).optional(),
+  videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/).optional(),
 }).strict();

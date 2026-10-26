@@ -9,7 +9,7 @@ const PUBLIC_SELECT = { id: true, videoId: true, videoUrl: true, status: true, s
   summary: { select: { id: true } } };
 const INTERNAL_SELECT = { ...PUBLIC_SELECT, userId: true, activeUserId: true, pipelineVersion: true,
   attempt: true, availableAt: true, leaseToken: true, leaseExpiresAt: true, metadata: true, transcript: true };
-const ownedWhere = ({ userId, status }) => ({ userId, ...(status && { status }) });
+const ownedWhere = ({ userId, status, videoId }) => ({ userId, ...(status && { status }), ...(videoId && { videoId }) });
 const leaseWhere = ({ id, leaseToken }) => ({ id, leaseToken, status: 'PROCESSING', leaseExpiresAt: { gt: new Date() } });
 const releasedLease = { leaseToken: null, leaseExpiresAt: null };
 
