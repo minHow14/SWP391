@@ -1,15 +1,19 @@
 // D:/SWP391/SWP391/client/test/videoRecipeSummary.test.jsx
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AxiosError } from 'axios';
+import { useRef, useState } from 'react';
+import { cleanup, renderHook, waitFor } from '@testing-library/react';
 import apiClient from '../src/services/apiClient.js';
 import { getSession, setSession } from '../src/utils/session.js';
 import { detectYoutubeMessage } from '../src/features/videoRecipeSummary/utils/youtubeMessage.js';
 import { observeVideoRecipeJob } from '../src/features/videoRecipeSummary/utils/videoRecipeJobs.js';
+import { useVideoRecipeSummary } from '../src/features/videoRecipeSummary/hooks/useVideoRecipeSummary.js';
+import { videoRecipeSummaryApi } from '../src/services/videoRecipeSummaryApi.js';
 
 const URL = 'https://www.youtube.com/watch?v=AbCdEfGhI12';
 const originalAdapter = apiClient.defaults.adapter;
 beforeEach(() => { setSession(null); });
-afterEach(() => { apiClient.defaults.adapter = originalAdapter; setSession(null); });
+afterEach(() => { cleanup(); apiClient.defaults.adapter = originalAdapter; setSession(null); sessionStorage.clear(); });
 
 describe('YouTube detection on chat send', () => {
   it.each([`Tạo công thức từ ${URL}`, 'youtube.com/watch?v=AbCdEfGhI12', 'https://youtu.be/AbCdEfGhI12.'])('recognizes a video inside text', (text) => {
@@ -65,5 +69,22 @@ describe('shared Axios authentication errors', () => {
     };
     await expect(apiClient.get('/v1/video-recipe-summary-jobs')).rejects.toMatchObject({ status: 401, code: 'UNAUTHORIZED', requestId: 'request-id' });
     expect(getSession().token).toBe('newer');
+  });
+});
+
+describe('restoring video progress', () => {
+  it('shows a retryable error instead of leaving an old bubble spinning', async () => {
+    setSession({ token: 'current', user: { user_id: 7 } });
+    vi.spyOn(videoRecipeSummaryApi, 'list').mockRejectedValue(new Error('Mất kết nối'));
+    function useHarness() {
+      const [messages, setMessages] = useState([{ id: 1, kind: 'videoRecipe', ownerId: 7,
+        pending: true, job: { jobId: 'job', status: 'PROCESSING' } }]);
+      const nextId = useRef(2);
+      useVideoRecipeSummary({ userId: 7, enabled: true, setMessages, nextId });
+      return messages;
+    }
+    const { result } = renderHook(() => useHarness());
+    await waitFor(() => expect(result.current[0]).toMatchObject({ pending: false,
+      observationError: 'Mất kết nối', job: { jobId: 'job' } }));
   });
 });

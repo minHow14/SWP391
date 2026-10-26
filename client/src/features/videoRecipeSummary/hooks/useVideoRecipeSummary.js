@@ -31,6 +31,15 @@ function beginOperation(context, request) {
   void operation.run(request);
 }
 
+function showDiscoveryFailure(context, error, signal) {
+  if (signal.aborted || context.operation.current || getSession()?.user?.user_id !== context.userId) return;
+  context.setMessages((previous) => previous.map((message) => {
+    if (message.kind !== 'videoRecipe' || message.ownerId !== context.userId || !message.pending) return message;
+    return { ...message, pending: false, preparing: false, observationError: error.message,
+      requestId: error.requestId, needsLogin: error.status === 401 };
+  }));
+}
+
 function useVideoRecipeOwner(context, enabled) {
   const { operation: operationRef } = context;
   useEffect(() => {
@@ -41,7 +50,7 @@ function useVideoRecipeOwner(context, enabled) {
     context.setMessages((previous) => previous.filter((item) => !isVideoRecipeMessage(item) || item.ownerId === (context.userId || null)));
     if (enabled && context.userId) discoverJob(context, discovery.signal).then((job) => {
       if (job && !discovery.signal.aborted && !operationRef.current && getSession()?.user?.user_id === context.userId) beginOperation(context, { job });
-    }).catch(() => {});
+    }).catch((error) => showDiscoveryFailure(context, error, discovery.signal));
     return () => {
       discovery.abort();
       const active = operationRef.current;
