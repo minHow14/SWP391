@@ -34,6 +34,21 @@ describe('video recipe internal AI transport', () => {
       errorCode: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs: 60_000,
     });
   });
+  it('preserves provider cooldown reported after a transcription stream starts', async () => {
+    const client = service(vi.fn().mockResolvedValue(events([
+      ['progress', { stage: 'TRANSCRIBING' }],
+      ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs: 120_000, message: 'PRIVATE_PROVIDER_DETAIL' }],
+    ])));
+    await expect(client.transcribe({ job: JOB, onStage: vi.fn() })).rejects.toMatchObject({
+      errorCode: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs: 120_000,
+    });
+  });
+  it.each([-1, '120000', 2_147_483_648])('rejects invalid streaming cooldown %s instead of retrying early', async (retryAfterMs) => {
+    const client = service(vi.fn().mockResolvedValue(events([
+      ['progress', { stage: 'TRANSCRIBING' }], ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs }],
+    ])));
+    await expect(client.transcribe({ job: JOB, onStage: vi.fn() })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_INVALID_OUTPUT');
+  });
   it.each([401, 403, 404])('maps unavailable internal endpoint %s to an explicit service error', async (status) => {
     const client = service(vi.fn().mockResolvedValue(new Response('SECRET', { status })));
     await expect(client.summarize({ job: JOB, transcript: TRANSCRIPT })).rejects.toHaveProperty('statusCode', 503);

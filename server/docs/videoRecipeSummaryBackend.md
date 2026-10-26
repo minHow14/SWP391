@@ -61,6 +61,8 @@ Response content type: text/event-stream. Events have `event:` and JSON `data:` 
 - `done`: `{success:true,data:{transcript}}`; transcript contains language `vi`, durationSeconds in (0,660], and nonempty ordered segments. Each segment has startSeconds, endSeconds and text; no segment may extend past durationSeconds. Total transcript text <=100000 characters, <=2000 segments, each segment <=10000 characters.
 - `error`: `{errorCode, message}`. Known source codes VIDEO_TOO_LONG, VIDEO_NO_SPEECH, VIDEO_AUDIO_UNAVAILABLE, VIDEO_NOT_RECIPE map to safe backend messages. Other errors are sanitized. Never send provider keys, temporary file paths or raw stderr.
 
+If provider quota is reached after streaming begins, emit `error` with errorCode `VIDEO_AI_RATE_LIMITED` and retryAfterMs as an integer in [0,2147483647]. Backend preserves that cooldown and sanitizes the message. Invalid cooldown values fail closed rather than causing an earlier retry.
+
 Backend cancels the stream after validated done and persists a transcript checkpoint before requesting a recipe. Midstream errors/EOF do not result in a partial recipe.
 
 ### POST `/api/video-recipe-summaries`

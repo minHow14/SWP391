@@ -22,7 +22,17 @@ function normalizedFailure(error, signal) {
 
 function retryDelay(header) {
   const delay = /^\d+$/.test(header || '') ? Number(header) * 1000 : Date.parse(header) - Date.now();
-  return Number.isFinite(delay) && delay > 0 ? Math.min(delay, 2_147_483_647) : 0;
+  if (delay > 2_147_483_647) throw invalidOutput();
+  return Number.isFinite(delay) && delay > 0 ? delay : 0;
+}
+
+function streamFailure(data) {
+  if (SOURCE_ERRORS[data.errorCode]) return videoRecipeSummaryError({ code: data.errorCode, message: SOURCE_ERRORS[data.errorCode] });
+  if (data.errorCode !== 'VIDEO_AI_RATE_LIMITED') return unavailable();
+  const retryAfterMs = data.retryAfterMs ?? 0;
+  if (!Number.isSafeInteger(retryAfterMs) || retryAfterMs < 0 || retryAfterMs > 2_147_483_647) throw invalidOutput();
+  return videoRecipeSummaryError({ status: 429, code: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs,
+    message: 'Dịch vụ nhận dạng đang hết hạn mức. Hệ thống sẽ thử lại sau.' });
 }
 
 function responseFailure(response) {
@@ -66,8 +76,7 @@ async function transcriptionResult({ response, signal, onStage }) {
   let stageIndex = -1;
   let transcript;
   const parser = createSseParser(async ({ name, data }) => {
-    if (name === 'error') throw SOURCE_ERRORS[data.errorCode]
-      ? videoRecipeSummaryError({ code: data.errorCode, message: SOURCE_ERRORS[data.errorCode] }) : unavailable();
+    if (name === 'error') throw streamFailure(data);
     if (name === 'progress') {
       const nextIndex = TRANSCRIPTION_STAGES.indexOf(data.stage);
       if (nextIndex < stageIndex || nextIndex < 0) throw invalidOutput();
