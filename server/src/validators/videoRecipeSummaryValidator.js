@@ -1,11 +1,14 @@
 // D:/SWP391/SWP391/server/src/validators/videoRecipeSummaryValidator.js
 import { z } from 'zod';
-import { MAX_TRANSCRIPT_CHARACTERS, MAX_VIDEO_DURATION_SECONDS, VIDEO_RECIPE_STATUS } from '../constants/videoRecipeSummary.js';
+import { MAX_TRANSCRIPT_CHARACTERS, MAX_TRANSCRIPT_DURATION_DRIFT_SECONDS, MAX_VIDEO_DURATION_SECONDS,
+  VIDEO_RECIPE_STATUS } from '../constants/videoRecipeSummary.js';
 import { videoRecipeSummaryError } from '../utils/videoRecipeSummaryError.js';
 
 const text = (max) => z.string().trim().min(1).max(max);
 const seconds = z.number().finite().nonnegative().max(MAX_VIDEO_DURATION_SECONDS);
 const segmentSchema = z.object({ startSeconds: seconds, endSeconds: seconds, text: text(10_000) }).strict();
+const metadataSchema = z.object({ videoId: z.string().regex(/^[A-Za-z0-9_-]{11}$/),
+  title: text(255).nullable(), durationSeconds: seconds.positive() }).strict();
 export const transcriptSchema = z.object({ language: z.literal('vi'),
   durationSeconds: seconds.positive(), segments: z.array(segmentSchema).min(1).max(2000),
 }).strict().superRefine((value, context) => {
@@ -26,6 +29,15 @@ export const videoRecipeSchema = z.object({ title: text(255).nullable(),
   ingredients: z.array(z.object({ name: text(255), quantity: text(100).nullable(), unit: text(100).nullable(), sourceSegmentIndexes: references }).strict()).max(100),
   steps: z.array(z.object({ instruction: text(4000), sourceSegmentIndexes: references }).strict()).min(1).max(100),
 }).strict();
+
+export function validateCompleteVideoTranscript({ transcript, metadata, videoId }) {
+  const source = metadataSchema.parse(metadata);
+  const result = transcriptSchema.parse(transcript);
+  if (source.videoId !== videoId || Math.abs(source.durationSeconds - result.durationSeconds) > MAX_TRANSCRIPT_DURATION_DRIFT_SECONDS) {
+    throw videoRecipeSummaryError({ status: 502, code: 'VIDEO_TRANSCRIPT_INCOMPLETE', message: 'Bản chép lời chưa khớp với toàn bộ thời lượng video.' });
+  }
+  return result;
+}
 
 export function validateVideoRecipe({ recipe, transcript }) {
   const source = transcriptSchema.parse(transcript);

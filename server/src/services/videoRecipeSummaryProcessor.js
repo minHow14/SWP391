@@ -3,7 +3,7 @@ import { videoRecipeSummaryJobRepository } from '../repositories/videoRecipeSumm
 import { videoRecipeSummaryAiService } from './videoRecipeSummaryAiService.js';
 import { youtubeMetadataService } from './youtubeMetadataService.js';
 import { videoRecipeSummaryConfig } from '../config/videoRecipeSummaryConfig.js';
-import { transcriptSchema, validateVideoRecipe } from '../validators/videoRecipeSummaryValidator.js';
+import { validateCompleteVideoTranscript, validateVideoRecipe } from '../validators/videoRecipeSummaryValidator.js';
 import { videoRecipeSummaryError } from '../utils/videoRecipeSummaryError.js';
 
 function safeFailure(error, signal) {
@@ -15,7 +15,7 @@ function safeFailure(error, signal) {
 
 async function obtainTranscript(job, dependencies) {
   const { repository, inspect, ai, signal } = dependencies;
-  if (job.transcript) return transcriptSchema.parse(job.transcript);
+  if (job.transcript) return validateCompleteVideoTranscript({ transcript: job.transcript, metadata: job.metadata, videoId: job.videoId });
   await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { stage: 'VALIDATING_VIDEO' } });
   const metadata = await inspect({ videoId: job.videoId, videoUrl: job.videoUrl, signal });
   signal.throwIfAborted();
@@ -24,7 +24,7 @@ async function obtainTranscript(job, dependencies) {
     signal.throwIfAborted();
     await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { stage } });
   };
-  const transcript = transcriptSchema.parse(await ai.transcribe({ job, onStage, signal }));
+  const transcript = validateCompleteVideoTranscript({ transcript: await ai.transcribe({ job, onStage, signal }), metadata, videoId: job.videoId });
   signal.throwIfAborted();
   await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { transcript, stage: 'SUMMARIZING' } });
   return transcript;

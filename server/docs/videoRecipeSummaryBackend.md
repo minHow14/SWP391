@@ -65,6 +65,8 @@ If provider quota is reached after streaming begins, emit `error` with errorCode
 
 Backend cancels the stream after validated done and persists a transcript checkpoint before requesting a recipe. Midstream errors/EOF do not result in a partial recipe.
 
+`transcript.durationSeconds` must describe the full decoded audio, not the final chunk or the span containing speech. It must match the validated video metadata duration within two seconds (codec/container tolerance); the 660-second hard limit still applies independently. Both initial and resumed checkpoints are checked against saved source metadata. Speech need not fill the entire recording: gaps and trailing silence remain valid. A material mismatch reports `VIDEO_TRANSCRIPT_INCOMPLETE` before any summarization or complete checkpoint is saved.
+
 ### POST `/api/video-recipe-summaries`
 
 JSON fields: jobId, videoId, language (`vi`), transcript (the complete checkpoint). AI uses its existing DeepSeek configuration and returns JSON `{success:true,data:{recipe}}`.

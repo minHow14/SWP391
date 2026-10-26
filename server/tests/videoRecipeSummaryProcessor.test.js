@@ -6,9 +6,10 @@ const JOB = { id: 'job-fixture', userId: 1, videoId: 'AbCdEfGhI12', videoUrl: 'h
   leaseToken: 'lease-fixture', attempt: 1, transcript: null };
 const TRANSCRIPT = { language: 'vi', durationSeconds: 60, segments: [{ startSeconds: 0, endSeconds: 60, text: 'Xào nấm chín.' }] };
 const RECIPE = { title: 'Nấm xào', ingredients: [], steps: [{ instruction: 'Xào nấm chín.', sourceSegmentIndexes: [0] }] };
+const METADATA = { videoId: JOB.videoId, title: 'Video fixture', durationSeconds: 60 };
 function dependencies() {
   return { repository: { updateLeased: vi.fn(), complete: vi.fn().mockResolvedValue({ id: 'summary-fixture' }), fail: vi.fn() },
-    inspect: vi.fn().mockResolvedValue({ videoId: JOB.videoId, title: 'Video fixture', durationSeconds: 60 }),
+    inspect: vi.fn().mockResolvedValue(METADATA),
     ai: { transcribe: vi.fn().mockResolvedValue(TRANSCRIPT), summarize: vi.fn().mockResolvedValue(RECIPE) },
     signal: new AbortController().signal, config: { maxAttempts: 3, retryMs: 30_000 } };
 }
@@ -34,7 +35,7 @@ describe('video recipe job processor', () => {
   });
   it('resumes from a complete transcript without calling Groq again', async () => {
     const deps = dependencies();
-    expect(await processVideoRecipeSummaryJob({ ...JOB, transcript: TRANSCRIPT }, deps)).toHaveProperty('status', 'COMPLETED');
+    expect(await processVideoRecipeSummaryJob({ ...JOB, transcript: TRANSCRIPT, metadata: METADATA }, deps)).toHaveProperty('status', 'COMPLETED');
     expect(deps.inspect).not.toHaveBeenCalled();
     expect(deps.ai.transcribe).not.toHaveBeenCalled();
     expect(deps.ai.summarize).toHaveBeenCalledOnce();
@@ -47,6 +48,28 @@ describe('video recipe job processor', () => {
       expect(deps.ai.summarize).not.toHaveBeenCalled();
       expect(deps.repository.complete).not.toHaveBeenCalled();
     }
+  });
+  it('rejects truncated audio before saving a complete transcript checkpoint', async () => {
+    const deps = dependencies();
+    deps.inspect.mockResolvedValue({ ...METADATA, durationSeconds: 600 });
+    deps.ai.transcribe.mockResolvedValue({ ...TRANSCRIPT, durationSeconds: 5, segments: [{ startSeconds: 0, endSeconds: 5, text: 'Một đoạn bị cắt.' }] });
+    const result = await processVideoRecipeSummaryJob(JOB, deps);
+    expect(result).toMatchObject({ status: 'FAILED', errorCode: 'VIDEO_TRANSCRIPT_INCOMPLETE' });
+    expect(deps.ai.summarize).not.toHaveBeenCalled();
+    expect(deps.repository.updateLeased.mock.calls.some(([input]) => input.data.transcript)).toBe(false);
+  });
+  it('revalidates source duration and metadata on resumed checkpoints', async () => {
+    for (const metadata of [{ ...METADATA, durationSeconds: 600 }, null]) {
+      const deps = dependencies();
+      expect(await processVideoRecipeSummaryJob({ ...JOB, transcript: TRANSCRIPT, metadata }, deps)).toHaveProperty('status', 'FAILED');
+      expect(deps.ai.summarize).not.toHaveBeenCalled();
+      expect(deps.ai.transcribe).not.toHaveBeenCalled();
+    }
+  });
+  it('allows trailing silence and a two-second codec duration difference', async () => {
+    const deps = dependencies();
+    deps.ai.transcribe.mockResolvedValue({ ...TRANSCRIPT, durationSeconds: 58, segments: [{ ...TRANSCRIPT.segments[0], endSeconds: 30 }] });
+    expect(await processVideoRecipeSummaryJob(JOB, deps)).toHaveProperty('status', 'COMPLETED');
   });
   it('persists actual transcription stage updates with the lease token', async () => {
     const deps = dependencies();
