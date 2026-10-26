@@ -33,7 +33,7 @@ export function createYoutubeMetadataService({ execute = executeFile, config = v
   return { async inspect({ videoUrl, videoId, signal }) {
     const source = normalizeYoutubeVideoUrl(videoUrl);
     if (source.videoId !== videoId) throw metadataError('VIDEO_UNAVAILABLE', 'Video không khớp với yêu cầu.');
-    const args = ['--ignore-config', '--no-cache-dir', '--no-playlist', '--skip-download', '--dump-single-json',
+    const args = ['--ignore-config', '--no-cache-dir', '--no-playlist', '--skip-download', '--dump-single-json', '--js-runtimes', 'node',
       '--no-warnings', '--socket-timeout', '15', '--retries', '1', '--extractor-retries', '1', '--', source.videoUrl];
     try {
       const result = await execute(config.ytDlpPath, args, { signal, timeout: config.metadataTimeoutMs,

@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "worker:video-recipes": "node src/workers/videoRecipeSummaryWorker.js",
+    "test:video-recipes": "vitest run tests/youtubeVideoUrl.test.js tests/youtubeMetadata.test.js tests/videoRecipeSummaryContract.test.js tests/videoRecipeSummaryDatabase.test.js tests/videoRecipeSummaryApi.test.js tests/videoRecipeSummaryProcessor.test.js tests/videoRecipeSummaryAi.test.js tests/videoRecipeSummaryWorker.test.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:prepare": "node scripts/prepareTestDatabase.js",
@@ -44,6 +46,7 @@
     "jsonwebtoken": "^9.0.3",
     "lru-cache": "^11.5.3",
     "multer": "^2.4.0",
+    "pino": "10.4.0",
     "prisma": "^6.19.3",
     "zod": "^4.6.5"
   },
