@@ -14,8 +14,11 @@ export const createBlog = asyncHandler(async (req, res) => {
 });
 
 export const getAllBlogs = asyncHandler(async (req, res) => {
-  const blogs = await blogService.getAllBlogs();
-  return sendSuccess(res, { blogs });
+  const result = await blogService.getAllBlogs(req.query);
+  if (result && result.meta) {
+    return sendSuccess(res, { blogs: result.blogs, meta: result.meta });
+  }
+  return sendSuccess(res, { blogs: result });
 });
 
 export const getBlogById = asyncHandler(async (req, res) => {

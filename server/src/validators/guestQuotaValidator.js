@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/validators/guestQuotaValidator.js
+// d:\Projects\FPT\SWP391\server\src/validators/guestQuotaValidator.js
 import { z } from 'zod';
 import { ApiError } from '../utils/apiError.js';
 

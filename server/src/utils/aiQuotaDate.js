@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/aiQuotaDate.js
+// d:\Projects\FPT\SWP391\server\src/utils/aiQuotaDate.js
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_DAY = 24 * 60;
 export const MILLISECONDS_PER_DAY = MINUTES_PER_DAY * MILLISECONDS_PER_MINUTE;

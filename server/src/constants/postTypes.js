@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\constants\postTypes.js
 /**
  * Định nghĩa loại bài viết (post_type)
  */

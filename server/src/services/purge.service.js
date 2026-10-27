@@ -1,5 +1,10 @@
 // d:\Projects\FPT\SWP391\server\src\services\purge.service.js
 import prisma from '../config/prisma.js';
+import {
+  userRepository,
+  postRepository,
+  commentRepository,
+} from '../repositories/index.js';
 
 export const RETENTION_DAYS = 30;
 
@@ -27,18 +32,13 @@ export const getRetentionStats = async ({ retentionDays = RETENTION_DAYS } = {})
     expiredComments,
     pendingUsersList,
   ] = await Promise.all([
-    prisma.user.count({ where: { status: 'DELETED' } }),
-    prisma.user.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } }),
-    prisma.post.count({ where: { status: 'DELETED' } }),
-    prisma.post.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } }),
-    prisma.comment.count({ where: { status: 'DELETED' } }),
-    prisma.comment.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } }),
-    prisma.user.findMany({
-      where: { status: 'DELETED' },
-      select: { user_id: true, full_name: true, email: true, deleted_at: true },
-      take: 10,
-      orderBy: { deleted_at: 'asc' },
-    }),
+    userRepository.countDeleted(),
+    userRepository.countExpiredDeleted(threshold),
+    postRepository.countDeleted(),
+    postRepository.countExpiredDeleted(threshold),
+    commentRepository.countDeleted(),
+    commentRepository.countExpiredDeleted(threshold),
+    userRepository.findPendingPurgeUsers(10),
   ]);
 
   const items = pendingUsersList.map((u) => {
@@ -87,51 +87,32 @@ export const purgeExpiredDeletedItems = async ({ retentionDays = RETENTION_DAYS 
   const threshold = calculatePurgeThreshold(retentionDays);
 
   return prisma.$transaction(async (tx) => {
-    // 1. Tìm và xóa cứng bình luận hết hạn
-    const expiredComments = await tx.comment.findMany({
-      where: { status: 'DELETED', deleted_at: { lte: threshold } },
-      select: { comment_id: true },
-    });
+    // 1. Tìm và xóa cứng bình luận hết hạn qua repository
+    const expiredComments = await commentRepository.findExpiredDeletedCommentIds(threshold, tx);
     const commentIds = expiredComments.map((c) => c.comment_id);
     let purgedCommentsCount = 0;
     if (commentIds.length > 0) {
-      const res = await tx.comment.deleteMany({
-        where: { comment_id: { in: commentIds } },
-      });
+      const res = await commentRepository.deleteCommentsByIds(commentIds, tx);
       purgedCommentsCount = res.count;
     }
 
-    // 2. Tìm và xóa cứng bài viết hết hạn (Post + Blog + Video)
-    const expiredPosts = await tx.post.findMany({
-      where: { status: 'DELETED', deleted_at: { lte: threshold } },
-      select: { post_id: true },
-    });
+    // 2. Tìm và xóa cứng bài viết hết hạn (Post + Blog + Video) qua repository
+    const expiredPosts = await postRepository.findExpiredDeletedPostIds(threshold, tx);
     const postIds = expiredPosts.map((p) => p.post_id);
     let purgedPostsCount = 0;
     if (postIds.length > 0) {
       // Trước khi xóa post, gỡ liên kết post_id ở Recipe để không vi phạm ràng buộc
-      await tx.recipe.updateMany({
-        where: { post_id: { in: postIds } },
-        data: { post_id: null },
-      });
-
-      const res = await tx.post.deleteMany({
-        where: { post_id: { in: postIds } },
-      });
+      await postRepository.unlinkRecipesByPostIds(postIds, tx);
+      const res = await postRepository.deletePostsByIds(postIds, tx);
       purgedPostsCount = res.count;
     }
 
-    // 3. Tìm và xóa cứng người dùng hết hạn (User)
-    const expiredUsers = await tx.user.findMany({
-      where: { status: 'DELETED', deleted_at: { lte: threshold } },
-      select: { user_id: true },
-    });
+    // 3. Tìm và xóa cứng người dùng hết hạn (User) qua repository
+    const expiredUsers = await userRepository.findExpiredDeletedUserIds(threshold, tx);
     const userIds = expiredUsers.map((u) => u.user_id);
     let purgedUsersCount = 0;
     if (userIds.length > 0) {
-      const res = await tx.user.deleteMany({
-        where: { user_id: { in: userIds } },
-      });
+      const res = await userRepository.deleteUsersByIds(userIds, tx);
       purgedUsersCount = res.count;
     }
 

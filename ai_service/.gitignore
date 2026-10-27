@@ -1,9 +1,11 @@
+# ai_service/.gitignore
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+.ruff_cache/
 .env
 *.db
 *.sqlite3

@@ -215,6 +215,105 @@ export const workspaceService = {
   },
 
   /**
+   * Truy vấn danh sách công thức nấu ăn có phân trang và lọc
+   */
+  async getRecipes(query = {}) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const where = {
+      OR: [{ post_id: null }, { post: { status: 'PUBLISHED' } }],
+    };
+
+    if (query.categoryId || query.category_id) {
+      where.category_id = Number(query.categoryId || query.category_id);
+    }
+
+    if (query.dietTypeId || query.diet_type_id) {
+      where.diet_type_id = Number(query.dietTypeId || query.diet_type_id);
+    }
+
+    if (query.search) {
+      const searchStr = String(query.search).trim();
+      where.recipe_name = { contains: searchStr, mode: 'insensitive' };
+    }
+
+    const [total, recipes] = await Promise.all([
+      workspaceRepository.countRecipes(where),
+      workspaceRepository.findRecipes({
+        where,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    const compat = { 1: [1, 2, 3, 4], 2: [2, 4], 3: [3, 4], 4: [4], 5: [5] };
+    const mapped = recipes.map((r) => ({
+      ...r,
+      image: r.image_url,
+      ingredients: (r.recipe_ingredients || []).map((p) => `${p.quantity} ${p.unit} ${p.ingredient?.name || ''}`),
+      compatible_diet_type_ids: compat[r.diet_type_id] || (r.diet_type_id ? [r.diet_type_id] : []),
+      nutrition: (r.recipe_ingredients || []).reduce(
+        (sum, p) => {
+          for (const field of ['protein', 'carbs', 'fat']) {
+            sum[field] += (((p.ingredient && p.ingredient[field]) || 0) * p.quantity) / 100;
+          }
+          return sum;
+        },
+        { protein: 0, carbs: 0, fat: 0, fiber: 0 }
+      ),
+    }));
+
+    return {
+      recipes: mapped,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
+  /**
+   * Truy vấn danh sách nguyên liệu chay có phân trang và lọc
+   */
+  async getIngredients(query = {}) {
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const skip = (page - 1) * limit;
+
+    const where = {};
+    if (query.search) {
+      const searchStr = String(query.search).trim();
+      where.name = { contains: searchStr, mode: 'insensitive' };
+    }
+
+    const [total, ingredients] = await Promise.all([
+      workspaceRepository.countIngredients(where),
+      workspaceRepository.findIngredients({
+        where,
+        skip,
+        take: limit,
+      }),
+    ]);
+
+    return {
+      ingredients: ingredients.map((i) => ({
+        ...i,
+        id: String(i.ingredient_id),
+      })),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
+  /**
    * Cập nhật thông tin chiều cao, cân nặng, mục tiêu calo
    */
   async updateProfile(userId, { height, weight, calorieGoal, goal }) {
@@ -438,11 +537,7 @@ export const workspaceService = {
       throw ApiError.badRequest('Mã nguyên liệu không hợp lệ.');
     }
 
-    const [image] = await prisma.$queryRaw`
-      SELECT mime_type, image_data, source_url
-      FROM ingredient_images
-      WHERE ingredient_id = ${id}
-    `;
+    const [image] = await workspaceRepository.getIngredientImage(id);
 
     if (
       !image?.image_data ||

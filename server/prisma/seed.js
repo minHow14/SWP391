@@ -1,11 +1,11 @@
-// D:/SWP391/SWP391/server/prisma/seed.js
+// d:\Projects\FPT\SWP391\server\prisma\seed.js
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import prisma from '../src/config/prisma.js';
-import { repairIngredientDetails } from './repair-ingredients.js';
-import { importIngredientImages } from './import-ingredient-images.js';
+import { repairIngredientDetails } from '../scripts/repair-ingredients.js';
+import { importIngredientImages } from '../scripts/import-ingredient-images.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

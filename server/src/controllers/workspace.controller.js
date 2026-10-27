@@ -8,6 +8,16 @@ export const getCatalog = asyncHandler(async (req, res) => {
   return sendSuccess(res, { data: catalog });
 });
 
+export const getRecipes = asyncHandler(async (req, res) => {
+  const result = await workspaceService.getRecipes(req.query);
+  return sendSuccess(res, { recipes: result.recipes, meta: result.meta });
+});
+
+export const getIngredients = asyncHandler(async (req, res) => {
+  const result = await workspaceService.getIngredients(req.query);
+  return sendSuccess(res, { ingredients: result.ingredients, meta: result.meta });
+});
+
 export const getMine = asyncHandler(async (req, res) => {
   const posts = await workspaceService.getMyPosts(req.user.user_id);
   return sendSuccess(res, { data: posts });

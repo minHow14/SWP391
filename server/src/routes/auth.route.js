@@ -10,7 +10,12 @@ const router = express.Router();
 
 router.post('/register', authLimiter, validate(schemas.register), authController.register);
 router.post('/login', authLimiter, validate(schemas.login), authController.login);
+router.post('/refresh', authLimiter, authController.refreshToken);
+router.post('/logout', authController.logout);
 router.get('/me', authenticate, authController.getMe);
 router.patch('/me', authenticate, validate(schemas.updateMe), authController.updateMe);
+router.post('/change-password', authenticate, validate(schemas.changePassword), authController.changePassword);
+router.post('/me/weight', authenticate, validate(schemas.recordWeight), authController.recordWeight);
+router.get('/me/health-history', authenticate, authController.getHealthHistory);
 
 export default router;

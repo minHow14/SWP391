@@ -1,9 +1,10 @@
+// d:\Projects\FPT\SWP391\server\src\utils\jwt.js
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import config from '../config/index.js';
 
 /**
- * Sinh chuỗi JSON Web Token
+ * Sinh chuỗi JSON Web Token truy cập (Access Token)
  * @param {object} payload - Dữ liệu nhúng vào token (user_id, email, role)
  * @returns {string} token
  */
@@ -14,12 +15,34 @@ export const generateToken = (payload) => {
 };
 
 /**
+ * Sinh chuỗi Refresh Token dài hạn
+ * @param {object} payload
+ * @returns {string}
+ */
+export const generateRefreshToken = (payload) => {
+  const refreshSecret = process.env.REFRESH_TOKEN_SECRET || `${config.jwt.secret}_refresh`;
+  return jwt.sign(payload, refreshSecret, {
+    expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
+  });
+};
+
+/**
  * Xác thực và giải mã JSON Web Token
  * @param {string} token
  * @returns {object} decoded payload
  */
 export const verifyToken = (token) => {
   return jwt.verify(token, config.jwt.secret);
+};
+
+/**
+ * Xác thực Refresh Token
+ * @param {string} token
+ * @returns {object}
+ */
+export const verifyRefreshToken = (token) => {
+  const refreshSecret = process.env.REFRESH_TOKEN_SECRET || `${config.jwt.secret}_refresh`;
+  return jwt.verify(token, refreshSecret);
 };
 
 /**

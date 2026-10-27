@@ -6,3 +6,4 @@ export * from './validationMiddleware.js';
 export * from './requestId.js';
 export * from './rateLimiter.js';
 export * from './upload.js';
+export * from './aiIdentityMiddleware.js';

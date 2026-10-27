@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/guestQuotaController.js
+// d:\Projects\FPT\SWP391\server\src/controllers/guestQuotaController.js
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { guestQuotaAdminService } from '../services/guestQuotaAdminService.js';
 import { guestQuotaService } from '../services/guestQuotaService.js';

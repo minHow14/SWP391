@@ -2,12 +2,32 @@
 import prisma from '../config/prisma.js';
 
 export const placeRepository = {
-  async findNearbyCandidates(db = prisma) {
+  /**
+   * Truy vấn danh sách nhà hàng lân cận ứng dụng Bounding Box lọc trực tiếp trên PostgreSQL
+   */
+  async findNearbyCandidates({ lat, lng, radiusKm } = {}, db = prisma) {
+    const where = {
+      latitude: { not: null },
+      longitude: { not: null },
+    };
+
+    if (lat !== undefined && lng !== undefined && radiusKm !== undefined) {
+      const deltaLat = radiusKm / 111.0;
+      const cosLat = Math.cos((Number(lat) * Math.PI) / 180.0);
+      const deltaLng = radiusKm / (111.0 * (Math.abs(cosLat) > 0.001 ? Math.abs(cosLat) : 1));
+
+      where.latitude = {
+        gte: Number(lat) - deltaLat,
+        lte: Number(lat) + deltaLat,
+      };
+      where.longitude = {
+        gte: Number(lng) - deltaLng,
+        lte: Number(lng) + deltaLng,
+      };
+    }
+
     return db.restaurant.findMany({
-      where: {
-        latitude: { not: null },
-        longitude: { not: null },
-      },
+      where,
       include: {
         diet_type: true,
         restaurant_recipes: {

@@ -1,3 +1,4 @@
+// d:\Projects\FPT\SWP391\server\src\server.js
 import app from './app.js';
 import config from './config/index.js';
 import prisma from './config/prisma.js';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/constants/aiLogs.js
+// d:\Projects\FPT\SWP391\server\src/constants/aiLogs.js
 export const AI_LOG_STATUS = Object.freeze({
   SUCCESS: 'SUCCESS', ERROR: 'ERROR', RESOLVED_BY_ADMIN: 'RESOLVED_BY_ADMIN',
 });

@@ -12,6 +12,9 @@ export default function AdminAiModerationTab() {
   const [actionItem, setActionItem] = useState(null);
   const [notes, setNotes] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   const fetchFlagged = async () => {
     setLoading(true);
@@ -37,8 +40,25 @@ export default function AdminAiModerationTab() {
     return unsubscribe;
   }, []);
 
+  const handleOpenActionModal = (item) => {
+    setModalError('');
+    setActionError('');
+    setNotes('');
+    setActionItem(item);
+  };
+
+  const handleCloseModal = () => {
+    if (submitting) return;
+    setActionItem(null);
+    setNotes('');
+    setModalError('');
+  };
+
   const handleConfirmResolve = async () => {
     if (!actionItem) return;
+    setSubmitting(true);
+    setModalError('');
+    setActionError('');
     try {
       await adminService.resolveAiFlaggedItem({
         entityType: actionItem.type,
@@ -53,7 +73,11 @@ export default function AdminAiModerationTab() {
       setNotes('');
       fetchFlagged();
     } catch (err) {
-      setError(err.message);
+      const msg = err.message || 'Không thể thực hiện kiểm duyệt nội dung';
+      setModalError(msg);
+      setActionError(msg);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -72,6 +96,12 @@ export default function AdminAiModerationTab() {
       {actionMsg && (
         <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3">
           <i className="bi bi-check-circle-fill me-2" />{actionMsg}
+        </Alert>
+      )}
+
+      {actionError && (
+        <Alert variant="danger" dismissible onClose={() => setActionError('')} className="py-2 small rounded-3">
+          <i className="bi bi-exclamation-triangle me-2" />{actionError}
         </Alert>
       )}
 
@@ -131,7 +161,7 @@ export default function AdminAiModerationTab() {
                               variant="outline-success"
                               size="sm"
                               className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
-                              onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'APPROVE', title: p.blog?.title || p.video?.title })}
+                              onClick={() => handleOpenActionModal({ type: 'POST', id: p.post_id, action: 'APPROVE', title: p.blog?.title || p.video?.title })}
                             >
                               <i className="bi bi-check-circle" /> Phê duyệt khôi phục
                             </Button>
@@ -139,7 +169,7 @@ export default function AdminAiModerationTab() {
                               variant="outline-danger"
                               size="sm"
                               className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
-                              onClick={() => setActionItem({ type: 'POST', id: p.post_id, action: 'DELETE', title: p.blog?.title || p.video?.title })}
+                              onClick={() => handleOpenActionModal({ type: 'POST', id: p.post_id, action: 'REJECT', title: p.blog?.title || p.video?.title })}
                             >
                               <i className="bi bi-trash" /> Xóa vĩnh viễn
                             </Button>
@@ -196,7 +226,7 @@ export default function AdminAiModerationTab() {
                               variant="outline-success"
                               size="sm"
                               className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
-                              onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'APPROVE', title: c.content })}
+                              onClick={() => handleOpenActionModal({ type: 'COMMENT', id: c.comment_id, action: 'APPROVE', title: c.content })}
                             >
                               <i className="bi bi-check-circle" /> Bỏ gắn cờ
                             </Button>
@@ -204,7 +234,7 @@ export default function AdminAiModerationTab() {
                               variant="outline-danger"
                               size="sm"
                               className="rounded-3 px-2 py-1 text-nowrap d-inline-flex align-items-center gap-1"
-                              onClick={() => setActionItem({ type: 'COMMENT', id: c.comment_id, action: 'DELETE', title: c.content })}
+                              onClick={() => handleOpenActionModal({ type: 'COMMENT', id: c.comment_id, action: 'REJECT', title: c.content })}
                             >
                               <i className="bi bi-trash" /> Xóa bỏ
                             </Button>
@@ -225,8 +255,10 @@ export default function AdminAiModerationTab() {
         actionItem={actionItem}
         notes={notes}
         setNotes={setNotes}
-        onClose={() => setActionItem(null)}
+        onClose={handleCloseModal}
         onConfirm={handleConfirmResolve}
+        submitting={submitting}
+        error={modalError}
       />
     </div>
   );

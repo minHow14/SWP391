@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/validators/internalApiKeyValidator.js
+// d:\Projects\FPT\SWP391\server\src/validators/internalApiKeyValidator.js
 import { z } from 'zod';
 
 const MIN_KEY_LENGTH = 32;

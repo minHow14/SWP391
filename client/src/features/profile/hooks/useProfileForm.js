@@ -1,7 +1,8 @@
-﻿// client/src/features/profile/hooks/useProfileForm.js
+// client/src/features/profile/hooks/useProfileForm.js
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../../../services/api.js';
+import { authService } from '../../../services/authService.js';
 import { getSession, setSession } from '../../../utils/session.js';
+import { emitSyncEvent } from '../../../utils/syncEvents.js';
 import { profileValues } from '../utils/profileValues.js';
 
 export function useProfileForm({ userId }) {
@@ -16,11 +17,13 @@ export function useProfileForm({ userId }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    api('/auth/me', { signal: controller.signal })
+    authService
+      .getMe({ signal: controller.signal })
       .then((result) => {
-        if (!controller.signal.aborted && result.user.user_id === userId) {
-          setAccount(result.user);
-          setValues(profileValues(result.user));
+        const user = result?.user || result?.data?.user;
+        if (!controller.signal.aborted && user && user.user_id === userId) {
+          setAccount(user);
+          setValues(profileValues(user));
           setError('');
         }
       })
@@ -49,27 +52,26 @@ export function useProfileForm({ userId }) {
 
     const nullableNumber = (value) => (value === '' ? null : Number(value));
     try {
-      const result = await api('/auth/me', {
-        method: 'PATCH',
-        body: {
-          full_name: values.full_name.trim(),
-          health_profile: {
-            height: nullableNumber(values.height),
-            weight: nullableNumber(values.weight),
-            dob: values.dob || null,
-            gender: values.gender.trim() || null,
-            diet_type_id: nullableNumber(values.diet_type_id),
-            health_goal: values.health_goal.trim() || null,
-          },
-          allergy_ids: values.allergy_ids,
+      const result = await authService.updateMe({
+        full_name: values.full_name.trim(),
+        health_profile: {
+          height: nullableNumber(values.height),
+          weight: nullableNumber(values.weight),
+          dob: values.dob || null,
+          gender: values.gender.trim() || null,
+          diet_type_id: nullableNumber(values.diet_type_id),
+          health_goal: values.health_goal.trim() || null,
         },
+        allergy_ids: values.allergy_ids,
       });
 
+      const user = result?.user || result?.data?.user;
       if (getSession()?.token !== session.token) return;
-      setAccount(result.user);
-      setValues(profileValues(result.user));
-      setSession({ ...session, user: result.user });
+      setAccount(user);
+      setValues(profileValues(user));
+      setSession({ ...session, user });
       setNotice('Đã lưu hồ sơ cá nhân.');
+      emitSyncEvent('USER_CHANGED', { userId });
     } catch (err) {
       setError(err.message);
     } finally {

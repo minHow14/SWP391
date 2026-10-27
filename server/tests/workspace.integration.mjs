@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/workspace.integration.mjs
+// d:\Projects\FPT\SWP391\server\tests/workspace.integration.mjs
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';

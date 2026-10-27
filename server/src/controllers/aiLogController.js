@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/aiLogController.js
+// d:\Projects\FPT\SWP391\server\src/controllers/aiLogController.js
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { aiLogService } from '../services/aiLogService.js';
 
