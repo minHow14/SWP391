@@ -38,3 +38,23 @@ export const REPORT_STATUS = Object.freeze({
   RESOLVED: 'RESOLVED',
   DISMISSED: 'DISMISSED',
 });
+
+/**
+ * Định nghĩa trạng thái phiên quét nguyên liệu qua ảnh
+ */
+export const SCAN_STATUS = Object.freeze({
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+});
+
+/**
+ * Định nghĩa đánh giá độ tươi của nguyên liệu
+ */
+export const FRESHNESS_STATUS = Object.freeze({
+  FRESH: 'FRESH',
+  GOOD: 'GOOD',
+  EXPIRING_SOON: 'EXPIRING_SOON',
+  SPOILED: 'SPOILED',
+});

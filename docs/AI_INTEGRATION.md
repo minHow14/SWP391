@@ -93,3 +93,55 @@ npm run test:ai-internal-auth
 ```
 
 Script khởi chạy app FastAPI thật trên port loopback tạm, dùng khóa khác BE để kiểm tra chat/thực đơn, hoàn quota, lịch sử `FAILED` và xóa cache; sau đó khởi động lại AI với khóa khớp để xác nhận phục hồi. Chỉ ghi DB `_test`, không đọc/ghi DB phát triển, không gọi DeepSeek và tự dừng tiến trình con. Mặc định dùng `ai_service/venv`; nếu Python ở nơi khác, đặt biến `AI_TEST_PYTHON` trỏ tới executable phù hợp.
+
+---
+
+## Nhận diện nguyên liệu qua ảnh (Computer Vision)
+
+Tính năng mới cho phép người dùng (bao gồm khách) chụp ảnh nguyên liệu hoặc nội dung tủ lạnh; AI phân tích, đánh giá độ tươi và gợi ý công thức phù hợp.
+
+### Luồng dữ liệu
+
+```
+Client → POST /api/v1/ingredient-recognition/recognize (multipart/form-data)
+       → BE: xác thực quota khách (nếu là khách), lưu IngredientScan PROCESSING
+       → BE → POST /api/vision/recognize-ingredients (AI Service, multipart + X-Internal-Api-Key)
+       → AI: VisionAgent phân tích ảnh bằng multimodal LLM, trả về items + freshnessStatus
+       → BE: fuzzy-match nguyên liệu với catalog, tính recipe tier, lưu DB COMPLETED
+       → Client: nhận scanId, recognizedItems, matchingRecipes, remainingQuota
+```
+
+### Endpoint mới (BE `server/`)
+
+| Method   | Path                                              | Xác thực                    | Mô tả                                        |
+|----------|---------------------------------------------------|-----------------------------|----------------------------------------------|
+| `POST`   | `/api/v1/ingredient-recognition/recognize`        | Optional (guest/member)     | Upload ảnh, nhận diện và gợi ý công thức     |
+| `GET`    | `/api/v1/ingredient-recognition/history`          | JWT bắt buộc                | Lịch sử phiên quét có phân trang             |
+| `GET`    | `/api/v1/ingredient-recognition/history/:id`      | Optional (guest/member)     | Chi tiết phiên quét + công thức tái tính     |
+| `DELETE` | `/api/v1/ingredient-recognition/history/:id`      | JWT bắt buộc                | Xóa mềm phiên quét (chỉ chủ sở hữu)         |
+
+### Endpoint mới (AI Service `ai_service/`)
+
+| Method | Path                                   | Xác thực             | Mô tả                                |
+|--------|----------------------------------------|----------------------|--------------------------------------|
+| `POST` | `/api/vision/recognize-ingredients`    | `X-Internal-Api-Key` | Phân tích ảnh, trả về JSON nguyên liệu + độ tươi |
+
+**Chấp nhận:** `image/jpeg`, `image/png`, `image/webp`; tối đa **10 MB**.
+
+### Recipe Tier Logic
+
+| Tier              | Điều kiện               | Điểm ưu tiên thêm                    |
+|-------------------|-------------------------|--------------------------------------|
+| `READY_TO_COOK`   | matchPercentage ≥ 100%  | +30 nếu có nguyên liệu EXPIRING_SOON |
+| `MISSING_FEW`     | 60% ≤ matchPercentage < 100% | +30 nếu có EXPIRING_SOON       |
+| `INSPIRATION`     | 30% ≤ matchPercentage < 60% | +30 nếu có EXPIRING_SOON        |
+| *(bỏ qua)*        | matchPercentage < 30%   | —                                    |
+
+### Chạy test tính năng này
+
+```powershell
+cd server
+npx vitest run tests/ingredientRecognition.test.js
+```
+
+Test sử dụng DB `_test` thật, mock `fetch` để giả lập AI Microservice, không gọi DeepSeek thật.

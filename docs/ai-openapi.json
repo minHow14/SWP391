@@ -11,6 +11,130 @@
     }
   ],
   "paths": {
+    "/api/v1/ingredient-recognition/recognize": {
+      "post": {
+        "tags": ["Ingredient Recognition"],
+        "summary": "Nhận diện nguyên liệu qua ảnh (Computer Vision)",
+        "description": "Upload ảnh nguyên liệu hoặc tủ lạnh. AI phân tích, đánh giá độ tươi và gợi ý công thức phù hợp. Cho phép cả khách (X-Guest-Id) và thành viên đã đăng nhập.",
+        "security": [{ "bearerAuth": [] }, {}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "File ảnh nguyên liệu (JPEG, PNG, WebP; tối đa 10MB)"
+                  },
+                  "dietTypeId": { "type": "integer", "description": "ID loại chế độ ăn để lọc công thức" },
+                  "maxPrepTime": { "type": "integer", "description": "Thời gian nấu tối đa (phút)" },
+                  "minConfidence": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                    "default": 0.5,
+                    "description": "Ngưỡng confidence tối thiểu để chấp nhận nguyên liệu"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Guest-Id",
+            "schema": { "type": "string" },
+            "description": "ID khách (dùng khi không có JWT); bắt buộc nếu không có Authorization header"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nhận diện thành công",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IngredientScanSuccessResponse" }
+              }
+            }
+          },
+          "400": { "description": "Thiếu file ảnh hoặc định dạng không hợp lệ" },
+          "413": { "description": "File ảnh vượt quá 10MB" },
+          "429": { "description": "Khách đã hết quota ngày hôm nay (AI_QUOTA_EXCEEDED)" },
+          "500": { "description": "AI Vision Microservice không khả dụng" }
+        }
+      }
+    },
+    "/api/v1/ingredient-recognition/history": {
+      "get": {
+        "tags": ["Ingredient Recognition"],
+        "summary": "Lấy danh sách lịch sử quét ảnh (yêu cầu đăng nhập)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "in": "query", "name": "page", "schema": { "type": "integer", "minimum": 1, "default": 1 } },
+          { "in": "query", "name": "limit", "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách phiên quét có phân trang",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IngredientScanListResponse" }
+              }
+            }
+          },
+          "401": { "description": "Chưa đăng nhập" }
+        }
+      }
+    },
+    "/api/v1/ingredient-recognition/history/{id}": {
+      "get": {
+        "tags": ["Ingredient Recognition"],
+        "summary": "Xem chi tiết phiên quét theo ID",
+        "security": [{ "bearerAuth": [] }, {}],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" },
+            "description": "UUID của phiên quét"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết phiên quét kèm gợi ý công thức tái tính",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/IngredientScanDetailResponse" }
+              }
+            }
+          },
+          "404": { "description": "Không tìm thấy phiên quét hoặc không có quyền xem" }
+        }
+      },
+      "delete": {
+        "tags": ["Ingredient Recognition"],
+        "summary": "Xóa mềm phiên quét (yêu cầu đăng nhập, chỉ chủ sở hữu)",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Xóa thành công" },
+          "401": { "description": "Chưa đăng nhập" },
+          "404": { "description": "Không tìm thấy hoặc không có quyền xóa" }
+        }
+      }
+    },
     "/api/ai/usage": {
       "get": {
         "security": [
@@ -220,6 +344,135 @@
           }
         ]
       }
+    },
+    "/api/v1/ingredient-recognition/recognize": {
+      "post": {
+        "summary": "Nhận diện nguyên liệu & tủ lạnh qua ảnh, đánh giá độ tươi và gợi ý món",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "dietTypeId": {
+                    "type": "integer"
+                  },
+                  "maxPrepTime": {
+                    "type": "integer"
+                  },
+                  "minConfidence": {
+                    "type": "number",
+                    "default": 0.5
+                  }
+                },
+                "required": [
+                  "image"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả nhận diện nguyên liệu, đánh giá độ tươi và danh sách món ăn phù hợp"
+          }
+        }
+      }
+    },
+    "/api/v1/ingredient-recognition/history": {
+      "get": {
+        "summary": "Lấy danh sách lịch sử quét phân trang của thành viên",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách lịch sử phân trang"
+          }
+        }
+      }
+    },
+    "/api/v1/ingredient-recognition/history/{id}": {
+      "get": {
+        "summary": "Xem chi tiết kết quả một phiên quét đã lưu",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết nguyên liệu và món ăn gợi ý của phiên quét"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Xóa mềm một bản ghi lịch sử quét",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Xóa thành công"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -376,6 +629,142 @@
           "weightKg"
         ],
         "additionalProperties": false
+      },
+      "RecognizedItemResponse": {
+        "type": "object",
+        "properties": {
+          "detectedName": { "type": "string", "description": "Tên nguyên liệu AI nhận diện được" },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "matchedCatalogName": { "type": "string", "nullable": true, "description": "Tên trong catalog nếu khớp được" },
+          "freshnessStatus": {
+            "type": "string",
+            "enum": ["FRESH", "GOOD", "EXPIRING_SOON", "SPOILED"],
+            "description": "Trạng thái độ tươi"
+          },
+          "freshnessScore": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "estimatedShelfLifeDays": { "type": "integer", "nullable": true },
+          "spoilageSigns": { "type": "array", "items": { "type": "string" } },
+          "storageAdvice": { "type": "string", "nullable": true },
+          "quantityEstimate": { "type": "string", "nullable": true },
+          "boundingBox": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "ymin": { "type": "number" }, "xmin": { "type": "number" },
+              "ymax": { "type": "number" }, "xmax": { "type": "number" }
+            }
+          }
+        }
+      },
+      "MatchingRecipeResponse": {
+        "type": "object",
+        "properties": {
+          "recipeId": { "type": "integer" },
+          "recipeName": { "type": "string" },
+          "imageUrl": { "type": "string", "nullable": true },
+          "prepTime": { "type": "integer", "nullable": true, "description": "Phút" },
+          "totalCalories": { "type": "number", "nullable": true },
+          "matchPercentage": { "type": "integer", "minimum": 0, "maximum": 100 },
+          "priorityScore": { "type": "integer", "description": "matchPercentage + 30 nếu có nguyên liệu sắp hỏng" },
+          "tier": {
+            "type": "string",
+            "enum": ["READY_TO_COOK", "MISSING_FEW", "INSPIRATION"]
+          },
+          "hasExpiringIngredients": { "type": "boolean" },
+          "matchedIngredients": { "type": "array", "items": { "type": "string" } },
+          "missingIngredients": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": { "type": "string" },
+                "quantity": { "type": "string", "nullable": true },
+                "unit": { "type": "string", "nullable": true }
+              }
+            }
+          }
+        }
+      },
+      "IngredientScanSuccessResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": true },
+          "message": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "scanId": { "type": "string", "format": "uuid" },
+              "imageUrl": { "type": "string" },
+              "summary": { "type": "string" },
+              "recognizedItems": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecognizedItemResponse" }
+              },
+              "matchingRecipes": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/MatchingRecipeResponse" }
+              },
+              "remainingQuota": {
+                "type": "integer",
+                "nullable": true,
+                "description": "Số lượt còn lại trong ngày (null nếu là thành viên đã đăng nhập)"
+              }
+            }
+          }
+        }
+      },
+      "IngredientScanDetailResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "imageUrl": { "type": "string" },
+              "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] },
+              "summary": { "type": "string", "nullable": true },
+              "createdAt": { "type": "string", "format": "date-time" },
+              "items": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/RecognizedItemResponse" }
+              },
+              "matchingRecipes": {
+                "type": "array",
+                "items": { "$ref": "#/components/schemas/MatchingRecipeResponse" }
+              }
+            }
+          }
+        }
+      },
+      "IngredientScanListResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string", "format": "uuid" },
+                "imageUrl": { "type": "string" },
+                "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "COMPLETED", "FAILED"] },
+                "summary": { "type": "string", "nullable": true },
+                "createdAt": { "type": "string", "format": "date-time" },
+                "itemCount": { "type": "integer" }
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "page": { "type": "integer" },
+              "limit": { "type": "integer" },
+              "total": { "type": "integer" },
+              "totalPages": { "type": "integer" }
+            }
+          }
+        }
       }
     }
   }

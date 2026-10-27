@@ -315,3 +315,42 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
 - **Dự án học tập:** SWP391 - Kỹ thuật phần mềm (FPT University).
 - **Nhóm phát triển:** Đội ngũ Kỹ sư Chay Xanh SWP391.
 - **Bản quyền:** Mã nguồn phục vụ mục đích nghiên cứu và phát triển học thuật.
+
+---
+
+## Tính năng mới: Nhận diện nguyên liệu qua ảnh (Computer Vision AI)
+
+> Được thêm vào phiên bản hiện tại — áp dụng cho cả khách và thành viên đã đăng nhập.
+
+### Mô tả
+Người dùng chụp ảnh nguyên liệu hoặc nội dung tủ lạnh; AI tự động:
+- Nhận diện từng nguyên liệu có trong ảnh kèm độ tin cậy (confidence)
+- Đánh giá độ tươi: FRESH / GOOD / EXPIRING_SOON / SPOILED
+- Ước tính thời hạn bảo quản còn lại (số ngày)
+- Đề xuất dấu hiệu hư hỏng và cách bảo quản
+- Gợi ý công thức chay phù hợp theo 3 cấp độ:
+  - READY_TO_COOK — có đủ nguyên liệu (≥ 100%)
+  - MISSING_FEW — thiếu ít nguyên liệu (≥ 60%)
+  - INSPIRATION — cần bổ sung thêm (≥ 30%)
+- Ưu tiên các recipe dùng nguyên liệu sắp hỏng (+30 điểm ưu tiên)
+
+### API Endpoints
+
+| Method   | Endpoint                                          | Xác thực            |
+|----------|---------------------------------------------------|---------------------|
+| POST     | /api/v1/ingredient-recognition/recognize          | Optional (guest/JWT) |
+| GET      | /api/v1/ingredient-recognition/history            | JWT bắt buộc        |
+| GET      | /api/v1/ingredient-recognition/history/:id        | Optional (guest/JWT) |
+| DELETE   | /api/v1/ingredient-recognition/history/:id        | JWT bắt buộc        |
+
+### Chạy test
+
+`powershell
+cd server
+npx vitest run tests/ingredientRecognition.test.js
+`
+
+### Route Frontend
+
+Đường dẫn: /nhan-dien-nguyen-lieu
+

@@ -30,6 +30,7 @@ model User {
   restaurant_reviews RestaurantReview[]
   preferences ProfilePreference?
   aiGenerations AiGeneration[]
+  ingredientScans IngredientScan[]
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
@@ -45,6 +46,60 @@ enum AiGenerationStatus {
 enum AiGenerationType {
   CHAT
   MEAL_PLAN
+  INGREDIENT_RECOGNITION
+}
+
+enum ScanStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum FreshnessStatus {
+  FRESH
+  GOOD
+  EXPIRING_SOON
+  SPOILED
+}
+
+model IngredientScan {
+  id           String                     @id @default(uuid()) @db.Uuid
+  userId       Int?                       @map("user_id")
+  imageUrl     String                     @map("image_url") @db.VarChar(500)
+  status       ScanStatus                 @default(PENDING)
+  summary      String?                    @db.Text
+  errorCode    String?                    @map("error_code") @db.VarChar(100)
+  errorMessage String?                    @map("error_message") @db.Text
+  createdAt    DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?                  @map("deleted_at") @db.Timestamptz(6)
+  user         User?                      @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+  items        RecognizedIngredientItem[]
+  @@index([userId, createdAt], map: "idx_ingredient_scans_user_created")
+  @@index([status], map: "idx_ingredient_scans_status")
+  @@map("ingredient_scans")
+}
+
+model RecognizedIngredientItem {
+  id                     String          @id @default(uuid()) @db.Uuid
+  scanId                 String          @map("scan_id") @db.Uuid
+  ingredientId           Int?            @map("ingredient_id")
+  detectedName           String          @map("detected_name") @db.VarChar(150)
+  confidence             Decimal         @db.Decimal(5, 4)
+  quantityEstimate       String?         @map("quantity_estimate") @db.VarChar(100)
+  freshnessStatus        FreshnessStatus @map("freshness_status")
+  freshnessScore         Int             @map("freshness_score") @db.SmallInt
+  estimatedShelfLifeDays Int?            @map("estimated_shelf_life_days") @db.SmallInt
+  spoilageSigns          Json?           @map("spoilage_signs")
+  storageAdvice          String?         @map("storage_advice") @db.VarChar(500)
+  boundingBox            Json?           @map("bounding_box")
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  scan                   IngredientScan  @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  ingredient             Ingredient?     @relation(fields: [ingredientId], references: [ingredient_id], onDelete: SetNull, onUpdate: Cascade)
+  @@index([scanId], map: "idx_recognized_items_scan_id")
+  @@index([ingredientId], map: "idx_recognized_items_ingredient_id")
+  @@map("recognized_ingredient_items")
 }
 
 model AiGeneration {
@@ -235,6 +290,7 @@ model Ingredient {
   carbs              Float?             @default(0) @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
+  recognizedItems RecognizedIngredientItem[]
 
   @@map("ingredients")
 }

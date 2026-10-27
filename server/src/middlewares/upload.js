@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 const UPLOAD_ROOT = path.resolve(__dirname, '../../uploads');
 
 // Đảm bảo các thư mục upload tồn tại sẵn
-const subDirs = ['avatars', 'posts', 'temp'];
+const subDirs = ['avatars', 'posts', 'temp', 'recognition'];
 for (const dir of subDirs) {
   const dirPath = path.join(UPLOAD_ROOT, dir);
   if (!fs.existsSync(dirPath)) {
@@ -45,10 +45,11 @@ const ALLOWED_MEDIA_EXTENSIONS = new Set([
   '.ogg',
 ]);
 const MAX_MEDIA_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_RECOGNITION_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
 
 /**
  * Cấu hình nơi lưu và sinh tên file UUID
- * @param {string} subFolder - Tên thư mục con (avatars, posts, temp)
+ * @param {string} subFolder - Tên thư mục con (avatars, posts, temp, recognition)
  */
 const createStorage = (subFolder = 'temp') => {
   return multer.diskStorage({
@@ -124,3 +125,9 @@ export const uploadPostMedia = multer({
   fileFilter: mediaFileFilter,
   limits: { fileSize: MAX_MEDIA_FILE_SIZE, files: 6 },
 }).array('files', 6);
+
+export const uploadRecognitionImage = multer({
+  storage: createStorage('recognition'),
+  fileFilter,
+  limits: { fileSize: MAX_RECOGNITION_IMAGE_SIZE, files: 1 },
+}).single('image');

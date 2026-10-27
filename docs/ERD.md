@@ -358,4 +358,41 @@ erDiagram
     RestaurantRecipe ||--o| RestaurantMenuPrice : "priced_at"
 
     Comment ||--o{ Report : "reported_in"
+
+    User ||--o{ IngredientScan : "performs"
+    Ingredient ||--o{ RecognizedIngredientItem : "matched_in"
+    IngredientScan ||--o{ RecognizedIngredientItem : "contains"
+```
+
+## Nh?n di?n nguyên li?u qua ?nh (Computer Vision)
+
+`IngredientScan` luu m?i l?n ngu?i dùng/khách upload ?nh nguyên li?u ho?c t? l?nh. `RecognizedIngredientItem` luu t?ng nguyên li?u AI phát hi?n du?c, kèm thông tin d? tuoi và bounding box.
+
+```mermaid
+erDiagram
+    User ||--o{ IngredientScan : "performs"
+    IngredientScan ||--o{ RecognizedIngredientItem : "contains"
+    Ingredient ||--o{ RecognizedIngredientItem : "matched_in"
+
+    IngredientScan {
+        uuid id PK
+        int userId FK "NULL neu la khach"
+        string imageUrl
+        enum status "PENDING | PROCESSING | COMPLETED | FAILED"
+        string summary
+        datetime deletedAt
+        datetime createdAt
+    }
+
+    RecognizedIngredientItem {
+        int id PK
+        uuid scanId FK
+        int ingredientId FK
+        string detectedName
+        float confidence
+        enum freshnessStatus "FRESH | GOOD | EXPIRING_SOON | SPOILED"
+        int freshnessScore
+        json boundingBox
+        datetime createdAt
+    }
 ```

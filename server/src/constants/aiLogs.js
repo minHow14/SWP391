@@ -4,7 +4,7 @@ export const AI_LOG_STATUS = Object.freeze({
 });
 
 export const AI_LOG_FEATURE = Object.freeze({
-  CHATBOT: 'chatbot', MEAL_PLANNER: 'mealPlanner', OTHER: 'other',
+  CHATBOT: 'chatbot', MEAL_PLANNER: 'mealPlanner', INGREDIENT_RECOGNITION: 'ingredientRecognition', OTHER: 'other',
 });
 
 export const AI_LOG_LIMITS = Object.freeze({

@@ -15,6 +15,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
+from api.vision import router as vision_router
 from core.config import settings
 from core.ratelimit import limiter
 from core.security import verify_internal_api_key
@@ -32,7 +33,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Chay Xanh - AI Microservice",
-    description="FastAPI AI Microservice cung cấp Chatbot tư vấn dinh dưỡng chay và Lập thực đơn cá nhân hóa.",
+    description="FastAPI AI Microservice cung cấp Chatbot tư vấn dinh dưỡng chay, Lập thực đơn cá nhân hóa và Thị giác máy tính nhận diện nguyên liệu.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -145,6 +146,7 @@ async def health_check():
 app.include_router(chat_router, prefix="/api")
 app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_actions_router, prefix="/api")
+app.include_router(vision_router, prefix="/api")
 
 
 if __name__ == "__main__":
