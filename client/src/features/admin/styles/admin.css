@@ -338,3 +338,393 @@
 .border-dashed {
   border-style: dashed !important;
 }
+
+/* ==========================================================================
+   THIẾT KẾ MỚI: ADMIN DASHBOARD CHAYXANH (REDESIGNED)
+   Tuân thủ nguyên tắc thiết kế đặc trưng, có chủ kiến và hướng đến hệ sinh thái thuần chay
+   ========================================================================== */
+
+/* 1. Nhịp thở trực tiếp (Live Pulse) */
+.cx-live-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #16a34a;
+  box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.5);
+  animation: liveRadarPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+  vertical-align: middle;
+}
+
+@keyframes liveRadarPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 7px rgba(22, 163, 74, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(22, 163, 74, 0);
+  }
+}
+
+/* 2. Micro-eyebrow & Section Signposts */
+.cx-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: block;
+}
+
+/* 3. Signature Element: Sàn Xử Lý Khẩn Cấp (Triage Deck) */
+.cx-triage-deck {
+  border-radius: 14px;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cx-triage-deck-calm {
+  background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+  border: 1px solid #bbf7d0;
+  box-shadow: 0 2px 10px rgba(22, 163, 74, 0.04);
+}
+
+.cx-triage-deck-urgent {
+  background: linear-gradient(135deg, #fff7ed 0%, #fff1f2 100%);
+  border: 1px solid #fecdd3;
+  box-shadow: 0 4px 16px rgba(225, 29, 72, 0.08);
+}
+
+.cx-triage-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+}
+
+.cx-triage-icon-wrap.is-calm {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.cx-triage-icon-wrap.is-urgent {
+  background-color: #fee2e2;
+  color: #dc2626;
+  animation: urgentNoticePulse 2.5s infinite ease-in-out;
+}
+
+@keyframes urgentNoticePulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+.cx-triage-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cx-triage-desc {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.45;
+}
+
+/* 4. Thẻ Trụ Cột Chỉ Số Sống (Vitality Metric Cards) */
+.cx-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8df;
+  border-radius: 14px;
+  padding: 1.15rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+}
+
+.cx-metric-card.is-clickable {
+  cursor: pointer;
+}
+
+.cx-metric-card.is-clickable:hover {
+  transform: translateY(-2px);
+  border-color: #86efac;
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.08);
+}
+
+.cx-metric-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.cx-metric-number {
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.cx-metric-badge {
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+}
+
+.cx-metric-subtext {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.cx-metric-progress {
+  height: 5px;
+  border-radius: 4px;
+  background-color: #f1f5f9;
+}
+
+.cx-metric-footer {
+  color: #15803d;
+  font-size: 0.8rem;
+  transition: transform 0.15s ease;
+}
+
+.cx-metric-card:hover .cx-metric-footer {
+  color: #166534;
+}
+
+.cx-metric-card:hover .cx-metric-footer i {
+  transform: translateX(3px);
+  transition: transform 0.15s ease;
+}
+
+.cx-metric-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  flex-shrink: 0;
+}
+
+.cx-metric-icon-green {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.cx-metric-icon-blue {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.cx-metric-icon-amber {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.cx-metric-icon-rose {
+  background: #ffe4e6;
+  color: #e11d48;
+}
+
+/* 5. Launchpad Phím Tắt Điều Hành (Quick Action Toolbar) */
+.cx-action-launchpad {
+  background: #f8faf7;
+  border: 1px solid #e2e8df;
+  border-radius: 12px;
+}
+
+.cx-action-chip {
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  font-weight: 500;
+  transition: all 0.15s ease-in-out;
+}
+
+.cx-action-chip:hover {
+  background-color: #effbf3;
+  border-color: #86efac;
+  color: #15803d;
+  transform: translateY(-1px);
+}
+
+.cx-action-chip-icon {
+  color: #16a34a;
+  font-size: 0.95rem;
+}
+
+.cx-action-chip-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.cx-action-chip-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+}
+
+/* 6. Dòng Hoạt Động & Telemetry Stream (Feed Cards & Tables) */
+.cx-feed-card {
+  background: #ffffff;
+  border: 1px solid #e2e8df;
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.02);
+}
+
+.cx-feed-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #f1f5f9;
+  background-color: #ffffff;
+}
+
+.cx-feed-badge-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+}
+
+.cx-feed-badge-icon.is-danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.cx-feed-badge-icon.is-tech {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.cx-stream-table thead th {
+  background-color: #f8faf7;
+  color: #475569;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e2e8df;
+  font-weight: 700;
+}
+
+.cx-stream-table tbody td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: middle;
+}
+
+.cx-stream-table tbody tr:hover {
+  background-color: #f7fbf8;
+}
+
+.cx-feed-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+  color: #15803d;
+  font-weight: 700;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cx-model-badge {
+  font-size: 0.72rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background-color: #f8fafc !important;
+  color: #334155 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.cx-status-pill {
+  display: inline-block;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cx-status-pill.is-pending {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.cx-status-pill.is-resolved {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.cx-status-pill.is-success {
+  background-color: #dcfce7;
+  color: #15803d;
+}
+
+.cx-status-pill.is-error {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* 7. Băng Trạng Thái Kỹ Thuật (Health Banner) */
+.cx-health-banner {
+  background: #f8faf7;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+}
+
+.cx-health-node {
+  background: #ffffff;
+  border: 1px solid #e2e8df;
+  border-radius: 8px;
+}
+
+.cx-health-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.cx-health-val {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.cx-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.cx-pulse-dot.is-online {
+  background-color: #16a34a;
+  box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
+  animation: pulseDot 2s infinite ease-in-out;
+}
+
+.cx-pulse-dot.is-active {
+  background-color: #0284c7;
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+}
+

@@ -1,12 +1,12 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/restaurantDirections.test.js
+// client/test/restaurantDirections.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasCoordinates, restaurantDirections } from '../src/utils/restaurantDirections.js';
 
-test('directions use the address when a restaurant has no coordinates',()=>{
-  const place={name:'Quán A',address:'123 Đường B',latitude:null,longitude:null};
-  assert.equal(new URL(restaurantDirections(place)).searchParams.get('destination'),'Quán A, 123 Đường B');
-  assert.equal(new URL(restaurantDirections({...place,latitude:10,longitude:106})).searchParams.get('destination'),'10,106');
+test('directions use the address when a restaurant has no coordinates', () => {
+  const place = { name: 'Quán A', address: '123 Đường B', latitude: null, longitude: null };
+  assert.equal(new URL(restaurantDirections(place)).searchParams.get('destination'), 'Quán A, 123 Đường B');
+  assert.equal(new URL(restaurantDirections({ ...place, latitude: 10, longitude: 106 })).searchParams.get('destination'), '10,106');
 });
 
 test('map and directions reject missing and out-of-range coordinates, but accept zero', () => {
@@ -15,4 +15,12 @@ test('map and directions reject missing and out-of-range coordinates, but accept
     assert.equal(hasCoordinates(coordinates), false);
   }
   assert.equal(new URL(restaurantDirections({ name: 'Quán A', address: 'Đường B', latitude: 91, longitude: 106 })).searchParams.get('destination'), 'Quán A, Đường B');
+});
+
+test('directions includes origin when user coordinates are provided', () => {
+  const place = { name: 'Quán Chay A', latitude: 10.7765, longitude: 106.6918 };
+  const userOrigin = { lat: 10.7500, lng: 106.6800 };
+  const url = new URL(restaurantDirections(place, userOrigin));
+  assert.equal(url.searchParams.get('destination'), '10.7765,106.6918');
+  assert.equal(url.searchParams.get('origin'), '10.75,106.68');
 });

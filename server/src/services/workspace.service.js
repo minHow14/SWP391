@@ -493,15 +493,21 @@ export const workspaceService = {
         data: {
           name: data.name,
           address: data.address,
+          image_url: data.image_url || null,
           diet_type_id: data.diet_type_id,
           latitude: data.latitude,
           longitude: data.longitude,
+          source: 'proposal',
+          status: 'APPROVED',
           rating: null,
         },
       });
 
       await workspaceRepository.insertRestaurantDetails(place.restaurant_id, data.city, tx);
-      return place;
+      return {
+        ...place,
+        image: place.image_url,
+      };
     });
   },
 

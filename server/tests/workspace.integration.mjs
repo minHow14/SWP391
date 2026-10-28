@@ -70,8 +70,25 @@ try{
   assert.equal((await auth(request(app).post('/api/workspace/plan/record')).send({date:'2026-10-12'})).status,200);
   assert.equal((await auth(request(app).post('/api/workspace/plan/record')).send({date:'2026-10-12'})).status,409);
   const place=catalog.body.data.restaurants[0];
-  const priorRating=await db.restaurant.findUnique({where:{restaurant_id:place.id},select:{rating:true}});
-  try{assert.equal((await auth(request(app).post(`/api/workspace/restaurants/${place.id}/reviews`)).send({stars:4,text:`Integration review ${suffix}`})).status,200);const again=await request(app).get('/api/workspace/catalog');assert.ok(again.body.data.restaurants.find(p=>p.id===place.id).reviews.some(r=>r.text===`Integration review ${suffix}`));}finally{await db.$executeRaw`DELETE FROM restaurant_reviews WHERE content=${`Integration review ${suffix}`}`;await db.restaurant.update({where:{restaurant_id:place.id},data:priorRating});}
+  if(place){
+    const priorRating=await db.restaurant.findUnique({where:{restaurant_id:place.id},select:{rating:true}});
+    try{assert.equal((await auth(request(app).post(`/api/workspace/restaurants/${place.id}/reviews`)).send({stars:4,text:`Integration review ${suffix}`})).status,200);const again=await request(app).get('/api/workspace/catalog');assert.ok(again.body.data.restaurants.find(p=>p.id===place.id).reviews.some(r=>r.text===`Integration review ${suffix}`));}finally{await db.$executeRaw`DELETE FROM restaurant_reviews WHERE content=${`Integration review ${suffix}`}`;await db.restaurant.update({where:{restaurant_id:place.id},data:priorRating});}
+  }
   assert.equal((await auth(request(app).post('/api/workspace/diary')).send({date:'2026-02-31',group:'SNACK',name:'Invalid',serving:'1',calories:-1,protein:0,carbs:0,fat:0,fiber:0})).status,400);
+  const proposedRes = await auth(request(app).post('/api/workspace/restaurants')).send({
+    name: `Quán Chay Đề Xuất ${suffix}`,
+    address: '100 Nguyễn Huệ, Q.1, TP.HCM',
+    city: 'Hồ Chí Minh',
+    diet_type_id: dietId,
+    latitude: 10.7745,
+    longitude: 106.7020,
+    image_url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999',
+  });
+  assert.equal(proposedRes.status, 200);
+  assert.equal(proposedRes.body.data.name, `Quán Chay Đề Xuất ${suffix}`);
+  assert.equal(proposedRes.body.data.image, 'https://images.unsplash.com/photo-1540420773420-3366772f4999');
+  const proposedId = proposedRes.body.data.restaurant_id || proposedRes.body.data.id;
+  await db.restaurantDetails.deleteMany({ where: { restaurant_id: proposedId } });
+  await db.restaurant.deleteMany({ where: { restaurant_id: proposedId } });
   console.log('PASS: database catalog, authentication, community CRUD/comments/votes, private journals, persisted nutrition, ownership, weekly plans, review persistence and input validation.');
 }finally{await db.user.deleteMany({where:{email:{in:emails}}});await db.$disconnect();}

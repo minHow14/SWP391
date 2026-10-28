@@ -397,11 +397,18 @@ model Restaurant {
   latitude           Decimal?           @db.Decimal(10, 7)
   longitude          Decimal?           @db.Decimal(10, 7)
   diet_type_id       Int?               @db.SmallInt
+  source             String             @default("local") @db.VarChar(20)
+  status             String             @default("APPROVED") @db.VarChar(20)
+  place_id           String?            @unique(map: "uq_restaurants_place_id") @db.VarChar(100)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?          @updatedAt @db.Timestamptz(6)
   restaurant_recipes RestaurantRecipe[]
   diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
 
   @@index([latitude, longitude], map: "idx_restaurants_coordinates")
   @@index([diet_type_id], map: "idx_restaurants_diet_type")
+  @@index([status, latitude, longitude], map: "idx_restaurants_status_coords")
+  @@index([diet_type_id, latitude, longitude], map: "idx_restaurants_diet_coords")
   @@map("restaurants")
 }
 
