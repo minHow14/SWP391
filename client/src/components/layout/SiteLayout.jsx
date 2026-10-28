@@ -1,6 +1,6 @@
-﻿// client/src/components/layout/SiteLayout.jsx
+// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/components/layout/SiteLayout.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Outlet, useLocation } from 'react-router';
+import { Outlet } from 'react-router';
 import Header from './Header.jsx';
 import Footer from './Footer.jsx';
 import WelcomeModal from '../../features/diet/components/WelcomeModal.jsx';
@@ -9,8 +9,6 @@ import SiteStatus from '../common/SiteStatus.jsx';
 import { getSavedDiet } from '../../utils/dietSelection.js';
 import { useDatabase } from '../../hooks/useDatabase.js';
 
-const DIET_REQUIRED_PATHS = new Set(['/cong-thuc', '/kiem-tra-mon']);
-
 export default function SiteLayout() {
   const {data,error,reload}=useDatabase();
   if(!data)return <SiteStatus error={error} onRetry={() => reload().catch(() => {})} />;
@@ -18,8 +16,7 @@ export default function SiteLayout() {
 }
 
 function LoadedSiteLayout({data}) {
-  const needsDietChoice = DIET_REQUIRED_PATHS.has(useLocation().pathname);
-  const [diet, setDiet] = useState(() => getSavedDiet(data?.diets));
+  const [diet, setDiet] = useState(() => getSavedDiet(data.diets));
   const [dietPickerOpen, setDietPickerOpen] = useState(false);
   const [personalPosts, setPersonalPosts] = useState([]);
   const mediaUrls = useRef(new Set());
@@ -50,7 +47,7 @@ function LoadedSiteLayout({data}) {
       className="home-page min-vh-100 d-flex flex-column"
       data-bs-theme="light"
     >
-      {diet || !needsDietChoice ? (
+      {diet ? (
         <>
           <Header
             dietName={dietName}
@@ -75,7 +72,7 @@ function LoadedSiteLayout({data}) {
           aria-label="Chọn loại ăn chay trước khi vào ChayXanh"
         />
       )}
-      {(dietPickerOpen || (!diet && needsDietChoice)) && (
+      {(dietPickerOpen || !diet) && (
         <WelcomeModal options={data.diets}
           onConfirm={(selection) => {
             setDiet(selection);

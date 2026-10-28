@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/mealPlan/components/PlanResult.jsx
+// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/mealPlan/components/PlanResult.jsx
 // client/src/features/mealPlan/components/PlanResult.jsx
 import { useState } from 'react';
 import { bmiCategory, formatBmi } from '../../../utils/aiHelpers.js';
@@ -17,7 +17,6 @@ export default function PlanResult({ plan, onAsk, onRedo }) {
         <span>BMI <strong>{formatBmi(profile.bmi)}</strong> · {bmiCategory(profile.bmi)}</span>
         <span>{plan.weeklyPlan.length} ngày</span>
       </div>
-      <p>{plan.summary}</p>
       <div className="cx-mp-days" role="tablist" aria-label="Chọn ngày">
         {plan.weeklyPlan.map((item, index) => (
           <button type="button" role="tab" key={item.dayNumber} aria-selected={index === selected}
