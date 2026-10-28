@@ -1,20 +1,23 @@
 // server/tests/foodScanner.test.js
-import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { ROLES } from '../src/constants/roles.js';
+import { createGuestSession } from './helpers/guestSession.js';
 
-const GUEST_PREFIX = `food-scan-test-${randomUUID()}`;
 const DUMMY_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
+let guestSession;
 let guestId;
+const guestIds = [];
 const userToken = generateToken({ user_id: 2, role: ROLES.USER });
 
-beforeEach(() => {
-  guestId = `${GUEST_PREFIX}-${randomUUID()}`;
+beforeEach(async () => {
+  guestSession = await createGuestSession(app);
+  guestId = guestSession.guestId;
+  guestIds.push(guestId);
 });
 
 afterEach(() => {
@@ -23,16 +26,18 @@ afterEach(() => {
 });
 
 afterAll(async () => {
-  await prisma.guestQuota.deleteMany({ where: { guestId: { startsWith: GUEST_PREFIX } } });
+  if (guestIds.length > 0) {
+    await prisma.guestQuota.deleteMany({ where: { guestId: { in: guestIds } } });
+  }
   await prisma.aiGeneration.deleteMany({ where: { type: 'FOOD_SCAN' } });
+  await prisma.aiLog.deleteMany({ where: { action: { startsWith: 'FOOD_SCAN' } } });
   await prisma.$disconnect();
 });
 
 describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
   it('rejects invalid payload when imageBase64 is missing', async () => {
-    const res = await request(app)
+    const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
-      .set('X-Guest-Id', guestId)
       .send({ dietTypeId: 1 });
 
     expect(res.status).toBe(422);
@@ -41,9 +46,8 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
   });
 
   it('rejects request with invalid dietTypeId', async () => {
-    const res = await request(app)
+    const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
-      .set('X-Guest-Id', guestId)
       .send({ imageBase64: DUMMY_BASE64, dietTypeId: -1 });
 
     expect(res.status).toBe(422);
@@ -74,9 +78,8 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
       headers: { 'Content-Type': 'application/json' },
     })));
 
-    const res = await request(app)
+    const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
-      .set('X-Guest-Id', guestId)
       .send({
         imageBase64: DUMMY_BASE64,
         dietTypeId: 1,
@@ -152,9 +155,8 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
       headers: { 'Content-Type': 'application/json' },
     })));
 
-    const res = await request(app)
+    const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
-      .set('X-Guest-Id', guestId)
       .send({
         imageBase64: DUMMY_BASE64,
         dietTypeId: 1,
