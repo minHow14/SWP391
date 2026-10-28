@@ -1,5 +1,6 @@
 -- D:/SWP391/SWP391/server/prisma/seed.sql
--- Chạy npx prisma migrate deploy trước khi nạp file này; schema chỉ được quản lý bằng migration.
+-- npm run seed / npm run db:seed / npx prisma db seed tự chạy migration trước khi nạp dữ liệu.
+-- Nếu nạp trực tiếp file SQL bằng psql, phải chạy npx prisma migrate deploy trước.
 -- CẢNH BÁO: Seed này TRUNCATE dữ liệu hiện có. Chỉ dùng cho DB mới hoặc DB được phép khởi tạo lại.
 -- Kiểm duyệt: moderation_version mặc định 0 (chưa quét), content_moderation_jobs khởi tạo rỗng.
 -- Không tạo cờ/kết quả AI khi chưa có lượt kiểm duyệt thực tế.

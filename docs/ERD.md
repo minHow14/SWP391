@@ -24,6 +24,38 @@ erDiagram
     }
 ```
 
+## Job kiểm duyệt văn bản
+
+`ContentModerationJob` ánh xạ `content_moderation_jobs`; chỉ BE/worker ghi dữ liệu. Mỗi job gắn đúng một bài hoặc bình luận (CHECK ở migration), duy nhất theo đối tượng và `contentVersion`. `Post`/`Comment` có `moderationVersion` ánh xạ `moderation_version`. Snapshot và lease chỉ dành cho worker; API tác giả không trả snapshot đầy đủ/lease. Hành vi: [CONTENT_MODERATION.md](CONTENT_MODERATION.md).
+
+```mermaid
+erDiagram
+    User ||--o{ ContentModerationJob : owns
+    Post o|--o{ ContentModerationJob : checkedVersions
+    Comment o|--o{ ContentModerationJob : checkedVersions
+    ContentModerationJob {
+        uuid id PK
+        int userId FK
+        int postId FK "nullable, XOR commentId"
+        int commentId FK "nullable, XOR postId"
+        int contentVersion
+        string title "nullable"
+        string content "snapshot"
+        enum status "PENDING | PROCESSING | COMPLETED | FAILED"
+        int attempt
+        datetime availableAt
+        uuid leaseToken "nullable"
+        datetime leaseExpiresAt "nullable"
+        json result "nullable"
+        boolean applied
+        string errorCode "nullable"
+        string errorMessage "nullable"
+        datetime completedAt "nullable"
+        datetime createdAt
+        datetime updatedAt
+    }
+```
+
 ## Các bảng nghiệp vụ
 
 Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với file cấu hình Prisma (`server/prisma/schema.prisma`).

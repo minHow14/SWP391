@@ -2,9 +2,10 @@
 import { Router } from 'express';
 import { authenticate } from '../middlewares/authMiddleware.js';
 import { validate } from '../middlewares/validationMiddleware.js';
-import { contentModerationJobParamsSchema } from '../validators/contentModerationValidator.js';
-import { getContentModerationJob } from '../controllers/contentModerationController.js';
+import { contentModerationJobParamsSchema, contentModerationPageSchema } from '../validators/contentModerationValidator.js';
+import { getContentModerationJob, listContentModerationJobs } from '../controllers/contentModerationController.js';
 
 export const contentModerationRoutes = Router();
+contentModerationRoutes.get('/', authenticate, validate(contentModerationPageSchema, 'query'), listContentModerationJobs);
 contentModerationRoutes.get('/:jobId', authenticate,
   validate(contentModerationJobParamsSchema, 'params'), getContentModerationJob);

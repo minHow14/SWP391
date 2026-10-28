@@ -24,10 +24,11 @@ AI không nhận role để phân quyền: đã bỏ `X-User-Role` và `user_rol
 - `POST /api/chat`, `/api/chat/stream`: đầu vào `message`, `history`, `dietaryType`, `menuContext`.
 - `POST /api/meal-planner/generate`, `/api/meal-planner/generate/stream`: `heightCm`, `weightKg`, `age`, `gender`, `goal`, `activityLevel`, `dietaryType`, `allergies`, `availableIngredients`, `bmi`, `days`.
 - `POST /api/admin/chatbot-cache/clear`: xóa cache nội bộ; quyền admin được BE kiểm tra.
+- `POST /api/v1/content-moderations`: kiểm duyệt văn bản blog/bình luận, nhận snapshot từ worker và trả verdict `ALLOW`/`REVIEW`, lý do, bằng chứng và tên model. Không ghi DB; lỗi provider không tạo kết quả cho phép giả. `CONTENT_MODERATION_TIMEOUT_SECONDS=20` mặc định, cần nhỏ hơn timeout HTTP worker BE (mặc định 30 giây).
 
 JSON dùng camelCase; Python nội bộ dùng snake_case qua CamelModel. Response chuẩn `success`, `message`, `data` hoặc `errorCode`, `errors`, `meta.requestId`. SSE gồm `metadata` nội bộ để BE lưu prompt thực tế, `token`/`progress`, `done`/`error`. BE không chuyển metadata chứa prompt cho FE. Thực đơn retry ghi lại prompt từng lần.
 
-Chỉ các endpoint streaming được BE gateway hiện tại sử dụng cho sinh kết quả và lưu lịch sử. Endpoint JSON nội bộ không tự ghi DB.
+Chatbot/thực đơn qua gateway dùng streaming để sinh kết quả và lưu lịch sử. Kiểm duyệt dùng JSON từ worker local; worker lưu verdict vào `content_moderation_jobs`. Endpoint JSON nội bộ không tự ghi DB. Chính sách cho phép món chay có trứng/sữa và tên như “sườn chay”; chỉ nhắc tên món không đủ để gắn cờ. Xem [hướng dẫn kiểm duyệt](../docs/CONTENT_MODERATION.md) và [OpenAPI](../docs/content-moderation-openapi.json).
 
 ## Kiểm thử
 

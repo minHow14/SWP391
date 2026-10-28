@@ -8,6 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "test": "node --test test/*.test.js",
+    "test:ui": "vitest run --config vitest.config.js",
     "test:video-recipes": "vitest run --config vitest.config.js",
     "preview": "vite preview"
   },

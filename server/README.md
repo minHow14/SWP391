@@ -240,21 +240,26 @@ PLACES_RATE_LIMIT=60
 # Tạo Prisma Client type-safe
 npm run prisma:generate
 
-# Áp dụng đầy đủ migration đã có (gồm bảng content_moderation_jobs và các ràng buộc)
-npx prisma migrate deploy
-
-# Chỉ chạy trên DB mới hoặc DB được phép xóa dữ liệu để khởi tạo lại
+# Tự áp dụng migration còn thiếu rồi seed; chỉ dùng DB mới hoặc DB được phép xóa dữ liệu
 npm run seed
 
 # (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
 npm run prisma:studio
 ```
 
-`seed.js` đọc `prisma/seed.sql`. File SQL chỉ nạp dữ liệu; không tạo hoặc thay đổi schema, nên phải chạy migration trước khi seed. **Seed hiện dùng `TRUNCATE ... CASCADE`: chạy lại sẽ xóa dữ liệu hiện có, bao gồm job kiểm duyệt.** Với DB đang sử dụng, chỉ chạy `npx prisma migrate deploy`, không chạy seed.
+`npm run seed`, `npm run db:seed` và `npx prisma db seed` dùng chung luồng: `prisma migrate deploy` → `seed.js` → `prisma/seed.sql`. Migration lỗi thì dừng trước khi seed; migration đã áp dụng được bỏ qua. DB mới nhận toàn bộ lịch sử migration, bao gồm 5 thay đổi đã kiểm tra:
+
+- `20261023113000_schema_indexes_and_decimal_optimization`: giá `Decimal(18,2)` và các index.
+- `20261025113000_health_history_recorded_date_timestamptz`: ngày ghi nhận sức khỏe có múi giờ.
+- `20261026075600_add_restaurant_source_place_id_status`: nguồn, mã địa điểm và trạng thái nhà hàng.
+- `20261026124500_add_food_scan_ai_generation_type`: loại tác vụ `FOOD_SCAN`.
+- `20261028112816_add_content_moderation_jobs`: bảng job và phiên bản nội dung kiểm duyệt.
+
+File SQL chỉ nạp dữ liệu, không sao chép lệnh thay đổi schema từ migration. Nếu nạp trực tiếp bằng `psql`, phải chạy `npx prisma migrate deploy` trước. **Seed hiện dùng `TRUNCATE ... CASCADE`: chạy lại sẽ xóa dữ liệu hiện có, bao gồm job kiểm duyệt.** Với DB đang sử dụng, chỉ chạy `npx prisma migrate deploy`, không chạy seed. Chạy trực tiếp `node prisma/seed.js` cũng yêu cầu DB đã được migrate.
 
 Sau seed, `content_moderation_jobs` rỗng, `moderation_version` của bài viết/bình luận bằng `0` (chưa được AI quét), không có cờ AI hoặc kết quả kiểm duyệt gán sẵn. Các mục bị ẩn trong bộ dữ liệu dùng trạng thái `HIDDEN`. Seed không gọi AI và không tự tạo job cho nội dung cũ.
 
-Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Giữ mặc định tắt cho đến khi endpoint AI và giao diện ở Phase 2 hoàn tất. Sau khi bật, khởi chạy thêm `npm run worker:content-moderation` trong terminal local riêng.
+Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Để bật, cấu hình cùng khóa nội bộ BE/AI, khởi chạy AI Service, đặt cờ `true`, restart API rồi chạy `npm run worker:content-moderation` trong terminal local riêng. Job được trả ngay bằng `202`; người dùng không phải đợi AI xong. Không có worker thì nội dung mới ở trạng thái chờ. Xem [hướng dẫn vận hành, chính sách và khôi phục lỗi](../docs/CONTENT_MODERATION.md), [OpenAPI](../docs/content-moderation-openapi.json).
 
 ### 4. Khởi chạy Server:
 - **Chế độ phát triển (Auto-reload với nodemon):**
@@ -268,8 +273,11 @@ Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_E
 
 ### 5. Chạy kiểm thử tự động:
 ```bash
-# Chạy 21 unit & boundary integration tests với Vitest
+# Chạy đầy đủ unit & integration tests với Vitest trên DB _test
 npm test
+
+# Chỉ chạy kiểm thử kiểm duyệt và migration/seed
+npm run test:content-moderation
 
 # Kiểm thử tích hợp toàn bộ luồng nghiệp vụ Database & Workspace
 npm run test:database

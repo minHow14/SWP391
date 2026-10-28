@@ -1,7 +1,11 @@
-// client/src/services/communityService.js
+// D:/SWP391/SWP391/client/src/services/communityService.js
 import apiClient from './apiClient.js';
 
 const UPLOAD_TIMEOUT_MS = 60000;
+
+export function getContentModerationJobs({ page = 1, limit = 5 } = {}, signal) {
+  return apiClient.get('/v1/content-moderation-jobs', { params: { page, limit }, signal });
+}
 
 export async function getMyPosts(signal) {
   const response = await apiClient.get('/workspace/mine', { signal });
@@ -61,7 +65,9 @@ export async function savePost({ postId, values, attachments = [], postType }) {
     timeout: UPLOAD_TIMEOUT_MS,
   });
 
-  return response?.data?.blog || response?.blog || response?.data || response;
+  const body = response?.data || response;
+  const blog = body?.blog || response?.blog || body;
+  return { ...blog, ...(body?.jobId && { jobId: body.jobId, moderationStatus: body.moderationStatus }) };
 }
 
 export function deletePost(postId, postType) {

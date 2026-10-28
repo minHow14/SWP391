@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\validators\admin.validator.js
+// D:/SWP391/SWP391/server/src/validators/admin.validator.js
 import { z } from 'zod';
 import { textSchema } from './common.validator.js';
 
@@ -35,6 +35,7 @@ export const resolveAiFlaggedItemSchema = z.object({
   entityId: z.coerce.number().int().positive(),
   action: z.enum(['APPROVE', 'REJECT', 'REMOVE', 'DELETE', 'approve', 'reject', 'remove', 'delete']),
   notes: z.string().trim().max(500).optional(),
+  contentVersion: z.coerce.number().int().min(0).optional(),
 }).strict();
 
 export const updateReportStatusSchema = z.object({

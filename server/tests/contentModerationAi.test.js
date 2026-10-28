@@ -34,6 +34,8 @@ describe('content moderation AI boundary', () => {
     { ...valid, decision: 'REVIEW' },
     { ...valid, modelName: '' },
     { ...valid, reason: 'a'.repeat(2001) },
+    { ...valid, categories: ['ANIMAL_MEAT_PROMOTION'] },
+    { ...valid, evidence: ['Sườn chay'] },
   ])('rejects invalid or unsupported conclusions', async (data) => {
     const ai = createContentModerationAiService({ config, fetchImpl: async () => response(data) });
     await expect(ai.moderate({ job })).rejects.toHaveProperty('errorCode', 'MODERATION_AI_INVALID_OUTPUT');
@@ -51,6 +53,20 @@ describe('content moderation AI boundary', () => {
   it('does not expose an upstream authentication error body', async () => {
     const ai = createContentModerationAiService({ config, fetchImpl: async () => new Response('upstream secret', { status: 401 }) });
     await expect(ai.moderate({ job })).rejects.toMatchObject({ errorCode: 'MODERATION_AI_AUTH_FAILED', retryable: false });
+  });
+  it('rejects oversized JSON even when its verdict is otherwise valid', async () => {
+    const oversized = new Response(JSON.stringify({ success: true, data: valid, padding: 'x'.repeat(32_768) }),
+      { headers: { 'Content-Type': 'application/json' } });
+    await expect(createContentModerationAiService({ config, fetchImpl: async () => oversized }).moderate({ job }))
+      .rejects.toHaveProperty('errorCode', 'MODERATION_AI_INVALID_OUTPUT');
+  });
+  it('also applies the deadline after receiving headers when the response body stalls', async () => {
+    const server = http.createServer((req, res) => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.flushHeaders(); res.write('{'); });
+    server.listen(0, '127.0.0.1');
+    await once(server, 'listening');
+    const ai = createContentModerationAiService({ config: { ...config, url: `http://127.0.0.1:${server.address().port}` }, timeoutMs: 50 });
+    try { await expect(ai.moderate({ job })).rejects.toMatchObject({ errorCode: 'MODERATION_AI_TIMEOUT', retryable: true }); }
+    finally { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); }
   });
   it('cancels a real stalled HTTP request at the configured deadline', async () => {
     const server = http.createServer(() => {});

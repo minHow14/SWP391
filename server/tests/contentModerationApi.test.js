@@ -8,6 +8,7 @@ import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { contentModerationRepository as jobs } from '../src/repositories/contentModerationRepository.js';
 import { getAiFlaggedContent, resolveAiFlaggedItem } from '../src/services/admin.service.js';
+import { processContentModerationJob } from '../src/services/contentModerationProcessor.js';
 
 let owner, other, admin, token, otherToken, adminToken, parent;
 const text = { title: 'Sườn chay từ nấm', content: 'Chia sẻ cách làm sườn chay từ nấm và đậu nành.' };
@@ -36,6 +37,94 @@ afterAll(async () => {
 });
 
 describe('moderated content API when enabled', () => {
+  it.each([['POST', 'APPROVE'], ['POST', 'REJECT'], ['COMMENT', 'APPROVE'], ['COMMENT', 'REJECT']])(
+    'rejects a versionless %s %s decision after the author changes the content', async (entityType, action) => {
+      let entityId;
+      if (entityType === 'POST') {
+        const submitted = await postBlog();
+        entityId = submitted.body.data.blog.post_id;
+        await putBlog(entityId, { content: 'Phiên bản mới cần được xem lại trước khi quyết định.' });
+      } else {
+        const submitted = await request(app).post('/api/v1/comments').set('Authorization', `Bearer ${token}`)
+          .send({ post_id: parent.post_id, content: 'Bình luận chờ kiểm tra.' });
+        entityId = submitted.body.data.comment.comment_id;
+        await request(app).put(`/api/v1/comments/${entityId}`).set('Authorization', `Bearer ${token}`)
+          .send({ content: 'Bình luận đã thay đổi sau khi Admin mở hàng chờ.' });
+      }
+      const decision = await request(app).post('/api/v1/admin/moderation/resolve').set('Authorization', `Bearer ${adminToken}`)
+        .send({ entityType, entityId, action });
+      expect(decision.status).toBe(409);
+      const current = entityType === 'POST' ? await prisma.post.findUnique({ where: { post_id: entityId } }) :
+        await prisma.comment.findUnique({ where: { comment_id: entityId } });
+      expect(current).toMatchObject({ moderationVersion: 2, status: 'PENDING_MODERATION', deleted_at: null });
+    });
+  it.each(['POST', 'COMMENT'])('retains versionless decisions for legacy %s at version zero only', async (entityType) => {
+    const legacy = entityType === 'POST' ? await prisma.post.create({ data: { author_id: owner.user_id,
+      post_type: 'BLOG', status: 'HIDDEN_BY_AI' } }) : await prisma.comment.create({ data: { user_id: owner.user_id,
+      post_id: parent.post_id, content: 'Bình luận từ luồng cũ.', status: 'HIDDEN_BY_AI', is_flagged_by_ai: true } });
+    const entityId = legacy.post_type ? legacy.post_id : legacy.comment_id;
+    const decision = await request(app).post('/api/v1/admin/moderation/resolve').set('Authorization', `Bearer ${adminToken}`)
+      .send({ entityType, entityId, action: 'APPROVE' });
+    expect(decision.status).toBe(200);
+  });
+  it.each(['POST', 'COMMENT'])('does not resurrect a deleted %s from an already-open approval', async (entityType) => {
+    let entityId;
+    if (entityType === 'POST') {
+      const { body } = await postBlog();
+      entityId = body.data.blog.post_id;
+      await request(app).delete(`/api/v1/blogs/${entityId}`).set('Authorization', `Bearer ${token}`);
+    } else {
+      const reply = await request(app).post('/api/v1/comments').set('Authorization', `Bearer ${token}`)
+        .send({ post_id: parent.post_id, content: 'Bình luận được tác giả xóa trước khi Admin duyệt.' });
+      entityId = reply.body.data.comment.comment_id;
+      await request(app).delete(`/api/v1/comments/${entityId}`).set('Authorization', `Bearer ${token}`);
+    }
+    const approval = await request(app).post('/api/v1/admin/moderation/resolve').set('Authorization', `Bearer ${adminToken}`)
+      .send({ entityType, entityId, action: 'APPROVE', contentVersion: 1 });
+    expect(approval.status).toBe(409);
+    const record = entityType === 'POST' ? await prisma.post.findUnique({ where: { post_id: entityId } }) :
+      await prisma.comment.findUnique({ where: { comment_id: entityId } });
+    expect(record.status).toBe('DELETED');
+    expect(record.deleted_at).not.toBeNull();
+  });
+  it('rejects an administrator decision based on an obsolete content version', async () => {
+    const { body } = await postBlog();
+    const id = body.data.blog.post_id;
+    await putBlog(id, { content: 'Nội dung đã thay đổi và cần được xem lại.' });
+    const reply = await request(app).post('/api/v1/admin/moderation/resolve').set('Authorization', `Bearer ${adminToken}`)
+      .send({ entityType: 'POST', entityId: id, action: 'APPROVE', contentVersion: 1 });
+    expect(reply.status).toBe(409);
+    expect((await prisma.post.findUnique({ where: { post_id: id } })).status).toBe('PENDING_MODERATION');
+  });
+  it('restores paginated owner-only job states with a pending count and safe preview', async () => {
+    const { body } = await postBlog();
+    const url = '/api/v1/content-moderation-jobs';
+    expect((await request(app).get(url)).status).toBe(401);
+    const own = await request(app).get(`${url}?page=1&limit=1`).set('Authorization', `Bearer ${token}`);
+    expect(own.status).toBe(200);
+    expect(own.body.meta).toMatchObject({ page: 1, limit: 1, total: 1, pending: 1 });
+    expect(own.body.data.items[0]).toMatchObject({ id: body.data.jobId, preview: text.title,
+      targetStatus: 'PENDING_MODERATION', isCurrent: true });
+    for (const key of ['title', 'content', 'userId', 'leaseToken', 'post', 'comment']) expect(own.body.data.items[0]).not.toHaveProperty(key);
+    const otherList = await request(app).get(url).set('Authorization', `Bearer ${otherToken}`);
+    expect(otherList.body.data.items).toEqual([]);
+    for (const query of ['limit=101', 'page=0', `userId=${owner.user_id}`]) {
+      expect((await request(app).get(`${url}?${query}`).set('Authorization', `Bearer ${token}`)).status).toBe(400);
+    }
+  });
+  it('attaches only the current saved result to the administrator queue', async () => {
+    const { body } = await postBlog();
+    const id = body.data.blog.post_id;
+    const pending = await getAiFlaggedContent();
+    expect(pending.posts.find((post) => post.post_id === id)?.moderation?.status).toBe('PENDING');
+    const job = await jobs.claim({ leaseMs: 60_000, maxAttempts: 3 });
+    const result = { decision: 'REVIEW', reason: 'Lý do kiểm duyệt trong test.', categories: ['SPAM'],
+      evidence: ['sườn chay'], modelName: 'provider-model', policyVersion: 'test-policy' };
+    await processContentModerationJob(job, { ai: { moderate: async () => result } });
+    expect((await getAiFlaggedContent()).posts.find((post) => post.post_id === id)?.moderation?.result).toEqual(result);
+    await putBlog(id, { content: 'Nội dung mới vẫn giữ trạng thái ẩn để Admin xem xét.' });
+    expect((await getAiFlaggedContent()).posts.find((post) => post.post_id === id)?.moderation).toBeNull();
+  });
   it('atomically creates pending content and a job, ignoring forged publication status', async () => {
     const res = await postBlog({ ...text, status: 'PUBLISHED', moderationVersion: 999 });
     expect(res.status).toBe(202);

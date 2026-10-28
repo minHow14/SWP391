@@ -8,7 +8,19 @@ import { ROLES } from '../constants/roles.js';
 const receipt = (job, version) => ({ jobId: job.id, moderationStatus: 'PENDING',
   status: MODERATION_PENDING_STATUS, moderationVersion: version });
 
+function jobView(row) {
+  const { title, content, post, comment, ...job } = row;
+  const target = post || comment;
+  return { ...job, preview: (title || content).slice(0, 120), targetStatus: target?.status || 'DELETED',
+    isCurrent: target?.moderationVersion === job.contentVersion };
+}
+
 export const contentModerationService = {
+  async listJobs({ userId, page, limit }) {
+    const [rows, total, pending] = await Promise.all([jobs.listOwned({ userId, page, limit }),
+      jobs.countOwned({ userId }), jobs.countOwned({ userId, pending: true })]);
+    return { items: rows.map(jobView), meta: { page, limit, total, pending } };
+  },
   async queuePost({ post, title, content }, db) {
     if (!contentModerationConfig.enabled || !['PUBLISHED', MODERATION_PENDING_STATUS].includes(post.status)) {
       return post.moderationVersion > 0 ? jobs.invalidatePost(post.post_id, db) : {};

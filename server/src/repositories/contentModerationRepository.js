@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { MODERATION_PENDING_STATUS, MODERATION_RELEASED_LEASE } from '../constants/contentModeration.js';
+import { POST_STATUS, COMMENT_STATUS } from '../constants/status.js';
 
 const PUBLIC_SELECT = { id: true, postId: true, commentId: true, contentVersion: true, status: true,
   result: true, applied: true, errorCode: true, errorMessage: true, completedAt: true, createdAt: true, updatedAt: true };
@@ -13,11 +14,43 @@ export function moderationLeaseLost() {
   return Object.assign(ApiError.conflict('Quyền xử lý tác vụ kiểm duyệt đã hết hạn.'), { errorCode: 'MODERATION_LEASE_LOST' });
 }
 
+function guardedDecision(work) {
+  return work.catch((error) => {
+    if (error.code === 'P2025') throw ApiError.conflict('Nội dung đã thay đổi hoặc không còn trong hàng chờ. Vui lòng làm mới.');
+    throw error;
+  });
+}
+
 export const contentModerationRepository = {
+  resolvePost({ id, contentVersion, data }, db = prisma) {
+    return guardedDecision(db.post.update({ where: { post_id: id, deleted_at: null,
+      status: { in: [POST_STATUS.HIDDEN_BY_AI, MODERATION_PENDING_STATUS] },
+      ...(contentVersion !== undefined && { moderationVersion: contentVersion }) }, data }));
+  },
+  resolveComment({ id, contentVersion, data }, db = prisma) {
+    return guardedDecision(db.comment.update({ where: { comment_id: id, deleted_at: null,
+      OR: [{ status: { in: [COMMENT_STATUS.HIDDEN_BY_AI, MODERATION_PENDING_STATUS] } },
+        { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: true }],
+      ...(contentVersion !== undefined && { moderationVersion: contentVersion }) }, data }));
+  },
   transaction(work, db = prisma) { return db.$transaction(work); },
   create(data, db = prisma) { return db.contentModerationJob.create({ data, select: INTERNAL_SELECT }); },
   findOwned({ id, userId, isAdmin = false }, db = prisma) {
     return db.contentModerationJob.findFirst({ where: { id, ...(!isAdmin && { userId }) }, select: PUBLIC_SELECT });
+  },
+  listOwned({ userId, page, limit }, db = prisma) {
+    return db.contentModerationJob.findMany({ where: { userId },
+      select: { ...PUBLIC_SELECT, title: true, content: true,
+        post: { select: { status: true, moderationVersion: true } },
+        comment: { select: { status: true, moderationVersion: true } } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * limit, take: limit });
+  },
+  countOwned({ userId, pending = false }, db = prisma) {
+    return db.contentModerationJob.count({ where: { userId, ...(pending && { status: { in: ['PENDING', 'PROCESSING'] } }) } });
+  },
+  findForTargets(targets, db = prisma) {
+    if (!targets.length) return Promise.resolve([]);
+    return db.contentModerationJob.findMany({ where: { OR: targets }, select: PUBLIC_SELECT });
   },
   stagePost(postId, db = prisma) {
     return db.post.update({ where: { post_id: postId, deleted_at: null,

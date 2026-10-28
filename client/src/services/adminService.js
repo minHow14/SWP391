@@ -1,4 +1,4 @@
-﻿// client/src/services/adminService.js
+// D:/SWP391/SWP391/client/src/services/adminService.js
 import apiClient from './apiClient.js';
 
 export const adminService = {
@@ -30,7 +30,7 @@ export const adminService = {
   deleteCategory: (categoryId) => apiClient.delete(`/admin/categories/${categoryId}`),
 
   // FE-05: Kiểm duyệt nội dung gắn cờ AI
-  getAiFlaggedContent: () => apiClient.get('/admin/moderation/flagged'),
+  getAiFlaggedContent: (signal) => apiClient.get('/admin/moderation/flagged', { signal }),
   resolveAiFlaggedItem: (data) => apiClient.post('/admin/moderation/resolve', data),
 
   // FE-06 & FE-07: Giám sát AI models, logs và metrics

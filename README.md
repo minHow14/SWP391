@@ -34,7 +34,7 @@
 - **Quản lý Bài viết & Video:** Phê duyệt bài đăng mới, chỉnh sửa nội dung vi phạm tiêu chuẩn cộng đồng, gỡ bỏ bài viết.
 - **Quản lý Bình luận:** Kiểm tra tương tác, ẩn hoặc xóa bình luận spam/quảng cáo.
 - **Quản lý Danh mục:** Thêm, sửa, xóa danh mục món ăn & công thức nấu chay (có kiểm tra ràng buộc dữ liệu).
-- **Kiểm duyệt AI:** Xem xét các bài viết và bình luận bị AI gắn cờ ẩn trước khi quyết định phê duyệt khôi phục hoặc xóa vĩnh viễn.
+- **Kiểm duyệt AI:** Worker local kiểm tra văn bản blog/bình luận; Admin xem lý do, bằng chứng và các mục chờ/lỗi, sau đó duyệt hoặc gỡ bằng xóa mềm. Chính sách cho phép sườn chay, món có trứng/sữa; chặn quảng bá thịt/cá. Tính năng cần bật cờ cấu hình.
 - **Giám sát Mô hình AI:** Theo dõi trạng thái hoạt động của các mô hình (Gợi ý thực đơn, Chatbot tư vấn, Kiểm duyệt tự động) và tra cứu nhật ký `ai_logs`.
 - **Can thiệp Thủ công AI:** Ghi nhận điều chỉnh, phản hồi sửa lỗi khi AI đưa ra kết quả chưa chuẩn xác.
 - **Quản lý Báo cáo:** Xử lý các phản ánh vi phạm từ người dùng trong cộng đồng.
@@ -45,9 +45,9 @@
 
 | Phân hệ | Công nghệ chính | Phiên bản | Thư viện & Công cụ bổ trợ |
 | :--- | :--- | :--- | :--- |
-| **Frontend (`client/`)** | React | `^19.2.8` | Vite `^8.3.0`, React-Bootstrap `^2.10.10`, Bootstrap 5, Bootstrap Icons, Axios `^1.14.0`, React Router `^8.4.0` |
+| **Frontend (`client/`)** | React | `^19.2.8` | Vite `^8.3.0`, React-Bootstrap `^2.10.10`, Bootstrap 5, Bootstrap Icons, Axios `^1.20.0`, React Router `^8.4.0` |
 | **Backend (`server/`)** | Node.js (ESM), Express | `^5.2.1` | Prisma ORM `^6.19.3`, PostgreSQL, Zod `^4.6.5`, bcryptjs `^3.0.3`, jsonwebtoken `^9.0.3`, Vitest `^5.0.3`, Supertest |
-| **AI Service (`ai_service/`)** | Python, FastAPI | `3.11+` | LangChain, DeepSeek API (v4 Fallback), SlowAPI, Pydantic v2, Pytest |
+| **AI Service (`ai_service/`)** | Python ≥3.11, FastAPI `0.159.1` | Pydantic `2.14.1` | LangChain `1.4.7`, DeepSeek API, SlowAPI `0.1.10`, Pytest `9.1.1` |
 | **Database** | PostgreSQL | `>= 15.0` | Prisma Schema + Migrations, Raw SQL, Connection Pooling |
 
 ---
@@ -149,7 +149,7 @@ npm install
 # Tạo file .env và điền các thông số theo bảng ở Mục 8
 npm run prisma:generate
 npx prisma migrate deploy
-npm run seed                    # Chỉ khởi tạo dữ liệu khi DB mới
+npm run seed                    # Tự migrate rồi seed; xóa dữ liệu cũ, chỉ dùng DB được phép khởi tạo lại
 npm run dev
 ```
 > Server sẽ hoạt động tại: `http://localhost:5000` (Kiểm tra sức khỏe: `http://localhost:5000/health`)
@@ -170,6 +170,8 @@ pip install -r requirements.txt
 uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 > AI Service sẽ hoạt động tại: `http://localhost:8000` (Swagger docs: `http://localhost:8000/docs`)
+
+Để bật kiểm duyệt, đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, restart API rồi mở terminal riêng tại `server/` chạy `npm run worker:content-moderation`. BE và AI phải dùng cùng `INTERNAL_API_KEY`; AI cần provider key hợp lệ. Giữ mặc định tắt khi chưa cấu hình. Xem [quy trình đầy đủ](docs/CONTENT_MODERATION.md).
 
 ### Bước 4: Khởi chạy Frontend Web App (Port 5173)
 ```bash
@@ -197,6 +199,9 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `AI_SERVICE_URL` | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice |
 | `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
 | `AI_TIMEOUT_MS` | `180000` | Tổng thời gian chờ AI tối đa trên BE (ms) |
+| `CONTENT_MODERATION_ENABLED` | `false` | Bật tạo/xử lý job văn bản; API và worker cần cùng cấu hình |
+| `CONTENT_MODERATION_TIMEOUT_MS` | `30000` | Deadline HTTP kiểm duyệt (ms), gồm đọc body |
+| `CONTENT_MODERATION_MAX_ATTEMPTS` | `3` | Tổng số lần thử mỗi job; lỗi không tự công khai nội dung |
 | `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
 | `ZIOMAP_API_KEY` | `Key API ZIOMAP` | Khóa API ZIOMAP dùng cho tìm kiếm và bổ sung địa điểm bản đồ quán chay (Tùy chọn) |
 
@@ -206,7 +211,8 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
 | `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối API DeepSeek LLM Engine |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | Mô hình ngôn ngữ mặc định |
-| `DEBUG` | `True` | Chế độ debug |
+| `CONTENT_MODERATION_TIMEOUT_SECONDS` | `20` | Deadline inference kiểm duyệt (giây); nên ngắn hơn timeout worker |
+| `DEBUG` | `False` | Chế độ debug |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:5000` | Danh sách origin cho phép |
 
 ### 3. `client/.env`
@@ -226,7 +232,9 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - `npm run prisma:migrate -- --name <ten_thay_doi>`: Sinh/áp dụng migration local bằng Prisma Migrate.
 - `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
 - Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
-- `npm run seed`: Nạp dữ liệu chuẩn từ `seed.sql`.
+- `npm run seed` / `npm run db:seed`: Áp dụng migration còn thiếu rồi nạp `seed.sql`; xóa dữ liệu cũ.
+- `npm run worker:content-moderation`: Chạy worker kiểm duyệt trong terminal riêng; cần bật cờ cấu hình.
+- `npm run test:content-moderation`: Kiểm thử API/DB/worker/HTTP kiểm duyệt và migration/seed trên DB test.
 - `npm run db:repair-ingredients`: Cập nhật chi tiết dinh dưỡng nguyên liệu từ catalog chuẩn (`scripts/repair-ingredients.js`).
 - `npm run db:import-ingredient-images`: Tải và lưu trữ binary ảnh nguyên liệu vào PostgreSQL (`scripts/import-ingredient-images.js`).
 - `npm run assets:sync`: Đồng bộ nguồn ảnh nguyên liệu từ Wikimedia (`scripts/sync-ingredient-assets.js`).
@@ -235,6 +243,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - `npm run dev`: Khởi động Vite dev server.
 - `npm run build`: Đóng gói ứng dụng thành phẩm (Production build).
 - `npm test`: Chạy các bài kiểm thử với Node.js Test Runner (bao gồm kiểm thử Admin Service, AI APIs và components).
+- `npm run test:ui`: Chạy Vitest/React Testing Library cho trạng thái, polling và giao diện job.
 - `npm run preview`: Chạy thử bản build đã đóng gói trên máy local.
 
 ### AI Microservice (`ai_service/`)
@@ -247,6 +256,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 ## 10. 📚 Link tài liệu API & ERD
 
 - **AI Gateway, persistence & migration:** [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md), [`docs/ai-openapi.json`](docs/ai-openapi.json).
+- **Kiểm duyệt cộng đồng:** [`docs/CONTENT_MODERATION.md`](docs/CONTENT_MODERATION.md), [`docs/content-moderation-openapi.json`](docs/content-moderation-openapi.json).
 - **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
 
 - **Tài liệu Swagger / OpenAPI:** Truy cập trực tiếp tại `http://localhost:8000/docs` khi AI Service khởi chạy.
@@ -273,6 +283,7 @@ npm run test:database
 ```powershell
 cd ../client
 npm test
+npm run test:ui
 npm run lint
 npm run build
 cd ../ai_service
@@ -313,6 +324,7 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
 4. **Lỗi `ReferenceError: window is not defined` khi chạy test Frontend:**
    - *Nguyên nhân:* Môi trường Node.js không có sẵn đối tượng browser.
    - *Khắc phục:* Đảm bảo các file test có mock `globalThis.window` và `sessionStorage` tương thích trước khi gọi hàm.
+5. **Nội dung kiểm duyệt chờ mãi hoặc job `FAILED`:** Kiểm tra cờ bật, worker chạy đúng DB, khóa nội bộ và provider key. Không seed/reset DB để sửa hàng chờ; Admin có thể duyệt/gỡ thủ công. Xem [bảng lỗi kiểm duyệt](docs/CONTENT_MODERATION.md#xử-lý-sự-cố).
 
 ---
 
