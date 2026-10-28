@@ -220,6 +220,57 @@
           }
         ]
       }
+    },
+    "/api/ai/food-scanner/analyze": {
+      "post": {
+        "summary": "Phân tích hình ảnh món ăn hoặc bao bì nhãn thành phần",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoodScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả thẩm định 5 lớp ẩm thực chay, nguyên liệu an toàn và checklist câu hỏi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodScanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lỗi xác thực người dùng."
+          },
+          "422": {
+            "description": "Dữ liệu ảnh base64 hoặc tham số không hợp lệ."
+          },
+          "429": {
+            "description": "Hết hạn ngạch câu hỏi trong ngày của khách."
+          },
+          "502": {
+            "description": "Lỗi từ AI Microservice hoặc nhà cung cấp LLM."
+          },
+          "503": {
+            "description": "Dịch vụ AI chưa được cấu hình."
+          },
+          "504": {
+            "description": "Quá thời gian xử lý hình ảnh."
+          }
+        }
+      }
     }
   },
   "components": {
@@ -376,6 +427,172 @@
           "weightKg"
         ],
         "additionalProperties": false
+      },
+      "FoodScanRequest": {
+        "type": "object",
+        "properties": {
+          "imageBase64": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 15728640,
+            "description": "Chuỗi Base64 của ảnh món ăn hoặc bao bì"
+          },
+          "mimeType": {
+            "type": "string",
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp"
+            ],
+            "default": "image/jpeg"
+          },
+          "dietTypeId": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "ID chế độ ăn chay"
+          },
+          "scanType": {
+            "type": "string",
+            "enum": [
+              "AUTO",
+              "LABEL",
+              "DISH"
+            ],
+            "default": "AUTO"
+          },
+          "dishName": {
+            "type": "string",
+            "maxLength": 150,
+            "default": ""
+          },
+          "allergies": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "maxItems": 50,
+            "default": []
+          }
+        },
+        "required": [
+          "imageBase64",
+          "dietTypeId"
+        ],
+        "additionalProperties": false
+      },
+      "FoodScanResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "dishName": {
+                "type": "string"
+              },
+              "detectedScanType": {
+                "type": "string",
+                "enum": [
+                  "LABEL",
+                  "DISH"
+                ]
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "clear",
+                  "warning",
+                  "inconclusive"
+                ]
+              },
+              "summary": {
+                "type": "string"
+              },
+              "findings": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "ingredient": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "layer": {
+                      "type": "integer"
+                    },
+                    "severity": {
+                      "type": "string",
+                      "enum": [
+                        "violation",
+                        "warning",
+                        "info"
+                      ]
+                    }
+                  }
+                }
+              },
+              "identifiedIngredients": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "restaurantChecklist": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "swapSuggestions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "nutritionEstimate": {
+                "type": "object",
+                "properties": {
+                  "calories": {
+                    "type": "number"
+                  },
+                  "protein": {
+                    "type": "number"
+                  },
+                  "carbs": {
+                    "type": "number"
+                  },
+                  "fat": {
+                    "type": "number"
+                  }
+                }
+              }
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "requestId": {
+                "type": "string"
+              },
+              "generationId": {
+                "type": "string",
+                "nullable": true
+              },
+              "remaining": {
+                "type": "integer",
+                "nullable": true
+              }
+            }
+          }
+        }
       }
     }
   }

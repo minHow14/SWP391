@@ -26,3 +26,20 @@ export const streamChat = asyncHandler(async (req, res) => {
 export const streamMealPlan = asyncHandler(async (req, res) => {
   await aiService.streamMealPlan({ payload: req.body, identity: getAiIdentity(req), res, requestId: req.id });
 });
+
+/**
+ * Phân tích hình ảnh món ăn hoặc nhãn thành phần thực phẩm
+ */
+export const analyzeFoodImage = asyncHandler(async (req, res) => {
+  const result = await aiService.analyzeFoodImage({
+    payload: req.body,
+    identity: getAiIdentity(req),
+    requestId: req.id,
+  });
+
+  return sendSuccess(res, {
+    message: result.message,
+    data: result.data,
+    meta: result.meta,
+  });
+});

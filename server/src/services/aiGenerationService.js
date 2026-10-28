@@ -6,8 +6,13 @@ import { aiGatewayError } from '../utils/aiGatewayError.js';
 export const aiGenerationService = {
   async start(context) {
     if (!context.identity.userId) return null;
+    const mapFeatureType = (feature) => {
+      if (feature === 'chatbot') return 'CHAT';
+      if (feature === 'mealPlanner') return 'MEAL_PLAN';
+      return 'FOOD_SCAN';
+    };
     const record = await aiGenerationRepository.create({
-      userId: context.identity.userId, type: context.feature === 'chatbot' ? 'CHAT' : 'MEAL_PLAN',
+      userId: context.identity.userId, type: mapFeatureType(context.feature),
       modelName: 'ai-service', requestPayload: context.payload, promptMessages: [],
     });
     return record.id;

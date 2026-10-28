@@ -14,6 +14,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
+from api.food_scanner import router as food_scanner_router
 from api.meal_planner import router as meal_planner_router
 from api.video_recipe import router as video_recipe_router, video_recipe_error_handler
 from core.config import settings
@@ -148,6 +149,7 @@ async def health_check():
 app.include_router(chat_router, prefix="/api")
 app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_actions_router, prefix="/api")
+app.include_router(food_scanner_router, prefix="/api")
 app.include_router(video_recipe_router, prefix="/api")
 
 

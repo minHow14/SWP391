@@ -3,6 +3,7 @@ import { Router } from 'express';
 import * as aiController from '../controllers/ai.controller.js';
 import { authenticateAiCaller, resolveAiIdentity } from '../middlewares/aiIdentityMiddleware.js';
 import { aiChatSchema, aiMealPlanSchema, validateAiBody } from '../validators/aiRequestValidator.js';
+import { foodScanSchema } from '../validators/aiFoodScanValidator.js';
 
 const router = Router();
 
@@ -16,5 +17,8 @@ router.get('/chat/usage', aiController.getUsage);
 // Streaming Server-Sent Events qua AI Microservice
 router.post('/chat/stream', validateAiBody(aiChatSchema), aiController.streamChat);
 router.post('/meal-planner/generate/stream', validateAiBody(aiMealPlanSchema), aiController.streamMealPlan);
+
+// Kiểm tra món ăn & nhãn thành phần qua hình ảnh
+router.post('/food-scanner/analyze', validateAiBody(foodScanSchema), aiController.analyzeFoodImage);
 
 export default router;

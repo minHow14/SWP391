@@ -2,6 +2,7 @@
 import { guestQuotaService } from './guestQuotaService.js';
 import { clearAiChatCache } from './aiTransportService.js';
 import { streamAiResponse } from './aiStreamService.js';
+import { analyzeFoodScan } from './aiFoodScanService.js';
 
 export const aiService = {
   async getUsage({ userId, guestId }) {
@@ -17,6 +18,10 @@ export const aiService = {
 
   streamMealPlan(options) {
     return streamAiResponse({ ...options, feature: 'mealPlanner', path: '/api/meal-planner/generate/stream' });
+  },
+
+  analyzeFoodImage(options) {
+    return analyzeFoodScan(options);
   },
 
   clearChatbotCache: clearAiChatCache,
