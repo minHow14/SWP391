@@ -7,7 +7,7 @@ import { placeRepository } from '../repositories/place.repository.js';
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
 const FIELD_MASK =
-  'places.id,places.displayName,places.formattedAddress,places.location,places.rating';
+  'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.photos';
 const PROVIDER_TIMEOUT_MS = 8000;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -241,6 +241,12 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
       phone: null,
       diet_type_id: null,
       rating: p.rating ?? null,
+      image_url:
+        p.photos?.[0]?.photoUri ||
+        p.photos?.[0]?.name ||
+        p.photoUri ||
+        p.image_url ||
+        defaultPlacePhoto(p.displayName?.text || p.id),
       place_id: p.id,
       distance_m: distanceMeters(origin, location),
       user_distance_m: userOrigin ? distanceMeters(userOrigin, location) : null,

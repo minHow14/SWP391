@@ -11,9 +11,20 @@ import {
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
+  resolveRestaurantPhoto,
+  getSampleRestaurantPhoto,
 } from '../utils/nearbyHelpers.js';
 
-export { CITY_HUBS, HCM_HUBS, RADIUS_OPTIONS, DIET_OPTIONS, checkIsOpenNow, getPosition };
+export {
+  CITY_HUBS,
+  HCM_HUBS,
+  RADIUS_OPTIONS,
+  DIET_OPTIONS,
+  checkIsOpenNow,
+  getPosition,
+  resolveRestaurantPhoto,
+  getSampleRestaurantPhoto,
+};
 
 /**
  * Tìm quán chay quanh vị trí người dùng hoặc tại các khu vực trọng điểm đa tỉnh thành.
@@ -100,6 +111,7 @@ export default function NearbyPlaces({
 
       const places = rawPlaces.map((place) => {
         const isExternal = place.source === 'ziomap';
+        const photo = resolveRestaurantPhoto(place);
         return {
           ...place,
           id:
@@ -114,7 +126,8 @@ export default function NearbyPlaces({
               : place.diet_type_id === 1
                 ? 'vegan'
                 : 'separate',
-          image: place.image || place.image_url,
+          image: photo,
+          image_url: photo,
         };
       });
 
@@ -373,8 +386,8 @@ export default function NearbyPlaces({
           {places.length === 0 ? (
             <p className="cx-nearby-note" role="status">
               Chưa có quán nào trong bán kính {radiusKm} km quanh vị trí này. Bạn có thể{' '}
-              <button type="button" onClick={() => handleRadiusSelect(20)}>
-                mở rộng bán kính 20 km
+              <button type="button" onClick={() => handleRadiusSelect(10)}>
+                mở rộng bán kính 10 km
               </button>{' '}
               hoặc chọn khu vực / tỉnh thành khác.
             </p>
@@ -388,6 +401,7 @@ export default function NearbyPlaces({
                     <div className="cx-nearby-thumb-wrap">
                       <ContentImage
                         src={place.image || place.image_url}
+                        fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)}
                         alt={place.name}
                         className="cx-place-thumb"
                       />

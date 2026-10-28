@@ -10,6 +10,7 @@ import RestaurantDetail from '../features/restaurants/components/RestaurantDetai
 import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
+import { getSampleRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
 
 const typeName = (type) =>
   type === 'external'
@@ -216,7 +217,7 @@ export default function Restaurants() {
               key={place.id}
             >
               <div className="cx-restaurant-summary">
-                <ContentImage src={place.image || place.image_url} alt="Ảnh không gian hoặc món ăn minh họa" />
+                <ContentImage src={place.image || place.image_url} fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)} alt="Ảnh không gian hoặc món ăn minh họa" />
                 <div>
                   <span className={`cx-restaurant-type is-${place.type}`}>
                     {typeName(place.type)}
@@ -334,7 +335,7 @@ export default function Restaurants() {
                     ×
                   </button>
                   <div className="cx-map-popup-photo">
-                    <ContentImage src={selected.image || selected.image_url} alt="Ảnh minh họa quán đang chọn" />
+                    <ContentImage src={selected.image || selected.image_url} fallbackSrc={getSampleRestaurantPhoto(selected.name || selected.id)} alt="Ảnh minh họa quán đang chọn" />
                     {selected.rating > 0 && <span>⭐ {selected.rating}</span>}
                   </div>
                   <div className="cx-map-popup-body">

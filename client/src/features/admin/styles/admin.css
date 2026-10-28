@@ -339,10 +339,18 @@
   border-style: dashed !important;
 }
 
+
 /* ==========================================================================
    THIẾT KẾ MỚI: ADMIN DASHBOARD CHAYXANH (REDESIGNED)
    Tuân thủ nguyên tắc thiết kế đặc trưng, có chủ kiến và hướng đến hệ sinh thái thuần chay
    ========================================================================== */
+
+/* 0. Khung chứa Dashboard ngoài cùng */
+.admin-dashboard-wrapper {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
 
 /* 1. Nhịp thở trực tiếp (Live Pulse) */
 .cx-live-pulse {
@@ -443,10 +451,10 @@
 /* 4. Thẻ Trụ Cột Chỉ Số Sống (Vitality Metric Cards) */
 .cx-metric-card {
   background: #ffffff;
-  border: 1px solid #e2e8df;
-  border-radius: 14px;
-  padding: 1.15rem;
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.02);
+  border: 1px solid var(--cx-admin-border);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: var(--cx-admin-shadow);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
@@ -456,7 +464,7 @@
 }
 
 .cx-metric-card.is-clickable:hover {
-  transform: translateY(-2px);
+  transform: translateY(-3px);
   border-color: #86efac;
   box-shadow: 0 10px 22px rgba(22, 163, 74, 0.08);
 }
@@ -543,13 +551,14 @@
 
 /* 5. Launchpad Phím Tắt Điều Hành (Quick Action Toolbar) */
 .cx-action-launchpad {
-  background: #f8faf7;
-  border: 1px solid #e2e8df;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid var(--cx-admin-border);
+  border-radius: 16px;
+  box-shadow: var(--cx-admin-shadow);
 }
 
 .cx-action-chip {
-  background-color: #ffffff;
+  background-color: #f8fafc;
   border: 1px solid #e2e8f0;
   color: #1e293b;
   font-weight: 500;
@@ -581,9 +590,9 @@
 /* 6. Dòng Hoạt Động & Telemetry Stream (Feed Cards & Tables) */
 .cx-feed-card {
   background: #ffffff;
-  border: 1px solid #e2e8df;
-  border-radius: 14px;
-  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.02);
+  border: 1px solid var(--cx-admin-border);
+  border-radius: 16px;
+  box-shadow: var(--cx-admin-shadow);
 }
 
 .cx-feed-header {
@@ -686,15 +695,16 @@
 
 /* 7. Băng Trạng Thái Kỹ Thuật (Health Banner) */
 .cx-health-banner {
-  background: #f8faf7;
-  border: 1px dashed #cbd5e1;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px dashed var(--cx-admin-border);
+  border-radius: 16px;
+  box-shadow: var(--cx-admin-shadow);
 }
 
 .cx-health-node {
-  background: #ffffff;
+  background: #f8fafc;
   border: 1px solid #e2e8df;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 .cx-health-label {
@@ -727,4 +737,3 @@
   background-color: #0284c7;
   box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
 }
-

@@ -96,31 +96,33 @@ export default function AdminDashboardTab({ onNavigateTab }) {
 
   return (
     <div className="cx-dashboard-container">
-      {/* Header Điều Hành */}
-      <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2 pb-2 border-bottom">
-        <div>
-          <div className="d-flex align-items-center gap-2 mb-1">
-            <h4 className="fw-bold mb-0 text-dark">
-              Tổng Quan Hoạt Động Hệ Sinh Thái
-            </h4>
-            <Badge bg="success" className="bg-opacity-10 text-success border border-success-subtle fw-normal">
-              <span className="cx-live-pulse me-1" />
-              Trực tiếp
-            </Badge>
+      {/* Header Điều Hành Riêng Biệt */}
+      <div className="admin-card p-3 p-md-4 mb-3">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
+          <div>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <h4 className="fw-bold mb-0 text-dark">
+                Tổng Quan Hoạt Động Hệ Sinh Thái
+              </h4>
+              <Badge bg="success" className="bg-opacity-10 text-success border border-success-subtle fw-normal">
+                <span className="cx-live-pulse me-1" />
+                Trực tiếp
+              </Badge>
+            </div>
+            <p className="text-muted small mb-0">
+              Dữ liệu thống kê thời gian thực · Cập nhật lần cuối: <strong>{lastUpdated || 'Vừa xong'}</strong>
+            </p>
           </div>
-          <p className="text-muted small mb-0">
-            Dữ liệu thống kê thời gian thực · Cập nhật lần cuối: <strong>{lastUpdated || 'Vừa xong'}</strong>
-          </p>
+          <Button
+            variant="outline-success"
+            size="sm"
+            className="rounded-pill px-3 d-inline-flex align-items-center gap-1 shadow-sm"
+            onClick={fetchStats}
+          >
+            <i className="bi bi-arrow-clockwise" />
+            <span>Làm mới dữ liệu</span>
+          </Button>
         </div>
-        <Button
-          variant="outline-success"
-          size="sm"
-          className="rounded-pill px-3 d-inline-flex align-items-center gap-1 shadow-sm"
-          onClick={fetchStats}
-        >
-          <i className="bi bi-arrow-clockwise" />
-          <span>Làm mới dữ liệu</span>
-        </Button>
       </div>
 
       {/* Signature Element: Sàn Xử Lý Khẩn Cấp (Triage Deck) */}

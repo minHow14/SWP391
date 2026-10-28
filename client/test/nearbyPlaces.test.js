@@ -8,6 +8,9 @@ import {
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
+  SAMPLE_RESTAURANT_PHOTOS,
+  getSampleRestaurantPhoto,
+  resolveRestaurantPhoto,
 } from '../src/features/restaurants/utils/nearbyHelpers.js';
 import { placeService } from '../src/services/placeService.js';
 import apiClient from '../src/services/apiClient.js';
@@ -36,7 +39,7 @@ test('CITY_HUBS contains major Vietnam cities and valid district hubs with GPS c
 });
 
 test('RADIUS_OPTIONS and DIET_OPTIONS have expected values', () => {
-  assert.deepEqual(RADIUS_OPTIONS, [3, 5, 10, 20]);
+  assert.deepEqual(RADIUS_OPTIONS, [3, 5, 10]);
   assert.ok(Array.isArray(DIET_OPTIONS));
   assert.ok(DIET_OPTIONS.some((d) => d.id === null));
   assert.ok(DIET_OPTIONS.some((d) => d.id === 1)); // Vegan
@@ -127,4 +130,25 @@ test('getPosition rejects when geolocation is unsupported', async () => {
     getPosition({}),
     /Trình duyệt không hỗ trợ định vị GPS/
   );
+});
+
+test('SAMPLE_RESTAURANT_PHOTOS has high quality vegetarian photos and resolveRestaurantPhoto resolves real vs sample photos', () => {
+  assert.ok(Array.isArray(SAMPLE_RESTAURANT_PHOTOS));
+  assert.ok(SAMPLE_RESTAURANT_PHOTOS.length >= 8);
+  for (const url of SAMPLE_RESTAURANT_PHOTOS) {
+    assert.ok(url.startsWith('https://images.unsplash.com/'));
+  }
+
+  // Quán có ảnh thật -> lấy đúng ảnh thật
+  const placeWithRealPhoto = { name: 'Quán Chay An Lạc', image_url: 'https://my-real-restaurant.com/photo.jpg' };
+  assert.equal(resolveRestaurantPhoto(placeWithRealPhoto), 'https://my-real-restaurant.com/photo.jpg');
+
+  // Quán không có ảnh -> lấy ảnh mẫu từ danh sách mẫu
+  const placeWithoutPhoto = { name: 'Quán Chay Sen Vàng', image_url: null };
+  const fallback = resolveRestaurantPhoto(placeWithoutPhoto);
+  assert.ok(SAMPLE_RESTAURANT_PHOTOS.includes(fallback));
+
+  // Hai quán khác tên không có ảnh nhận ảnh mẫu xác định theo seed
+  const fallback2 = resolveRestaurantPhoto({ name: 'Quán Chay Bồ Đề', image: '' });
+  assert.ok(SAMPLE_RESTAURANT_PHOTOS.includes(fallback2));
 });

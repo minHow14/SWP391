@@ -22,22 +22,28 @@
 .cx-nearby-radius > span, .cx-nearby-diet > span { font-weight: 700; color: #065f46; }
 .cx-nearby-radius-chips, .cx-nearby-diet-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .cx-nearby-radius-chips button, .cx-nearby-diet-chips button { border: 1px solid #cde4d8; border-radius: 999px; background: #fff; color: #374151; padding: 4px 11px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.15s ease; }
-.cx-nearby-radius-chips button:hover:not(:disabled), .cx-nearby-diet-chips button:hover:not(:disabled) { background: #f0fdf4; border-color: #86efac; }
+.cx-nearby-radius-chips button:hover:not(:disabled):not(.is-active), .cx-nearby-diet-chips button:hover:not(:disabled):not(.is-active) { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+
 .cx-nearby-radius-chips button.is-active, .cx-nearby-diet-chips button.is-active { background: #059669; color: #fff; border-color: #059669; font-weight: 750; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.25); }
+.cx-nearby-radius-chips button.is-active:hover:not(:disabled), .cx-nearby-diet-chips button.is-active:hover:not(:disabled) { background: #047857; color: #fff; border-color: #047857; box-shadow: 0 3px 8px rgba(4, 120, 87, 0.35); }
 .cx-nearby-user-status .cx-gps-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: #ecfdf5; color: #047857; font-size: 11px; font-weight: 700; border: 1px solid #a7f3d0; }
 
 /* Khu vực Đa tỉnh thành & Quận huyện */
 .cx-nearby-city-section { margin-top: 12px; display: grid; gap: 8px; }
 .cx-nearby-city-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .cx-city-tab-btn { border: 1px solid #d1fae5; border-radius: 10px; background: #e6f7ef; color: #047857; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.15s ease; }
-.cx-city-tab-btn:hover:not(:disabled) { background: #d5f2e3; }
+.cx-city-tab-btn:hover:not(:disabled):not(.is-active) { background: #d5f2e3; color: #065f46; }
+
 .cx-city-tab-btn.is-active { background: #047857; color: #fff; border-color: #047857; box-shadow: 0 2px 6px rgba(4, 120, 87, 0.25); }
+.cx-city-tab-btn.is-active:hover:not(:disabled) { background: #065f46; color: #fff; border-color: #065f46; }
 
 .cx-nearby-hubs { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px 12px; border-radius: 12px; background: #eaf5ef; font-size: 12px; }
 .cx-nearby-hubs-title { font-weight: 800; color: #065f46; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px; }
 .cx-nearby-hub-btn { border: 1px solid #c2e2d1; border-radius: 8px; background: #fff; color: #065f46; padding: 5px 11px; font-size: 11px; font-weight: 650; cursor: pointer; transition: all 0.15s ease; }
-.cx-nearby-hub-btn:hover:not(:disabled) { background: #f0fdf4; }
+.cx-nearby-hub-btn:hover:not(:disabled):not(.is-active) { background: #f0fdf4; border-color: #86efac; color: #15803d; }
+
 .cx-nearby-hub-btn.is-active { background: #15803d; color: #fff; border-color: #15803d; font-weight: 750; box-shadow: 0 2px 6px rgba(21, 128, 61, 0.25); }
+.cx-nearby-hub-btn.is-active:hover:not(:disabled) { background: #166534; color: #fff; border-color: #166534; }
 
 .cx-nearby-note { margin: 12px 0 0; font-size: 13px; color: #475569; }
 .cx-nearby-note.is-error { color: #b91c1c; }
