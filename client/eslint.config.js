@@ -1,3 +1,4 @@
+// D:/SWP391/SWP391/client/eslint.config.js
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
@@ -22,7 +23,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['test/**/*.js'],
-    languageOptions: { globals: globals.node },
+    files: ['test/**/*.{js,jsx}'],
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
   },
 ])

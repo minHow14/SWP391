@@ -1,6 +1,7 @@
-﻿// client/src/features/chat/components/ChatMessage.jsx
+// D:/SWP391/SWP391/client/src/features/chat/components/ChatMessage.jsx
 import { Link } from 'react-router';
 import MarkdownMessage from './MarkdownMessage.jsx';
+import VideoRecipeMessage from '../../videoRecipeSummary/components/VideoRecipeMessage.jsx';
 
 export default function ChatMessage({ message, busy, actions }) {
   const { ask, openMealPlan, askAboutPlan } = actions;
@@ -14,6 +15,7 @@ export default function ChatMessage({ message, busy, actions }) {
         </span>
       )}
       <div className={`cx-chat-bubble ${message.error ? 'is-error' : ''}`}>
+        {message.kind === 'videoRecipe' ? <VideoRecipeMessage message={message} busy={busy} onRetry={actions.retryVideo} /> : <>
         <span className="visually-hidden">
           {message.role === 'user' ? 'Bạn: ' : 'Trợ lý: '}
         </span>
@@ -63,6 +65,7 @@ export default function ChatMessage({ message, busy, actions }) {
             <button type="button" onClick={() => askAboutPlan(message.plan)}>Hỏi về thực đơn này</button>
           </div>
         )}
+        </>}
       </div>
     </div>
   );
