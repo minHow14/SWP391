@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\routes\index.js
+// D:/SWP391/SWP391/server/src/routes/index.js
 import express from 'express';
 import authRoutes from './auth.route.js';
 import blogRoutes from './blog.route.js';
@@ -16,6 +16,7 @@ import guestQuotaRoutes from './guestQuotaRoutes.js';
 import reportRoutes from './report.route.js';
 import aiRoutes from './ai.route.js';
 import aiGenerationRoutes from './aiGenerationRoutes.js';
+import { videoRecipeSummaryJobRoutes, videoRecipeSummaryRoutes } from './videoRecipeSummaryRoutes.js';
 import notificationRoutes from './notification.route.js';
 
 const router = express.Router();
@@ -41,6 +42,8 @@ v1Router.use('/guest-quotas', guestQuotaRoutes);
 v1Router.use('/reports', reportRoutes);
 v1Router.use('/ai', aiRoutes);
 v1Router.use('/ai-generations', aiGenerationRoutes);
+v1Router.use('/video-recipe-summary-jobs', videoRecipeSummaryJobRoutes);
+v1Router.use('/video-recipe-summaries', videoRecipeSummaryRoutes);
 v1Router.use('/notifications', notificationRoutes);
 
 // Gắn chuẩn v1

@@ -387,7 +387,7 @@
 
 /* 3. Signature Element: Sàn Xử Lý Khẩn Cấp (Triage Deck) */
 .cx-triage-deck {
-  border-radius: 16px;
+  border-radius: 14px;
   transition: all 0.25s ease;
   position: relative;
   overflow: hidden;
