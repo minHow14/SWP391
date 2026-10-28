@@ -1,7 +1,7 @@
-// D:/SWP391/SWP391/client/src/pages/admin/AdminAi.jsx
 // client/src/pages/admin/AdminAi.jsx
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { Modal, Button } from 'react-bootstrap';
 import { useDatabase } from '../../hooks/useDatabase.js';
 import {
   adminClearChatCache, adminGetGuestQuota, adminListLogs, adminLogStats, adminResetGuestQuota,
@@ -176,6 +176,8 @@ function InterventionTab() {
   const [quota, setQuota] = useState(null);
   const [notice, setNotice] = useState({ text: '', error: false });
   const [busy, setBusy] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null);
+
   const run = useCallback(async (action, success) => {
     setBusy(true);
     setNotice({ text: '', error: false });
@@ -199,10 +201,15 @@ function InterventionTab() {
         <div className="cx-admin-filters">
           <input value={guestId} onChange={(event) => setGuestId(event.target.value)} maxLength={100} placeholder="Mã khách (X-Guest-Id)" aria-label="Mã khách" />
           <button type="button" disabled={!id || busy} onClick={async () => { const result = await run(() => adminGetGuestQuota(id), () => ''); if (result) setQuota(result); }}>Xem hạn mức</button>
-          <button type="button" className="is-danger" disabled={!id || busy} onClick={async () => {
-            if (!window.confirm(`Đặt lại hạn mức hôm nay của "${id}" về 0?`)) return;
-            const result = await run(() => adminResetGuestQuota(id), (value) => `Đã đặt lại hạn mức (trước đó đã dùng ${value.usedBefore} lượt).`);
-            if (result) setQuota(result);
+          <button type="button" className="is-danger" disabled={!id || busy} onClick={() => {
+            setConfirmModal({
+              title: 'Xác Nhận Đặt Lại Hạn Mức',
+              message: `Bạn có chắc muốn đặt lại hạn mức hôm nay của khách "${id}" về 0?`,
+              onConfirm: async () => {
+                const result = await run(() => adminResetGuestQuota(id), (value) => `Đã đặt lại hạn mức (trước đó đã dùng ${value.usedBefore} lượt).`);
+                if (result) setQuota(result);
+              },
+            });
           }}>Đặt lại hạn mức</button>
         </div>
         {quota && <p className="cx-admin-quota">Khách <strong>{quota.guestId}</strong>: đã dùng {quota.used}/{quota.dailyLimit} lượt, còn {quota.remaining}. Reset lúc {dateTime(quota.resetsAt)}.</p>}
@@ -210,13 +217,35 @@ function InterventionTab() {
       <div>
         <h3>Bộ nhớ đệm chatbot</h3>
         <p>Xoá các câu trả lời đã lưu, nên làm sau khi đổi prompt hoặc model.</p>
-        <button type="button" className="is-danger" disabled={busy} onClick={async () => {
-          if (!window.confirm('Xoá toàn bộ bộ nhớ đệm câu trả lời của chatbot?')) return;
-          await run(adminClearChatCache, (value) => `Đã xoá ${value.cleared} câu trả lời đã lưu.`);
+        <button type="button" className="is-danger" disabled={busy} onClick={() => {
+          setConfirmModal({
+            title: 'Xác Nhận Xoá Bộ Nhớ Đệm',
+            message: 'Bạn có chắc chắn muốn xoá toàn bộ bộ nhớ đệm câu trả lời của chatbot? Thao tác này sẽ làm mới câu trả lời sinh tự động.',
+            onConfirm: async () => {
+              await run(adminClearChatCache, (value) => `Đã xoá ${value.cleared} câu trả lời đã lưu.`);
+            },
+          });
         }}>Xoá bộ nhớ đệm</button>
       </div>
       {notice.text && <p className={`alert ${notice.error ? 'alert-danger' : 'alert-success'}`} role={notice.error ? 'alert' : 'status'}>{notice.text}</p>}
       <p className="text-secondary small">Mọi can thiệp được ghi vào nhật ký AI với tên tài khoản Admin.</p>
+
+      <Modal show={!!confirmModal} onHide={() => setConfirmModal(null)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title className="fs-6 fw-bold">{confirmModal?.title}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="small text-muted mb-0">{confirmModal?.message}</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" size="sm" onClick={() => setConfirmModal(null)}>Hủy bỏ</Button>
+          <Button variant="danger" size="sm" onClick={() => {
+            const action = confirmModal?.onConfirm;
+            setConfirmModal(null);
+            action?.();
+          }}>Đồng ý</Button>
+        </Modal.Footer>
+      </Modal>
     </section>
   );
 }

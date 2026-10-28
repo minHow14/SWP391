@@ -67,7 +67,7 @@ export default function AdminReportsTab() {
   const handleDismiss = async (reportId) => {
     try {
       await adminService.updateReportStatus(reportId, { status: 'DISMISSED' });
-      setActionMsg('Đã bác bỏ báo cáo vi phạm');
+      setActionMsg('Đã từ chối báo cáo vi phạm');
       emitSyncEvent('REPORT_CHANGED', { reportId });
       fetchReports();
     } catch (err) {
@@ -101,7 +101,7 @@ export default function AdminReportsTab() {
               <option value="">Tất cả trạng thái báo cáo</option>
               <option value="PENDING">Chờ xử lý</option>
               <option value="RESOLVED">Đã giải quyết</option>
-              <option value="DISMISSED">Đã bác bỏ</option>
+              <option value="DISMISSED">Đã từ chối</option>
             </Form.Select>
           </Col>
         </Row>
@@ -114,7 +114,7 @@ export default function AdminReportsTab() {
           <p className="mt-2 text-muted small">Đang nạp danh sách báo cáo...</p>
         </div>
       ) : error ? (
-        <Alert variant="danger" className="d-flex justify-content-between align-items-center rounded-3">
+        <Alert variant="danger" dismissible onClose={() => setError('')} className="d-flex justify-content-between align-items-center rounded-3">
           <span><i className="bi bi-exclamation-triangle me-2" />{error}</span>
           <Button variant="outline-danger" size="sm" onClick={fetchReports}>Thử lại</Button>
         </Alert>
@@ -185,7 +185,7 @@ export default function AdminReportsTab() {
                         rep.status === 'PENDING' ? 'cx-badge-locked' :
                         rep.status === 'RESOLVED' ? 'cx-badge-active' : 'cx-badge-neutral'
                       }`}>
-                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã bác bỏ'}
+                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã từ chối'}
                       </span>
                     </td>
                     <td className="text-end">
@@ -206,9 +206,9 @@ export default function AdminReportsTab() {
                             size="sm"
                             className="rounded-3"
                             onClick={() => handleDismiss(rep.report_id)}
-                            title="Bác bỏ báo cáo này"
+                            title="Từ chối báo cáo này"
                           >
-                            Bác bỏ
+                            Từ chối
                           </Button>
                         </>
                       ) : (

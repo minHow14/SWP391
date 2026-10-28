@@ -1,8 +1,9 @@
-﻿// client/src/features/admin/components/AdminCategoriesTab.jsx
+// client/src/features/admin/components/AdminCategoriesTab.jsx
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Table, Button, Form, Spinner, Alert, Row, Col, Nav } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminCategoryDeleteModal from './AdminCategoryDeleteModal.jsx';
 import AdminCategoryRow from './AdminCategoryRow.jsx';
 import AdminCategoryPreviewModal from './AdminCategoryPreviewModal.jsx';
 import AdminCategoryFormModal from './AdminCategoryFormModal.jsx';
@@ -26,6 +27,7 @@ export default function AdminCategoriesTab() {
   const [expandedIds, setExpandedIds] = useState(new Set());
   const [previewItem, setPreviewItem] = useState(null);
   const [previewType, setPreviewType] = useState('RECIPE');
+  const [deletingCat, setDeletingCat] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [modalMode, setModalMode] = useState('CREATE');
@@ -111,15 +113,21 @@ export default function AdminCategoriesTab() {
     }
   };
 
-  const handleDelete = async (cat) => {
-    if (!window.confirm(`Bạn có chắc muốn xóa danh mục "${cat.name}"?`)) return;
+  const handleDelete = (cat) => {
+    setDeletingCat(cat);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingCat?.category_id) return;
     try {
-      await adminService.deleteCategory(cat.category_id);
-      setActionMsg(`Đã xóa danh mục "${cat.name}" thành công`);
+      await adminService.deleteCategory(deletingCat.category_id);
+      setActionMsg(`Đã xóa danh mục "${deletingCat.name}" thành công`);
       emitSyncEvent('CATEGORY_CHANGED');
+      setDeletingCat(null);
       fetchCategories();
     } catch (err) {
       setError(err.message);
+      setDeletingCat(null);
     }
   };
 
@@ -243,6 +251,12 @@ export default function AdminCategoriesTab() {
         setTargetType={setTargetType}
         categoryName={categoryName} setCategoryName={setCategoryName}
         onSubmit={handleSave}
+      />
+
+      <AdminCategoryDeleteModal
+        confirmDelete={deletingCat}
+        onHide={() => setDeletingCat(null)}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

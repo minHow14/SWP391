@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminCommentDeleteModal from './AdminCommentDeleteModal.jsx';
 
 export default function AdminCommentsTab() {
   const [comments, setComments] = useState([]);
@@ -12,6 +13,7 @@ export default function AdminCommentsTab() {
   const [flagFilter, setFlagFilter] = useState('');
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
+  const [deletingComment, setDeletingComment] = useState(null);
 
   const fetchComments = useCallback(async () => {
     setLoading(true);
@@ -57,15 +59,18 @@ export default function AdminCommentsTab() {
     }
   };
 
-  const handleDeleteComment = async (commentId) => {
-    if (!window.confirm('Bạn có chắc muốn xóa bình luận vi phạm này?')) return;
+  const handleConfirmDelete = async () => {
+    if (!deletingComment?.comment?.comment_id) return;
+    const commentId = deletingComment.comment.comment_id;
     try {
       await adminService.deleteComment(commentId);
       setActionMsg('Đã xóa bình luận vi phạm');
       emitSyncEvent('COMMENT_CHANGED', { commentId });
+      setDeletingComment(null);
       fetchComments();
     } catch (err) {
       setError(err.message);
+      setDeletingComment(null);
     }
   };
 
@@ -73,99 +78,120 @@ export default function AdminCommentsTab() {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h4 className="fw-bold mb-1 text-dark">Quản Lý Bình Luận Cộng Đồng</h4>
-          <p className="text-muted small mb-0">Theo dõi tương tác, kiểm tra bình luận nghi vấn vi phạm, ẩn hoặc gỡ bỏ</p>
+          <h5 className="fw-bold mb-1">Kiểm Duyệt & Quản Lý Bình Luận</h5>
+          <p className="text-muted small mb-0">Quản trị nội dung tương tác của người dùng trên toàn hệ thống</p>
         </div>
+        <Button variant="outline-success" size="sm" onClick={fetchComments} disabled={loading} className="rounded-3">
+          <i className="bi bi-arrow-clockwise me-1" /> Làm mới
+        </Button>
       </div>
 
       {actionMsg && (
         <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3">
-          <i className="bi bi-check-circle-fill me-2" />{actionMsg}
+          {actionMsg}
         </Alert>
       )}
 
-      {/* Lọc & Tìm kiếm */}
-      <div className="admin-card mb-3 p-3">
+      {error && (
+        <Alert variant="danger" dismissible onClose={() => setError('')} className="py-2 small rounded-3">
+          {error}
+        </Alert>
+      )}
+
+      {/* Bộ lọc bình luận */}
+      <div className="admin-filter-bar mb-3">
         <Row className="g-2">
-          <Col xs={12} md={6}>
+          <Col xs={12} md={4}>
             <Form.Control
+              type="text"
               size="sm"
-              className="rounded-3"
-              placeholder="Tìm kiếm nội dung bình luận..."
+              placeholder="Tìm theo nội dung hoặc người đăng..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fetchComments()}
+              className="rounded-3"
             />
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Form.Select
+              size="sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="rounded-3"
+            >
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hiển thị</option>
-              <option value="HIDDEN_BY_AI">Đã ẩn</option>
+              <option value="HIDDEN_BY_AI">Đã ẩn (Nghi vi phạm)</option>
               <option value="DELETED">Đã xóa</option>
             </Form.Select>
           </Col>
-          <Col xs={6} md={2}>
-            <Form.Select size="sm" className="rounded-3" value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)}>
-              <option value="">Bộ lọc cờ AI</option>
-              <option value="true">Có cờ nghi vấn</option>
+          <Col xs={6} md={3}>
+            <Form.Select
+              size="sm"
+              value={flagFilter}
+              onChange={(e) => setFlagFilter(e.target.value)}
+              className="rounded-3"
+            >
+              <option value="">Cờ kiểm duyệt</option>
+              <option value="true">Bị gắn cờ vi phạm</option>
               <option value="false">Bình thường</option>
             </Form.Select>
-          </Col>
-          <Col xs={12} md={1}>
-            <Button variant="success" size="sm" className="w-100 rounded-3" onClick={fetchComments}>Lọc</Button>
           </Col>
         </Row>
       </div>
 
-      {/* Danh sách bình luận */}
+      {/* Bảng danh sách bình luận */}
       {loading ? (
         <div className="text-center py-5">
-          <Spinner animation="border" variant="success" />
+          <Spinner animation="border" variant="success" size="sm" />
           <p className="mt-2 text-muted small">Đang nạp danh sách bình luận...</p>
         </div>
-      ) : error ? (
-        <Alert variant="danger" className="d-flex justify-content-between align-items-center rounded-3">
-          <span><i className="bi bi-exclamation-triangle me-2" />{error}</span>
-          <Button variant="outline-danger" size="sm" onClick={fetchComments}>Thử lại</Button>
-        </Alert>
       ) : comments.length === 0 ? (
-        <div className="text-center py-5 border rounded-4 bg-light">
-          <i className="bi bi-chat-left-text text-muted display-4" />
-          <p className="mt-2 text-muted">Không tìm thấy bình luận nào phù hợp</p>
+        <div className="admin-empty-state">
+          <i className="bi bi-chat-square-text text-muted display-6 mb-2" />
+          <p className="text-muted small">Không tìm thấy bình luận nào phù hợp với bộ lọc.</p>
         </div>
       ) : (
-        <div className="admin-card overflow-hidden">
-          <Table responsive hover className="mb-0 align-middle admin-table">
+        <div className="table-responsive">
+          <Table hover className="admin-table align-middle">
             <thead>
               <tr>
-                <th>Nội dung bình luận</th>
+                <th style={{ width: '60px' }}>ID</th>
                 <th>Người gửi</th>
-                <th>Bài viết liên quan</th>
-                <th>Cờ cảnh báo AI</th>
-                <th>Trạng thái</th>
-                <th className="text-end">Hành động</th>
+                <th>Nội dung bình luận</th>
+                <th>Vị trí</th>
+                <th style={{ width: '130px' }}>Trạng thái</th>
+                <th style={{ width: '120px' }} className="text-end">Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {comments.map((c) => (
                 <tr key={c.comment_id}>
+                  <td className="text-muted small">#{c.comment_id}</td>
                   <td>
-                    <div className="fw-semibold text-dark text-wrap" style={{ maxWidth: 320 }}>{c.content}</div>
-                  </td>
-                  <td className="small">{c.user?.full_name}</td>
-                  <td className="small text-truncate" style={{ maxWidth: 200 }}>
-                    {c.post?.blog?.title || c.post?.video?.title || 'Bài viết #' + c.post_id}
+                    <div className="fw-medium small">{c.user?.full_name || 'Vô danh'}</div>
+                    <div className="text-muted" style={{ fontSize: '0.75rem' }}>{c.user?.email}</div>
                   </td>
                   <td>
-                    {c.is_flagged_by_ai ? (
-                      <span className="cx-badge cx-badge-danger"><i className="bi bi-flag-fill me-1" />Có cờ nghi vấn</span>
+                    <div className="small text-break" style={{ maxWidth: '350px' }}>
+                      {c.content}
+                    </div>
+                    {c.is_flagged && (
+                      <span className="badge bg-danger-subtle text-danger border border-danger-subtle mt-1" style={{ fontSize: '0.7rem' }}>
+                        <i className="bi bi-flag-fill me-1" />Bị gắn cờ vi phạm
+                      </span>
+                    )}
+                  </td>
+                  <td className="small text-muted">
+                    {c.post_id ? (
+                      <span className="badge bg-light text-dark border">
+                        Bài viết #{c.post_id}
+                      </span>
                     ) : (
-                      <span className="cx-badge cx-badge-neutral">Bình thường</span>
+                      'N/A'
                     )}
                   </td>
                   <td>
-                    <span className={`cx-badge ${
+                    <span className={`cx-badge-status ${
                       c.status === 'ACTIVE' ? 'cx-badge-active' :
                       c.status === 'HIDDEN_BY_AI' ? 'cx-badge-locked' : 'cx-badge-neutral'
                     }`}>
@@ -199,7 +225,7 @@ export default function AdminCommentsTab() {
                       variant="outline-danger"
                       size="sm"
                       className="rounded-3"
-                      onClick={() => handleDeleteComment(c.comment_id)}
+                      onClick={() => setDeletingComment({ comment: c, permanent: true })}
                       disabled={c.status === 'DELETED'}
                       title="Xóa bình luận vi phạm"
                     >
@@ -212,6 +238,12 @@ export default function AdminCommentsTab() {
           </Table>
         </div>
       )}
+
+      <AdminCommentDeleteModal
+        confirmDelete={deletingComment}
+        onHide={() => setDeletingComment(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

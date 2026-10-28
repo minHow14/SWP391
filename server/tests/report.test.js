@@ -20,6 +20,8 @@ describe('Report System Integration (Post & Comment)', () => {
             'Bình luận xúc phạm người dùng khác',
             'Báo cáo bài viết để admin gỡ bỏ',
             'Bài viết chứa thông tin lừa đảo',
+            'Báo cáo để thử nghiệm bác bỏ',
+            'Báo cáo để kiểm tra chuẩn hóa REJECTED',
           ],
         },
       },
@@ -34,6 +36,7 @@ describe('Report System Integration (Post & Comment)', () => {
               'Post with comment for report test',
               'Bài viết vi phạm chuẩn bị bị gỡ bỏ',
               'Vi phạm nghiêm trọng bài viết',
+              'Bài viết để kiểm thử bác bỏ báo cáo',
             ],
           },
         },
@@ -239,5 +242,75 @@ describe('Report System Integration (Post & Comment)', () => {
       where: { post_id: postToHide.post_id },
     });
     expect(commentsAfter.every((c) => c.status === 'DELETED')).toBe(true);
+  });
+
+  it('when admin dismisses a report with DISMISSED: report status becomes DISMISSED', async () => {
+    const post = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'PUBLISHED',
+        blog: { create: { title: 'Bài viết để kiểm thử bác bỏ báo cáo', content: 'Nội dung an toàn' } },
+      },
+    });
+
+    const reportRes = await request(app)
+      .post('/api/reports')
+      .set('Authorization', `Bearer ${user2Token}`)
+      .send({ post_id: post.post_id, reason: 'Báo cáo để thử nghiệm bác bỏ' });
+
+    expect(reportRes.status).toBe(201);
+    const reportId = reportRes.body.data.report_id;
+
+    // Admin bác bỏ báo cáo (FE-09 gửi status: DISMISSED)
+    const dismissRes = await request(app)
+      .patch(`/api/admin/reports/${reportId}`)
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ status: 'DISMISSED' });
+
+    expect(dismissRes.status).toBe(200);
+    expect(dismissRes.body.success).toBe(true);
+    expect(dismissRes.body.data.status).toBe('DISMISSED');
+
+    const reportInDb = await prisma.report.findUnique({ where: { report_id: reportId } });
+    expect(reportInDb.status).toBe('DISMISSED');
+  });
+
+  it('when admin sends REJECTED or lowercase dismissed: status is normalized to DISMISSED', async () => {
+    const post = await prisma.post.create({
+      data: {
+        author_id: 1,
+        post_type: 'BLOG',
+        status: 'PUBLISHED',
+        blog: { create: { title: 'Bài viết để kiểm thử bác bỏ báo cáo', content: 'Nội dung an toàn 2' } },
+      },
+    });
+
+    const reportRes = await request(app)
+      .post('/api/reports')
+      .set('Authorization', `Bearer ${user2Token}`)
+      .send({ post_id: post.post_id, reason: 'Báo cáo để kiểm tra chuẩn hóa REJECTED' });
+
+    expect(reportRes.status).toBe(201);
+    const reportId = reportRes.body.data.report_id;
+
+    const rejectRes = await request(app)
+      .patch(`/api/admin/reports/${reportId}`)
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ status: 'REJECTED' });
+
+    expect(rejectRes.status).toBe(200);
+    expect(rejectRes.body.success).toBe(true);
+    expect(rejectRes.body.data.status).toBe('DISMISSED');
+  });
+
+  it('rejects invalid report status option with 400', async () => {
+    const invalidRes = await request(app)
+      .patch('/api/admin/reports/999999')
+      .set('Authorization', `Bearer ${user1Token}`)
+      .send({ status: 'INVALID_STATUS' });
+
+    expect(invalidRes.status).toBe(400);
+    expect(invalidRes.body.success).toBe(false);
   });
 });

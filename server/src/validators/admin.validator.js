@@ -38,7 +38,21 @@ export const resolveAiFlaggedItemSchema = z.object({
 }).strict();
 
 export const updateReportStatusSchema = z.object({
-  status: z.enum(['PENDING', 'RESOLVED', 'REJECTED']),
+  status: z
+    .enum([
+      'PENDING',
+      'RESOLVED',
+      'DISMISSED',
+      'REJECTED',
+      'pending',
+      'resolved',
+      'dismissed',
+      'rejected',
+    ])
+    .transform((val) => {
+      const upper = val.toUpperCase();
+      return upper === 'REJECTED' ? 'DISMISSED' : upper;
+    }),
   resolutionAction: z.enum(['NONE', 'HIDE_CONTENT', 'none', 'hide_content']).optional(),
 }).strict();
 

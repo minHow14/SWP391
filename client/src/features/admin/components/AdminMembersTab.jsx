@@ -4,6 +4,7 @@ import AdminMemberContentModal from './AdminMemberContentModal.jsx';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminMemberStatusModal from './AdminMemberStatusModal.jsx';
 
 export default function AdminMembersTab() {
   const [users, setUsers] = useState([]);
@@ -14,6 +15,7 @@ export default function AdminMembersTab() {
   const [selectedUserContent, setSelectedUserContent] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+  const [deletingUserId, setDeletingUserId] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -57,17 +59,23 @@ export default function AdminMembersTab() {
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (!window.confirm('Bạn có chắc chắn muốn chuyển tài khoản này sang trạng thái Đã xóa?')) return;
+  const handleDeleteUser = (userId) => {
+    setDeletingUserId(userId);
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deletingUserId) return;
     try {
-      await adminService.deleteUser(userId);
+      await adminService.deleteUser(deletingUserId);
       setActionMessage('Đã chuyển tài khoản sang trạng thái Đã xóa');
-      emitSyncEvent('USER_CHANGED', { userId });
+      emitSyncEvent('USER_CHANGED', { userId: deletingUserId });
       emitSyncEvent('POST_CHANGED');
       emitSyncEvent('COMMENT_CHANGED');
+      setDeletingUserId(null);
       fetchUsers();
     } catch (err) {
       setError(err.message);
+      setDeletingUserId(null);
     }
   };
 
@@ -215,6 +223,12 @@ export default function AdminMembersTab() {
 
       {/* Modal xem nội dung của User */}
       <AdminMemberContentModal content={selectedUserContent} loading={contentLoading} onHide={() => setSelectedUserContent(null)} />
+
+      <AdminMemberStatusModal
+        confirmDelete={deletingUserId}
+        onHide={() => setDeletingUserId(null)}
+        onConfirm={handleConfirmDeleteUser}
+      />
     </div>
   );
 }

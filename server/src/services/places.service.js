@@ -2,9 +2,12 @@
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
+import config from '../config/index.js';
 import { placeRepository } from '../repositories/place.repository.js';
 
-const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
+const getZiomapUrl = () => process.env.ZIOMAP_API_URL || config.ziomapApiUrl || 'https://ziomap-api.socibi.com/api/place/text-search';
+const getZiomapApiKey = () => process.env.ZIOMAP_API_KEY;
+
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
 const FIELD_MASK =
   'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.photos';
@@ -52,6 +55,23 @@ export const defaultPlacePhoto = (key = '') => {
   return VEGETARIAN_COVER_PHOTOS[Math.abs(hash) % VEGETARIAN_COVER_PHOTOS.length];
 };
 
+/**
+ * Tự động trích xuất hoặc nhận diện thành phố từ địa chỉ hoặc chi tiết của quán
+ * Hỗ trợ các tỉnh thành lớn: Hà Nội, Hồ Chí Minh, Đà Nẵng, Cần Thơ, Huế...
+ */
+export function detectCityFromAddress(address, detailsCity) {
+  if (detailsCity && typeof detailsCity === 'string' && detailsCity.trim()) {
+    return detailsCity.trim();
+  }
+  const addr = String(address || '');
+  if (/Hà Nội/i.test(addr)) return 'Hà Nội';
+  if (/Đà Nẵng/i.test(addr)) return 'Đà Nẵng';
+  if (/Cần Thơ/i.test(addr)) return 'Cần Thơ';
+  if (/Huế|Thừa Thiên/i.test(addr)) return 'Huế';
+  if (/Hồ Chí Minh|TP\.?HCM|Sài Gòn/i.test(addr)) return 'Hồ Chí Minh';
+  return 'Hồ Chí Minh';
+}
+
 const distanceMeters = (from, to) =>
   from && to?.latitude != null && to?.longitude != null
     ? getDistance(from, { latitude: to.latitude, longitude: to.longitude })
@@ -76,7 +96,7 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
     restaurant_id: restaurant.restaurant_id,
     name: restaurant.name,
     address: restaurant.address,
-    city: restaurant.details?.city || (restaurant.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
+    city: detectCityFromAddress(restaurant.address, restaurant.details?.city),
     hours: restaurant.details?.hours || 'Chưa cập nhật',
     price_range: restaurant.details?.price_range || 'Theo thời giá',
     separate: restaurant.details?.separate_kitchen ?? null,
@@ -181,8 +201,10 @@ async function fetchZiomap(url, init) {
 
 const isCoordinate = (value, limit) => Number.isFinite(value) && Math.abs(value) <= limit;
 
-// Chỉ xin đúng số quán còn thiếu cho gọn dữ liệu. Key (Base64 JSON) gửi qua header, không qua URL.
+// Chỉ xin đúng số quán còn thiếu cho gọn dữ liệu. Key gửi qua header, không qua URL.
 function requestZiomap({ query, lat, lng, radiusKm, limit }) {
+  const url = getZiomapUrl();
+  const apiKey = getZiomapApiKey();
   const params = new URLSearchParams({
     query,
     languageCode: 'vi',
@@ -195,8 +217,8 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
       },
     }),
   });
-  return fetchZiomap(`${ZIOMAP_TEXT_SEARCH_URL}?${params}`, {
-    headers: { 'x-api-key': process.env.ZIOMAP_API_KEY },
+  return fetchZiomap(`${url}?${params}`, {
+    headers: { 'x-api-key': apiKey || '' },
   });
 }
 
@@ -205,7 +227,8 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
  * ZIOMAP_API_KEY; kết quả cache 24 giờ theo ô toạ độ (~100 m) để tránh gọi lặp và tiết kiệm phí.
  */
 export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigin = null }) {
-  if (!process.env.ZIOMAP_API_KEY) return { places: [], skipped: true, cached: false };
+  const apiKey = getZiomapApiKey();
+  if (!apiKey) return { places: [], skipped: true, cached: false };
 
   const cacheKey = [normalize(query), lat.toFixed(3), lng.toFixed(3), radiusKm, limit].join('|');
   const hit = ziomapCache.get(cacheKey);

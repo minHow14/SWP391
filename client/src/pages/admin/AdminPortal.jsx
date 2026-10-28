@@ -73,11 +73,6 @@ export default function AdminPortal() {
               <p className="text-muted small">
                 Bạn cần đăng nhập bằng tài khoản có quyền <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông tin này.
               </p>
-              <Alert variant="success" className="text-start small bg-success-subtle border-0">
-                <strong>Tài khoản Quản trị viên hệ thống:</strong>
-                <div>Email: <code>admin@swp391.com</code></div>
-                <div>Mật khẩu: <code>123456</code></div>
-              </Alert>
               <div className="d-flex justify-content-center gap-2">
                 <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-3">
                   <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng nhập

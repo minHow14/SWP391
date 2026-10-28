@@ -8,6 +8,8 @@ export const config = Object.freeze({
   port: env.PORT,
   clientUrl: env.CLIENT_URL,
   ziomapApiKey: env.ZIOMAP_API_KEY,
+  ziomapApiUrl: env.ZIOMAP_API_URL,
+  aiGuestCookieSecret: env.AI_GUEST_COOKIE_SECRET,
 
   // Cấu hình Database
   db: {

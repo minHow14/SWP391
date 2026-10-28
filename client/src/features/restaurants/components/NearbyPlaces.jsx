@@ -1,9 +1,6 @@
 // client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
-import { formatDistance } from '../../../utils/aiHelpers.js';
-import { restaurantDirections } from '../../../utils/restaurantDirections.js';
-import ContentImage from '../../../components/common/ContentImage.jsx';
 import {
   CITY_HUBS,
   HCM_HUBS,
@@ -13,7 +10,11 @@ import {
   getPosition,
   resolveRestaurantPhoto,
   getSampleRestaurantPhoto,
+  SAMPLE_RESTAURANT_PHOTOS,
 } from '../utils/nearbyHelpers.js';
+import NearbyPlacesToolbar from './NearbyPlacesToolbar.jsx';
+import NearbyPlacesCitySelector from './NearbyPlacesCitySelector.jsx';
+import NearbyPlacesList from './NearbyPlacesList.jsx';
 
 export {
   CITY_HUBS,
@@ -24,6 +25,7 @@ export {
   getPosition,
   resolveRestaurantPhoto,
   getSampleRestaurantPhoto,
+  SAMPLE_RESTAURANT_PHOTOS,
 };
 
 /**
@@ -98,105 +100,91 @@ export default function NearbyPlaces({
           limit: 12,
           dietTypeId: targetDiet,
         },
-        { signal: current.signal }
+        current.signal
       );
 
-      if (current.signal.aborted) return;
-      const result = response?.data ?? response;
-      const rawPlaces = Array.isArray(result?.places)
-        ? result.places
-        : Array.isArray(result)
-          ? result
-          : [];
+      const items = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.places)
+          ? response.data.places
+          : Array.isArray(response.places)
+            ? response.places
+            : [];
+      const hasNoResults = items.length === 0;
 
-      const places = rawPlaces.map((place) => {
-        const isExternal = place.source === 'ziomap';
-        const photo = resolveRestaurantPhoto(place);
-        return {
-          ...place,
-          id:
-            place.id ||
-            (place.restaurant_id ? `local_${place.restaurant_id}` : `place_${Math.random()}`),
-          city: place.city || (place.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
-          hours: place.hours || 'Chưa cập nhật',
-          type: isExternal
-            ? 'external'
-            : place.diet_type_id === 5
-              ? 'buddhist'
-              : place.diet_type_id === 1
-                ? 'vegan'
-                : 'separate',
-          image: photo,
-          image_url: photo,
-        };
+      setState({
+        status: 'done',
+        places: items,
+        message: hasNoResults
+          ? `Không tìm thấy quán chay nào trong bán kính ${targetRadius} km.`
+          : '',
+        origin: targetOrigin,
       });
 
-      let note = '';
-      const dietLabel = DIET_OPTIONS.find((d) => d.id === targetDiet)?.label;
-      const dietSuffix = targetDiet ? ` (${dietLabel})` : '';
-
-      if (places.length > 0) {
-        if (searchMode === 'nearby') {
-          note = `Đã tìm thấy ${places.length} quán chay${dietSuffix} trong bán kính ${targetRadius} km quanh vị trí của bạn.`;
-        } else {
-          const currentCityObj = CITY_HUBS.find((c) => c.id === selectedCity) || CITY_HUBS[0];
-          const currentHubObj = currentCityObj.hubs.find((h) => h.id === selectedHub) || currentCityObj.hubs[0];
-          note = `Đã tìm thấy ${places.length} quán chay${dietSuffix} quanh ${currentHubObj.name} - ${currentCityObj.name} (bán kính ${targetRadius} km).`;
-          if (currentUserLoc) {
-            note += ' Đã tính khoảng cách thực tế từ vị trí của bạn.';
-          }
-        }
-      } else {
-        note = `Chưa tìm thấy quán chay${dietSuffix} nào trong bán kính ${targetRadius} km quanh khu vực này.`;
-        if (response?.meta?.ziomap === 'not_configured') {
-          note += ' (Dịch vụ bản đồ ZIOMAP chưa cấu hình API key).';
-        }
-      }
-
-      setState({ status: 'done', places, message: note, origin: targetOrigin });
-      onResults?.(places);
+      onResults?.(items);
     } catch (error) {
-      if (!current.signal.aborted) {
-        setState({ status: 'error', places: [], message: error.message, origin: targetOrigin });
-      }
+      if (current.signal.aborted) return;
+      setState({
+        status: 'error',
+        places: [],
+        message: error.message || 'Không thể tải danh sách quán quanh đây. Vui lòng thử lại.',
+        origin: targetOrigin,
+      });
+      onResults?.([]);
     }
   }
 
-  // Xử lý khi bấm "Quán gần tôi"
+  // Tìm kiếm quán gần vị trí GPS của người dùng
   async function handleNearbySearch(forceRefresh = false) {
     setMode('nearby');
     let loc = userLocation;
+
     if (!loc || forceRefresh) {
-      setState({ status: 'loading', places: [], message: 'Đang xác định vị trí GPS...', origin: null });
+      setState({ status: 'loading', places: [], message: '', origin: null });
       try {
         loc = await getPosition();
         setUserLocation(loc);
         onUserLocationChange?.(loc);
       } catch (error) {
-        setState({ status: 'denied', places: [], message: error.message, origin: null });
+        setState({
+          status: 'denied',
+          places: [],
+          message:
+            error.message ||
+            'Không lấy được vị trí GPS. Hãy kiểm tra quyền truy cập vị trí trên trình duyệt.',
+          origin: null,
+        });
         return;
       }
     }
-    await executeSearch(loc, radiusKm, 'nearby', loc, selectedDiet);
+
+    executeSearch(loc, radiusKm, 'nearby', loc, selectedDiet);
   }
 
-  // Xử lý khi chọn tỉnh/thành hoặc khu vực quận/huyện
-  async function handleHubSearch(hubId, cityId = selectedCity, customRadius = radiusKm, customDiet = selectedDiet) {
+  // Tìm kiếm theo khu vực trọng điểm (Hub) tại Tỉnh / Thành
+  function handleHubSearch(
+    hubId = selectedHub,
+    cityId = selectedCity,
+    targetRadius = radiusKm,
+    targetDiet = selectedDiet
+  ) {
     setMode('city');
     setSelectedCity(cityId);
     setSelectedHub(hubId);
-    const cityObj = CITY_HUBS.find((item) => item.id === cityId) || CITY_HUBS[0];
-    const hub = cityObj.hubs.find((item) => item.id === hubId) || cityObj.hubs[0];
-    const hubOrigin = { lat: hub.lat, lng: hub.lng };
-    await executeSearch(hubOrigin, customRadius, 'city', userLocation, customDiet);
+
+    const city = CITY_HUBS.find((item) => item.id === cityId) || CITY_HUBS[0];
+    const hub = city.hubs.find((item) => item.id === hubId) || city.hubs[0];
+
+    executeSearch(hub.coords, targetRadius, 'city', userLocation, targetDiet);
   }
 
-  // Chuyển đổi thành phố
+  // Đổi tab Tỉnh/Thành -> chọn ngay hub đầu tiên của tỉnh đó
   function handleCityTabChange(cityId) {
     setSelectedCity(cityId);
-    const cityObj = CITY_HUBS.find((item) => item.id === cityId) || CITY_HUBS[0];
-    const firstHub = cityObj.hubs[0];
-    if (firstHub) {
+    const city = CITY_HUBS.find((item) => item.id === cityId);
+    if (city && city.hubs.length > 0) {
+      const firstHub = city.hubs[0];
+      setSelectedHub(firstHub.id);
       handleHubSearch(firstHub.id, cityId, radiusKm, selectedDiet);
     }
   }
@@ -222,248 +210,42 @@ export default function NearbyPlaces({
   }
 
   const { status, places, message } = state;
-  const currentCityObj = CITY_HUBS.find((item) => item.id === selectedCity) || CITY_HUBS[0];
 
   return (
     <section className="cx-nearby" aria-labelledby="nearby-title">
-      <div className="cx-nearby-head">
-        <div>
-          <h2 id="nearby-title">
-            <i className="bi bi-compass-fill" aria-hidden="true" /> Quán chay quanh bạn
-          </h2>
-          <p>
-            Tìm quán chay dựa trên tọa độ GPS người dùng hoặc tại các khu vực trọng điểm toàn quốc.
-          </p>
-        </div>
-        <div className="cx-nearby-actions">
-          <button
-            type="button"
-            className={mode === 'nearby' ? 'is-active' : ''}
-            onClick={() => handleNearbySearch(false)}
-            disabled={status === 'loading'}
-          >
-            {status === 'loading' && mode === 'nearby' ? (
-              <>
-                <i className="bi bi-hourglass-split" aria-hidden="true" /> Đang tìm…
-              </>
-            ) : (
-              <>
-                <i className="bi bi-geo-alt-fill" aria-hidden="true" /> Quán gần tôi
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            className={mode === 'city' ? 'is-active' : ''}
-            onClick={() => handleHubSearch(selectedHub, selectedCity)}
-            disabled={status === 'loading'}
-          >
-            <i className="bi bi-buildings-fill" aria-hidden="true" /> Tìm theo tỉnh / thành
-          </button>
-          {userLocation && (
-            <button
-              type="button"
-              className="cx-btn-refresh-gps"
-              title="Định vị lại GPS chính xác"
-              onClick={() => handleNearbySearch(true)}
-              disabled={status === 'loading'}
-            >
-              <i className="bi bi-arrow-repeat" aria-hidden="true" /> Cập nhật GPS
-            </button>
-          )}
-        </div>
-      </div>
+      <NearbyPlacesToolbar
+        mode={mode}
+        status={status}
+        radiusKm={radiusKm}
+        selectedDiet={selectedDiet}
+        userLocation={userLocation}
+        onNearbySearch={handleNearbySearch}
+        onCitySearch={() => handleHubSearch(selectedHub, selectedCity)}
+        onRadiusSelect={handleRadiusSelect}
+        onDietSelect={handleDietSelect}
+      />
 
-      {/* Thanh tùy chọn bán kính & Chế độ ăn chay */}
-      <div className="cx-nearby-toolbar">
-        <div className="cx-nearby-filter-group">
-          <div className="cx-nearby-radius">
-            <i className="bi bi-broadcast" aria-hidden="true" />
-            <span>Bán kính:</span>
-            <div className="cx-nearby-radius-chips" role="group" aria-label="Chọn bán kính quét">
-              {RADIUS_OPTIONS.map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  className={radiusKm === r ? 'is-active' : ''}
-                  onClick={() => handleRadiusSelect(r)}
-                  disabled={status === 'loading'}
-                >
-                  {r} km
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="cx-nearby-diet">
-            <i className="bi bi-funnel-fill" aria-hidden="true" />
-            <span>Chế độ:</span>
-            <div className="cx-nearby-diet-chips" role="group" aria-label="Lọc theo chế độ ăn">
-              {DIET_OPTIONS.map((d) => (
-                <button
-                  key={d.id ?? 'all'}
-                  type="button"
-                  className={selectedDiet === d.id ? 'is-active' : ''}
-                  onClick={() => handleDietSelect(d.id)}
-                  disabled={status === 'loading'}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {userLocation && (
-          <div className="cx-nearby-user-status">
-            <span className="cx-gps-badge">
-              <i className="bi bi-check-circle-fill" aria-hidden="true" /> Đã nhận vị trí của bạn
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Thanh chọn nhanh Tỉnh/Thành & Quận/Huyện */}
       {mode === 'city' && (
-        <div className="cx-nearby-city-section">
-          <div className="cx-nearby-city-tabs" role="tablist" aria-label="Chọn tỉnh thành">
-            {CITY_HUBS.map((city) => (
-              <button
-                key={city.id}
-                type="button"
-                role="tab"
-                aria-selected={selectedCity === city.id}
-                className={`cx-city-tab-btn ${selectedCity === city.id ? 'is-active' : ''}`}
-                onClick={() => handleCityTabChange(city.id)}
-                disabled={status === 'loading'}
-              >
-                {city.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="cx-nearby-hubs" role="group" aria-label={`Khu vực tại ${currentCityObj.name}`}>
-            <span className="cx-nearby-hubs-title">
-              <i className="bi bi-pin-map-fill" aria-hidden="true" /> Khu vực:
-            </span>
-            {currentCityObj.hubs.map((hub) => (
-              <button
-                key={hub.id}
-                type="button"
-                className={`cx-nearby-hub-btn ${selectedHub === hub.id ? 'is-active' : ''}`}
-                onClick={() => handleHubSearch(hub.id, selectedCity)}
-                disabled={status === 'loading'}
-              >
-                {hub.name}
-              </button>
-            ))}
-          </div>
-        </div>
+        <NearbyPlacesCitySelector
+          selectedCity={selectedCity}
+          selectedHub={selectedHub}
+          status={status}
+          onCityTabChange={handleCityTabChange}
+          onHubSelect={handleHubSearch}
+        />
       )}
 
-      {status === 'denied' && (
-        <p className="cx-nearby-note" role="alert">
-          {message} Bạn có thể{' '}
-          <button type="button" onClick={() => handleHubSearch('hcm_q1', 'hcm')}>
-            dùng vị trí mặc định ở TP.HCM
-          </button>
-          .
-        </p>
-      )}
-
-      {status === 'error' && (
-        <p className="cx-nearby-note is-error" role="alert">
-          {message}{' '}
-          <button type="button" onClick={() => handleHubSearch('hcm_q1', 'hcm')}>
-            Thử lại với khu vực TP.HCM
-          </button>
-        </p>
-      )}
-
-      {status === 'done' && (
-        <>
-          {message && <p className="cx-nearby-note">{message}</p>}
-          {places.length === 0 ? (
-            <p className="cx-nearby-note" role="status">
-              Chưa có quán nào trong bán kính {radiusKm} km quanh vị trí này. Bạn có thể{' '}
-              <button type="button" onClick={() => handleRadiusSelect(10)}>
-                mở rộng bán kính 10 km
-              </button>{' '}
-              hoặc chọn khu vực / tỉnh thành khác.
-            </p>
-          ) : (
-            <ul className="cx-nearby-list">
-              {places.map((place) => {
-                const directionsUrl = restaurantDirections(place, userLocation);
-                const isOpen = checkIsOpenNow(place.hours);
-                return (
-                  <li key={place.id} className="cx-nearby-item">
-                    <div className="cx-nearby-thumb-wrap">
-                      <ContentImage
-                        src={place.image || place.image_url}
-                        fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)}
-                        alt={place.name}
-                        className="cx-place-thumb"
-                      />
-                    </div>
-                    <div className="cx-nearby-info">
-                      <div className="cx-nearby-header-row">
-                        <strong>{place.name}</strong>
-                        {isOpen === true && (
-                          <span className="cx-status-open">🟢 Đang mở cửa</span>
-                        )}
-                        {isOpen === false && (
-                          <span className="cx-status-closed">🔴 Đã đóng cửa</span>
-                        )}
-                      </div>
-                      <span className="cx-nearby-address">{place.address}</span>
-                      {place.hours && place.hours !== 'Chưa cập nhật' && (
-                        <span className="cx-nearby-hours">
-                          <i className="bi bi-clock" aria-hidden="true" /> {place.hours}
-                        </span>
-                      )}
-                    </div>
-                    <div className="cx-nearby-meta">
-                      {Number.isFinite(place.distance_m) && (
-                        <span>
-                          <i className="bi bi-geo" aria-hidden="true" />{' '}
-                          {mode === 'nearby'
-                            ? formatDistance(place.distance_m)
-                            : `Cách tâm ${formatDistance(place.distance_m)}`}
-                        </span>
-                      )}
-
-                      {/* Hiển thị khoảng cách từ vị trí thực của người dùng khi đang xem khu vực tỉnh/thành */}
-                      {mode === 'city' && Number.isFinite(place.user_distance_m) && (
-                        <span
-                          className="cx-user-dist-badge"
-                          title="Khoảng cách tính từ vị trí GPS hiện tại của bạn"
-                        >
-                          <i className="bi bi-person-fill" aria-hidden="true" /> Cách bạn{' '}
-                          {formatDistance(place.user_distance_m)}
-                        </span>
-                      )}
-
-                      {place.rating > 0 && <span>★ {place.rating}</span>}
-                      <button type="button" onClick={() => onSelect?.(place)}>
-                        <i className="bi bi-crosshair" aria-hidden="true" /> Xem bản đồ
-                      </button>
-                      <a
-                        href={directionsUrl}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        title="Mở chỉ đường Google Maps từ vị trí của bạn"
-                      >
-                        <i className="bi bi-sign-turn-right-fill" aria-hidden="true" /> Chỉ đường
-                      </a>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </>
-      )}
+      <NearbyPlacesList
+        status={status}
+        places={places}
+        message={message}
+        mode={mode}
+        radiusKm={radiusKm}
+        userLocation={userLocation}
+        onSelect={onSelect}
+        onRadiusSelect={handleRadiusSelect}
+        onFallbackHub={handleHubSearch}
+      />
     </section>
   );
 }

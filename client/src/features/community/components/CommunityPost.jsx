@@ -1,5 +1,6 @@
 // client/src/features/community/components/CommunityPost.jsx
-import { Button, Card, Spinner, Badge } from 'react-bootstrap';
+import { useState } from 'react';
+import { Button, Card, Spinner, Badge, Modal } from 'react-bootstrap';
 import { formatCreatedAt } from '../../../utils/formatters.js';
 import PostMedia from './PostMedia.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
@@ -24,12 +25,16 @@ export default function CommunityPost({
   const liked = post.post_votes?.some((vote) => vote.user_id === user?.user_id);
   const isAuthor = user && post.author_id === user.user_id;
   const isVideo = post.post_type === 'VIDEO' || Boolean(post.video_url);
+  const itemLabel = isVideo ? 'video' : 'bài viết';
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleDelete = () => {
-    const itemLabel = isVideo ? 'video' : 'bài viết';
-    if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${itemLabel} "${post.title}"? Hành động này không thể hoàn tác.`)) {
-      onDelete?.(post);
-    }
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = () => {
+    setShowDeleteModal(false);
+    onDelete?.(post);
   };
 
   return (
@@ -134,6 +139,31 @@ export default function CommunityPost({
           Báo cáo
         </Button>
       </Card.Footer>
+
+      <Modal show={showDeleteModal} onHide={() => setShowDeleteModal(false)} centered>
+        <Modal.Header closeButton className="border-bottom">
+          <Modal.Title className="fs-6 fw-bold text-dark d-flex align-items-center gap-2">
+            <i className="bi bi-trash3-fill text-danger" />
+            Xác Nhận Xóa {isVideo ? 'Video' : 'Bài Viết'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="small text-muted mb-2">
+            Bạn có chắc chắn muốn xóa vĩnh viễn {itemLabel} sau? Hành động này không thể hoàn tác.
+          </p>
+          <div className="p-2 border rounded-3 bg-danger-subtle text-danger-emphasis small fw-medium text-truncate mb-2">
+            "{post.title}"
+          </div>
+        </Modal.Body>
+        <Modal.Footer className="border-top">
+          <Button variant="secondary" size="sm" className="rounded-3 px-3" onClick={() => setShowDeleteModal(false)}>
+            Hủy bỏ
+          </Button>
+          <Button variant="danger" size="sm" className="rounded-3 px-3 fw-medium" onClick={handleConfirmDelete}>
+            Xác Nhận Xóa
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Card>
   );
 }

@@ -17,6 +17,8 @@ const envSchema = z.object({
   AI_SERVICE_URL: z.string().default('http://127.0.0.1:8000'),
   INTERNAL_API_KEY: z.string().optional(),
   ZIOMAP_API_KEY: z.string().optional(),
+  ZIOMAP_API_URL: z.string().default('https://ziomap-api.socibi.com/api/place/text-search'),
+  AI_GUEST_COOKIE_SECRET: z.string().optional(),
   GUEST_DAILY_LIMIT: z.coerce.number().int().positive().default(3),
   AI_TIMEOUT_MS: z.coerce.number().int().positive().default(180_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),

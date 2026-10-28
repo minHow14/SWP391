@@ -42,4 +42,10 @@ export const categoryRepository = {
   async count(args = {}, db = prisma) {
     return db.category.count(args);
   },
+
+  async countRecipesByCategoryId(categoryId, db = prisma) {
+    return db.recipe.count({
+      where: { category_id: Number(categoryId) },
+    });
+  },
 };

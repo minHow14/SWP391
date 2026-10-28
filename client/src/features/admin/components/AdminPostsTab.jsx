@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminPostDeleteModal from './AdminPostDeleteModal.jsx';
 
 export default function AdminPostsTab() {
   const [posts, setPosts] = useState([]);
@@ -13,6 +14,7 @@ export default function AdminPostsTab() {
   const [search, setSearch] = useState('');
   const [editingPost, setEditingPost] = useState(null);
   const [editForm, setEditForm] = useState({ title: '', content: '' });
+  const [deletingPost, setDeletingPost] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
   const fetchPosts = useCallback(async () => {
@@ -51,23 +53,29 @@ export default function AdminPostsTab() {
     }
   };
 
-  const handleDeletePost = async (post) => {
+  const handleDeletePost = (post) => {
     const postId = typeof post === 'object' ? post.post_id : post;
     const currentPost = typeof post === 'object' ? post : posts.find((item) => item.post_id === postId);
     const postTitle = currentPost?.blog?.title || currentPost?.video?.title || `bài đăng #${postId}`;
     const contentType = currentPost?.post_type === 'BLOG' ? 'bài viết' : 'video';
 
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${contentType} "${postTitle}"? Hành động này không thể hoàn tác.`)) {
-      return;
-    }
+    setDeletingPost({ post: currentPost || { post_id: postId }, postTitle, contentType });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingPost?.post?.post_id) return;
+    const postId = deletingPost.post.post_id;
+    const contentType = deletingPost.contentType;
     try {
       await adminService.deletePost(postId, { permanent: true });
       setActionMsg(`Đã xóa vĩnh viễn ${contentType} thành công`);
       emitSyncEvent('POST_CHANGED', { postId });
       emitSyncEvent('COMMENT_CHANGED');
+      setDeletingPost(null);
       fetchPosts();
     } catch (err) {
       setError(err.message);
+      setDeletingPost(null);
     }
   };
 
@@ -245,6 +253,12 @@ export default function AdminPostsTab() {
           <Button variant="success" size="sm" className="rounded-3" onClick={handleSaveEdit}>Lưu cập nhật</Button>
         </Modal.Footer>
       </Modal>
+
+      <AdminPostDeleteModal
+        confirmDelete={deletingPost}
+        onHide={() => setDeletingPost(null)}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

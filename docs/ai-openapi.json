@@ -271,6 +271,142 @@
           }
         }
       }
+    },
+    "/api/v1/video-recipe-summary-jobs": {
+      "post": {
+        "summary": "Tạo job bóc tách công thức nấu ăn từ video YouTube",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "youtubeUrl"
+                ],
+                "properties": {
+                  "youtubeUrl": {
+                    "type": "string",
+                    "format": "uri",
+                    "description": "Đường dẫn YouTube video"
+                  },
+                  "dietTypeId": {
+                    "type": "integer",
+                    "description": "ID chế độ ăn chay áp dụng"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Khởi tạo job bóc tách video thành công"
+          },
+          "400": {
+            "description": "Đường dẫn video không hợp lệ"
+          },
+          "401": {
+            "description": "Yêu cầu đăng nhập thành viên"
+          },
+          "409": {
+            "description": "Đang có một job bóc tách video khác đang chạy"
+          }
+        }
+      },
+      "get": {
+        "summary": "Lấy danh sách các jobs bóc tách video của tài khoản",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Danh sách jobs kèm trạng thái xử lý"
+          }
+        }
+      }
+    },
+    "/api/v1/video-recipe-summary-jobs/{jobId}": {
+      "get": {
+        "summary": "Lấy tiến độ và trạng thái chi tiết của một job",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chi tiết job (PENDING, PROCESSING, COMPLETED, FAILED)"
+          },
+          "404": {
+            "description": "Không tìm thấy job"
+          }
+        }
+      }
+    },
+    "/api/v1/video-recipe-summaries/{summaryId}": {
+      "get": {
+        "summary": "Lấy kết quả tóm tắt công thức đã bóc tách từ video",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "summaryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dữ liệu công thức: nguyên liệu, các bước nấu, lưu ý dinh dưỡng"
+          },
+          "404": {
+            "description": "Không tìm thấy kết quả tóm tắt"
+          }
+        }
+      }
     }
   },
   "components": {

@@ -21,7 +21,7 @@ const directions = restaurantDirections;
 
 export default function Restaurants() {
   const { data, user, reload } = useDatabase();
-  const places = data.restaurants;
+  const places = data?.restaurants || [];
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [city, setCity] = useState('all');
@@ -52,7 +52,12 @@ export default function Restaurants() {
           : b.rating - a.rating
     );
 
-  const visibleNearby = nearbyPlaces
+  const safeNearbyPlaces = Array.isArray(nearbyPlaces)
+    ? nearbyPlaces
+    : Array.isArray(nearbyPlaces?.places)
+      ? nearbyPlaces.places
+      : [];
+  const visibleNearby = safeNearbyPlaces
     .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
     .filter(
       (place) =>

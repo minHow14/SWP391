@@ -1,4 +1,4 @@
-﻿// client/src/pages/Recipes.jsx
+// client/src/pages/Recipes.jsx
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -11,7 +11,8 @@ export default function Recipes() {
   const recipes=data.recipes;
   const recipeCategories=[{category_id:null,name:'Tất Cả Món',icon:'grid'},...data.categories.filter(c=>data.recipes.some(r=>r.category_id===c.category_id)).map(c=>({...c,icon:'leaf'}))];
   const recipeDietLabels=data.diets.map(d=>({...d,icon:'leaf',tone:'green'}));
-  const { diet } = useOutletContext();
+  const outletContext = useOutletContext() || {};
+  const diet = outletContext.diet || null;
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState(null);
   const [matchDiet, setMatchDiet] = useState(false);
@@ -20,7 +21,7 @@ export default function Recipes() {
     query,
     category_id: category,
     matchDiet,
-    diet_type_id: diet.diet_type_id,
+    diet_type_id: diet?.diet_type_id ?? null,
   });
 
   return (
@@ -52,6 +53,8 @@ export default function Recipes() {
                 type="button"
                 className="btn btn-sm"
                 aria-pressed={matchDiet}
+                disabled={!diet?.diet_type_id}
+                title={!diet?.diet_type_id ? 'Vui lòng chọn chế độ ăn chay' : undefined}
                 onClick={() => setMatchDiet(!matchDiet)}
               >
                 {matchDiet ? 'Tắt lọc tự động' : 'Bật lọc tự động'}
