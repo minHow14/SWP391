@@ -240,15 +240,21 @@ PLACES_RATE_LIMIT=60
 # Tạo Prisma Client type-safe
 npm run prisma:generate
 
-# Đồng bộ trực tiếp cấu trúc schema vào PostgreSQL database local
-npm run prisma:push
+# Áp dụng đầy đủ migration đã có (gồm bảng content_moderation_jobs và các ràng buộc)
+npx prisma migrate deploy
 
-# Nạp toàn bộ dữ liệu mẫu chuẩn & tự động xác thực vào PostgreSQL
+# Chỉ chạy trên DB mới hoặc DB được phép xóa dữ liệu để khởi tạo lại
 npm run seed
 
 # (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
 npm run prisma:studio
 ```
+
+`seed.js` đọc `prisma/seed.sql`. File SQL chỉ nạp dữ liệu; không tạo hoặc thay đổi schema, nên phải chạy migration trước khi seed. **Seed hiện dùng `TRUNCATE ... CASCADE`: chạy lại sẽ xóa dữ liệu hiện có, bao gồm job kiểm duyệt.** Với DB đang sử dụng, chỉ chạy `npx prisma migrate deploy`, không chạy seed.
+
+Sau seed, `content_moderation_jobs` rỗng, `moderation_version` của bài viết/bình luận bằng `0` (chưa được AI quét), không có cờ AI hoặc kết quả kiểm duyệt gán sẵn. Các mục bị ẩn trong bộ dữ liệu dùng trạng thái `HIDDEN`. Seed không gọi AI và không tự tạo job cho nội dung cũ.
+
+Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Giữ mặc định tắt cho đến khi endpoint AI và giao diện ở Phase 2 hoàn tất. Sau khi bật, khởi chạy thêm `npm run worker:content-moderation` trong terminal local riêng.
 
 ### 4. Khởi chạy Server:
 - **Chế độ phát triển (Auto-reload với nodemon):**

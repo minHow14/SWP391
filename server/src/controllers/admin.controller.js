@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src/controllers/admin.controller.js
+// D:/SWP391/SWP391/server/src/controllers/admin.controller.js
 import * as adminService from '../services/admin.service.js';
 import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
@@ -80,6 +80,7 @@ export const updatePost = asyncHandler(async (req, res) => {
     postId: req.params.id,
     title: req.body.title,
     content: req.body.content,
+    currentUser: req.user,
   });
   return sendSuccess(res, {
     message: 'Chỉnh sửa bài viết vi phạm thành công',

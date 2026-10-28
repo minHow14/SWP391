@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\prisma\schema.prisma
+// D:/SWP391/SWP391/server/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,6 +18,7 @@ model User {
   deleted_at       DateTime?       @db.Timestamptz(6)
   created_at       DateTime?       @default(now()) @db.Timestamptz(6)
   comments         Comment[]
+  contentModerationJobs ContentModerationJob[]
   food_diaries     FoodDiary[]
   health_histories HealthHistory[]
   health_profile   HealthProfile?
@@ -194,6 +195,8 @@ model Post {
   author_id       Int
   post_type       String         @db.VarChar(20)
   status          String         @default("PUBLISHED") @db.VarChar(30)
+  moderationVersion Int          @default(0) @map("moderation_version")
+  contentModerationJobs ContentModerationJob[]
   deleted_at      DateTime?      @db.Timestamptz(6)
   created_at      DateTime?      @default(now()) @db.Timestamptz(6)
   blog            Blog?
@@ -267,6 +270,8 @@ model Comment {
   content          String
   is_flagged_by_ai Boolean?  @default(false)
   status           String    @default("ACTIVE") @db.VarChar(30)
+  moderationVersion Int      @default(0) @map("moderation_version")
+  contentModerationJobs ContentModerationJob[]
   deleted_at       DateTime? @db.Timestamptz(6)
   created_at       DateTime? @default(now()) @db.Timestamptz(6)
   post             Post      @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
@@ -422,6 +427,47 @@ model RestaurantRecipe {
 
   @@id([restaurant_id, recipe_id])
   @@map("restaurant_recipes")
+}
+
+enum ContentModerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ContentModerationJob {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         Int                        @map("user_id")
+  postId         Int?                       @map("post_id")
+  commentId      Int?                       @map("comment_id")
+  contentVersion Int                        @map("content_version")
+  title          String?                    @db.VarChar(255)
+  content        String
+  status         ContentModerationJobStatus  @default(PENDING)
+  attempt        Int                        @default(0)
+  availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  leaseToken     String?                    @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
+  result         Json?
+  applied        Boolean                    @default(false)
+  errorCode      String?                    @map("error_code") @db.VarChar(100)
+  errorMessage   String?                    @map("error_message") @db.VarChar(500)
+  completedAt    DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  post           Post?                      @relation(fields: [postId], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+  comment        Comment?                   @relation(fields: [commentId], references: [comment_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([postId, contentVersion], map: "uq_content_moderation_jobs_post_version")
+  @@unique([commentId, contentVersion], map: "uq_content_moderation_jobs_comment_version")
+  @@index([userId], map: "idx_content_moderation_jobs_user")
+  @@index([postId], map: "idx_content_moderation_jobs_post")
+  @@index([commentId], map: "idx_content_moderation_jobs_comment")
+  @@index([status, availableAt, createdAt, id], map: "idx_content_moderation_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_content_moderation_jobs_lease")
+  @@map("content_moderation_jobs")
 }
 
 model Report {

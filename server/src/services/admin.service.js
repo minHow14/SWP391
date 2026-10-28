@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\admin.service.js
+// D:/SWP391/SWP391/server/src/services/admin.service.js
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
@@ -16,6 +16,7 @@ import { aiService } from './ai.service.js';
 import { guestQuotaService } from './guestQuotaService.js';
 import { guestQuotaAdminService } from './guestQuotaAdminService.js';
 import { notificationService } from './notification.service.js';
+import { blogService } from './blog.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -236,7 +237,7 @@ export const updatePostStatus = async ({ postId, status }) => {
   });
 };
 
-export const updatePost = async ({ postId, title, content }) => {
+export const updatePost = async ({ postId, title, content, currentUser }) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({
     where: { post_id: id },
@@ -245,13 +246,7 @@ export const updatePost = async ({ postId, title, content }) => {
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
   if (post.post_type === 'BLOG' && post.blog) {
-    await prisma.blog.update({
-      where: { post_id: id },
-      data: {
-        title: title || post.blog.title,
-        content: content || post.blog.content,
-      },
-    });
+    await blogService.updateBlog(id, { title, content }, currentUser);
   } else if (post.post_type === 'VIDEO' && post.video) {
     await prisma.video.update({
       where: { post_id: id },
@@ -553,6 +548,8 @@ export const getAiFlaggedContent = async () => {
     }),
     prisma.comment.findMany({
       where: {
+        deleted_at: null,
+        status: { notIn: [COMMENT_STATUS.DELETED, COMMENT_STATUS.HIDDEN] },
         OR: [{ status: COMMENT_STATUS.HIDDEN_BY_AI }, { is_flagged_by_ai: true }],
       },
       orderBy: { created_at: 'desc' },
@@ -588,7 +585,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     if (normalizedAction === 'APPROVE') {
       const updated = await prisma.post.update({
         where: { post_id: id },
-        data: { status: POST_STATUS.PUBLISHED },
+        data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
       });
 
       await aiLogService.recordLog({
@@ -629,7 +626,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     if (normalizedAction === 'APPROVE') {
       const updated = await prisma.comment.update({
         where: { comment_id: id },
-        data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false },
+        data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false, deleted_at: null },
       });
 
       await aiLogService.recordLog({
@@ -645,7 +642,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
     const updated = await prisma.$transaction(async (tx) => {
       const res = await tx.comment.update({
         where: { comment_id: id },
-        data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
+        data: { status: COMMENT_STATUS.DELETED, is_flagged_by_ai: false, deleted_at: new Date() },
       });
       await aiLogService.recordLog({
         modelName: 'deepseek-chat',

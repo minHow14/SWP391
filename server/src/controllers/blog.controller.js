@@ -1,7 +1,8 @@
-// d:\Projects\FPT\SWP391\server\src\controllers\blog.controller.js
+// D:/SWP391/SWP391/server/src/controllers/blog.controller.js
 import { blogService } from '../services/blog.service.js';
-import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
+import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 export const createBlog = asyncHandler(async (req, res) => {
   // Lấy author_id từ token người dùng đã xác thực (chống giả mạo author_id)
@@ -9,8 +10,8 @@ export const createBlog = asyncHandler(async (req, res) => {
     ...req.body,
     author_id: req.user.user_id,
   };
-  const newBlog = await blogService.createBlog(payload);
-  return sendCreated(res, { blog: newBlog });
+  const { jobId, moderationStatus, ...blog } = await blogService.createBlog(payload);
+  return sendSuccess(res, { blog, ...(jobId && { jobId, moderationStatus }) }, jobId ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.CREATED);
 });
 
 export const getAllBlogs = asyncHandler(async (req, res) => {
@@ -22,13 +23,13 @@ export const getAllBlogs = asyncHandler(async (req, res) => {
 });
 
 export const getBlogById = asyncHandler(async (req, res) => {
-  const blog = await blogService.getBlogById(req.params.id);
+  const blog = await blogService.getBlogById(req.params.id, req.user);
   return sendSuccess(res, { blog });
 });
 
 export const updateBlog = asyncHandler(async (req, res) => {
-  const updated = await blogService.updateBlog(req.params.id, req.body, req.user);
-  return sendSuccess(res, { blog: updated });
+  const { jobId, moderationStatus, ...blog } = await blogService.updateBlog(req.params.id, req.body, req.user);
+  return sendSuccess(res, { blog, ...(jobId && { jobId, moderationStatus }) }, jobId ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK);
 });
 
 export const deleteBlog = asyncHandler(async (req, res) => {
