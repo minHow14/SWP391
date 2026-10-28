@@ -1,8 +1,9 @@
-﻿// client/src/features/chat/hooks/useChatBox.js
+// D:/SWP391/SWP391/client/src/features/chat/hooks/useChatBox.js
 import { useEffect, useRef, useState } from 'react';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import { getChatUsage } from '../../../services/aiApi.js';
-import { summarizeText } from '../../../utils/chatReplies.js';
+import { detectYoutubeMessage } from '../../videoRecipeSummary/utils/youtubeMessage.js';
+import { isVideoRecipeMessage, useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRecipeSummary.js';
 import { useChatRequest } from './useChatRequest.js';
 
 export function useChatBox({ dietTypeId }) {
@@ -32,6 +33,7 @@ export function useChatBox({ dietTypeId }) {
   const nextId = useRef(1);
   const controller = useRef(null);
   const messagesRef = useRef([]);
+  const video = useVideoRecipeSummary({ userId: user?.user_id || null, enabled: open, setMessages, nextId });
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -84,13 +86,15 @@ export function useChatBox({ dietTypeId }) {
 
   function sendMessage(text = draft, forcedMode) {
     const question = text.trim();
-    if (!question || busy) return;
+    if (!question || busy || video.busy) return;
     const activeMode = forcedMode || mode;
-    if (activeMode === 'summary') {
-      addExchange(question, summarizeText(question));
-    } else {
-      ask(question);
-    }
+    try {
+      const source = detectYoutubeMessage(question);
+      setError('');
+      if (source) video.send(source, question);
+      else if (activeMode === 'summary') { setError('Vui lòng dán một link YouTube tiếng Việt, tối đa 11 phút.'); return; }
+      else ask(question);
+    } catch (failure) { setError(failure.message); return; }
     setDraft('');
     setMode('chat');
     input.current?.focus();
@@ -115,7 +119,9 @@ export function useChatBox({ dietTypeId }) {
   }
 
   function selectSummary() {
-    addExchange('Tóm tắt video', {text:'Dán văn bản hướng dẫn để trích các câu đầu.'});
+    if (!user) { setError('Vui lòng đăng nhập để tạo công thức từ video.'); return; }
+    setError('');
+    addExchange('Tạo công thức từ video', { text: 'Dán link YouTube nấu ăn tiếng Việt dài tối đa 11 phút rồi bấm Gửi. Công thức sẽ xuất hiện tại đây.' });
     setMode('summary');
     input.current?.focus();
   }
@@ -143,5 +149,6 @@ export function useChatBox({ dietTypeId }) {
     );
   }
 
-  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto };
+  const visibleMessages = messages.filter((message) => !isVideoRecipeMessage(message) || message.ownerId === (user?.user_id || null));
+  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto };
 }
