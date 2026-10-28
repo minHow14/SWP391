@@ -88,14 +88,32 @@ export function getPosition(customNavigator = typeof navigator !== 'undefined' ?
  * Kiểm tra xem quán có đang trong khung giờ mở cửa hay không
  * @param {string} hours - Chuỗi giờ hoạt động dạng "07:00 - 21:00"
  * @param {Date} [currentTime] - Thời gian kiểm tra (mặc định là hiện tại)
+ * @param {string} [timeZone] - Múi giờ địa phương của quán (mặc định 'Asia/Ho_Chi_Minh')
  * @returns {boolean|null} true nếu đang mở, false nếu đã đóng, null nếu không xác định
  */
-export function checkIsOpenNow(hours, currentTime = new Date()) {
+export function checkIsOpenNow(hours, currentTime = new Date(), timeZone = 'Asia/Ho_Chi_Minh') {
   if (!hours || typeof hours !== 'string' || hours === 'Chưa cập nhật') return null;
   const match = hours.match(/(\d{1,2}):(\d{2})\s*[-–]\s*(\d{1,2}):(\d{2})/);
   if (!match) return null;
   const [, startH, startM, endH, endM] = match;
-  const currentMinutes = currentTime.getHours() * 60 + currentTime.getMinutes();
+
+  let currentH;
+  let currentM;
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(currentTime);
+    currentH = parseInt(parts.find((p) => p.type === 'hour').value, 10);
+    currentM = parseInt(parts.find((p) => p.type === 'minute').value, 10);
+  } catch {
+    currentH = currentTime.getHours();
+    currentM = currentTime.getMinutes();
+  }
+
+  const currentMinutes = currentH * 60 + currentM;
   const startMinutes = parseInt(startH, 10) * 60 + parseInt(startM, 10);
   const endMinutes = parseInt(endH, 10) * 60 + parseInt(endM, 10);
 
