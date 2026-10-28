@@ -15,9 +15,11 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
 from api.meal_planner import router as meal_planner_router
+from api.video_recipe import router as video_recipe_router, video_recipe_error_handler
 from core.config import settings
 from core.ratelimit import limiter
 from core.security import verify_internal_api_key
+from core.video_recipe_errors import VideoRecipeError
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,7 @@ app = FastAPI(
 )
 
 app.state.limiter = limiter
+app.add_exception_handler(VideoRecipeError, video_recipe_error_handler)
 
 # CORS Configuration
 app.add_middleware(
@@ -145,6 +148,7 @@ async def health_check():
 app.include_router(chat_router, prefix="/api")
 app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_actions_router, prefix="/api")
+app.include_router(video_recipe_router, prefix="/api")
 
 
 if __name__ == "__main__":

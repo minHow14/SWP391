@@ -50,10 +50,14 @@ test('checkIsOpenNow parses operating hours accurately', () => {
   const midDay = new Date('2026-10-26T12:00:00+07:00');
   const earlyMorning = new Date('2026-10-26T05:00:00+07:00');
   const lateNight = new Date('2026-10-26T23:30:00+07:00');
+  const pastMidnight = new Date('2026-10-26T01:30:00+07:00');
 
   assert.equal(checkIsOpenNow('07:00 - 21:00', midDay), true);
   assert.equal(checkIsOpenNow('07:00 - 21:00', earlyMorning), false);
   assert.equal(checkIsOpenNow('07:00 - 21:00', lateNight), false);
+  assert.equal(checkIsOpenNow('18:00 - 02:00', lateNight), true);
+  assert.equal(checkIsOpenNow('18:00 - 02:00', pastMidnight), true);
+  assert.equal(checkIsOpenNow('18:00 - 02:00', midDay), false);
   assert.equal(checkIsOpenNow('Chưa cập nhật', midDay), null);
   assert.equal(checkIsOpenNow(null, midDay), null);
 });
