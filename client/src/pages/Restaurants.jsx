@@ -34,9 +34,10 @@ export default function Restaurants() {
   const [notice, setNotice] = useState('');
   const [detail, setDetail] = useState(null);
   const map = useRef(null);
+  const list = useRef(null);
 
   const search = normalizeSearch(query.trim());
-  const filtered = places
+  const sorted = places
     .filter(
       (place) =>
         (type === 'all' || place.type === type) &&
@@ -50,6 +51,9 @@ export default function Restaurants() {
           ? a.price.length - b.price.length
           : b.rating - a.rating
     );
+  // Quán vừa chọn trên bản đồ được đưa lên đầu danh sách để người dùng thấy ngay.
+  const pinned = sorted.find((place) => place.id === selectedId);
+  const filtered = pinned ? [pinned, ...sorted.filter((place) => place !== pinned)] : sorted;
 
   const visibleNearby = nearbyPlaces
     .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
@@ -71,6 +75,7 @@ export default function Restaurants() {
     setCity('all');
     const matchedInCatalog = places.find((p) => p.id === place.restaurant_id || p.id === place.id);
     setSelectedId(matchedInCatalog ? matchedInCatalog.id : place.id);
+    list.current?.scrollTo({ top: 0, behavior: 'smooth' });
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -179,7 +184,7 @@ export default function Restaurants() {
       )}
 
       <div className="cx-restaurant-workspace">
-        <section className="cx-restaurant-list" aria-label="Danh sách quán chay">
+        <section className="cx-restaurant-list" aria-label="Danh sách quán chay" ref={list}>
           <p className="visually-hidden" role="status">
             Hiển thị {filtered.length} địa điểm phù hợp.
           </p>
