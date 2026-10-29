@@ -7,6 +7,7 @@ export default function NearbyPlacesToolbar({
   radiusKm,
   selectedDiet,
   userLocation,
+  userAddress,
   onNearbySearch,
   onCitySearch,
   onRadiusSelect,
@@ -101,15 +102,20 @@ export default function NearbyPlacesToolbar({
             </div>
           </div>
         </div>
+      </div>
 
-        {userLocation && (
-          <div className="cx-nearby-user-status">
-            <span className="cx-gps-badge">
-              <i className="bi bi-check-circle-fill" aria-hidden="true" /> Đã nhận vị trí của bạn
+      {/* Vị trí hiện tại của bạn */}
+      {userLocation && (
+        <div className="cx-nearby-user-location-banner" role="status">
+          <div className="cx-user-location-info">
+            <i className="bi bi-geo-alt-fill text-danger me-1" aria-hidden="true" />
+            <span className="cx-user-location-label">Vị trí hiện tại của bạn:</span>
+            <span className="cx-user-location-text">
+              {userAddress || 'Đang xác định địa chỉ từ GPS…'}
             </span>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 }

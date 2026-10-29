@@ -152,3 +152,24 @@ test('SAMPLE_RESTAURANT_PHOTOS has high quality vegetarian photos and resolveRes
   const fallback2 = resolveRestaurantPhoto({ name: 'Quán Chay Bồ Đề', image: '' });
   assert.ok(SAMPLE_RESTAURANT_PHOTOS.includes(fallback2));
 });
+
+test('placeService.reverseGeocode constructs correct request', async () => {
+  let capturedUrl = '';
+  let capturedOptions = null;
+  const originalGet = apiClient.get;
+
+  try {
+    apiClient.get = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return { success: true, data: { address: 'Đông Hòa, TP.HCM' } };
+    };
+
+    const res = await placeService.reverseGeocode({ lat: 10.875, lng: 106.8 });
+    assert.equal(capturedUrl, '/places/reverse-geocode');
+    assert.deepEqual(capturedOptions.params, { lat: 10.875, lng: 106.8 });
+    assert.equal(res.data.address, 'Đông Hòa, TP.HCM');
+  } finally {
+    apiClient.get = originalGet;
+  }
+});

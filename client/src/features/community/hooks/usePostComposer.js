@@ -14,7 +14,7 @@ export function extractYouTubeId(url) {
   return match ? match[1] : null;
 }
 
-const COMPOSER_SCHEMA = z
+export const COMPOSER_SCHEMA = z
   .object({
     postType: z.enum(['BLOG', 'VIDEO']).default('BLOG'),
     title: z
@@ -22,11 +22,14 @@ const COMPOSER_SCHEMA = z
       .trim()
       .min(1, 'Vui lòng nhập tiêu đề.')
       .max(255, 'Tiêu đề tối đa 255 ký tự.'),
-    content: z.string().max(50000).optional(),
-    videoUrl: z.string().max(500).optional(),
-    thumbnailUrl: z.string().max(500).optional(),
-    transcript: z.string().max(50000).optional(),
-    categoryId: z.coerce.number().int().positive().nullable().optional(),
+    content: z.string().max(50000, 'Nội dung tối đa 50.000 ký tự.').optional(),
+    videoUrl: z.string().max(500, 'Đường dẫn video tối đa 500 ký tự.').optional(),
+    thumbnailUrl: z.string().max(500, 'Đường dẫn ảnh bìa tối đa 500 ký tự.').optional(),
+    transcript: z.string().max(50000, 'Nội dung tóm tắt tối đa 50.000 ký tự.').optional(),
+    categoryId: z.preprocess(
+      (val) => (val === '' || val === null || val === undefined ? undefined : Number(val) > 0 ? Number(val) : undefined),
+      z.number({ message: 'Chủ đề không được để trống' }).int('Chủ đề không được để trống')
+    ),
   })
   .superRefine((data, ctx) => {
     if (data.postType === 'BLOG') {

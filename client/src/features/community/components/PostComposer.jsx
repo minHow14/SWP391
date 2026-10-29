@@ -91,11 +91,17 @@ export default function PostComposer({ post, user, categories = [], onClose, onS
               <Form.Control.Feedback type="invalid">{errors.title?.message}</Form.Control.Feedback>
             </Form.Group>
 
-            {/* Chuyên mục */}
+            {/* Chủ đề */}
             <Form.Group controlId="community-post-category" className="mb-3">
-              <Form.Label>Chuyên mục</Form.Label>
-              <Form.Select {...register('categoryId')} isInvalid={Boolean(errors.categoryId)}>
-                <option value="">Chọn chủ đề phù hợp (Tùy chọn)</option>
+              <Form.Label>
+                Chủ đề <span className="text-danger">*</span>
+              </Form.Label>
+              <Form.Select
+                {...register('categoryId')}
+                isInvalid={Boolean(errors.categoryId)}
+                aria-required="true"
+              >
+                <option value="">Chọn chủ đề phù hợp</option>
                 {categories.map((c) => (
                   <option key={c.category_id} value={c.category_id}>
                     {c.name}

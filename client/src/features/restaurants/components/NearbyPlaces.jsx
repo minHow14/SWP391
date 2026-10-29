@@ -1,37 +1,13 @@
 // client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
-import {
-  CITY_HUBS,
-  HCM_HUBS,
-  RADIUS_OPTIONS,
-  DIET_OPTIONS,
-  checkIsOpenNow,
-  getPosition,
-  resolveRestaurantPhoto,
-  getSampleRestaurantPhoto,
-  SAMPLE_RESTAURANT_PHOTOS,
-} from '../utils/nearbyHelpers.js';
+import { CITY_HUBS, getPosition } from '../utils/nearbyHelpers.js';
 import NearbyPlacesToolbar from './NearbyPlacesToolbar.jsx';
 import NearbyPlacesCitySelector from './NearbyPlacesCitySelector.jsx';
 import NearbyPlacesList from './NearbyPlacesList.jsx';
 
-export {
-  CITY_HUBS,
-  HCM_HUBS,
-  RADIUS_OPTIONS,
-  DIET_OPTIONS,
-  checkIsOpenNow,
-  getPosition,
-  resolveRestaurantPhoto,
-  getSampleRestaurantPhoto,
-  SAMPLE_RESTAURANT_PHOTOS,
-};
+export * from '../utils/nearbyHelpers.js';
 
-/**
- * Tìm quán chay quanh vị trí người dùng hoặc tại các khu vực trọng điểm đa tỉnh thành.
- * Hỗ trợ chọn bán kính (3km - 20km), lọc theo chế độ ăn chay, tính khoảng cách thực tế và ghim vị trí lên bản đồ.
- */
 export default function NearbyPlaces({
   onResults,
   onSelect,
@@ -44,6 +20,7 @@ export default function NearbyPlaces({
   const [radiusKm, setRadiusKm] = useState(10);
   const [selectedDiet, setSelectedDiet] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
+  const [userAddress, setUserAddress] = useState('');
   const [state, setState] = useState({
     status: 'idle',
     places: [],
@@ -53,6 +30,17 @@ export default function NearbyPlaces({
 
   const request = useRef(null);
   useEffect(() => () => request.current?.abort(), []);
+
+  async function resolveUserAddress(loc) {
+    if (!loc?.lat || !loc?.lng) return;
+    try {
+      const response = await placeService.reverseGeocode({ lat: loc.lat, lng: loc.lng });
+      const addr = response?.data?.address || response?.address;
+      if (addr) setUserAddress(addr);
+    } catch {
+      setUserAddress(`Tọa độ (${loc.lat.toFixed(4)}, ${loc.lng.toFixed(4)})`);
+    }
+  }
 
   // Tự động kiểm tra quyền vị trí nếu người dùng đã cho phép trước đó
   useEffect(() => {
@@ -64,6 +52,7 @@ export default function NearbyPlaces({
             getPosition()
               .then((loc) => {
                 setUserLocation(loc);
+                resolveUserAddress(loc);
                 onUserLocationChange?.(loc);
               })
               .catch(() => {});
@@ -115,9 +104,7 @@ export default function NearbyPlaces({
       setState({
         status: 'done',
         places: items,
-        message: hasNoResults
-          ? `Không tìm thấy quán chay nào trong bán kính ${targetRadius} km.`
-          : '',
+        message: hasNoResults ? `Không tìm thấy quán chay nào trong bán kính ${targetRadius} km.` : '',
         origin: targetOrigin,
       });
 
@@ -144,14 +131,13 @@ export default function NearbyPlaces({
       try {
         loc = await getPosition();
         setUserLocation(loc);
+        resolveUserAddress(loc);
         onUserLocationChange?.(loc);
       } catch (error) {
         setState({
           status: 'denied',
           places: [],
-          message:
-            error.message ||
-            'Không lấy được vị trí GPS. Hãy kiểm tra quyền truy cập vị trí trên trình duyệt.',
+          message: error.message || 'Không lấy được vị trí GPS. Hãy kiểm tra quyền truy cập vị trí trên trình duyệt.',
           origin: null,
         });
         return;
@@ -189,7 +175,6 @@ export default function NearbyPlaces({
     }
   }
 
-  // Thay đổi bán kính tìm kiếm
   function handleRadiusSelect(r) {
     setRadiusKm(r);
     if (mode === 'nearby' && userLocation) {
@@ -199,7 +184,6 @@ export default function NearbyPlaces({
     }
   }
 
-  // Thay đổi bộ lọc chế độ ăn
   function handleDietSelect(dietId) {
     setSelectedDiet(dietId);
     if (mode === 'nearby' && userLocation) {
@@ -219,6 +203,7 @@ export default function NearbyPlaces({
         radiusKm={radiusKm}
         selectedDiet={selectedDiet}
         userLocation={userLocation}
+        userAddress={userAddress}
         onNearbySearch={handleNearbySearch}
         onCitySearch={() => handleHubSearch(selectedHub, selectedCity)}
         onRadiusSelect={handleRadiusSelect}
@@ -242,6 +227,7 @@ export default function NearbyPlaces({
         mode={mode}
         radiusKm={radiusKm}
         userLocation={userLocation}
+        userAddress={userAddress}
         onSelect={onSelect}
         onRadiusSelect={handleRadiusSelect}
         onFallbackHub={handleHubSearch}

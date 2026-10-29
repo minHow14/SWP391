@@ -1,7 +1,7 @@
-// d:\Projects\FPT\SWP391\server\src\routes\places.route.js
+// server/src/routes/places.route.js
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
-import { getNearby, searchPlaces } from '../controllers/places.controller.js';
+import { getNearby, searchPlaces, getReverseGeocode } from '../controllers/places.controller.js';
 import { requestId } from '../middlewares/requestId.js';
 import { fail } from '../utils/apiResponse.js';
 
@@ -24,6 +24,7 @@ router.use(
 
 router.get('/nearby', getNearby);
 router.get('/search', searchPlaces);
+router.get('/reverse-geocode', getReverseGeocode);
 
 // Lỗi không lường trước: không lộ chi tiết nội bộ ra ngoài
 // eslint-disable-next-line no-unused-vars

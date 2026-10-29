@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\places.service.js
+// server/src/services/places.service.js
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
@@ -305,4 +305,55 @@ export function mergePlaces(local, ziomap) {
 
 export function clearZiomapCache() {
   ziomapCache.clear();
+}
+
+const reverseGeocodeCache = new LRUCache({ max: 500, ttl: CACHE_TTL_MS });
+
+export function clearReverseGeocodeCache() {
+  reverseGeocodeCache.clear();
+}
+
+/**
+ * Tra cứu địa chỉ thực tế từ tọa độ GPS (Reverse Geocoding)
+ * @param {{ lat: number, lng: number }}
+ * @returns {Promise<{ address: string, displayName: string, city: string }>}
+ */
+export async function reverseGeocode({ lat, lng }) {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const cached = reverseGeocodeCache.get(cacheKey);
+  if (cached) return cached;
+
+  const fallbackAddress = `Tọa độ (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
+  let result = {
+    address: fallbackAddress,
+    displayName: fallbackAddress,
+    city: 'Hồ Chí Minh',
+  };
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'ChayXanh/1.0 (contact@chayxanh.vn)' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const rawName = data.display_name || '';
+      const clean = rawName
+        .replace(/,\s*\d{5,6}/g, '')
+        .replace(/,\s*Việt Nam$/i, '')
+        .trim();
+      const city = detectCityFromAddress(clean, data.address?.city || data.address?.state);
+      result = {
+        address: clean || fallbackAddress,
+        displayName: rawName || fallbackAddress,
+        city,
+      };
+      reverseGeocodeCache.set(cacheKey, result);
+    }
+  } catch {
+    // Không ném lỗi làm crash hệ thống, dùng fallback coordinates
+  }
+
+  return result;
 }

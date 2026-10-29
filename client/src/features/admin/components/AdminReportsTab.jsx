@@ -100,7 +100,7 @@ export default function AdminReportsTab() {
             <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái báo cáo</option>
               <option value="PENDING">Chờ xử lý</option>
-              <option value="RESOLVED">Đã giải quyết</option>
+              <option value="RESOLVED">Đã xử lý</option>
               <option value="DISMISSED">Đã từ chối</option>
             </Form.Select>
           </Col>
@@ -185,7 +185,7 @@ export default function AdminReportsTab() {
                         rep.status === 'PENDING' ? 'cx-badge-locked' :
                         rep.status === 'RESOLVED' ? 'cx-badge-active' : 'cx-badge-neutral'
                       }`}>
-                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã từ chối'}
+                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã xử lý' : 'Đã từ chối'}
                       </span>
                     </td>
                     <td className="text-end">

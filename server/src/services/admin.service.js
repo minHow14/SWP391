@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\admin.service.js
+// server/src/services/admin.service.js
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -897,7 +897,7 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
   if (report.reporter_id) {
     const statusText =
       finalStatus === REPORT_STATUS.RESOLVED
-        ? 'Đã giải quyết'
+        ? 'Đã xử lý'
         : finalStatus === REPORT_STATUS.DISMISSED
           ? 'Đã từ chối'
           : finalStatus;

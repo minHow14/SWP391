@@ -87,7 +87,7 @@ export default function AdminRecentReports({ reports, onNavigateTab }) {
                       </td>
                       <td className="text-end pe-3">
                         <span className={`cx-status-pill ${isPending ? 'is-pending' : 'is-resolved'}`}>
-                          {isPending ? 'Chờ duyệt' : 'Đã giải quyết'}
+                          {isPending ? 'Chờ duyệt' : 'Đã xử lý'}
                         </span>
                       </td>
                     </tr>

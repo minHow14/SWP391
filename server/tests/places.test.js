@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import express from 'express';
 import placesRoutes from '../src/routes/places.route.js';
-import { clearZiomapCache, normalize } from '../src/services/places.service.js';
+import { clearZiomapCache, clearReverseGeocodeCache, normalize } from '../src/services/places.service.js';
 import prisma from '../src/config/prisma.js';
 
 // Fixed records isolate route/search tests from the user's live database.
@@ -20,6 +20,7 @@ const originalFetch = globalThis.fetch;
 beforeEach(() => {
   vi.spyOn(prisma.restaurant,'findMany').mockResolvedValue(fixtures);
   clearZiomapCache();
+  clearReverseGeocodeCache();
   delete process.env.ZIOMAP_API_KEY;
 });
 
@@ -297,4 +298,17 @@ test('nearby trả về image_url hợp lệ cho tất cả địa điểm quán
   const places = res.body.data.places;
   assert.ok(places.length > 0);
   assert.ok(places.every((p) => typeof p.image_url === 'string' && p.image_url.startsWith('http')));
+});
+
+test('reverse-geocode trả về lỗi 400 nếu thiếu lat hoặc lng', async () => {
+  const res = await request(app).get('/api/places/reverse-geocode').query({ lat: 10.7769 });
+  assert.equal(res.status, 400);
+  assert.equal(res.body.success, false);
+});
+
+test('reverse-geocode trả về địa chỉ cho tọa độ hợp lệ', async () => {
+  const res = await request(app).get('/api/places/reverse-geocode').query(DISTRICT_1);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.success, true);
+  assert.ok(typeof res.body.data.address === 'string' && res.body.data.address.length > 0);
 });

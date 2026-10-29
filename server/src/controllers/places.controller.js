@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\controllers\places.controller.js
+// server/src/controllers/places.controller.js
 import { z } from 'zod';
 import { ok, fail } from '../utils/apiResponse.js';
 import {
@@ -8,6 +8,7 @@ import {
   normalize,
   searchZiomap,
   searchLocal,
+  reverseGeocode,
 } from '../services/places.service.js';
 
 // Chuỗi rỗng ("?lat=") coi như không gửi
@@ -42,6 +43,11 @@ const searchSchema = z.object({
   ...coordinates,
   radius_km: optionalNumber(0.1, 50).default(10),
   limit: optionalNumber(1, 20).default(10),
+});
+
+const reverseGeocodeSchema = z.object({
+  lat: optionalNumber(-90, 90),
+  lng: optionalNumber(-180, 180),
 });
 
 const invalid = (res, error) =>
@@ -135,4 +141,16 @@ export async function searchPlaces(req, res) {
     return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
   return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
+}
+
+export async function getReverseGeocode(req, res) {
+  const parsed = reverseGeocodeSchema.safeParse(req.query);
+  if (!parsed.success) return invalid(res, parsed.error);
+  const { lat, lng } = parsed.data;
+  if (lat === undefined || lng === undefined) {
+    return fail(res, 400, 'INVALID_INPUT', 'Cần cung cấp cả lat và lng.');
+  }
+
+  const result = await reverseGeocode({ lat, lng });
+  return ok(res, result);
 }

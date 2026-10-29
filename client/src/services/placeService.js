@@ -20,4 +20,12 @@ export const placeService = {
       ...config,
     });
   },
+
+  // Tra cứu địa chỉ hiển thị của người dùng từ tọa độ GPS
+  reverseGeocode: async ({ lat, lng } = {}, config = {}) => {
+    return apiClient.get('/places/reverse-geocode', {
+      params: { lat, lng },
+      ...config,
+    });
+  },
 };
