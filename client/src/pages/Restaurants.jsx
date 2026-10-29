@@ -30,7 +30,6 @@ export default function Restaurants() {
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [searchContext, setSearchContext] = useState(null);
-  const [popupOpen, setPopupOpen] = useState(true);
   const [proposing, setProposing] = useState(false);
   const [notice, setNotice] = useState('');
   const [detail, setDetail] = useState(null);
@@ -72,7 +71,6 @@ export default function Restaurants() {
     setCity('all');
     const matchedInCatalog = places.find((p) => p.id === place.restaurant_id || p.id === place.id);
     setSelectedId(matchedInCatalog ? matchedInCatalog.id : place.id);
-    setPopupOpen(true);
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -83,7 +81,6 @@ export default function Restaurants() {
     setType('all');
     setCity('all');
     setSelectedId(place.restaurant_id || place.id);
-    setPopupOpen(true);
     setProposing(false);
     setNotice('Đã thêm địa điểm mới.');
   }
@@ -128,10 +125,7 @@ export default function Restaurants() {
             <span className="visually-hidden">Phân loại quán</span>
             <select
               value={type}
-              onChange={(event) => {
-                setType(event.target.value);
-                setPopupOpen(true);
-              }}
+              onChange={(event) => setType(event.target.value)}
             >
               <option value="all">☀ Tất Cả Nhãn Minh Bạch</option>
               {restaurantTypes.map((item) => (
@@ -145,10 +139,7 @@ export default function Restaurants() {
             <span className="visually-hidden">Khu vực</span>
             <select
               value={city}
-              onChange={(event) => {
-                setCity(event.target.value);
-                setPopupOpen(true);
-              }}
+              onChange={(event) => setCity(event.target.value)}
             >
               <option value="all">📍 Tất Cả Khu Vực</option>
               {Array.from(new Set(places.map((place) => place.city))).map((c) => (
@@ -296,48 +287,6 @@ export default function Restaurants() {
                 searchCenter={searchContext?.center}
                 searchRadius={searchContext?.radius}
               />
-              <button
-                type="button"
-                className="cx-map-reopen"
-                onClick={() => setPopupOpen(!popupOpen)}
-                aria-expanded={popupOpen}
-              >
-                <i className="bi bi-geo-alt-fill" aria-hidden="true" />{' '}
-                {popupOpen ? 'Ẩn thông tin quán' : 'Xem thông tin quán'}
-              </button>
-              {popupOpen && (
-                <article className="cx-map-place-popup">
-                  <button
-                    type="button"
-                    className="cx-map-popup-close"
-                    aria-label="Đóng thông tin trên bản đồ"
-                    onClick={() => setPopupOpen(false)}
-                  >
-                    ×
-                  </button>
-                  <div className="cx-map-popup-photo">
-                    <ContentImage src={selected.image || selected.image_url} fallbackSrc={getSampleRestaurantPhoto(selected.name || selected.id)} alt="Ảnh minh họa quán đang chọn" />
-                    {selected.rating > 0 && <span>⭐ {selected.rating}</span>}
-                  </div>
-                  <div className="cx-map-popup-body">
-                    <small>{typeName(selected.type)}</small>
-                    <h2>{selected.name}</h2>
-                    <p>📍 {selected.address}</p>
-                    <div>
-                      <span>◷ {selected.hours}</span>
-                      <span>Địa điểm</span>
-                    </div>
-                    <a
-                      href={directions(selected, userLocation)}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Chỉ đường từ vị trí của bạn"
-                    >
-                      🧭 Chỉ đường tới quán
-                    </a>
-                  </div>
-                </article>
-              )}
             </>
           ) : (
             <div className="cx-map-no-results">
