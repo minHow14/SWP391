@@ -175,7 +175,7 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 Video cần `GROQ_API_KEY` và DeepSeek key trong AI Service. Dependencies đã gồm yt-dlp và FFmpeg qua imageio-ffmpeg. Đặt `YT_DLP_PATH` trong `server/.env` thành đường dẫn tuyệt đối tới executable yt-dlp vừa cài (Windows: `ai_service/venv/Scripts/yt-dlp.exe`; Linux/macOS: `ai_service/venv/bin/yt-dlp`), rồi restart BE. `npm run dev` / `npm start` của BE tự chạy worker video; không cần thêm terminal worker cho luồng local thông thường. Xem [cấu hình và khôi phục video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
 
-Để bật kiểm duyệt, đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, restart API rồi mở terminal riêng tại `server/` chạy `npm run worker:content-moderation`. BE và AI phải dùng cùng `INTERNAL_API_KEY`; AI cần provider key hợp lệ. Giữ mặc định tắt khi chưa cấu hình. Xem [quy trình đầy đủ](docs/CONTENT_MODERATION.md).
+Để bật kiểm duyệt, đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, restart API (worker kiểm duyệt tự chạy cùng `npm run dev`/`npm start`). BE và AI phải dùng cùng `INTERNAL_API_KEY`; AI cần provider key hợp lệ. Giữ mặc định tắt khi chưa cấu hình. Xem [quy trình đầy đủ](docs/CONTENT_MODERATION.md).
 
 ### Bước 4: Khởi chạy Frontend Web App (Port 5173)
 ```bash
@@ -247,7 +247,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
 - Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
 - `npm run seed` / `npm run db:seed`: Áp dụng migration còn thiếu rồi nạp `seed.sql`; xóa dữ liệu cũ.
-- `npm run worker:content-moderation`: Chạy worker kiểm duyệt trong terminal riêng; cần bật cờ cấu hình.
+- `npm run worker:content-moderation`: Chạy thêm worker kiểm duyệt độc lập (tùy chọn, API đã tự chạy một worker); cần bật cờ cấu hình.
 - `npm run worker:video-recipes`: Worker video độc lập tùy chọn; API đã tự chạy worker. Cùng DB được bảo vệ bằng lease khi có nhiều worker.
 - `npm run test:video-recipes`: Kiểm thử pipeline video trên DB test.
 - `npm run test:ai-internal-auth`: Kiểm thử HTTP BE → FastAPI thật bằng runtime test, không gọi provider.

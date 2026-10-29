@@ -6,12 +6,14 @@ Tính năng kiểm tra **văn bản bài blog và bình luận** bằng DeepSeek
 
 | Nội dung | Hướng xử lý |
 | --- | --- |
-| Sườn chay/thịt chay từ nấm, đậu nành; nấm đùi gà | Cho phép; tên món không chứng minh có thịt |
+| Sườn chay/thịt chay từ nấm, đậu nành; nấm đùi gà | Cho phép khi văn bản nêu rõ là chay/nguyên liệu thực vật |
 | Món chay có trứng/sữa/mật ong | Cho phép theo chính sách cộng đồng, không áp chế độ thuần chay cá nhân |
-| Chia sẻ chuyển từ món thịt sang món chay; phủ định “không dùng thịt/cá” | Không gắn cờ chỉ vì nhắc thịt/cá |
-| Quảng bá, chào bán món chứa thịt/cá/hải sản thật | Đề nghị Admin xem xét |
-| Spam, lừa đảo, công kích; mô tả chay mâu thuẫn với thành phần động vật được nêu rõ | Đề nghị Admin xem xét khi có bằng chứng trong nội dung |
-| Chưa đủ thông tin về thành phần | Không tự suy diễn thành phần để kết luận vi phạm |
+| Chia sẻ chuyển từ món thịt sang món chay; phủ định “không dùng thịt/cá” | Cho phép khi ngữ cảnh rõ ràng |
+| Nhắc tới món/thực phẩm từ thịt, cá, hải sản, kể cả chỉ có tên món (“Cá kho tộ”, “Gà rán”, “Sườn kho”, “thịt bò”) | Đề nghị Admin xem xét |
+| Spam, lừa đảo, công kích; mô tả chay mâu thuẫn với thành phần động vật | Đề nghị Admin xem xét khi có dấu hiệu trong nội dung |
+| Phân vân, ngữ cảnh không rõ ràng | Đề nghị Admin xem xét (`REVIEW` chỉ tạm ẩn, không xóa hay phạt) |
+
+Chính sách hiện tại: `vegetarian-community-v2`.
 
 `REVIEW` yêu cầu lý do, ít nhất một phân loại và bằng chứng trích nguyên văn từ tiêu đề/nội dung. `ALLOW` không mang phân loại/bằng chứng vi phạm. Cả AI và BE kiểm tra cấu trúc kết quả; BE kiểm tra lại bằng chứng trước khi cập nhật DB. Đây là biện pháp giảm kết quả sai, không bảo đảm mô hình phân loại đúng mọi trường hợp. Admin có quyết định cuối cùng.
 
@@ -20,8 +22,8 @@ Tính năng kiểm tra **văn bản bài blog và bình luận** bằng DeepSeek
 1. Cài dependencies theo [README gốc](../README.md). Tạo `server/.env`, `ai_service/.env` từ các file `.env.example`; không ghi đè file đã cấu hình. Điền cùng `INTERNAL_API_KEY` cho BE và AI, đặt `DEEPSEEK_API_KEY` hợp lệ ở AI.
 2. Từ `server/`, chạy `npm run prisma:generate` và `npx prisma migrate deploy`. Lệnh migrate giữ dữ liệu hiện có, chỉ áp dụng migration còn thiếu. Với DB mới/được phép xóa dữ liệu, `npm run seed` tự migrate rồi seed; **không seed DB cần giữ dữ liệu**.
 3. Từ `ai_service/`, chạy `uvicorn main:app --host 127.0.0.1 --port 8000 --reload` trong môi trường Python đã cài requirements. `GET /health` kiểm tra tiến trình; không chứng minh provider kiểm duyệt gọi thành công.
-4. Đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, rồi khởi động lại API bằng `npm run dev`. Giữ `AI_SERVICE_URL=http://127.0.0.1:8000`. API và worker cần cùng DB/cấu hình.
-5. Mở terminal local riêng tại `server/`, chạy `npm run worker:content-moderation`. Giữ terminal này chạy. Mỗi tiến trình xử lý lần lượt từng job; không phải worker nằm trong trình duyệt.
+4. Đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, rồi khởi động lại API bằng `npm run dev`. Giữ `AI_SERVICE_URL=http://127.0.0.1:8000`. Worker kiểm duyệt tự chạy cùng tiến trình API (log `Content moderation worker started`).
+5. (Tùy chọn) Chạy thêm worker độc lập bằng `npm run worker:content-moderation` tại `server/` khi cần tăng thông lượng; các worker nhận job bằng `FOR UPDATE SKIP LOCKED` nên không xử lý trùng.
 6. Từ `client/`, chạy `npm run dev`, truy cập `http://localhost:5173`. Người đăng xem “Bài viết của tôi”; Admin mở “Kiểm duyệt AI”.
 
 Các bước trên là hướng dẫn bật tính năng; việc cập nhật tài liệu không tự sửa `.env` thật hoặc bật worker trên máy khác.
@@ -93,7 +95,8 @@ AI nhận `jobId` UUID, `contentType` POST/COMMENT, `contentVersion` ≥1, `titl
 
 ## Xử lý sự cố
 
-- Job chờ lâu: kiểm tra worker có chạy, dùng đúng DB và `CONTENT_MODERATION_ENABLED=true`; bật cờ ở API nhưng thiếu worker sẽ chỉ tạo hàng chờ.
+- Bài/bình luận công khai ngay, không có job: cờ `CONTENT_MODERATION_ENABLED` chưa bật hoặc API chưa restart; nội dung tạo khi cờ tắt không được quét lại tự động.
+- Job chờ lâu: kiểm tra log API có `Content moderation worker started`, đúng DB và AI Service đang chạy.
 - `MODERATION_AI_AUTH_FAILED`: sửa khóa BE/AI, restart API/AI/worker. Lỗi auth không tự retry; Admin xử lý các job đã `FAILED`.
 - `AI_NOT_CONFIGURED`: worker thiếu khóa nội bộ. `MODERATION_AI_UNAVAILABLE`/`MODERATION_AI_TIMEOUT`/`MODERATION_AI_INVALID_OUTPUT`: xem cấu hình AI, provider và deadline; không công khai nội dung chỉ để làm rỗng hàng chờ.
 - Hết số lần thử: job `FAILED` vẫn xuất hiện tại Admin. Sau khi sửa nguyên nhân, Admin duyệt/gỡ theo nội dung; không có nút retry job thất bại hoặc sửa SQL thủ công trong luồng hiện tại.

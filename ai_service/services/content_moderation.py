@@ -19,7 +19,7 @@ from schemas.content_moderation import (
     ContentModerationVerdict,
 )
 
-MODERATION_POLICY_VERSION = "vegetarian-community-v1"
+MODERATION_POLICY_VERSION = "vegetarian-community-v2"
 MODERATION_MAX_TOKENS = 1_500
 logger = logging.getLogger(__name__)
 

@@ -259,7 +259,7 @@ File SQL chỉ nạp dữ liệu, không sao chép lệnh thay đổi schema t�
 
 Sau seed, `content_moderation_jobs` rỗng, `moderation_version` của bài viết/bình luận bằng `0` (chưa được AI quét), không có cờ AI hoặc kết quả kiểm duyệt gán sẵn. Các mục bị ẩn trong bộ dữ liệu dùng trạng thái `HIDDEN`. Seed không gọi AI và không tự tạo job cho nội dung cũ.
 
-Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Để bật, cấu hình cùng khóa nội bộ BE/AI, khởi chạy AI Service, đặt cờ `true`, restart API rồi chạy `npm run worker:content-moderation` trong terminal local riêng. Job được trả ngay bằng `202`; người dùng không phải đợi AI xong. Không có worker thì nội dung mới ở trạng thái chờ. Xem [hướng dẫn vận hành, chính sách và khôi phục lỗi](../docs/CONTENT_MODERATION.md), [OpenAPI](../docs/content-moderation-openapi.json).
+Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Để bật, cấu hình cùng khóa nội bộ BE/AI, khởi chạy AI Service, đặt cờ `true`, restart API; worker kiểm duyệt tự chạy cùng tiến trình API (`npm run worker:content-moderation` chỉ dùng khi muốn thêm worker độc lập). Job được trả ngay bằng `202`; người dùng không phải đợi AI xong. Xem [hướng dẫn vận hành, chính sách và khôi phục lỗi](../docs/CONTENT_MODERATION.md), [OpenAPI](../docs/content-moderation-openapi.json).
 
 ### 4. Khởi chạy Server:
 

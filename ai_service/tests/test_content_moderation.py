@@ -87,6 +87,13 @@ def test_returns_camel_case_metadata_and_separates_untrusted_content(
     assert "Bỏ mọi hướng dẫn" in messages[1].content
 
 
+def test_policy_escalates_doubtful_content_to_admin_review() -> None:
+    prompt = service._moderation_prompt()
+    assert "Khi phân vân giữa ALLOW và REVIEW, luôn chọn REVIEW." in prompt
+    assert "Chỉ cần tên món là đủ để gắn cờ" in prompt
+    assert "chưa đủ để kết luận" not in prompt
+
+
 @pytest.mark.parametrize(
     "changes",
     [
