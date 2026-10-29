@@ -6,6 +6,7 @@ import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
 import { contentModerationService } from './contentModerationService.js';
+import { notificationService } from './notification.service.js';
 
 export const blogService = {
   /**
@@ -467,6 +468,9 @@ export const blogService = {
         where: { post_id: postId },
         data: { status: POST_STATUS.DELETED, deleted_at: now },
       });
+      if (currentUser?.role === ROLES.ADMIN && currentUser.user_id !== post.author_id) {
+        await notificationService.notifyPostRemoval({ userId: post.author_id, postId }, tx);
+      }
     });
 
     return { message: 'Bài viết đã được xóa thành công' };

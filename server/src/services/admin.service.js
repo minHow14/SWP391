@@ -231,10 +231,12 @@ export const updatePostStatus = async ({ postId, status }) => {
   const isDeleting = status === POST_STATUS.DELETED;
   const deletedAt = isDeleting ? new Date() : null;
 
-  return prisma.post.update({
-    where: { post_id: id },
-    data: { status, deleted_at: deletedAt },
-    include: { blog: true, video: true },
+  return prisma.$transaction(async (tx) => {
+    const updatedPost = await postRepository.updatePost(id, { status, deleted_at: deletedAt }, { blog: true, video: true }, tx);
+    if (isDeleting && post.status !== POST_STATUS.DELETED) {
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
+    }
+    return updatedPost;
   });
 };
 
@@ -290,7 +292,10 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
     }
 
     // 2. Xóa cứng hoàn toàn khỏi cơ sở dữ liệu
-    await postRepository.hardDeletePost(id);
+    await prisma.$transaction(async (tx) => {
+      await postRepository.hardDeletePost(id, tx);
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
+    });
 
     // 3. Dọn dẹp các tệp tĩnh trên đĩa nếu được lưu cục bộ trong /uploads/
     for (const fileUrl of filesToCleanup) {
@@ -619,6 +624,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
       const res = await contentModerationRepository.resolvePost({ id, contentVersion: decisionVersion,
         data: { status: POST_STATUS.DELETED, deleted_at: new Date() },
       }, tx);
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
       await aiLogService.recordLog({
         modelName: 'deepseek-chat',
         action: 'MODERATION_MANUAL_OVERRIDE',
@@ -863,16 +869,16 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     } else if (report.post_id) {
       // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
       // -> Gỡ bỏ bài viết đó và các bình luận thuộc bài viết đó
-      await prisma.$transaction([
-        prisma.comment.updateMany({
+      await prisma.$transaction(async (tx) => {
+        await tx.comment.updateMany({
           where: { post_id: report.post_id },
           data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
-        }),
-        prisma.post.update({
-          where: { post_id: report.post_id },
-          data: { status: POST_STATUS.DELETED, deleted_at: now },
-        }),
-      ]);
+        });
+        await postRepository.updatePost(report.post_id, { status: POST_STATUS.DELETED, deleted_at: now }, null, tx);
+        if (report.post.status !== POST_STATUS.DELETED) {
+          await notificationService.notifyPostRemoval({ userId: report.post.author_id, postId: report.post_id }, tx);
+        }
+      });
     }
   }
 
