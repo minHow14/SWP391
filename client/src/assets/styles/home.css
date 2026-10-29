@@ -538,8 +538,10 @@ dialog::backdrop {
   padding: 10px 14px;
   border-top: 1px solid var(--cx-border);
 }
-.cx-chat-suggestions button {
+.cx-chat-suggestions button,
+.cx-chat-suggestions .cx-chat-suggestion-link {
   flex-shrink: 0;
+  white-space: nowrap;
   background: var(--cx-soft);
   color: var(--cx-accent);
   border: 0;
@@ -547,6 +549,18 @@ dialog::backdrop {
   font-size: 11px;
   font-weight: 650;
   padding: 7px 10px;
+}
+.cx-chat-suggestions .cx-chat-suggestion-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px dashed var(--cx-accent);
+  text-decoration: none;
+}
+.cx-chat-suggestions .cx-chat-suggestion-link:hover,
+.cx-chat-suggestions .cx-chat-suggestion-link:focus-visible {
+  background: var(--cx-accent);
+  color: #fff;
 }
 .cx-chat-composer {
   display: flex;

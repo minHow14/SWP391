@@ -98,7 +98,9 @@ export default function ChatBox({ dietTypeId }) {
           </div>
           <div className="cx-chat-suggestions" aria-label="Chủ đề gợi ý">
             {suggestions.map((suggestion) => suggestion.requiresProfile && needsProfile ? (
-              <Link key={suggestion.label} to="/ho-so">Bổ sung hồ sơ để xem BMI</Link>
+              <Link key={suggestion.label} to="/ho-so" className="cx-chat-suggestion-link">
+                <i className="bi bi-person-lines-fill" aria-hidden="true" /> Bổ sung hồ sơ để xem BMI
+              </Link>
             ) : (
               <button
                 type="button"

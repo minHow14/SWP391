@@ -6,9 +6,10 @@ import { detectYoutubeMessage } from '../../videoRecipeSummary/utils/youtubeMess
 import { useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRecipeSummary.js';
 import { useChatRequest } from './useChatRequest.js';
 import { getSession } from '../../../utils/session.js';
+import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
 
 export function useChatBox({ dietTypeId }) {
-  const { data: catalog, user } = useDatabase();
+  const { data: catalog, user, refreshUser } = useDatabase();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState('chat');
@@ -64,6 +65,11 @@ export function useChatBox({ dietTypeId }) {
     getChatUsage(request.signal).then((result) => { if (!request.signal.aborted) setUsage(result); }).catch(() => {});
     return () => request.abort();
   }, [open, userId]);
+  useEffect(() => {
+    // Session có thể chưa có chiều cao/cân nặng vừa lưu; xác nhận lại với server trước khi chặn tính năng BMI.
+    if ((open || planDialog) && userId && !hasBodyMeasurements(user.health_profile)) refreshUser?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, planDialog, userId]);
   useEffect(() => {
     const urls = attachmentUrls.current;
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
