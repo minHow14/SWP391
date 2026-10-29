@@ -22,7 +22,7 @@ const scanText = z.string().trim().min(1);
 export const foodScanResultSchema = z.object({
   dishName: scanText,
   detectedScanType: z.enum(['LABEL', 'DISH']),
-  status: z.enum(['clear', 'warning', 'inconclusive']),
+  status: z.enum(['clear', 'warning']),
   summary: scanText,
   findings: z.array(z.object({ ingredient: scanText, reason: scanText, layer: z.number().int().min(1).max(5),
     severity: z.enum(['violation', 'warning', 'info']) }).strict()),

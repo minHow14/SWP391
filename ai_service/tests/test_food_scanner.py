@@ -28,7 +28,7 @@ def scan_result() -> dict:
     return {
         "dishName": "Nấm đùi gà sốt cà chua",
         "detectedScanType": "DISH",
-        "status": "inconclusive",
+        "status": "clear",
         "summary": "Nhận diện nấm và cà chua; chưa xác định được gia vị.",
         "findings": [],
         "identifiedIngredients": ["Nấm đùi gà", "Cà chua"],
@@ -201,6 +201,7 @@ def test_model_output_requires_all_result_arrays(
                 }
             ]
         },
+        {"status": "inconclusive"},
         {
             "status": "clear",
             "findings": [

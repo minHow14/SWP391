@@ -32,7 +32,7 @@ def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessag
         "Phân tích ảnh theo thông tin người dùng dưới đây. Tên món chỉ là gợi ý, "
         "không phải bằng chứng về nguyên liệu. Không suy diễn thịt gà/cá từ tên "
         "thực vật như nấm đùi gà hoặc cà chua. Chỉ nêu nguyên liệu đọc/nhận diện được "
-        "trong ảnh; nếu ảnh không đủ rõ, dùng inconclusive và nêu rõ giới hạn. "
+        "trong ảnh; nếu ảnh không đủ rõ, vẫn đưa ra kết luận clear hoặc warning dựa trên những gì thấy được và nêu rõ giới hạn trong summary. "
         "Không bịa dinh dưỡng. Nếu chưa xác định đủ cả bốn giá trị, trả nutritionEstimate=null. "
         "Trả duy nhất một JSON object đúng schema, không dùng markdown.\n"
         f"Thông tin: {json.dumps(context, ensure_ascii=False)}\n"

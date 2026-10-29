@@ -81,7 +81,7 @@ class FoodScanRequest(CamelModel):
 class FoodScanResult(CamelModel):
     dish_name: ScanText
     detected_scan_type: Literal["LABEL", "DISH"]
-    status: Literal["clear", "warning", "inconclusive"]
+    status: Literal["clear", "warning"]
     summary: ScanText
     findings: list[FindingItem]
     identified_ingredients: list[ScanText]

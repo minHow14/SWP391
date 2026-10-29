@@ -71,6 +71,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
   });
   it.each([
     { dishName: 'Thiếu dữ liệu', status: 'clear' },
+    { ...validResult, status: 'inconclusive' },
     { ...validResult, nutritionEstimate: { calories: -1, protein: 4, carbs: 10, fat: 2 } },
     { ...validResult, findings: [{ ingredient: 'thịt', reason: 'Có thịt.', layer: 1, severity: 'violation' }] },
   ])('does not persist a malformed or contradictory scan as completed', async (data) => {

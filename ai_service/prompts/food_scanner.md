@@ -44,9 +44,9 @@ Your mission is to inspect and analyze food imagery (packaged food ingredient la
 ---
 
 # EVALUATION STATUS
-- `clear`: Fully compliant with the selected dietary preference. No prohibited or suspicious ingredients detected.
-- `warning`: Non-compliant. Explicit animal ingredients or prohibited additives found.
-- `inconclusive`: Caution advised. Potential hidden culinary risks (e.g., dining out broths, ambiguous emulsifiers).
+Always return exactly one of two statuses and always produce the full analysis; never refuse to conclude.
+- `clear`: Compliant with the selected dietary preference based on what is visible or readable. Potential hidden culinary risks (e.g., dining out broths, ambiguous emulsifiers) do not change the status; list them as findings with severity `warning` or `info` and add restaurant checklist questions.
+- `warning`: Non-compliant. Explicit animal ingredients or prohibited additives found (at least one finding with severity `violation`).
 
 ---
 

@@ -5,12 +5,13 @@ import { Link } from 'react-router';
 const STATUS = {
   clear: { variant: 'success', title: 'PHÙ HỢP VỚI CHẾ ĐỘ ĂN CHAY' },
   warning: { variant: 'danger', title: 'KHÔNG PHÙ HỢP — PHÁT HIỆN THÀNH PHẦN VI PHẠM' },
-  inconclusive: { variant: 'warning', title: 'CHƯA ĐỦ THÔNG TIN ĐỂ KẾT LUẬN' },
 };
+// Lịch sử quét cũ có thể còn trạng thái đã bị gỡ; hiển thị trung tính thay vì khẳng định phù hợp hay không.
+const LEGACY_STATUS = { variant: 'secondary', title: 'KẾT QUẢ PHÂN TÍCH' };
 const NUTRIENTS = { calories: ['Năng lượng', 'kcal'], protein: ['Chất đạm', 'g'], carbs: ['Đường bột', 'g'], fat: ['Chất béo', 'g'] };
 
 export default function FoodScannerResults({ result, textResult, onSave }) {
-  const status = STATUS[result?.status] || STATUS.inconclusive;
+  const status = STATUS[result?.status] || LEGACY_STATUS;
   return <>
     {result && <Alert variant={status.variant} className="mt-4 p-4" aria-label="Kết quả phân tích hình ảnh AI">
       <h2 className="h4 fw-bold">{status.title}</h2>

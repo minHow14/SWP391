@@ -41,4 +41,4 @@ Chatbot/thực đơn qua gateway dùng streaming để sinh kết quả và lưu
 
 Test thay mô hình trong fixture, không gọi provider thật và không dùng DB. Chi tiết lifecycle, API BE và migration: [AI_INTEGRATION.md](../docs/AI_INTEGRATION.md).
 
-Worker video tự khởi chạy cùng API Express; không cần mở worker Python hoặc một dịch vụ hàng đợi riêng. Food Scanner dùng model được cấu hình trong `core/llm.py`, deadline 35 giây mỗi lần gọi model; tổng thời gian có thể gồm retry/fallback. BE có deadline `AI_TIMEOUT_MS` riêng. Kết quả `inconclusive` hoặc dinh dưỡng `null` cần được client trình bày đúng giới hạn của ảnh, không đổi thành kết luận an toàn hay số 0.
+Worker video tự khởi chạy cùng API Express; không cần mở worker Python hoặc một dịch vụ hàng đợi riêng. Food Scanner dùng model được cấu hình trong `core/llm.py`, deadline 35 giây mỗi lần gọi model; tổng thời gian có thể gồm retry/fallback. BE có deadline `AI_TIMEOUT_MS` riêng. Dinh dưỡng `null` cần được client trình bày đúng giới hạn của ảnh, không đổi thành số 0; giới hạn của ảnh được nêu trong `summary`.
