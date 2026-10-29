@@ -23,3 +23,12 @@ it('never claims an old saved result was compliant or inconclusive', () => {
   expect(screen.queryByText(/CHƯA ĐỦ THÔNG TIN/)).toBeNull();
   expect(screen.queryByText(/PHÙ HỢP VỚI CHẾ ĐỘ/)).toBeNull();
 });
+
+it('names the finding category in words instead of an internal layer number', () => {
+  render(
+    <MemoryRouter><FoodScannerResults result={{ dishName: 'Đậu phụ', summary: 'Tóm tắt', status: 'clear',
+      findings: [{ ingredient: 'Hành lá', reason: 'Thuộc ngũ vị tân.', layer: 4, severity: 'warning' }] }} onSave={() => {}} /></MemoryRouter>,
+  );
+  expect(screen.getByText('Ngũ vị tân')).toBeTruthy();
+  expect(screen.queryByText(/Lớp/)).toBeNull();
+});

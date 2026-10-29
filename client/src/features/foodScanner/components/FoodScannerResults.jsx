@@ -8,6 +8,7 @@ const STATUS = {
 };
 // Lịch sử quét cũ có thể còn trạng thái đã bị gỡ; hiển thị trung tính thay vì khẳng định phù hợp hay không.
 const LEGACY_STATUS = { variant: 'secondary', title: 'KẾT QUẢ PHÂN TÍCH' };
+const LAYER_LABELS = { 1: 'Thịt & hải sản', 2: 'Phụ phẩm động vật', 3: 'Sữa, trứng, mật ong', 4: 'Ngũ vị tân', 5: 'Dị ứng cá nhân' };
 const NUTRIENTS = { calories: ['Năng lượng', 'kcal'], protein: ['Chất đạm', 'g'], carbs: ['Đường bột', 'g'], fat: ['Chất béo', 'g'] };
 
 export default function FoodScannerResults({ result, textResult, onSave }) {
@@ -20,7 +21,7 @@ export default function FoodScannerResults({ result, textResult, onSave }) {
       {result.findings?.length > 0 && <Card body className="mb-3">
         <h3 className="h6">Thành phần cần lưu ý</h3>
         <ul className="mb-0">{result.findings.map((item, index) => <li key={`${item.ingredient}-${index}`}>
-          <strong>{item.ingredient}:</strong> {item.reason} <Badge bg={item.severity === 'violation' ? 'danger' : 'secondary'}>Lớp {item.layer}</Badge>
+          <strong>{item.ingredient}:</strong> {item.reason} <Badge bg={item.severity === 'violation' ? 'danger' : 'secondary'}>{LAYER_LABELS[item.layer]}</Badge>
         </li>)}</ul>
       </Card>}
       {result.identifiedIngredients?.length > 0 && <p><strong>Nguyên liệu nhận diện được: </strong>{result.identifiedIngredients.join(', ')}</p>}
@@ -43,7 +44,7 @@ export default function FoodScannerResults({ result, textResult, onSave }) {
     {textResult && <Alert variant="info" className="mt-4" aria-label="Kết quả kiểm tra văn bản">
       <h2 className="h5">Kết quả đối chiếu từ khóa</h2>
       {textResult.findings.length ? <ul>{textResult.findings.map((item, index) => <li key={`${item.ingredient}-${index}`}>
-        <strong>{item.ingredient}:</strong> {item.reason} (Lớp {item.layer})
+        <strong>{item.ingredient}:</strong> {item.reason} <Badge bg="secondary">{LAYER_LABELS[item.layer]}</Badge>
       </li>)}</ul> : <p className="mb-0">Chưa phát hiện từ khóa thành phần không phù hợp trong danh sách bạn nhập.</p>}
     </Alert>}
   </>;

@@ -54,6 +54,24 @@ def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessag
     ]
 
 
+BUDDHIST_DIET_TYPE_ID = 5
+ALLIUM_LAYER = 4
+
+
+def _apply_diet_rules(result: FoodScanResult, diet_type_id: int) -> FoodScanResult:
+    """Drop findings the selected diet permits and keep the verdict consistent with what remains."""
+    findings = [
+        item
+        for item in result.findings
+        if item.layer != ALLIUM_LAYER or diet_type_id == BUDDHIST_DIET_TYPE_ID
+    ]
+    if len(findings) == len(result.findings):
+        return result
+    has_violation = any(item.severity == "violation" for item in findings)
+    status = "warning" if has_violation else "clear"
+    return result.model_copy(update={"findings": findings, "status": status})
+
+
 class FoodScannerAgent:
     """Inspect images only through a model and validate its complete result."""
 
@@ -72,7 +90,8 @@ class FoodScannerAgent:
         try:
             if not isinstance(response.content, str):
                 raise TypeError("Expected JSON text")
-            return FoodScanResult.model_validate(json.loads(response.content))
+            result = FoodScanResult.model_validate(json.loads(response.content))
+            return _apply_diet_rules(result, request.diet_type_id)
         except (ValueError, TypeError, AttributeError) as exc:
             logger.warning(
                 "Food scanner invalid output exceptionType=%s", type(exc).__name__

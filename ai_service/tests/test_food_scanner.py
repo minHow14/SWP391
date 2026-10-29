@@ -136,6 +136,50 @@ def test_success_preserves_plant_ingredients_without_text_regex_false_positive(
     assert "requestId" in body["meta"]
 
 
+ALLIUM_FINDING = {
+    "ingredient": "Hành lá",
+    "reason": "Thuộc ngũ vị tân.",
+    "layer": 4,
+    "severity": "warning",
+}
+
+
+@pytest.mark.parametrize(
+    ("diet_type_id", "kept", "status"), [(1, 0, "clear"), (4, 0, "clear"), (5, 1, "clear")]
+)
+def test_alliums_are_only_reported_for_the_buddhist_diet(
+    client: TestClient, scan_result: dict, diet_type_id: int, kept: int, status: str
+) -> None:
+    scan_result["findings"] = [ALLIUM_FINDING]
+    with provider_response(json.dumps(scan_result, ensure_ascii=False)):
+        response = scan_request(client, dietTypeId=diet_type_id)
+    data = response.json()["data"]
+    assert len(data["findings"]) == kept
+    assert data["status"] == status
+
+
+def test_dropping_a_permitted_finding_downgrades_the_warning_it_caused(
+    client: TestClient, scan_result: dict
+) -> None:
+    scan_result.update(status="warning", findings=[{**ALLIUM_FINDING, "severity": "violation"}])
+    with provider_response(json.dumps(scan_result, ensure_ascii=False)):
+        response = scan_request(client, dietTypeId=1)
+    assert response.json()["data"]["status"] == "clear"
+    assert response.json()["data"]["findings"] == []
+
+
+def test_real_violations_survive_the_diet_filter(
+    client: TestClient, scan_result: dict
+) -> None:
+    meat = {"ingredient": "Thịt heo", "reason": "Có thịt.", "layer": 1, "severity": "violation"}
+    scan_result.update(status="warning", findings=[ALLIUM_FINDING, meat])
+    with provider_response(json.dumps(scan_result, ensure_ascii=False)):
+        response = scan_request(client, dietTypeId=1)
+    data = response.json()["data"]
+    assert data["status"] == "warning"
+    assert [item["ingredient"] for item in data["findings"]] == ["Thịt heo"]
+
+
 @pytest.mark.parametrize(
     "nutrition", [None, {"calories": 125.5, "protein": 3, "carbs": 0, "fat": 0}]
 )

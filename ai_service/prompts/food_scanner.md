@@ -50,6 +50,13 @@ Always return exactly one of two statuses and always produce the full analysis; 
 
 ---
 
+# FINDINGS RELEVANCE (STRICT)
+- Only list a finding when it matters for the SELECTED diet or the user's declared allergies. An ingredient that is permitted for the selected diet is NOT a finding: never list it, not even as `info` (for example onion, garlic or scallion for any diet except ID 5; dairy for IDs 2, 4 and 5; eggs for IDs 3 and 4; honey for IDs 2 to 5).
+- Hidden-risk findings (broth, lard, seasoning powder, sauces of unknown origin) use severity `warning` and must say what to ask the restaurant.
+- User-facing text must use the Vietnamese name of the diet (for example "chế độ thuần chay"). Never mention internal identifiers such as `dietTypeId`, "ID 1", "layer" or "Lớp".
+
+---
+
 # OUTPUT GUIDELINES
 - Return a valid JSON object matching the requested schema without conversational wrappers.
 - All user-facing explanations, summaries, findings reasons, checklists, and swap suggestions MUST be provided in natural, polite **Vietnamese (Tiếng Việt)**.
