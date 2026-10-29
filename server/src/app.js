@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\app.js
+// D:/SWP391/SWP391/server/src/app.js
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from './config/index.js';
 import apiRoutes from './routes/index.js';
+import { MAX_FOOD_SCAN_JSON_BYTES } from './constants/foodScanner.js';
 import {
   notFoundHandler,
   globalErrorHandler,
@@ -61,6 +62,10 @@ app.use(
     credentials: true,
   })
 );
+
+// Base64 expands image bytes; only scan routes need the larger JSON allowance.
+app.use(['/api/ai/food-scanner/analyze', '/api/v1/ai/food-scanner/analyze'],
+  express.json({ limit: MAX_FOOD_SCAN_JSON_BYTES }));
 
 // 6. Phân tích cú pháp Request Body với giới hạn dung lượng 1MB
 app.use(express.json({ limit: '1mb' }));

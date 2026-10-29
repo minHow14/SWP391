@@ -135,13 +135,10 @@
         ],
         "responses": {
           "200": {
-            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
+            "description": "Own records only; paginated data array. Types CHAT, MEAL_PLAN, FOOD_SCAN. System prompts omitted; imageBase64 omitted from list requestPayload, retained by owned detail endpoint."
           },
           "401": {
-            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
-          },
-          "404": {
-            "description": "Own records only; data is an array, meta has page, limit, total, totalPages. System prompts are omitted."
+            "description": "Authentication required."
           }
         },
         "parameters": [
@@ -171,7 +168,8 @@
               "type": "string",
               "enum": [
                 "CHAT",
-                "MEAL_PLAN"
+                "MEAL_PLAN",
+                "FOOD_SCAN"
               ]
             }
           },
@@ -199,13 +197,13 @@
         ],
         "responses": {
           "200": {
-            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+            "description": "Owned record including validated requestPayload, responsePayload, status, safe error and timestamps. System prompts omitted."
           },
           "401": {
-            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+            "description": "Authentication required."
           },
           "404": {
-            "description": "Standard success/error envelope; streamed endpoints terminate with done or error."
+            "description": "Record absent or owned by another member."
           }
         },
         "parameters": [
@@ -254,6 +252,9 @@
           "401": {
             "description": "Lỗi xác thực người dùng."
           },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: scanner JSON parser bound exceeded."
+          },
           "422": {
             "description": "Dữ liệu ảnh base64 hoặc tham số không hợp lệ."
           },
@@ -261,13 +262,474 @@
             "description": "Hết hạn ngạch câu hỏi trong ngày của khách."
           },
           "502": {
-            "description": "Lỗi từ AI Microservice hoặc nhà cung cấp LLM."
+            "description": "AI_PROVIDER_ERROR when AI service/provider fails, or AI_INVALID_OUTPUT for malformed success payload; no successful scan persisted."
           },
           "503": {
-            "description": "Dịch vụ AI chưa được cấu hình."
+            "description": "AI_NOT_CONFIGURED or AI_INTERNAL_AUTH_FAILED; never fabricated analysis."
           },
           "504": {
             "description": "Quá thời gian xử lý hình ảnh."
+          }
+        },
+        "description": "Decoded image <=10 MiB; bounded JSON payload <=14046552 bytes including base64 overhead. Other API routes retain 1 MiB. Real model analysis only; errors never fabricate success. AI service also validates MIME/container signature. Default gateway budget180s; scanner client waits190s."
+      }
+    },
+    "/api/v1/ai/food-scanner/analyze": {
+      "post": {
+        "summary": "Phân tích hình ảnh món ăn hoặc bao bì nhãn thành phần",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FoodScanRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Kết quả thẩm định 5 lớp ẩm thực chay, nguyên liệu an toàn và checklist câu hỏi.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FoodScanResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Lỗi xác thực người dùng."
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: scanner JSON parser bound exceeded."
+          },
+          "422": {
+            "description": "Dữ liệu ảnh base64 hoặc tham số không hợp lệ."
+          },
+          "429": {
+            "description": "Hết hạn ngạch câu hỏi trong ngày của khách."
+          },
+          "502": {
+            "description": "AI_PROVIDER_ERROR when AI service/provider fails, or AI_INVALID_OUTPUT for malformed success payload; no successful scan persisted."
+          },
+          "503": {
+            "description": "AI_NOT_CONFIGURED or AI_INTERNAL_AUTH_FAILED; never fabricated analysis."
+          },
+          "504": {
+            "description": "Quá thời gian xử lý hình ảnh."
+          }
+        },
+        "description": "Decoded image <=10 MiB; bounded JSON payload <=14046552 bytes including base64 overhead. Other API routes retain 1 MiB. Real model analysis only; errors never fabricate success. AI service also validates MIME/container signature. Default gateway budget180s; scanner client waits190s."
+      }
+    },
+    "/api/v1/video-recipe-summary-jobs": {
+      "post": {
+        "summary": "Create or reuse owned YouTube recipe job",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Vietnamese cooking video <=660 seconds; one active job per member. Worker starts with API. No provider work in the HTTP request.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "videoUrl"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "videoUrl": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2048
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Existing completed job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeJob"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Job accepted or already pending/processing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeJob"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input or unsupported URL."
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "409": {
+            "description": "VIDEO_JOB_ALREADY_ACTIVE or VIDEO_JOB_FAILED; use retries for a failed job."
+          }
+        }
+      },
+      "get": {
+        "summary": "List owned video jobs",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000000,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "PROCESSING",
+                "COMPLETED",
+                "FAILED"
+              ]
+            }
+          },
+          {
+            "name": "videoId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_-]{11}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Owned jobs; meta.page, limit, total. Client restores latest10 plus active jobs after reload.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/VideoRecipeJob"
+                      }
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          }
+        }
+      }
+    },
+    "/api/v1/video-recipe-summary-jobs/{jobId}": {
+      "get": {
+        "summary": "Read owned video job",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current stage/status and summaryId.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeJob"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Record absent or owned by another member."
+          }
+        }
+      }
+    },
+    "/api/v1/video-recipe-summary-jobs/{jobId}/retries": {
+      "post": {
+        "summary": "Retry owned failed video job",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already completed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeJob"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Requeued or already active.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeJob"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Record absent or owned by another member."
+          },
+          "409": {
+            "description": "Another job is already active for this account."
+          }
+        }
+      }
+    },
+    "/api/v1/video-recipe-summaries/{summaryId}": {
+      "get": {
+        "summary": "Read persisted owned video recipe",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "summaryId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recipe extracted from persisted transcript; no provider call.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoRecipeSummary"
+                    },
+                    "meta": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required."
+          },
+          "404": {
+            "description": "Record absent or owned by another member."
           }
         }
       }
@@ -434,8 +896,9 @@
           "imageBase64": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 15728640,
-            "description": "Chuỗi Base64 của ảnh món ăn hoặc bao bì"
+            "maxLength": 13981016,
+            "description": "Canonical base64, length multiple of4; decoded <=10485760 bytes (10 MiB). No data URL prefix.",
+            "pattern": "^[A-Za-z0-9+/]+={0,2}$"
           },
           "mimeType": {
             "type": "string",
@@ -485,7 +948,8 @@
         "type": "object",
         "properties": {
           "success": {
-            "type": "boolean"
+            "type": "boolean",
+            "const": true
           },
           "message": {
             "type": "string"
@@ -494,7 +958,8 @@
             "type": "object",
             "properties": {
               "dishName": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "detectedScanType": {
                 "type": "string",
@@ -512,7 +977,8 @@
                 ]
               },
               "summary": {
-                "type": "string"
+                "type": "string",
+                "minLength": 1
               },
               "findings": {
                 "type": "array",
@@ -520,13 +986,17 @@
                   "type": "object",
                   "properties": {
                     "ingredient": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "reason": {
-                      "type": "string"
+                      "type": "string",
+                      "minLength": 1
                     },
                     "layer": {
-                      "type": "integer"
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 5
                     },
                     "severity": {
                       "type": "string",
@@ -536,7 +1006,14 @@
                         "info"
                       ]
                     }
-                  }
+                  },
+                  "required": [
+                    "ingredient",
+                    "reason",
+                    "layer",
+                    "severity"
+                  ],
+                  "additionalProperties": false
                 }
               },
               "identifiedIngredients": {
@@ -558,23 +1035,50 @@
                 }
               },
               "nutritionEstimate": {
-                "type": "object",
+                "type": [
+                  "object",
+                  "null"
+                ],
                 "properties": {
                   "calories": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                   },
                   "protein": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                   },
                   "carbs": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                   },
                   "fat": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                   }
-                }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "calories",
+                  "protein",
+                  "carbs",
+                  "fat"
+                ],
+                "description": "Complete four-value estimate with finite nonnegative numbers, or null when unknown."
               }
-            }
+            },
+            "additionalProperties": false,
+            "required": [
+              "dishName",
+              "detectedScanType",
+              "status",
+              "summary",
+              "findings",
+              "identifiedIngredients",
+              "restaurantChecklist",
+              "swapSuggestions"
+            ],
+            "description": "clear cannot contain violation findings. Unknown nutrition is null/omitted, never invented zeros."
           },
           "meta": {
             "type": "object",
@@ -583,12 +1087,210 @@
                 "type": "string"
               },
               "generationId": {
-                "type": "string",
-                "nullable": true
+                "type": [
+                  "string",
+                  "null"
+                ]
               },
               "remaining": {
-                "type": "integer",
-                "nullable": true
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "success",
+          "message",
+          "data"
+        ]
+      },
+      "VideoRecipeJob": {
+        "type": "object",
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "videoId": {
+            "type": "string"
+          },
+          "videoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "COMPLETED",
+              "FAILED"
+            ]
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "VALIDATING_VIDEO",
+              "FETCHING_AUDIO",
+              "TRANSCRIBING",
+              "SUMMARIZING",
+              "SAVING_RESULT"
+            ]
+          },
+          "summaryId": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "errorCode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "errorMessage": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "jobId",
+          "videoId",
+          "videoUrl",
+          "status",
+          "stage",
+          "summaryId"
+        ]
+      },
+      "VideoRecipeSummary": {
+        "type": "object",
+        "required": [
+          "summaryId",
+          "jobId",
+          "videoId",
+          "videoUrl",
+          "recipe"
+        ],
+        "properties": {
+          "summaryId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "videoId": {
+            "type": "string"
+          },
+          "videoUrl": {
+            "type": "string",
+            "format": "uri"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "recipe": {
+            "type": "object",
+            "required": [
+              "title",
+              "ingredients",
+              "steps"
+            ],
+            "properties": {
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ingredients": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "quantity",
+                    "unit",
+                    "sourceSegmentIndexes"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "quantity": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "unit": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "sourceSegmentIndexes": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              },
+              "steps": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "instruction",
+                    "sourceSegmentIndexes"
+                  ],
+                  "properties": {
+                    "instruction": {
+                      "type": "string"
+                    },
+                    "sourceSegmentIndexes": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
               }
             }
           }

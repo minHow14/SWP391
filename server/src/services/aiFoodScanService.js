@@ -1,9 +1,10 @@
-// server/src/services/aiFoodScanService.js
+// D:/SWP391/SWP391/server/src/services/aiFoodScanService.js
 import { aiConfig } from '../config/aiConfig.js';
 import { aiGatewayError, normalizeAiError } from '../utils/aiGatewayError.js';
 import { aiGenerationService } from './aiGenerationService.js';
 import { guestQuotaService } from './guestQuotaService.js';
 import { assertAiConfigured, sendAiJson } from './aiTransportService.js';
+import { foodScanResultSchema } from '../validators/aiFoodScanValidator.js';
 
 function createLogPayload(context, status, error) {
   const actor = context.identity.userId ? `USER_${context.identity.userId}` : 'GUEST';
@@ -55,7 +56,7 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
       identity,
     });
 
-    if (!response || response.success === false || !response.data) {
+    if (!response || response.success !== true || !response.data) {
       throw aiGatewayError({
         status: 502,
         code: 'AI_PROVIDER_ERROR',
@@ -63,7 +64,10 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
       });
     }
 
-    context.result = response;
+    const scan = foodScanResultSchema.safeParse(response.data);
+    if (!scan.success) throw aiGatewayError({ status: 502, code: 'AI_INVALID_OUTPUT',
+      message: 'Kết quả phân tích hình ảnh không hợp lệ. Vui lòng thử lại.' });
+    context.result = { ...response, data: scan.data };
     context.modelName = response.meta?.modelName || 'ai-service';
 
     await aiGenerationService.finish(context, createLogPayload(context, 'SUCCESS'));
@@ -71,7 +75,7 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
     return {
       success: true,
       message: response.message || 'Phân tích món ăn thành công.',
-      data: response.data,
+      data: scan.data,
       meta: {
         ...(response.meta || {}),
         requestId,

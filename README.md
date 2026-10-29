@@ -27,6 +27,8 @@
 - **Từ điển nguyên liệu chay:** Tra cứu chỉ số calo, đạm, đường, béo và nguồn gốc thực vật.
 - **Khám phá công thức & Bản đồ Quán chay:** Định vị GPS thời gian thực (hiệu ứng Radar Pulse), tính khoảng cách kép (`user_distance_m`), hệ thống Hubs đa tỉnh thành (TP.HCM, Hà Nội, Đà Nẵng, Cần Thơ, Huế), tùy chỉnh bán kính quét (3 - 20 km), lọc theo chế độ ăn (Thuần chay, Chay Phật giáo, Chay trứng sữa), tích hợp dịch vụ ZIOMAP kết hợp cơ chế Read-through Caching vào PostgreSQL (<100ms), tự động hiển thị ảnh đại diện và trạng thái mở/đóng cửa (`🟢 Đang mở cửa` / `🔴 Đã đóng cửa`).
 - **Nhật ký dinh dưỡng cá nhân:** Ghi nhận khẩu phần calo theo ngày/tuần theo múi giờ địa phương.
+- **Lịch sử AI cá nhân:** Mở lại hỏi đáp/thực đơn trong khung chat và kết quả quét ảnh tại trang Kiểm tra món. Lưu món từ kết quả quét phù hợp vào nhật ký sau khi xác nhận khẩu phần và số liệu dinh dưỡng; giá trị chưa biết được để trống.
+- **Công thức từ video YouTube:** Thành viên dán link video nấu ăn tiếng Việt tối đa 11 phút vào chat. Job chạy nền, lưu công thức vào DB; mở lại chat sau khi tải lại trang sẽ khôi phục tối đa 10 tác vụ gần nhất cùng tác vụ đang xử lý.
 
 ### Phân hệ Quản trị viên (Admin Portal - `/admin`)
 - **Tổng quan Hệ thống (Dashboard):** Thống kê thời gian thực về thành viên, bài viết, video, tỷ lệ chính xác AI và việc cần xử lý.
@@ -171,6 +173,8 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
 > AI Service sẽ hoạt động tại: `http://localhost:8000` (Swagger docs: `http://localhost:8000/docs`)
 
+Video cần `GROQ_API_KEY` và DeepSeek key trong AI Service. Dependencies đã gồm yt-dlp và FFmpeg qua imageio-ffmpeg. Đặt `YT_DLP_PATH` trong `server/.env` thành đường dẫn tuyệt đối tới executable yt-dlp vừa cài (Windows: `ai_service/venv/Scripts/yt-dlp.exe`; Linux/macOS: `ai_service/venv/bin/yt-dlp`), rồi restart BE. `npm run dev` / `npm start` của BE tự chạy worker video; không cần thêm terminal worker cho luồng local thông thường. Xem [cấu hình và khôi phục video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
+
 Để bật kiểm duyệt, đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, restart API rồi mở terminal riêng tại `server/` chạy `npm run worker:content-moderation`. BE và AI phải dùng cùng `INTERNAL_API_KEY`; AI cần provider key hợp lệ. Giữ mặc định tắt khi chưa cấu hình. Xem [quy trình đầy đủ](docs/CONTENT_MODERATION.md).
 
 ### Bước 4: Khởi chạy Frontend Web App (Port 5173)
@@ -199,6 +203,10 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `AI_SERVICE_URL` | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice |
 | `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
 | `AI_TIMEOUT_MS` | `180000` | Tổng thời gian chờ AI tối đa trên BE (ms) |
+| `YT_DLP_PATH` | `yt-dlp` | Executable lấy metadata video; dùng đường dẫn tuyệt đối khi không có trên PATH |
+| `VIDEO_METADATA_TIMEOUT_MS` / `VIDEO_AI_TIMEOUT_MS` | `30000` / `600000` | Deadline metadata / toàn bộ HTTP xử lý AI video (ms) |
+| `VIDEO_JOB_LEASE_MS` / `VIDEO_JOB_POLL_MS` | `90000` / `2000` | Lease và chu kỳ nhận job video (ms) |
+| `VIDEO_JOB_RETRY_MS` / `VIDEO_JOB_MAX_ATTEMPTS` | `30000` / `3` | Khoảng thử lại lỗi tạm thời (ms) / tổng số lần thử |
 | `CONTENT_MODERATION_ENABLED` | `false` | Bật tạo/xử lý job văn bản; API và worker cần cùng cấu hình |
 | `CONTENT_MODERATION_TIMEOUT_MS` | `30000` | Deadline HTTP kiểm duyệt (ms), gồm đọc body |
 | `CONTENT_MODERATION_MAX_ATTEMPTS` | `3` | Tổng số lần thử mỗi job; lỗi không tự công khai nội dung |
@@ -211,6 +219,12 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
 | `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối API DeepSeek LLM Engine |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | Mô hình ngôn ngữ mặc định |
+| `DEEPSEEK_FALLBACK_MODEL` | `deepseek-v4-pro` | Model dự phòng; model xử lý Food Scanner phải hỗ trợ đầu vào hình ảnh |
+| `GROQ_API_KEY` | `Không có mặc định` | Khóa chuyển lời nói video thành văn bản; chỉ giữ ở AI Service |
+| `VIDEO_FFMPEG_PATH` | `Rỗng` | FFmpeg tùy chọn; rỗng dùng binary của imageio-ffmpeg |
+| `VIDEO_DOWNLOAD_TIMEOUT_SECONDS` / `VIDEO_DECODE_TIMEOUT_SECONDS` | `120` / `60` | Deadline tải / giải mã âm thanh (giây) |
+| `VIDEO_GROQ_TIMEOUT_SECONDS` / `VIDEO_SUMMARY_TIMEOUT_SECONDS` | `180` / `120` | Deadline chuyển lời nói / sinh công thức (giây) |
+| `VIDEO_MAX_DOWNLOAD_BYTES` | `52428800` | Giới hạn tải âm thanh 50 MiB |
 | `CONTENT_MODERATION_TIMEOUT_SECONDS` | `20` | Deadline inference kiểm duyệt (giây); nên ngắn hơn timeout worker |
 | `DEBUG` | `False` | Chế độ debug |
 | `ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:5000` | Danh sách origin cho phép |
@@ -234,6 +248,9 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
 - `npm run seed` / `npm run db:seed`: Áp dụng migration còn thiếu rồi nạp `seed.sql`; xóa dữ liệu cũ.
 - `npm run worker:content-moderation`: Chạy worker kiểm duyệt trong terminal riêng; cần bật cờ cấu hình.
+- `npm run worker:video-recipes`: Worker video độc lập tùy chọn; API đã tự chạy worker. Cùng DB được bảo vệ bằng lease khi có nhiều worker.
+- `npm run test:video-recipes`: Kiểm thử pipeline video trên DB test.
+- `npm run test:ai-internal-auth`: Kiểm thử HTTP BE → FastAPI thật bằng runtime test, không gọi provider.
 - `npm run test:content-moderation`: Kiểm thử API/DB/worker/HTTP kiểm duyệt và migration/seed trên DB test.
 - `npm run db:repair-ingredients`: Cập nhật chi tiết dinh dưỡng nguyên liệu từ catalog chuẩn (`scripts/repair-ingredients.js`).
 - `npm run db:import-ingredient-images`: Tải và lưu trữ binary ảnh nguyên liệu vào PostgreSQL (`scripts/import-ingredient-images.js`).
@@ -291,7 +308,7 @@ cd ../ai_service
 .\venv\Scripts\python.exe -m ruff check agents api core schemas main.py tests
 ```
 
-Provider được thay thế chỉ trong test; test không gọi DeepSeek thật. Các file `.env`, `.env.test` không được commit.
+Provider được thay thế chỉ trong test; test không gọi DeepSeek thật. Nếu Vitest gặp lỗi worker trong môi trường giới hạn, dùng `npm run test:ui -- --pool=threads --maxWorkers=1 --no-file-parallelism`. Các file `.env`, `.env.test` không được commit.
 
 ---
 
@@ -325,6 +342,8 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
    - *Nguyên nhân:* Môi trường Node.js không có sẵn đối tượng browser.
    - *Khắc phục:* Đảm bảo các file test có mock `globalThis.window` và `sessionStorage` tương thích trước khi gọi hàm.
 5. **Nội dung kiểm duyệt chờ mãi hoặc job `FAILED`:** Kiểm tra cờ bật, worker chạy đúng DB, khóa nội bộ và provider key. Không seed/reset DB để sửa hàng chờ; Admin có thể duyệt/gỡ thủ công. Xem [bảng lỗi kiểm duyệt](docs/CONTENT_MODERATION.md#xử-lý-sự-cố).
+6. **Video chờ mãi, Groq chưa nhận request:** Khởi động lại BE bằng `npm run dev` / `npm start` để chạy worker tích hợp; kiểm tra `YT_DLP_PATH`, kết nối YouTube và trạng thái/stage của job. Groq chỉ được gọi sau bước metadata/tải âm thanh. Xem [luồng video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền); không seed/reset DB để xử lý hàng chờ.
+7. **Food Scanner báo lỗi hoặc chưa kết luận:** Ảnh tối đa 10 MiB, JPEG/PNG/WebP; model phải hỗ trợ ảnh. Lỗi AI không tạo kết quả thành công giả. `nutritionEstimate=null` nghĩa là chưa có số liệu, không phải 0. Xem [hợp đồng quét ảnh](docs/AI_INTEGRATION.md#quét-ảnh-và-lưu-nhật-ký).
 
 ---
 

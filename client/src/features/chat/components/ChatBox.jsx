@@ -5,6 +5,7 @@ import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';
 import { useChatBox } from '../hooks/useChatBox.js';
 import { Link } from 'react-router';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
+import AiGenerationHistory from '../../aiHistory/components/AiGenerationHistory.jsx';
 
 const suggestions = [
   {
@@ -60,6 +61,9 @@ export default function ChatBox({ dietTypeId }) {
             </button>
           </header>
           <div className="cx-chat-tools" aria-label="Tính năng nhanh">
+            {user && <button type="button" aria-expanded={chat.historyOpen} onClick={() => chat.setHistoryOpen(!chat.historyOpen)}>
+              <i className="bi bi-clock-history" aria-hidden="true" /> Lịch sử AI
+            </button>}
             <button type="button" disabled={busy} onClick={() => fileInput.current.click()}>
               <i className="bi bi-camera-fill" aria-hidden="true" /> Quét ảnh
             </button>
@@ -87,7 +91,8 @@ export default function ChatBox({ dietTypeId }) {
             aria-relevant="additions text"
             aria-label="Lịch sử hội thoại"
           >
-            {messages.map((message) => (
+            {chat.historyOpen && <AiGenerationHistory userId={user?.user_id} onSelect={chat.restoreHistory} />}
+            {!chat.historyOpen && messages.map((message) => (
               <ChatMessage key={message.id} message={message} busy={busy} actions={{ ask, openMealPlan, askAboutPlan, retryVideo }} />
             ))}
           </div>
@@ -125,7 +130,7 @@ export default function ChatBox({ dietTypeId }) {
       )}
       {planDialog && (
         <MealPlanDialog
-          key={dialogPlan?.title || 'new'}
+          key={`${user?.user_id || 'guest'}:${dialogPlan?.title || 'new'}`}
           catalog={catalog}
           user={user}
           dietTypeId={dietTypeId}

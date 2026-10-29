@@ -1,10 +1,9 @@
-# ai_service/api/food_scanner.py
+# D:/SWP391/SWP391/ai_service/api/food_scanner.py
 import logging
+from typing import Annotated
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from agents.food_scanner_agent import food_scanner_agent
 from core.llm import get_json_model_name
@@ -30,8 +29,8 @@ router = APIRouter(
 async def analyze_food(
     request: Request,
     payload: FoodScanRequest,
-    identity: RequestIdentity = Depends(resolve_identity),
-):
+    identity: Annotated[RequestIdentity, Depends(resolve_identity)],
+) -> dict[str, object]:
     """
     Phân tích hình ảnh bao bì sản phẩm hoặc đĩa món ăn thành phẩm
     theo trường phái ăn chay và hồ sơ dị ứng.

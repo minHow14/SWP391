@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\tests/aiGeneration.test.js
+// D:/SWP391/SWP391/server/tests/aiGeneration.test.js
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
@@ -32,6 +32,23 @@ const generate = (payload, path = 'chat/stream') => request(app).post(`/api/ai/$
 const latest = () => prisma.aiGeneration.findFirst({ where: { userId: owner.user_id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
 
 describe('persisted AI generations with real PostgreSQL', () => {
+  it('filters scan history by FOOD_SCAN while preserving owner isolation and internal prompt privacy', async () => {
+    const record = await prisma.aiGeneration.create({ data: { userId: owner.user_id, type: 'FOOD_SCAN', status: 'COMPLETED',
+      modelName: 'history-test-model', requestPayload: { dishName: 'Nấm', imageBase64: 'SCAN_IMAGE_BYTES' }, promptMessages: trace.messages,
+      responsePayload: { dishName: 'Nấm', status: 'clear' } } });
+    const response = await request(app).get('/api/v1/ai-generations?type=FOOD_SCAN&limit=1').set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: record.id, type: 'FOOD_SCAN' });
+    expect(response.body.data[0]).not.toHaveProperty('promptMessages');
+    expect(response.body.data[0].requestPayload).toEqual({ dishName: 'Nấm' });
+    const detail = await request(app).get(`/api/v1/ai-generations/${record.id}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.body.data.requestPayload.imageBase64).toBe('SCAN_IMAGE_BYTES');
+    const stranger = await request(app).get('/api/v1/ai-generations?type=FOOD_SCAN')
+      .set('Authorization', `Bearer ${generateToken({ user_id: other.user_id })}`);
+    expect(stranger.status).toBe(200);
+    expect(stranger.body.data).toEqual([]);
+  });
   it('saves validated input, actual prompts including retries, reply and completion before done', async () => {
     const payload = { message: 'Thực đơn chay', dietaryType: 'vegan' };
     const second = { ...trace, attempt: 2, messages: [...trace.messages, { role: 'user', content: 'Điều chỉnh' }] };

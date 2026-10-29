@@ -24,6 +24,8 @@ AI không nhận role để phân quyền: đã bỏ `X-User-Role` và `user_rol
 - `POST /api/chat`, `/api/chat/stream`: đầu vào `message`, `history`, `dietaryType`, `menuContext`.
 - `POST /api/meal-planner/generate`, `/api/meal-planner/generate/stream`: `heightCm`, `weightKg`, `age`, `gender`, `goal`, `activityLevel`, `dietaryType`, `allergies`, `availableIngredients`, `bmi`, `days`.
 - `POST /api/admin/chatbot-cache/clear`: xóa cache nội bộ; quyền admin được BE kiểm tra.
+- `POST /api/food-scanner/analyze`: JPEG/PNG/WebP base64, ảnh sau giải mã tối đa 10 MiB. Kiểm tra base64, signature/MIME trước khi gọi model. Model trả JSON đúng schema; thiếu key/model không hỗ trợ ảnh/provider lỗi trả `503 FOOD_SCAN_UNAVAILABLE`, kết quả JSON sai trả `502 FOOD_SCAN_INVALID_OUTPUT`. Không có fallback thành phần hay dinh dưỡng giả; `nutritionEstimate` không biết là `null`.
+- `POST /api/video-recipe-transcriptions/stream`, `/api/video-recipe-summaries`: BE worker gọi nội bộ để tải/chuyển lời nói tiếng Việt bằng Groq rồi sinh công thức từ transcript. `GROQ_API_KEY` chỉ đặt ở AI Service. yt-dlp và imageio-ffmpeg đã có trong requirements; `VIDEO_FFMPEG_PATH` chỉ cần khi muốn dùng FFmpeg riêng. Không ghi job, transcript hoặc công thức vào DB từ Python.
 - `POST /api/v1/content-moderations`: kiểm duyệt văn bản blog/bình luận, nhận snapshot từ worker và trả verdict `ALLOW`/`REVIEW`, lý do, bằng chứng và tên model. Không ghi DB; lỗi provider không tạo kết quả cho phép giả. `CONTENT_MODERATION_TIMEOUT_SECONDS=20` mặc định, cần nhỏ hơn timeout HTTP worker BE (mặc định 30 giây).
 
 JSON dùng camelCase; Python nội bộ dùng snake_case qua CamelModel. Response chuẩn `success`, `message`, `data` hoặc `errorCode`, `errors`, `meta.requestId`. SSE gồm `metadata` nội bộ để BE lưu prompt thực tế, `token`/`progress`, `done`/`error`. BE không chuyển metadata chứa prompt cho FE. Thực đơn retry ghi lại prompt từng lần.
@@ -38,3 +40,5 @@ Chatbot/thực đơn qua gateway dùng streaming để sinh kết quả và lưu
 ```
 
 Test thay mô hình trong fixture, không gọi provider thật và không dùng DB. Chi tiết lifecycle, API BE và migration: [AI_INTEGRATION.md](../docs/AI_INTEGRATION.md).
+
+Worker video tự khởi chạy cùng API Express; không cần mở worker Python hoặc một dịch vụ hàng đợi riêng. Food Scanner dùng model được cấu hình trong `core/llm.py`, deadline 35 giây mỗi lần gọi model; tổng thời gian có thể gồm retry/fallback. BE có deadline `AI_TIMEOUT_MS` riêng. Kết quả `inconclusive` hoặc dinh dưỡng `null` cần được client trình bày đúng giới hạn của ảnh, không đổi thành kết luận an toàn hay số 0.

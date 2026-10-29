@@ -53,8 +53,9 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
       const result = await streamMealPlan({
         request: buildMealPlanRequest(values),
         signal: current.signal,
-        onProgress: (step) => setSteps((previous) => [...previous, step]),
+        onProgress: (step) => { if (!current.signal.aborted) setSteps((previous) => [...previous, step]); },
       });
+      if (current.signal.aborted) return;
       setPlan(result);
       setPhase('result');
       onDone?.(result);

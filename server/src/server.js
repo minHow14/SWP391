@@ -1,12 +1,19 @@
-// d:\Projects\FPT\SWP391\server\src\server.js
+// D:/SWP391/SWP391/server/src/server.js
 import app from './app.js';
 import config from './config/index.js';
 import prisma from './config/prisma.js';
 import { startAutoPurgeCron } from './services/purge.service.js';
+import { runVideoRecipeSummaryWorker } from './workers/videoRecipeSummaryWorker.js';
+import { logger } from './config/logger.js';
 
 let purgeCronInterval = null;
+const workerController = new AbortController();
+let videoWorker = Promise.resolve();
 
 const server = app.listen(config.port, () => {
+  videoWorker = runVideoRecipeSummaryWorker({ signal: workerController.signal }).catch((error) => {
+    logger.error({ errorCode: error.errorCode || 'VIDEO_WORKER_ERROR' }, 'Video recipe worker stopped unexpectedly');
+  });
   console.log(`===============================================`);
   console.log(`🚀 Server running on: http://localhost:${config.port}`);
   console.log(`⚙️  Environment: ${config.env}`);
@@ -35,8 +42,10 @@ const gracefulShutdown = async (signal) => {
   if (purgeCronInterval) {
     clearInterval(purgeCronInterval);
   }
+  workerController.abort();
   server.close(async () => {
     try {
+      await videoWorker;
       await prisma.$disconnect();
       console.log('Database connection disconnected.');
     } catch (err) {

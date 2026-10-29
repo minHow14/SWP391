@@ -1,39 +1,98 @@
-# ai_service/schemas/food_scanner.py
-from typing import Literal
-from pydantic import Field
+# D:/SWP391/SWP391/ai_service/schemas/food_scanner.py
+import base64
+import binascii
+from typing import Annotated, Literal, Self
+
+from pydantic import Field, StringConstraints, field_validator, model_validator
+
 from schemas.base import CamelModel
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MAX_BASE64_LENGTH = ((MAX_IMAGE_BYTES + 2) // 3) * 4
+MAX_DISH_NAME_LENGTH = 150
+MAX_ALLERGIES_COUNT = 50
+MAX_ALLERGY_LENGTH = 100
+ScanText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+NutrientValue = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
+AllergyText = Annotated[ScanText, Field(max_length=MAX_ALLERGY_LENGTH)]
+
+
+def _image_matches_mime(image: bytes, mime_type: str) -> bool:
+    if mime_type == "image/png":
+        return image.startswith(b"\x89PNG\r\n\x1a\n") and image[12:16] == b"IHDR"
+    if mime_type == "image/jpeg":
+        return image.startswith(b"\xff\xd8\xff") and image.endswith(b"\xff\xd9")
+    return (
+        len(image) >= 20
+        and image[:4] == b"RIFF"
+        and image[8:12] == b"WEBP"
+        and image[12:16] in {b"VP8 ", b"VP8L", b"VP8X"}
+        and int.from_bytes(image[4:8], "little") + 8 == len(image)
+    )
 
 
 class FindingItem(CamelModel):
-    ingredient: str = Field(..., description="Tên nguyên liệu hoặc phụ gia phát hiện")
-    reason: str = Field(..., description="Lý do không phù hợp hoặc cần lưu ý")
-    layer: int = Field(..., description="Lớp kiểm tra: 1 (Thịt/Hải sản), 2 (Phụ phẩm), 3 (Trứng/Sữa/Mật ong), 4 (Ngũ vị tân), 5 (Dị ứng)")
-    severity: Literal["violation", "warning", "info"] = Field("violation", description="Mức độ nghiêm trọng")
+    ingredient: ScanText
+    reason: ScanText
+    layer: int = Field(ge=1, le=5, strict=True)
+    severity: Literal["violation", "warning", "info"]
 
 
 class NutritionEstimate(CamelModel):
-    calories: float = Field(0.0, description="Năng lượng ước tính (kcal)")
-    protein: float = Field(0.0, description="Chất đạm (g)")
-    carbs: float = Field(0.0, description="Đường bột (g)")
-    fat: float = Field(0.0, description="Chất béo (g)")
+    calories: NutrientValue
+    protein: NutrientValue
+    carbs: NutrientValue
+    fat: NutrientValue
 
 
 class FoodScanRequest(CamelModel):
-    image_base64: str = Field(..., description="Chuỗi base64 của ảnh món ăn hoặc bao bì")
-    mime_type: Literal["image/jpeg", "image/png", "image/webp"] = Field("image/jpeg", description="MIME type của ảnh")
-    diet_type_id: int = Field(..., description="ID chế độ ăn chay (1: Vegan, 2: Lacto, 3: Ovo, 4: Lacto-Ovo, 5: Chay Phật giáo)")
-    scan_type: Literal["AUTO", "LABEL", "DISH"] = Field("AUTO", description="Chế độ quét: Tự động, Nhãn bao bì hoặc Món ăn")
-    dish_name: str | None = Field("", description="Tên món ăn gợi ý nếu có")
-    allergies: list[str] = Field(default_factory=list, description="Danh sách các thành phần gây dị ứng cần cảnh báo")
+    image_base64: str = Field(min_length=1, max_length=MAX_BASE64_LENGTH)
+    mime_type: Literal["image/jpeg", "image/png", "image/webp"] = "image/jpeg"
+    diet_type_id: int = Field(gt=0, strict=True)
+    scan_type: Literal["AUTO", "LABEL", "DISH"] = "AUTO"
+    dish_name: str | None = Field(default="", max_length=MAX_DISH_NAME_LENGTH)
+    allergies: list[AllergyText] = Field(
+        default_factory=list, max_length=MAX_ALLERGIES_COUNT
+    )
+
+    @field_validator("image_base64", mode="before")
+    @classmethod
+    def strip_base64(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def validate_image(self) -> Self:
+        """Validate decoded size and image container before sending data upstream."""
+        try:
+            image = base64.b64decode(self.image_base64, validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("Dữ liệu ảnh base64 không hợp lệ.") from exc
+        if not image or len(image) > MAX_IMAGE_BYTES:
+            raise ValueError("Ảnh không được để trống hoặc vượt quá 10 MiB.")
+        if base64.b64encode(image).decode("ascii") != self.image_base64:
+            raise ValueError("Dữ liệu ảnh base64 không hợp lệ.")
+        if not _image_matches_mime(image, self.mime_type):
+            raise ValueError(
+                "Định dạng ảnh không khớp mimeType hoặc không được hỗ trợ."
+            )
+        return self
 
 
 class FoodScanResult(CamelModel):
-    dish_name: str = Field(..., description="Tên món ăn hoặc sản phẩm nhận diện được")
-    detected_scan_type: Literal["LABEL", "DISH"] = Field(..., description="Loại ảnh phát hiện thực tế")
-    status: Literal["clear", "warning", "inconclusive"] = Field(..., description="clear: Phù hợp, warning: Không phù hợp, inconclusive: Cần thận trọng")
-    summary: str = Field(..., description="Tóm tắt nhận định tổng quan")
-    findings: list[FindingItem] = Field(default_factory=list, description="Danh sách các thành phần vi phạm hoặc đáng chú ý")
-    identified_ingredients: list[str] = Field(default_factory=list, description="Các nguyên liệu thực vật/chay được phát hiện")
-    restaurant_checklist: list[str] = Field(default_factory=list, description="Các câu hỏi gợi ý khi ăn ngoài quán")
-    swap_suggestions: list[str] = Field(default_factory=list, description="Gợi ý món chay hoặc nguyên liệu thay thế tương đương")
-    nutrition_estimate: NutritionEstimate = Field(default_factory=NutritionEstimate, description="Ước tính dinh dưỡng sơ bộ")
+    dish_name: ScanText
+    detected_scan_type: Literal["LABEL", "DISH"]
+    status: Literal["clear", "warning", "inconclusive"]
+    summary: ScanText
+    findings: list[FindingItem]
+    identified_ingredients: list[ScanText]
+    restaurant_checklist: list[ScanText]
+    swap_suggestions: list[ScanText]
+    nutrition_estimate: NutritionEstimate | None = None
+
+    @model_validator(mode="after")
+    def validate_status(self) -> Self:
+        if self.status == "clear" and any(
+            item.severity == "violation" for item in self.findings
+        ):
+            raise ValueError("Kết quả phù hợp không được chứa thành phần vi phạm.")
+        return self
