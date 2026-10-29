@@ -1,4 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/home.css */
+/* C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/assets/styles/home.css */
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/Home.css */
 /* Taste Skill: redesign-preserve. Variance 5, motion 3, density 4.
    React + Bootstrap remains the UI foundation. Shapes: 20px cards,
@@ -773,10 +773,23 @@ dialog::backdrop {
   font-size: 28px;
   transform: translate(-50%, -50%);
 }
-.cx-home .cx-home-interactive-card:hover,
-.cx-home .cx-home-interactive-card:focus-within {
-  border-color: #9bccac !important;
-  box-shadow: 0 14px 32px rgb(29 76 49 / 12%);
+.home-page .cx-home .card.cx-home-interactive-card {
+  position: relative;
+  transform-origin: center;
+}
+.home-page .cx-home .card.cx-home-interactive-card:hover,
+.home-page .cx-home .card.cx-home-interactive-card:focus-within {
+  z-index: 1;
+  box-shadow: 0 0 0 2px #8dc9a2, 0 20px 40px rgb(29 76 49 / 18%);
+}
+.cx-home-interactive-card:hover h3,
+.cx-home-interactive-card:focus-within h3 {
+  color: var(--cx-accent);
+}
+.cx-home-interactive-card:hover .cx-home-media-hint,
+.cx-home-interactive-card:focus-within .cx-home-media-hint {
+  background: #115b39;
+  color: #fff;
 }
 .cx-home-detail .modal-content { border: 1px solid #e2eee6; border-radius: 24px; overflow: hidden; }
 .cx-home-detail .modal-title { font-size: 22px; color: #27364a; }
@@ -784,25 +797,24 @@ dialog::backdrop {
 .cx-home-detail-image { display: block; width: 100%; max-height: 65dvh; object-fit: contain; border-radius: 16px; }
 .cx-home-detail-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 .cx-home-media > img {
-  filter: blur(0) brightness(1);
   transform: scale(1);
   transform-origin: center;
 }
-.cx-home-media:hover > img,
-.cx-home-media:focus-visible > img,
-.cx-home-place-link:hover .cx-home-media > img,
-.cx-home-place-link:focus-visible .cx-home-media > img {
-  filter: blur(1.2px) brightness(0.97);
-}
 @media (prefers-reduced-motion: no-preference) {
-  .cx-home-interactive-card { transition: transform 350ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 350ms ease, border-color 350ms ease; }
-  .cx-home-interactive-card:hover,
-  .cx-home-interactive-card:focus-within { transform: translateY(-5px); }
-  .cx-home-media > img {
-    transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1), filter 500ms cubic-bezier(0.4, 0, 0.2, 1);
+  .home-page .cx-home .card.cx-home-interactive-card {
+    transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms ease;
   }
-  .cx-home-media:hover > img,
-  .cx-home-media:focus-visible > img,
-  .cx-home-place-link:hover .cx-home-media > img,
-  .cx-home-place-link:focus-visible .cx-home-media > img { transform: scale(1.03); }
+  .home-page .cx-home .card.cx-home-interactive-card:hover,
+  .home-page .cx-home .card.cx-home-interactive-card:focus-within {
+    transform: translateY(-8px) scale(1.015);
+  }
+  .cx-home-media > img {
+    transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .cx-home-interactive-card:hover .cx-home-media > img,
+  .cx-home-interactive-card:focus-within .cx-home-media > img { transform: scale(1.04); }
+  .cx-home-media-hint { transition: background-color 200ms ease, color 200ms ease; }
+  .cx-home-play { transition: transform 250ms ease; }
+  .cx-home-interactive-card:hover .cx-home-play,
+  .cx-home-interactive-card:focus-within .cx-home-play { transform: translate(-50%, -50%) scale(1.1); }
 }

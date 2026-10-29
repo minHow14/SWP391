@@ -1,4 +1,4 @@
-// client/src/pages/Restaurants.jsx
+// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -7,6 +7,7 @@ import { normalizeSearch } from '../utils/recipeFilters.js';
 import ContentImage from '../components/common/ContentImage.jsx';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import RestaurantDetail from '../features/restaurants/components/RestaurantDetail.jsx';
+import RestaurantProposalForm from '../features/restaurants/components/RestaurantProposalForm.jsx';
 import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
@@ -75,36 +76,16 @@ export default function Restaurants() {
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
-  async function addProposal(event) {
-    event.preventDefault();
-    const values = new FormData(event.currentTarget);
-    const proposalCity = values.get('city');
-    const name = values.get('name').trim();
-    const address = values.get('address').trim();
-    if (!name || !address) return;
-    try {
-      const imageUrl = values.get('image_url')?.trim() || null;
-      const place = await workspaceService.suggestRestaurant({
-        name,
-        address,
-        city: proposalCity,
-        diet_type_id:
-          values.get('type') === 'buddhist' ? 5 : values.get('type') === 'separate' ? 4 : 1,
-        latitude: values.get('latitude') ? Number(values.get('latitude')) : null,
-        longitude: values.get('longitude') ? Number(values.get('longitude')) : null,
-        image_url: imageUrl,
-      });
-      await reload();
-      setQuery('');
-      setType('all');
-      setCity('all');
-      setSelectedId(place.restaurant_id || place.id);
-      setPopupOpen(true);
-      setProposing(false);
-      setNotice('Đã thêm địa điểm mới.');
-    } catch (e) {
-      setNotice(e.message);
-    }
+  async function addProposal(proposal) {
+    const place = await workspaceService.suggestRestaurant(proposal);
+    await reload();
+    setQuery('');
+    setType('all');
+    setCity('all');
+    setSelectedId(place.restaurant_id || place.id);
+    setPopupOpen(true);
+    setProposing(false);
+    setNotice('Đã thêm địa điểm mới.');
   }
 
   return (
@@ -385,58 +366,7 @@ export default function Restaurants() {
 
       {proposing && (
         <ContentDialog title="Đề Xuất Quán Chay Mới" onClose={() => setProposing(false)}>
-          <form className="cx-proposal-form" onSubmit={addProposal}>
-            <p>
-              Chia sẻ địa điểm bạn yêu thích với cộng đồng. Có thể để trống tọa độ nếu chưa xác
-              định.
-            </p>
-            <label>
-              Tên quán
-              <input name="name" required maxLength={120} placeholder="Tên quán chay" />
-            </label>
-            <label>
-              Địa chỉ
-              <input name="address" required maxLength={220} placeholder="Số nhà, đường, quận..." />
-            </label>
-            <div>
-              <label>
-                Khu vực
-                <select name="city">
-                  {Array.from(new Set(places.map((place) => place.city))).map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Phân loại
-                <select name="type">
-                  {restaurantTypes.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <label>
-              Ảnh đại diện / Không gian quán (URL ảnh)
-              <input
-                name="image_url"
-                type="url"
-                maxLength={500}
-                placeholder="https://images.unsplash.com/... hoặc link ảnh quán"
-              />
-            </label>
-            <label>
-              Vĩ độ
-              <input name="latitude" type="number" min="-90" max="90" step="any" />
-            </label>
-            <label>
-              Kinh độ
-              <input name="longitude" type="number" min="-180" max="180" step="any" />
-            </label>
-            <button type="submit">Lưu Quán Chay</button>
-          </form>
+          <RestaurantProposalForm onSubmit={addProposal} />
         </ContentDialog>
       )}
     </main>
