@@ -83,6 +83,10 @@ API lịch sử không trả `promptMessages` chứa system prompt. Bộ lọc `
 
 Trong chat, thành viên mở **Lịch sử AI**, chọn Hỏi đáp hoặc Thực đơn, rồi mở bản ghi để khôi phục câu hỏi/câu trả lời hoặc thẻ thực đơn. Trang **Kiểm tra món** có lịch sử `FOOD_SCAN` riêng, gồm trạng thái chờ, hoàn tất hoặc thất bại; bấm bản ghi để xem lại kết quả/lỗi. Lịch sử phân trang 10 mục; chi tiết chỉ tải khi chọn. OpenAPI BE: [ai-openapi.json](ai-openapi.json). OpenAPI AI: `http://127.0.0.1:8000/openapi.json` khi chạy local.
 
+## Nhận diện nguyên liệu từ ảnh (Từ Điển Nguyên Liệu)
+
+Nút “Tải Ảnh Nguyên Liệu” dùng lại `POST /api/ai/food-scanner/analyze` (không có endpoint riêng), gửi `dietTypeId` của chế độ ăn đang chọn. Client chỉ lấy `identifiedIngredients` và `dishName`, bỏ dấu và khối lượng rồi ghép với tên hoặc từ khóa (`aliases`) trong từ điển nguyên liệu. Một nguyên liệu khớp thì mở ngay trang chi tiết; nhiều nguyên liệu thì cho người dùng chọn; không khớp thì gợi ý tìm theo tên AI nhận ra. Vì dùng chung endpoint nên mỗi lần nhận diện tính vào quota của khách và thành viên có thêm một bản ghi `FOOD_SCAN` trong lịch sử quét.
+
 ## Quét ảnh và lưu nhật ký
 
 `POST /api/ai/food-scanner/analyze` và alias `/api/v1/ai/food-scanner/analyze` nhận `imageBase64`, `mimeType`, `dietTypeId`, `scanType`, `dishName`, `allergies`. Ảnh sau giải mã tối đa **10 MiB (10,485,760 byte)**; base64 tối đa **13,981,016 ký tự**, JSON tối đa **14,046,552 byte** gồm 64 KiB phần còn lại. Chỉ hai route quét ảnh được tăng giới hạn JSON; các route khác vẫn 1 MiB. Payload quá giới hạn parser trả `413 PAYLOAD_TOO_LARGE`; base64/kích thước/tham số sai qua validator trả 422. AI kiểm tra thêm signature JPEG/PNG/WebP khớp MIME; model chịu trách nhiệm đọc ảnh.

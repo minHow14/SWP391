@@ -1,5 +1,6 @@
 ﻿// client/src/pages/IngredientDictionary.jsx
 import { useState } from 'react';
+import { useOutletContext } from 'react-router';
 import IngredientPreview from '../features/ingredients/components/IngredientPreview.jsx';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
@@ -8,6 +9,7 @@ import ContentDialog from '../components/common/ContentDialog.jsx';
 
 export default function IngredientDictionary() {
   const { data } = useDatabase();
+  const { diet } = useOutletContext() || {};
   const ingredients = data.ingredients;
   const ingredientCategories = [
     { id: 'all', name: 'Tất Cả', emoji: '🌱' },
@@ -49,7 +51,15 @@ export default function IngredientDictionary() {
           Tra cứu nguyên liệu cơ bản, phụ gia E-number và tìm hiểu nguồn gốc,
           cách sử dụng trong món chay.
         </p>
-        <IngredientPreview ingredients={ingredients} />
+        <IngredientPreview
+          ingredients={ingredients}
+          dietId={diet?.diet_type_id ?? 1}
+          onSelect={setDetail}
+          onSearch={(term) => {
+            setCategory('all');
+            setQuery(term);
+          }}
+        />
         <div className="cx-discovery-search">
           <i className="bi bi-search" aria-hidden="true" />
           <label className="visually-hidden" htmlFor="ingredient-search">
