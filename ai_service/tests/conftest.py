@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/conftest.py
+# ai_service/tests/conftest.py
 # ai_service/tests/conftest.py
 import os
 import secrets

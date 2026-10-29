@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/home/components/HomeMain.jsx
+// client/src/features/home/components/HomeMain.jsx
 import { useState } from 'react';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';

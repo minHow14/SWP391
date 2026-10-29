@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/restaurants/components/RestaurantProposalForm.jsx
+// client/src/features/restaurants/components/RestaurantProposalForm.jsx
 import { useState } from 'react';
 import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useForm, useWatch } from 'react-hook-form';

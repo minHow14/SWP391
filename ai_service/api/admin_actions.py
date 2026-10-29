@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/api/admin_actions.py
+# ai_service/api/admin_actions.py
 # ai_service/api/admin_actions.py
 from typing import Any
 

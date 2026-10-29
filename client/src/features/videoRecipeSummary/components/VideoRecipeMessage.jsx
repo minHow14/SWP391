@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/videoRecipeSummary/components/VideoRecipeMessage.jsx
+// client/src/features/videoRecipeSummary/components/VideoRecipeMessage.jsx
 import { Alert, Button, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
 import '../styles/videoRecipeSummary.css';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/services/videoRecipeSummaryApi.js
+// client/src/services/videoRecipeSummaryApi.js
 import apiClient from './apiClient.js';
 
 const JOBS_PATH = '/v1/video-recipe-summary-jobs';

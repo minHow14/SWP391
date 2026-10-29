@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/videoRecipeSummaryJobRepository.js
+// server/src/repositories/videoRecipeSummaryJobRepository.js
 import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { lostVideoRecipeLease } from '../utils/videoRecipeSummaryError.js';

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_video_audio.py
+# ai_service/tests/test_video_audio.py
 import asyncio
 import json
 import sys

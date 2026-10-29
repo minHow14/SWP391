@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/ai.test.js
+// server/tests/ai.test.js
 import { afterAll, beforeAll, describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/video_recipe_config.py
+# ai_service/core/video_recipe_config.py
 from pathlib import Path
 
 from pydantic import Field

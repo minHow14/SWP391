@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/helpers/guestSession.js
+// server/tests/helpers/guestSession.js
 import assert from 'node:assert/strict';
 import request from 'supertest';
 

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/internal_api_key.py
+# ai_service/core/internal_api_key.py
 import re
 
 MIN_KEY_LENGTH = 32

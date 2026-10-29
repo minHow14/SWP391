@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/constants/videoRecipeSummary.js
+// server/src/constants/videoRecipeSummary.js
 export const MAX_VIDEO_DURATION_SECONDS = 660;
 export const VIDEO_RECIPE_PIPELINE_VERSION = '1';
 export const VIDEO_RECIPE_STATUS = Object.freeze({ PENDING: 'PENDING', PROCESSING: 'PROCESSING', COMPLETED: 'COMPLETED', FAILED: 'FAILED' });

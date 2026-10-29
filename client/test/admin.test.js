@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/admin.test.js
+// client/test/admin.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { adminService } from '../src/services/adminService.js';

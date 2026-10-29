@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/mealPlan/components/PlanResult.jsx
+// client/src/features/mealPlan/components/PlanResult.jsx
 // client/src/features/mealPlan/components/PlanResult.jsx
 import { useState } from 'react';
 import { bmiCategory, formatBmi } from '../../../utils/aiHelpers.js';

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/video_recipe_errors.py
+# ai_service/core/video_recipe_errors.py
 from dataclasses import dataclass
 
 

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/schemas/video_recipe.py
+# ai_service/schemas/video_recipe.py
 from typing import Annotated, Literal, Self
 from uuid import UUID
 

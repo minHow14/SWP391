@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/youtubeMessage.js
+// client/src/features/videoRecipeSummary/utils/youtubeMessage.js
 const LINK_PATTERN = /https?:\/\/[^\s<>"'`]+|(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"'`]+/gi;
 const HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be']);
 const invalidLink = () => new Error('Vui lòng gửi một link video YouTube hợp lệ, không kèm playlist.');

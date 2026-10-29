@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/validators/videoRecipeSummaryValidator.js
+// server/src/validators/videoRecipeSummaryValidator.js
 import { z } from 'zod';
 import { MAX_TRANSCRIPT_CHARACTERS, MAX_TRANSCRIPT_DURATION_DRIFT_SECONDS, MAX_VIDEO_DURATION_SECONDS,
   VIDEO_RECIPE_STATUS } from '../constants/videoRecipeSummary.js';

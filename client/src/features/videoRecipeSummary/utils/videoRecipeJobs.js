@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/videoRecipeJobs.js
+// client/src/features/videoRecipeSummary/utils/videoRecipeJobs.js
 const STORAGE_KEY = 'chayxanh-video-recipe-job';
 const POLL_INTERVAL_MS = 5000;
 const JOB_STATES = new Set(['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED']);

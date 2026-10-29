@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/routes/index.js
+// server/src/routes/index.js
 import express from 'express';
 import authRoutes from './auth.route.js';
 import blogRoutes from './blog.route.js';

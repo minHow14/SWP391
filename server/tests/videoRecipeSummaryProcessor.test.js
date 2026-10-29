@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/videoRecipeSummaryProcessor.test.js
+// server/tests/videoRecipeSummaryProcessor.test.js
 import { describe, expect, it, vi } from 'vitest';
 import { processVideoRecipeSummaryJob } from '../src/services/videoRecipeSummaryProcessor.js';
 

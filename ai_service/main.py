@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/main.py
+# ai_service/main.py
 # ai_service/main.py
 import logging
 from contextlib import asynccontextmanager

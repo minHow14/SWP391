@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/config/guestIdentityConfig.js
+// server/src/config/guestIdentityConfig.js
 import { createHmac } from 'node:crypto';
 import { z } from 'zod';
 import './index.js';

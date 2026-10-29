@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_chat.py
+# ai_service/tests/test_chat.py
 # ai_service/tests/test_chat.py
 from unittest.mock import AsyncMock, patch
 

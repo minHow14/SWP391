@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/youtubeVideoUrl.test.js
+// server/tests/youtubeVideoUrl.test.js
 import { describe, expect, it } from 'vitest';
 import { normalizeYoutubeVideoUrl } from '../src/utils/youtubeVideoUrl.js';
 

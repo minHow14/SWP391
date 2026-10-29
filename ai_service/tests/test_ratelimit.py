@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_ratelimit.py
+# ai_service/tests/test_ratelimit.py
 # ai_service/tests/test_ratelimit.py
 from unittest.mock import AsyncMock, patch
 

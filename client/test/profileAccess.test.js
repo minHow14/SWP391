@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/profileAccess.test.js
+// client/test/profileAccess.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { getAuthDestination } from '../src/features/auth/utils/authRedirect.js';

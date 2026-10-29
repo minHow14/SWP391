@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/videoRecipeSummary/hooks/useVideoRecipeSummary.js
+// client/src/features/videoRecipeSummary/hooks/useVideoRecipeSummary.js
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSession } from '../../../utils/session.js';
 import { videoRecipeSummaryApi } from '../../../services/videoRecipeSummaryApi.js';

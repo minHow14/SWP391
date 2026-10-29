@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/videoRecipeSummaryProcessor.js
+// server/src/services/videoRecipeSummaryProcessor.js
 import { videoRecipeSummaryJobRepository } from '../repositories/videoRecipeSummaryJobRepository.js';
 import { videoRecipeSummaryAiService } from './videoRecipeSummaryAiService.js';
 import { youtubeMetadataService } from './youtubeMetadataService.js';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/vitest.config.js
+// client/vitest.config.js
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 

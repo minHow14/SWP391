@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/utils/chatReplies.js
+// client/src/utils/chatReplies.js
 import { workspaceService } from '../services/workspaceService.js';
 import { normalizeSearch } from './recipeFilters.js';
 

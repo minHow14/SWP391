@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/youtubeVideoUrl.js
+// server/src/utils/youtubeVideoUrl.js
 import { videoRecipeSummaryError } from './videoRecipeSummaryError.js';
 
 const YOUTUBE_HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com']);

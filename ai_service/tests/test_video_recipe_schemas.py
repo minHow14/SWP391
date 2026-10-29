@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_video_recipe_schemas.py
+# ai_service/tests/test_video_recipe_schemas.py
 from uuid import uuid4
 
 import pytest

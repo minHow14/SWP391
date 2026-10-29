@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_meal_planner_stream.py
+# ai_service/tests/test_meal_planner_stream.py
 import json
 from unittest.mock import patch
 

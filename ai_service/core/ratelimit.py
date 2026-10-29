@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/ratelimit.py
+# ai_service/core/ratelimit.py
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

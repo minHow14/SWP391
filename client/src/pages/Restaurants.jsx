@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/pages/Restaurants.jsx
+// client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';

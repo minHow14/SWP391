@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_video_recipe_api.py
+# ai_service/tests/test_video_recipe_api.py
 from unittest.mock import AsyncMock
 from uuid import uuid4
 

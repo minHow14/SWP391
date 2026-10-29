@@ -1,4 +1,4 @@
-<!-- D:/SWP391/SWP391/docs/PROJECT_AUDIT_2026-10-22.md -->
+<!-- docs/PROJECT_AUDIT_2026-10-22.md -->
 # Rà soát ChayXanh ngày 22/10/2026
 
 ## Phạm vi và kết luận

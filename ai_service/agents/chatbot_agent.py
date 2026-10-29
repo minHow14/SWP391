@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/agents/chatbot_agent.py
+# ai_service/agents/chatbot_agent.py
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any

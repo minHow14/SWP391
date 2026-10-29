@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/schemas/base.py
+# ai_service/schemas/base.py
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
 

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/activity_log.py
+# ai_service/core/activity_log.py
 """Log vận hành cục bộ; backend sở hữu việc lưu nhật ký nghiệp vụ vào database."""
 import logging
 

@@ -1,4 +1,4 @@
-/* D:/SWP391/SWP391/client/src/features/videoRecipeSummary/styles/videoRecipeSummary.css */
+/* client/src/features/videoRecipeSummary/styles/videoRecipeSummary.css */
 .cx-video-recipe { min-width: 0; overflow-wrap: anywhere; }
 .cx-video-recipe-progress { display: flex; align-items: center; gap: 10px; color: var(--cx-forest, #166534); }
 .cx-video-recipe-progress .spinner-border { flex-shrink: 0; }

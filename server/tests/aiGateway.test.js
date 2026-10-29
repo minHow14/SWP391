@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/aiGateway.test.js
+// server/tests/aiGateway.test.js
 import { EventEmitter } from 'node:events';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/vite.config.js
+// client/vite.config.js
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 

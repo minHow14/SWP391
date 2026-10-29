@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/videoRecipeSummaryDatabase.test.js
+// server/tests/videoRecipeSummaryDatabase.test.js
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import prisma from '../src/config/prisma.js';

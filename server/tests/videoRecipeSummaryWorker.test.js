@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/videoRecipeSummaryWorker.test.js
+// server/tests/videoRecipeSummaryWorker.test.js
 import { describe, expect, it, vi } from 'vitest';
 import { runVideoRecipeSummaryWorker } from '../src/workers/videoRecipeSummaryWorker.js';
 

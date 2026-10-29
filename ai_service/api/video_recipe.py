@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/api/video_recipe.py
+# ai_service/api/video_recipe.py
 import asyncio
 import json
 import logging

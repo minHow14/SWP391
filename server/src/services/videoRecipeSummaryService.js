@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/videoRecipeSummaryService.js
+// server/src/services/videoRecipeSummaryService.js
 import { videoRecipeSummaryJobRepository as jobs } from '../repositories/videoRecipeSummaryJobRepository.js';
 import { videoRecipeSummaryRepository as summaries } from '../repositories/videoRecipeSummaryRepository.js';
 import { VIDEO_RECIPE_PIPELINE_VERSION } from '../constants/videoRecipeSummary.js';

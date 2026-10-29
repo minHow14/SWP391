@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/config/videoRecipeSummaryConfig.js
+// server/src/config/videoRecipeSummaryConfig.js
 import { z } from 'zod';
 import './index.js';
 

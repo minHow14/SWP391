@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/guestIdentityService.js
+// server/src/services/guestIdentityService.js
 import { randomUUID } from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import { z } from 'zod';

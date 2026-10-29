@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/llm.py
+# ai_service/core/llm.py
 
 import httpx
 import openai

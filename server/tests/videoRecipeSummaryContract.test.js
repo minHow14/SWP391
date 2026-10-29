@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/videoRecipeSummaryContract.test.js
+// server/tests/videoRecipeSummaryContract.test.js
 import { describe, expect, it } from 'vitest';
 import { transcriptSchema, validateVideoRecipe } from '../src/validators/videoRecipeSummaryValidator.js';
 

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_video_transcription.py
+# ai_service/tests/test_video_transcription.py
 from pathlib import Path
 
 import httpx

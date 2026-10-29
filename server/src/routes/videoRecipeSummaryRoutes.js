@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/routes/videoRecipeSummaryRoutes.js
+// server/src/routes/videoRecipeSummaryRoutes.js
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../middlewares/authMiddleware.js';

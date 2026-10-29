@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/controllers/videoRecipeSummaryController.js
+// server/src/controllers/videoRecipeSummaryController.js
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { videoRecipeSummaryService as service } from '../services/videoRecipeSummaryService.js';
 

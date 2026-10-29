@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/api.test.js
+// client/test/api.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/middlewares/aiIdentityMiddleware.js
+// server/src/middlewares/aiIdentityMiddleware.js
 import { optionalAuthenticate } from './authMiddleware.js';
 import config from '../config/index.js';
 import { AI_GUEST_COOKIE_NAME, AI_GUEST_COOKIE_PATH, LEGACY_AI_GUEST_COOKIE_PATH } from '../constants/guestIdentity.js';

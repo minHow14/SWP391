@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/workers/videoRecipeSummaryWorker.js
+// server/src/workers/videoRecipeSummaryWorker.js
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import prisma from '../config/prisma.js';

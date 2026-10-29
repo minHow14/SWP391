@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/components/layout/SiteLayout.jsx
+// client/src/components/layout/SiteLayout.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router';
 import Header from './Header.jsx';

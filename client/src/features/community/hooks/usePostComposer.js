@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/community/hooks/usePostComposer.js
+// client/src/features/community/hooks/usePostComposer.js
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

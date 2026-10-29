@@ -1,5 +1,5 @@
-// D:/SWP391/SWP391/client/test/aiApi.test.js
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/aiApi.test.js
+// client/test/aiApi.test.js
+// client/test/aiApi.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSseParser } from '../src/services/aiApi.js';

@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/config.py
+# ai_service/core/config.py
 # ai_service/core/config.py
 from pathlib import Path
 from typing import Annotated

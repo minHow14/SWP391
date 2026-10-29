@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/services/video_transcription.py
+# ai_service/services/video_transcription.py
 import math
 from collections.abc import Awaitable, Callable
 

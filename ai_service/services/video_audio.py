@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/services/video_audio.py
+# ai_service/services/video_audio.py
 import json
 import sys
 import wave

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/config/videoRecipeSummaryLogger.js
+// server/src/config/videoRecipeSummaryLogger.js
 import pino from 'pino';
 
 export const videoRecipeSummaryLogger = pino({ name: 'video-recipe-worker',

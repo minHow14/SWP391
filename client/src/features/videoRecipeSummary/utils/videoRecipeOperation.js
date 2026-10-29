@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/videoRecipeOperation.js
+// client/src/features/videoRecipeSummary/utils/videoRecipeOperation.js
 import { getSession } from '../../../utils/session.js';
 import { videoRecipeSummaryApi } from '../../../services/videoRecipeSummaryApi.js';
 import { clearSavedVideoJob, observeVideoRecipeJob, saveVideoJob } from './videoRecipeJobs.js';

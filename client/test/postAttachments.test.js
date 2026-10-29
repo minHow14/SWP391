@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/postAttachments.test.js
+// client/test/postAttachments.test.js
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validatePostAttachments } from '../src/utils/postAttachments.js';

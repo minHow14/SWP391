@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/meal_chat.py
+# ai_service/core/meal_chat.py
 """Định dạng thực đơn cho khung chat của frontend: bubble { title, text, items[], footer }."""
 
 from pydantic import Field

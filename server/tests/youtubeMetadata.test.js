@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/youtubeMetadata.test.js
+// server/tests/youtubeMetadata.test.js
 import { describe, expect, it, vi } from 'vitest';
 import { createYoutubeMetadataService } from '../src/services/youtubeMetadataService.js';
 

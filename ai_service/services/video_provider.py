@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/services/video_provider.py
+# ai_service/services/video_provider.py
 import json
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/chat/components/ChatMessage.jsx
+// client/src/features/chat/components/ChatMessage.jsx
 import { Link } from 'react-router';
 import MarkdownMessage from './MarkdownMessage.jsx';
 import VideoRecipeMessage from '../../videoRecipeSummary/components/VideoRecipeMessage.jsx';

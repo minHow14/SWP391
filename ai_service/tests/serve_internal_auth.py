@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/serve_internal_auth.py
+# ai_service/tests/serve_internal_auth.py
 """Run the real AI app on loopback for the cross-service auth test only."""
 import os
 import socket

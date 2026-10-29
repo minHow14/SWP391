@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/journal.test.js
+// client/test/journal.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { totals, todayKey, weekDates } from '../src/utils/journal.js';

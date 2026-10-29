@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_security.py
+# ai_service/tests/test_security.py
 # ai_service/tests/test_security.py
 import pytest
 from fastapi import HTTPException

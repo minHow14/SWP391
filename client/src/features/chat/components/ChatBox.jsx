@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/chat/components/ChatBox.jsx
+// client/src/features/chat/components/ChatBox.jsx
 import ChatMessage from './ChatMessage.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';

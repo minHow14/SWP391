@@ -1,4 +1,4 @@
-<!-- D:/SWP391/SWP391/server/docs/videoRecipeSummaryBackend.md -->
+<!-- server/docs/videoRecipeSummaryBackend.md -->
 # Video recipe summary backend — Phase 1
 
 This phase provides authenticated job APIs, persistence and a local worker. FastAPI transcription/summarization and the chat UI are Phase 2. Until those endpoints exist, a valid video job reports `VIDEO_AI_NOT_READY`; no recipe is fabricated.

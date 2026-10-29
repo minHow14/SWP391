@@ -1,4 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/styles/restaurantDetail.css */
+/* client/src/features/restaurants/styles/restaurantDetail.css */
 .cx-content-dialog.cx-restaurant-detail-dialog { width: min(620px, calc(100vw - 28px)); padding: 0; border: 0; border-radius: 24px; max-height: 92dvh; }
 .cx-restaurant-detail-dialog::backdrop { background: #0009; backdrop-filter: blur(4px); }
 .cx-restaurant-detail-hero { position: relative; overflow: hidden; }

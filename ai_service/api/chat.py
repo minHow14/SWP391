@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/api/chat.py
+# ai_service/api/chat.py
 # ai_service/api/chat.py
 import json
 import logging

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/youtubeMetadataService.js
+// server/src/services/youtubeMetadataService.js
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { videoRecipeSummaryConfig } from '../config/videoRecipeSummaryConfig.js';

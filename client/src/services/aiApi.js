@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/services/aiApi.js
+// client/src/services/aiApi.js
 // client/src/services/aiApi.js
 import { getSession } from '../utils/session.js';
 

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/test/videoRecipeSummary.test.jsx
+// client/test/videoRecipeSummary.test.jsx
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AxiosError } from 'axios';
 import { useRef, useState } from 'react';

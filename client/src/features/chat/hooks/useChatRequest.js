@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/chat/hooks/useChatRequest.js
+// client/src/features/chat/hooks/useChatRequest.js
 // client/src/features/chat/hooks/useChatRequest.js
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';

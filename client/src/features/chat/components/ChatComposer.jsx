@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/chat/components/ChatComposer.jsx
+// client/src/features/chat/components/ChatComposer.jsx
 import { Button, Form, Spinner } from 'react-bootstrap';
 
 export default function ChatComposer({ chat }) {

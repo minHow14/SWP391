@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/foodScanner.test.js
+// client/test/foodScanner.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { analyzeIngredients } from '../src/utils/foodScanner.js';

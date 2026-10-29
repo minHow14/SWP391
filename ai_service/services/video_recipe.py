@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/services/video_recipe.py
+# ai_service/services/video_recipe.py
 import json
 from functools import lru_cache
 from pathlib import Path

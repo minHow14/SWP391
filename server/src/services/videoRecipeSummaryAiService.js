@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/videoRecipeSummaryAiService.js
+// server/src/services/videoRecipeSummaryAiService.js
 import { aiConfig } from '../config/aiConfig.js';
 import { videoRecipeSummaryConfig } from '../config/videoRecipeSummaryConfig.js';
 import { MAX_AI_RESPONSE_BYTES, MAX_VIDEO_DURATION_SECONDS } from '../constants/videoRecipeSummary.js';

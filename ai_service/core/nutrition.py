@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/nutrition.py
+# ai_service/core/nutrition.py
 import re
 import unicodedata
 from collections.abc import Iterable

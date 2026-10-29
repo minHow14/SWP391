@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/guestIdentity.test.js
+// server/tests/guestIdentity.test.js
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';

@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/dietSelection.test.js
+// client/test/dietSelection.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 

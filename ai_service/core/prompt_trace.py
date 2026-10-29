@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/core/prompt_trace.py
+# ai_service/core/prompt_trace.py
 from typing import Any
 
 from langchain_core.messages import BaseMessage

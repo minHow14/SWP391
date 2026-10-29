@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_activity_log.py
+# ai_service/tests/test_activity_log.py
 import logging
 
 import pytest

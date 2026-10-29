@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_internal_api_key.py
+# ai_service/tests/test_internal_api_key.py
 import pytest
 from pydantic import ValidationError
 

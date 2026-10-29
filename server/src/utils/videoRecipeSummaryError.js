@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/utils/videoRecipeSummaryError.js
+// server/src/utils/videoRecipeSummaryError.js
 import { ApiError } from './apiError.js';
 
 export function videoRecipeSummaryError({ code, message, status = 422, retryable = false, retryAfterMs = 0 }) {

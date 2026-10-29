@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/repositories/videoRecipeSummaryRepository.js
+// server/src/repositories/videoRecipeSummaryRepository.js
 import prisma from '../config/prisma.js';
 
 const SUMMARY_SELECT = { id: true, jobId: true, videoId: true, videoUrl: true, recipe: true, createdAt: true, updatedAt: true };

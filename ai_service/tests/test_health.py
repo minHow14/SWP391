@@ -1,4 +1,4 @@
-# D:/SWP391/SWP391/ai_service/tests/test_health.py
+# ai_service/tests/test_health.py
 # ai_service/tests/test_health.py
 from fastapi.testclient import TestClient
 
