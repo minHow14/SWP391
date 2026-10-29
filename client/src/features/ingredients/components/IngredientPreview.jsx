@@ -1,14 +1,18 @@
 ﻿// D:/SWP391/SWP391/client/src/features/ingredients/components/IngredientPreview.jsx
 import { useRef } from 'react';
+import { Alert, Button } from 'react-bootstrap';
 import { useIngredientPhotoScan } from '../hooks/useIngredientPhotoScan.js';
+import { useIngredientLookup } from '../hooks/useIngredientLookup.js';
 import ScanOutcome from './IngredientScanOutcome.jsx';
 
-export default function IngredientPreview({ ingredients, dietId, onSelect, onSearch }) {
+export default function IngredientPreview({ ingredients, dietId, onSelect, onSaved }) {
   const upload = useRef(null);
   const scanner = useIngredientPhotoScan({ ingredients, dietId });
+  const lookup = useIngredientLookup({ onSaved });
   const analyzing = scanner.status === 'analyzing';
 
   async function pickFile(file) {
+    lookup.clear();
     const matches = await scanner.scan(file);
     if (matches.length === 1) onSelect(matches[0]);
   }
@@ -28,9 +32,9 @@ export default function IngredientPreview({ ingredients, dietId, onSelect, onSea
           </div>
         </div>
         <div className="cx-camera-actions">
-          <button className="cx-camera-upload" type="button" disabled={analyzing} onClick={() => upload.current?.click()}>
+          <Button className="cx-camera-upload" type="button" disabled={analyzing || lookup.busy} onClick={() => upload.current?.click()}>
             <i className="bi bi-upload" aria-hidden="true" /> Tải Ảnh Nguyên Liệu
-          </button>
+          </Button>
         </div>
       </div>
       <input
@@ -54,8 +58,15 @@ export default function IngredientPreview({ ingredients, dietId, onSelect, onSea
           <div>
             <strong>{scanner.photo.name}</strong>
             {analyzing && <p role="status">AI đang nhận diện nguyên liệu…</p>}
-            {scanner.status === 'done' && <ScanOutcome scanner={scanner} onSelect={onSelect} onSearch={onSearch} />}
-            <button type="button" onClick={scanner.clear}>Xóa ảnh</button>
+            {scanner.status === 'done' && <ScanOutcome scanner={scanner} onSelect={onSelect} lookup={lookup}
+              onLookup={(name) => lookup.lookup(name, scanner.photo)} />}
+            {lookup.busy && <p role="status">{lookup.status === 'refreshing'
+              ? 'Đã lưu nguyên liệu, đang cập nhật từ điển…' : 'AI đang tạo thông tin nguyên liệu…'}</p>}
+            {lookup.error && <Alert variant="danger" className="cx-ingredient-lookup-error">
+              <p>{lookup.error}</p>
+              <Button type="button" onClick={() => lookup.lookup(lookup.name, scanner.photo)}>Thử lại</Button>
+            </Alert>}
+            <Button type="button" onClick={() => { lookup.clear(); scanner.clear(); }}>Xóa ảnh</Button>
           </div>
         </div>
       )}

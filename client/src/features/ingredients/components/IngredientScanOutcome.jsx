@@ -1,14 +1,16 @@
 // D:/SWP391/SWP391/client/src/features/ingredients/components/IngredientScanOutcome.jsx
+import { Button, Spinner } from 'react-bootstrap';
+
 const MAX_SUGGESTED_NAMES = 3;
 
-export default function IngredientScanOutcome({ scanner, onSelect, onSearch }) {
+export default function IngredientScanOutcome({ scanner, onSelect, lookup, onLookup }) {
   if (scanner.matches.length) {
     return (
       <div role="status">
         <p>AI nhận ra trong từ điển:</p>
         <div className="cx-ingredient-scan-choices">
           {scanner.matches.map((item) => (
-            <button type="button" key={item.id} onClick={() => onSelect(item)}>{item.name}</button>
+            <Button type="button" key={item.id} disabled={lookup.busy} onClick={() => onSelect(item)}>{item.name}</Button>
           ))}
         </div>
       </div>
@@ -24,7 +26,11 @@ export default function IngredientScanOutcome({ scanner, onSelect, onSearch }) {
       </p>
       <div className="cx-ingredient-scan-choices">
         {names.map((name) => (
-          <button type="button" key={name} onClick={() => onSearch(name)}>Tìm “{name}”</button>
+          <Button type="button" key={name} disabled={lookup.busy} onClick={() => onLookup(name)}>
+            {lookup.busy && lookup.name === name
+              ? <><Spinner animation="border" size="sm" aria-hidden="true" /> Đang tạo “{name}”…</>
+              : <>Tìm “{name}”</>}
+          </Button>
         ))}
       </div>
     </div>

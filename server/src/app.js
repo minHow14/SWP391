@@ -67,6 +67,9 @@ app.use(
 app.use(['/api/ai/food-scanner/analyze', '/api/v1/ai/food-scanner/analyze'],
   express.json({ limit: MAX_FOOD_SCAN_JSON_BYTES }));
 
+// Ingredient lookup can retain the same uploaded image accepted by the scanner.
+app.use('/api/v1/ingredient-lookup-jobs', express.json({ limit: MAX_FOOD_SCAN_JSON_BYTES }));
+
 // 6. Phân tích cú pháp Request Body với giới hạn dung lượng 1MB
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));

@@ -1,4 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/discovery.css */
+/* D:/SWP391/SWP391/client/src/assets/styles/discovery.css */
 .cx-discovery-page { padding: 46px 28px 110px; background: #f8fafc; }
 .cx-dictionary-card, .cx-restaurant-toolbar { max-width: 1380px; margin: 0 auto; padding: 32px; border: 1px solid #f0f4f8; border-radius: 28px; background: #fff; }
 .cx-discovery-page h1 { display: flex; align-items: center; gap: 11px; margin: 0 0 7px; color: #243448; font-size: 27px; font-weight: 800; letter-spacing: -.6px; line-height: 1.35; }
@@ -167,3 +167,8 @@
 .cx-ingredient-scan-choices { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .cx-ingredient-scan-choices button { padding: 6px 13px; border: 1px solid #93c5fd; border-radius: 999px; background: #1e3a8a; color: #fff; font-size: 12px; font-weight: 700; }
 .cx-ingredient-scan-choices button:hover { background: #2563eb; }
+.cx-ingredient-upload-preview button { min-height: 44px; }
+.cx-ingredient-scan-choices button:disabled { opacity: .7; cursor: wait; }
+.cx-ingredient-lookup-error { margin-top: 12px; }
+.cx-ingredient-upload-preview .cx-ingredient-lookup-error p { color: inherit; }
+.cx-ingredient-upload-preview .cx-ingredient-lookup-error button { color: #fff; background: #842029; }

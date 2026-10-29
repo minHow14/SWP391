@@ -17,16 +17,17 @@ export function useIngredientPhotoScan({ ingredients, dietId }) {
 
   async function scan(file) {
     if (!file) return [];
+    request.current?.abort();
     if (!IMAGE_TYPES.includes(file.type) || file.size > MAX_IMAGE_BYTES) {
       setState({ ...IDLE, error: 'Chọn ảnh JPG, PNG hoặc WebP dưới 10 MB.' });
       return [];
     }
     const controller = new AbortController();
-    request.current?.abort();
     request.current = controller;
-    setState({ ...IDLE, status: 'analyzing', photo: { url: URL.createObjectURL(file), name: file.name } });
+    setState({ ...IDLE, status: 'analyzing', photo: { url: URL.createObjectURL(file), name: file.name, file } });
     try {
       const image = await fileToBase64(file);
+      controller.signal.throwIfAborted();
       const response = await analyzeFoodImage(
         { imageBase64: image.base64, mimeType: image.mimeType, dietTypeId: dietId },
         controller.signal,

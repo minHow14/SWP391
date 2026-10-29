@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import IngredientPreview from '../src/features/ingredients/components/IngredientPreview.jsx';
 import * as scannerService from '../src/services/foodScannerService.js';
+import { ingredientLookupService } from '../src/services/ingredientLookupService.js';
 
 const catalog = [
   { id: 1, name: 'Đậu hũ non', aliases: 'tofu' },
@@ -19,10 +20,10 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 function mount() {
   const onSelect = vi.fn();
-  const onSearch = vi.fn();
-  render(<IngredientPreview ingredients={catalog} dietId={4} onSelect={onSelect} onSearch={onSearch} />);
+  const onSaved = vi.fn();
+  render(<IngredientPreview ingredients={catalog} dietId={4} onSelect={onSelect} onSaved={onSaved} />);
   const choose = (file) => fireEvent.change(screen.getByLabelText('Chọn ảnh nguyên liệu'), { target: { files: [file] } });
-  return { onSelect, onSearch, choose };
+  return { onSelect, onSaved, choose };
 }
 
 it('no longer offers the sample ingredient demo', () => {
@@ -49,12 +50,15 @@ it('lets the user choose when several ingredients are recognised', async () => {
   expect(onSelect).toHaveBeenCalledWith(catalog[1]);
 });
 
-it('offers a text search when the recognised ingredient is not in the dictionary', async () => {
+it('looks up and saves a recognised ingredient missing from the dictionary', async () => {
   vi.spyOn(scannerService, 'analyzeFoodImage').mockResolvedValue(scanResult({ dishName: 'Sầu riêng', identifiedIngredients: ['Sầu riêng'] }));
-  const { onSelect, onSearch, choose } = mount();
+  const saved = { id: '3', name: 'Sầu riêng' };
+  const create = vi.spyOn(ingredientLookupService, 'create').mockResolvedValue({ status: 'COMPLETED', ingredient: saved });
+  const { onSelect, onSaved, choose } = mount();
   choose(picture());
   fireEvent.click(await screen.findByRole('button', { name: /Tìm “Sầu riêng”/ }));
-  expect(onSearch).toHaveBeenCalledWith('Sầu riêng');
+  await waitFor(() => expect(onSaved).toHaveBeenCalledWith(saved, expect.any(AbortSignal)));
+  expect(create).toHaveBeenCalledWith(expect.objectContaining({ ingredientName: 'Sầu riêng' }), expect.any(AbortSignal));
   expect(onSelect).not.toHaveBeenCalled();
 });
 

@@ -295,7 +295,41 @@ model PostVote {
   @@map("post_votes")
 }
 
+enum IngredientLookupJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model IngredientLookupJob {
+  id                String                    @id @default(uuid()) @db.Uuid
+  ownerKey          String                    @map("owner_key") @db.Char(64)
+  activeKey         String?                   @unique(map: "uq_ingredient_lookup_jobs_active") @map("active_key") @db.Char(64)
+  ingredientName    String                    @map("ingredient_name") @db.VarChar(150)
+  status            IngredientLookupJobStatus @default(PENDING)
+  ingredientId      Int?                      @map("ingredient_id")
+  sourcePhoto       Bytes?                    @map("source_photo")
+  sourceMimeType    String?                   @map("source_mime_type") @db.VarChar(50)
+  reservation       Json?
+  leaseToken        String?                   @map("lease_token") @db.Uuid
+  leaseExpiresAt    DateTime?                 @map("lease_expires_at") @db.Timestamptz(6)
+  errorCode         String?                   @map("error_code") @db.VarChar(100)
+  errorMessage      String?                   @map("error_message") @db.VarChar(500)
+  completedAt       DateTime?                 @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ingredient        Ingredient?               @relation(fields: [ingredientId], references: [ingredient_id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([ownerKey, createdAt, id], map: "idx_ingredient_lookup_jobs_owner")
+  @@index([status, createdAt, id], map: "idx_ingredient_lookup_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_ingredient_lookup_jobs_expired")
+  @@index([ingredientId], map: "idx_ingredient_lookup_jobs_ingredient")
+  @@map("ingredient_lookup_jobs")
+}
+
 model Ingredient {
+  lookupJobs IngredientLookupJob[]
   details IngredientDetails?
   image IngredientImage?
   ingredient_id      Int                @id @default(autoincrement())
