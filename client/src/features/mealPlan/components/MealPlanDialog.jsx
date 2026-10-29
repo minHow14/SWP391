@@ -119,7 +119,7 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
           </div>
         </div>
       )}
-      {phase === 'result' && plan && <PlanResult plan={plan} onRedo={() => setPhase('form')} onAsk={(value) => { onAsk?.(value); onClose(); }} />}
+      {phase === 'result' && plan && <PlanResult plan={plan} onRedo={() => setPhase('form')} onOpenJournal={onClose} onAsk={(value) => { onAsk?.(value); onClose(); }} />}
     </ContentDialog>
   );
 }

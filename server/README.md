@@ -188,7 +188,8 @@ Client Request
 | `POST` | `/api/workspace/diary` | Có (Bearer Token) | Thêm bữa ăn vào nhật ký ăn uống |
 | `DELETE` | `/api/workspace/diary/:id` | Có (Bearer Token) | Xóa món ăn khỏi nhật ký cá nhân |
 | `PUT` | `/api/workspace/plan` | Có (Bearer Token) | Lên kế hoạch món ăn theo ngày trong tuần |
-| `POST` | `/api/workspace/plan/record` | Có (Bearer Token) | Lưu toàn bộ món từ kế hoạch tuần vào nhật ký ngày |
+| `POST` | `/api/workspace/plan/apply-ai` | Có (Bearer Token) | Ghi thực đơn tuần AI đã hoàn tất vào kế hoạch tuần (`{ generationId, date }`), thay món cũ của tuần đó |
+| `POST` | `/api/workspace/plan/record` | Có (Bearer Token) | Lưu toàn bộ món (công thức hoặc món AI) từ kế hoạch tuần vào nhật ký ngày |
 | `POST` | `/api/workspace/restaurants` | Có (Bearer Token) | Đề xuất địa điểm quán chay mới |
 | `POST` | `/api/workspace/restaurants/:id/reviews` | Có (Bearer Token) | Đăng đánh giá và chấm sao nhà hàng |
 
@@ -254,6 +255,7 @@ npm run prisma:studio
 - `20261026075600_add_restaurant_source_place_id_status`: nguồn, mã địa điểm và trạng thái nhà hàng.
 - `20261026124500_add_food_scan_ai_generation_type`: loại tác vụ `FOOD_SCAN`.
 - `20261028112816_add_content_moderation_jobs`: bảng job và phiên bản nội dung kiểm duyệt.
+- `20261029030511_add_custom_meals_to_meal_plan_details`: cột nullable `custom_food_name`, `calories`, `protein`, `carbs`, `fat` cho món AI trong kế hoạch tuần.
 
 File SQL chỉ nạp dữ liệu, không sao chép lệnh thay đổi schema từ migration. Nếu nạp trực tiếp bằng `psql`, phải chạy `npx prisma migrate deploy` trước. **Seed hiện dùng `TRUNCATE ... CASCADE`: chạy lại sẽ xóa dữ liệu hiện có, bao gồm job kiểm duyệt.** Với DB đang sử dụng, chỉ chạy `npx prisma migrate deploy`, không chạy seed. Chạy trực tiếp `node prisma/seed.js` cũng yêu cầu DB đã được migrate.
 

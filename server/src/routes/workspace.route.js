@@ -10,6 +10,7 @@ import {
   diaryEntrySchema,
   mealPlanSchema,
   planRecordSchema,
+  applyAiMealPlanSchema,
   suggestRestaurantSchema,
   restaurantReviewSchema,
 } from '../validators/workspace.validator.js';
@@ -35,6 +36,7 @@ router.patch('/profile', validate(workspaceProfileSchema), workspaceController.u
 router.post('/diary', validate(diaryEntrySchema), workspaceController.addDiaryEntry);
 router.delete('/diary/:id', validate(idParamsSchema, 'params'), workspaceController.deleteDiaryEntry);
 router.put('/plan', validate(mealPlanSchema), workspaceController.setMealPlan);
+router.post('/plan/apply-ai', validate(applyAiMealPlanSchema), workspaceController.applyAiMealPlan);
 router.post('/plan/record', validate(planRecordSchema), workspaceController.recordPlanToDiary);
 router.post('/restaurants', validate(suggestRestaurantSchema), workspaceController.suggestRestaurant);
 router.post(

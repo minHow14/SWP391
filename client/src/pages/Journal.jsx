@@ -1,7 +1,9 @@
 // client/src/pages/Journal.jsx
 import { useEffect, useState } from 'react';
 import ContentDialog from '../components/common/ContentDialog.jsx';
-import { mealGroups, todayKey, weekDates, totals } from '../utils/journal.js';
+import { aiMealsOf, mealGroups, todayKey, weekDates, totals } from '../utils/journal.js';
+import AiSuggestedMeal from '../features/journal/components/AiSuggestedMeal.jsx';
+import { subscribeSyncEvent } from '../utils/syncEvents.js';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { workspaceService } from '../services/workspaceService.js';
 import { getSession } from '../utils/session.js';
@@ -46,8 +48,14 @@ export default function Journal() {
           if (active) setNotice(e.message);
         });
     }
+    const unsubscribe = subscribeSyncEvent('JOURNAL_CHANGED', () => {
+      workspaceService.getJournal().then((result) => {
+        if (active) setData({ ...result, ownerId: user?.user_id });
+      }).catch(() => {});
+    });
     return () => {
       active = false;
+      unsubscribe();
     };
   }, [user]);
 
@@ -97,6 +105,7 @@ export default function Journal() {
   }
 
   const entries = data.days[date] || [];
+  const suggestions = data.customPlans?.[date] || {};
   const sum = totals(entries);
   const profile = data.profile || { height: 0, weight: 0, calorieGoal: 0, goal: 'Chưa thiết lập' };
   const hasMeasurements = hasBodyMeasurements(profile);
@@ -134,6 +143,26 @@ export default function Journal() {
       await refresh();
       setAdding(null);
       setNotice('Đã thêm món vào nhật ký.');
+    } catch (e) {
+      setNotice(e.message);
+    }
+  }
+
+  async function acceptSuggestion(group, meal) {
+    try {
+      await workspaceService.addDiaryEntry({
+        date,
+        name: meal.name,
+        serving: '1 phần',
+        group: group.toUpperCase(),
+        calories: meal.calories,
+        protein: meal.protein,
+        carbs: meal.carbs,
+        fat: meal.fat,
+        fiber: 0,
+      });
+      await refresh();
+      setNotice('Đã ghi món AI gợi ý vào nhật ký.');
     } catch (e) {
       setNotice(e.message);
     }
@@ -187,7 +216,7 @@ export default function Journal() {
           ]
         : [];
     });
-    if (!planned.length) return;
+    if (!planned.length && !aiMealsOf(data.customPlans, day).length) return;
     try {
       await workspaceService.recordPlan({ date: day });
       await refresh();
@@ -388,6 +417,9 @@ export default function Journal() {
                             </div>
                           ))}
                           {!meals.length && <p>Chưa có món ăn nào được ghi nhận cho bữa này.</p>}
+                          {!meals.length && suggestions[group.id] && (
+                            <AiSuggestedMeal meal={suggestions[group.id]} onAccept={(meal) => acceptSuggestion(group.id, meal)} />
+                          )}
                         </div>
                         <button
                           type="button"
@@ -458,9 +490,11 @@ export default function Journal() {
               <div className="cx-journal-plan-grid">
                 {week.map((day) => {
                   const plan = data.plans[day] || {};
-                  const planMeals = Object.values(plan)
-                    .map((id) => mealSamples.find((meal) => meal.id === id))
-                    .filter(Boolean);
+                  const aiPlan = data.customPlans?.[day] || {};
+                  const planMeals = [
+                    ...Object.values(plan).map((id) => mealSamples.find((meal) => meal.id === id)).filter(Boolean),
+                    ...aiMealsOf(data.customPlans, day),
+                  ];
                   return (
                     <article key={day}>
                       <header>
@@ -475,7 +509,9 @@ export default function Journal() {
                             value={plan[group.id] || ''}
                             onChange={(event) => changePlan(day, group.id, event.target.value)}
                           >
-                            <option value="">Chưa chọn món</option>
+                            <option value="">
+                              {aiPlan[group.id] ? `AI gợi ý: ${aiPlan[group.id].name}` : 'Chưa chọn món'}
+                            </option>
                             {mealSamples.map((meal) => (
                               <option key={meal.id} value={meal.id}>
                                 {meal.name}

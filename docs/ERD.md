@@ -241,9 +241,14 @@ erDiagram
     MealPlanDetail {
         int plan_detail_id PK
         int plan_id FK
-        int recipe_id FK
+        int recipe_id FK "nullable khi là món AI gợi ý"
         varchar meal_type
         smallint day_of_week
+        varchar custom_food_name "tên món AI gợi ý"
+        float calories
+        float protein
+        float carbs
+        float fat
     }
     FoodDiary {
         int diary_id PK

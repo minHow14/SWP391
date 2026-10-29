@@ -148,7 +148,7 @@ export function useChatBox({ dietTypeId }) {
       restored = [{ ...common, id: nextId.current++, role: 'user', kind: 'chat', text: record.requestPayload?.message },
         { ...common, id: nextId.current++, role: 'assistant', kind: 'chat', text: record.responsePayload.reply }];
     } else if (record.type === 'MEAL_PLAN' && Array.isArray(record.responsePayload?.weeklyPlan)) {
-      const plan = record.responsePayload;
+      const plan = { ...record.responsePayload, generationId: record.id };
       restored = [{ ...common, id: nextId.current++, role: 'assistant', kind: 'plan', plan, title: plan.title, ...plan.chat }];
     } else { setError('Lịch sử này chưa có nội dung hợp lệ để mở.'); return; }
     setMessages((previous) => previous.some((message) => message.generationId === record.id) ? previous : [...previous, ...restored]);

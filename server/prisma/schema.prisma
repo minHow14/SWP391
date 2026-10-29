@@ -368,6 +368,11 @@ model MealPlanDetail {
   recipe_id      Int?
   meal_type      String   @db.VarChar(30)
   day_of_week    Int      @db.SmallInt
+  custom_food_name String? @db.VarChar(255)
+  calories       Float?   @db.Real
+  protein        Float?   @db.Real
+  carbs          Float?   @db.Real
+  fat            Float?   @db.Real
   meal_plan      MealPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade, onUpdate: NoAction)
   recipe         Recipe?  @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
 

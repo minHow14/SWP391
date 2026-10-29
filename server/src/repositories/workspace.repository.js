@@ -192,6 +192,14 @@ export const workspaceRepository = {
     return db.mealPlan.create({ data });
   },
 
+  async updateMealPlan(planId, data, db = prisma) {
+    return db.mealPlan.update({ where: { plan_id: planId }, data });
+  },
+
+  async createMealPlanDetails(data, db = prisma) {
+    return db.mealPlanDetail.createMany({ data });
+  },
+
   async deleteMealPlanDetails(where, db = prisma) {
     return db.mealPlanDetail.deleteMany({ where });
   },

@@ -35,7 +35,7 @@ describe('opening saved conversations', () => {
     expect(result.current.messages.map((message) => message.kind)).toEqual(['welcome', 'chat', 'chat', 'plan']);
     expect(result.current.messages[1].text).toBe('Hỏi về đậu');
     expect(result.current.messages[2].text).toBe('Đậu có đạm.');
-    expect(result.current.messages[3].plan).toEqual(plan);
+    expect(result.current.messages[3].plan).toEqual({ ...plan, generationId: 'saved-plan' });
   });
 
   it('does not erase a streamed answer when an older conversation is opened', async () => {

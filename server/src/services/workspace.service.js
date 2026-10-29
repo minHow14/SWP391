@@ -3,10 +3,33 @@ import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { workspaceRepository } from '../repositories/workspace.repository.js';
 import { ApiError } from '../utils/apiError.js';
+import { weekRangeOf } from '../utils/weekRange.js';
 import { defaultPlacePhoto } from './places.service.js';
 
 export const ingredientImageUrl = (ingredientId) =>
   `/api/workspace/ingredients/${ingredientId}/image`;
+
+const PER_100_GRAMS = 100;
+
+/** Chuyển một món trong kế hoạch tuần (công thức hoặc món AI gợi ý) thành dữ liệu nhật ký ăn uống. */
+function diaryFromPlanDetail(detail) {
+  if (!detail.recipe) {
+    return {
+      diary: { custom_food_name: detail.custom_food_name, calories: detail.calories ?? 0 },
+      nutrients: { protein: detail.protein ?? 0, carbs: detail.carbs ?? 0, fat: detail.fat ?? 0 },
+    };
+  }
+  const nutrients = { protein: 0, carbs: 0, fat: 0 };
+  for (const part of detail.recipe.recipe_ingredients) {
+    for (const field of Object.keys(nutrients)) {
+      nutrients[field] += ((part.ingredient[field] || 0) * part.quantity) / PER_100_GRAMS;
+    }
+  }
+  return {
+    diary: { recipe_id: detail.recipe.recipe_id, calories: detail.recipe.total_calories },
+    nutrients,
+  };
+}
 
 export const workspaceService = {
   /**
@@ -176,6 +199,7 @@ export const workspaceService = {
         : null,
       days: {},
       plans: {},
+      customPlans: {},
     };
 
     const groups = {
@@ -207,6 +231,16 @@ export const workspaceService = {
         const day = new Date(plan.start_date);
         day.setUTCDate(day.getUTCDate() + detail.day_of_week - 1);
         const key = day.toISOString().slice(0, 10);
+        if (detail.custom_food_name) {
+          (journal.customPlans[key] ??= {})[groups[detail.meal_type]] = {
+            name: detail.custom_food_name,
+            calories: detail.calories || 0,
+            protein: detail.protein || 0,
+            carbs: detail.carbs || 0,
+            fat: detail.fat || 0,
+          };
+          continue;
+        }
         (journal.plans[key] ??= {})[groups[detail.meal_type]] = detail.recipe_id
           ? String(detail.recipe_id)
           : '';
@@ -387,10 +421,7 @@ export const workspaceService = {
       }
 
       const day = new Date(date);
-      const monday = new Date(day);
-      monday.setUTCDate(day.getUTCDate() - ((day.getUTCDay() + 6) % 7));
-      const end = new Date(monday);
-      end.setUTCDate(end.getUTCDate() + 6);
+      const { monday, sunday: end } = weekRangeOf(date);
 
       let plan = await workspaceRepository.findMealPlanByStartDate(userId, monday, tx);
       if (!plan) {
@@ -435,9 +466,9 @@ export const workspaceService = {
 
       for (const plan of plans) {
         const offset = Math.round((day - plan.start_date) / 86400000) + 1;
-        for (const detail of plan.details.filter((d) => d.day_of_week === offset && d.recipe)) {
+        for (const detail of plan.details.filter((d) => d.day_of_week === offset && (d.recipe || d.custom_food_name))) {
           if (!meals.has(detail.meal_type)) {
-            meals.set(detail.meal_type, detail.recipe);
+            meals.set(detail.meal_type, detail);
           }
         }
       }
@@ -446,33 +477,15 @@ export const workspaceService = {
         throw ApiError.badRequest('Ngày này chưa có món trong kế hoạch.');
       }
 
-      for (const [meal_type, recipe] of meals) {
+      for (const [meal_type, detail] of meals) {
+        const { diary, nutrients } = diaryFromPlanDetail(detail);
         const entry = await workspaceRepository.createFoodDiary(
-          {
-            user_id: Number(userId),
-            consumed_date: day,
-            meal_type,
-            recipe_id: recipe.recipe_id,
-            calories: recipe.total_calories,
-          },
+          { user_id: Number(userId), consumed_date: day, meal_type, ...diary },
           tx
         );
-
-        const n = { protein: 0, carbs: 0, fat: 0 };
-        for (const part of recipe.recipe_ingredients) {
-          for (const field of Object.keys(n)) {
-            n[field] += ((part.ingredient[field] || 0) * part.quantity) / 100;
-          }
-        }
-
         await workspaceRepository.insertDiaryNutrients(
           entry.diary_id,
-          {
-            serving: '1 phần',
-            protein: n.protein,
-            carbs: n.carbs,
-            fat: n.fat,
-          },
+          { serving: '1 phần', ...nutrients },
           tx
         );
       }

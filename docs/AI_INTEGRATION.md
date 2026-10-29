@@ -50,7 +50,20 @@ Khách chỉ có quota và nhật ký vận hành `ai_logs`; không tạo `ai_ge
 
 Giới hạn tần suất kỹ thuật `RATE_LIMIT` trong AI được giữ theo phạm vi chủ dự án đã chọn; nó không quản lý quota 3 lượt/ngày. Thay đổi lần này không chuyển giới hạn tần suất.
 
-Nếu cả DB không thể ghi, BE trả `AI_STORAGE_ERROR`; bản ghi có thể còn `PROCESSING`. SSE không phải hàng đợi bền vững: tắt tiến trình BE giữa chừng không tự tiếp tục tác vụ. Lịch sử này lưu kết quả AI, không tự tạo các hàng `meal_plans`/`meal_plan_details` của chức năng lịch ăn.
+Nếu cả DB không thể ghi, BE trả `AI_STORAGE_ERROR`; bản ghi có thể còn `PROCESSING`. SSE không phải hàng đợi bền vững: tắt tiến trình BE giữa chừng không tự tiếp tục tác vụ. Lịch sử này lưu kết quả AI và không tự tạo các hàng `meal_plans`/`meal_plan_details`; thực đơn chỉ vào Nhật Ký khi người dùng bấm “Áp dụng vào Nhật Ký” (xem mục dưới).
+
+## Áp dụng thực đơn AI vào Nhật Ký
+
+Thực đơn tuần hoàn tất (`ai_generations.type = MEAL_PLAN`, `status = COMPLETED`) chỉ được ghi vào kế hoạch tuần của Nhật Ký khi thành viên bấm “Áp dụng vào Nhật Ký” trong hộp thoại thực đơn. Khách không có bản ghi `ai_generations` nên không có nút này.
+
+- `POST /api/workspace/plan/apply-ai` (Bearer Token), body `{ "generationId": "<uuid>", "date": "YYYY-MM-DD" }`. BE kiểm tra bản ghi thuộc về người gọi, đúng loại và đã hoàn tất; sai một điều kiện trả `404`. Sai định dạng trả `400`, thiếu token trả `401`.
+- Tuần áp dụng là tuần Thứ Hai–Chủ Nhật chứa `date` (FE gửi ngày hôm nay, múi giờ Việt Nam). `dayNumber` 1–7 của thực đơn ứng với Thứ Hai–Chủ Nhật, theo đúng thứ trong tuần chứ không theo ngày bắt đầu.
+- Trong một transaction có khóa theo người dùng và tuần, BE tạo hoặc cập nhật `meal_plans` của tuần đó (tên, `end_date`, `target_calories`), **xóa toàn bộ `meal_plan_details` cũ của tuần** rồi ghi món mới. Nhật ký thực tế `food_diaries` không bị thay đổi. Ghi lại lần nữa cho cùng tuần không tạo bản sao.
+- Mỗi món AI là một hàng `meal_plan_details` có `recipe_id = NULL`, `custom_food_name` (≤255 ký tự), `calories`, `protein`, `carbs`, `fat`; `meal_type` là `BREAKFAST`, `LUNCH`, `DINNER` hoặc `SNACK` (từ trường `snacks`).
+- Response: `data = { planId, weekStart, appliedMeals }`.
+- `GET /api/workspace/journal` trả thêm `customPlans[YYYY-MM-DD][breakfast|lunch|dinner|snack] = { name, calories, protein, carbs, fat }`. Món từ công thức vẫn nằm ở `plans`.
+- `POST /api/workspace/plan/record` ghi cả món AI vào `food_diaries` (`custom_food_name`, `diary_nutrients`) và vẫn trả `409` nếu ngày đó đã có nhật ký.
+- Để chạy test trên DB riêng, áp dụng migration `20261029030511_add_custom_meals_to_meal_plan_details` cho `vegetarian_db_test` bằng `prisma migrate deploy` với `.env.test`.
 
 ## API BE
 
