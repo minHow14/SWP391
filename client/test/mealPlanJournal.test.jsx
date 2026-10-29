@@ -61,7 +61,7 @@ describe('AI suggestions in the journal', () => {
     render(<AiSuggestedMeal meal={meal} onAccept={onAccept} />);
     expect(screen.getByText('Cháo yến mạch')).toBeTruthy();
     expect(screen.getByText(/400 kcal/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Ghi vào bữa' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Thêm vào nhật ký ngày' }));
     expect(onAccept).toHaveBeenCalledWith(meal);
   });
 });

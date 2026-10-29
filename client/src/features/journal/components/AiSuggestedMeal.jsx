@@ -9,7 +9,7 @@ export default function AiSuggestedMeal({ meal, onAccept }) {
         <strong>{meal.name}</strong>
         <small>{roundOne(meal.calories)} kcal · Đạm {roundOne(meal.protein)}g · Carb {roundOne(meal.carbs)}g · Béo {roundOne(meal.fat)}g</small>
       </div>
-      <button type="button" onClick={() => onAccept(meal)}>Ghi vào bữa</button>
+      <button type="button" onClick={() => onAccept(meal)}>Thêm vào nhật ký ngày</button>
     </div>
   );
 }
