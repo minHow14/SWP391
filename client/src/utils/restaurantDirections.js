@@ -7,9 +7,11 @@ export function hasCoordinates(place) {
 }
 
 export function restaurantDirections(place, origin = null) {
-  const destination = hasCoordinates(place)
+  // Google Maps đổi tọa độ thành địa điểm gần nhất (có thể là quán khác cùng tòa nhà),
+  // nên ưu tiên tên + địa chỉ; chỉ dùng tọa độ khi quán không có địa chỉ.
+  const destination = !place.address && hasCoordinates(place)
     ? `${place.latitude ?? place.lat},${place.longitude ?? place.lng}`
-    : `${place.name}, ${place.address}`;
+    : [place.name, place.address].filter(Boolean).join(', ');
   const originParam = hasCoordinates(origin)
     ? `&origin=${encodeURIComponent(`${origin.latitude ?? origin.lat},${origin.longitude ?? origin.lng}`)}`
     : '';

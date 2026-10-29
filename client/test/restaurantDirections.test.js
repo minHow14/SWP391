@@ -3,10 +3,17 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasCoordinates, restaurantDirections } from '../src/utils/restaurantDirections.js';
 
-test('directions use the address when a restaurant has no coordinates', () => {
+test('directions point at the named address even when coordinates exist', () => {
   const place = { name: 'Quán A', address: '123 Đường B', latitude: null, longitude: null };
   assert.equal(new URL(restaurantDirections(place)).searchParams.get('destination'), 'Quán A, 123 Đường B');
-  assert.equal(new URL(restaurantDirections({ ...place, latitude: 10, longitude: 106 })).searchParams.get('destination'), '10,106');
+  // Tọa độ sẽ bị Google đổi thành địa điểm gần nhất, có thể là một quán khác cùng địa chỉ.
+  assert.equal(new URL(restaurantDirections({ ...place, latitude: 10, longitude: 106 })).searchParams.get('destination'), 'Quán A, 123 Đường B');
+});
+
+test('directions fall back to coordinates only when the place has no address', () => {
+  const url = new URL(restaurantDirections({ name: 'Quán A', address: '', latitude: 10, longitude: 106 }));
+  assert.equal(url.searchParams.get('destination'), '10,106');
+  assert.equal(new URL(restaurantDirections({ address: '123 Đường B' })).searchParams.get('destination'), '123 Đường B');
 });
 
 test('map and directions reject missing and out-of-range coordinates, but accept zero', () => {
