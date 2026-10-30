@@ -95,8 +95,8 @@ jobs:
       - name: Generate Prisma Client
         run: npx prisma generate
 
-      - name: Push Database Schema to PostgreSQL
-        run: npx prisma db push --skip-generate
+      - name: Apply Database Migrations to PostgreSQL
+        run: npx prisma migrate deploy
 
       - name: Seed Database with Initial Data
         run: npm run seed

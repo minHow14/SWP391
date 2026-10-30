@@ -1,7 +1,7 @@
 // D:/SWP391/SWP391/server/tests/seedModeration.test.js
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PrismaClient } from '@prisma/client';
@@ -37,6 +37,19 @@ function sql(database, statement) {
 }
 function importSeed(script = 'db:seed') {
   execute(process.execPath, [process.env.npm_execpath, 'run', script], { env: seedEnvironment });
+}
+function applyCiDatabaseSetup() {
+  const workflow = readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8');
+  const serverJob = workflow.split('  server-tests:')[1]?.split('  ai-service-tests:')[0] || '';
+  const commands = serverJob.split('\n').map((line) =>
+    /^run: (npx prisma (?:db push|migrate deploy)\b.*|npm run seed)$/.exec(line.trim())?.[1]).filter(Boolean);
+  expect(commands).toHaveLength(2);
+  // Exercise the workflow commands against a fresh DB, rather than assuming an already migrated local DB.
+  for (const command of commands) {
+    if (command === 'npm run seed') importSeed('seed');
+    else execute(process.execPath, ['node_modules/prisma/build/index.js', ...command.slice('npx prisma '.length).split(/\s+/)],
+      { env: seedEnvironment });
+  }
 }
 beforeAll(() => {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(connection.hostname) || !connection.pathname.endsWith('_test') ||
@@ -74,8 +87,8 @@ async function verifyMigratedSchema() {
 }
 
 describe('seed compatibility with moderation migrations', () => {
-  it('applies pending migrations before seeding through either npm alias and resets stale jobs on re-seed', async () => {
-    importSeed('seed');
+  it('uses CI database setup on an empty database and resets stale jobs on re-seed', async () => {
+    applyCiDatabaseSetup();
     await verifyMigratedSchema();
     expect(await db.contentModerationJob.count()).toBe(0);
     expect(await db.post.count({ where: { status: 'HIDDEN_BY_AI' } })).toBe(0);

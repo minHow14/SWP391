@@ -359,6 +359,7 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
 7. **Food Scanner báo lỗi hoặc chưa kết luận:** Ảnh tối đa 10 MiB, JPEG/PNG/WebP; model phải hỗ trợ ảnh. Lỗi AI không tạo kết quả thành công giả. `nutritionEstimate=null` nghĩa là chưa có số liệu, không phải 0. Xem [hợp đồng quét ảnh](docs/AI_INTEGRATION.md#quét-ảnh-và-lưu-nhật-ký).
 8. **Health báo AI DOWN hoặc “Chưa có dữ liệu”:** Kiểm tra AI Service port 8000, `AI_SERVICE_URL` và khóa nội bộ; sau đó bấm “Kiểm tra lại”. `UNKNOWN` của mô hình nghĩa là chưa có log phù hợp, không phải lỗi hay tỷ lệ thành công 0%. DB lỗi có thể chặn xác thực admin trước khi chạy probe.
 9. **Ảnh trống sau khi chuyển máy:** Khôi phục đúng thư mục uploads cùng DB, giữ nguyên tên file/hash trong manifest. Không chạy seed hoặc thay bằng ảnh stock; ảnh nguồn không lấy được được để trống. Tám ảnh công thức có nhãn “Ảnh món ăn tham khảo” vì có thể khác biến thể nguyên liệu.
+10. **CI seed dừng với `P3005: The database schema is not empty`:** Workflow phải tạo schema bằng `npx prisma migrate deploy` trước `npm run seed`. Không chạy `prisma db push` trước migration vì nó tạo bảng mà không ghi lịch sử migration. Test seed đọc trực tiếp các lệnh setup DB từ workflow và chạy trên DB tạm mới để bắt lỗi này. Với DB đang có dữ liệu cần giữ, kiểm tra drift và baseline theo [hướng dẫn migration](docs/AI_INTEGRATION.md), không reset hoặc tự đánh dấu migration đã áp dụng.
 
 ---
 
