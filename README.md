@@ -38,6 +38,7 @@
 - **Quản lý Danh mục:** Thêm, sửa, xóa danh mục món ăn & công thức nấu chay (có kiểm tra ràng buộc dữ liệu).
 - **Kiểm duyệt AI:** Worker local kiểm tra văn bản blog/bình luận; Admin xem lý do, bằng chứng và các mục chờ/lỗi, sau đó duyệt hoặc gỡ bằng xóa mềm. Chính sách cho phép sườn chay, món có trứng/sữa; chặn quảng bá thịt/cá. Tính năng cần bật cờ cấu hình.
 - **Giám sát Mô hình AI:** Theo dõi trạng thái hoạt động của các mô hình (Gợi ý thực đơn, Chatbot tư vấn, Kiểm duyệt tự động) và tra cứu nhật ký `ai_logs`.
+- **Health check quản trị:** Đo kết nối PostgreSQL và HTTP AI Service khi mở trang hoặc bấm kiểm tra lại; không tự polling. Mô hình chưa có log hiển thị “Chưa có dữ liệu”, API trả `UNKNOWN` và `successRate: null`; HTTP AI lên không xác nhận provider inference hoạt động.
 - **Can thiệp Thủ công AI:** Ghi nhận điều chỉnh, phản hồi sửa lỗi khi AI đưa ra kết quả chưa chuẩn xác.
 - **Quản lý Báo cáo:** Xử lý các phản ánh vi phạm từ người dùng trong cộng đồng.
 
@@ -151,14 +152,13 @@ npm install
 # Tạo file .env và điền các thông số theo bảng ở Mục 8
 npm run prisma:generate
 npx prisma migrate deploy
-npm run seed                    # Tự migrate rồi seed; xóa dữ liệu cũ, chỉ dùng DB được phép khởi tạo lại
 npm run dev
 ```
 > Server sẽ hoạt động tại: `http://localhost:5000` (Kiểm tra sức khỏe: `http://localhost:5000/health`)
 
-#### 🔑 Tài khoản mẫu sẵn sàng sử dụng:
-- **Quản trị viên (Admin - Role 1):** `admin@swp391.com` | Mật khẩu: `123456` *(Đăng nhập vào thẳng Dashboard `/admin`)*
-- **Người dùng thường (User - Role 2):** `user@swp391.com` | Mật khẩu: `123456`
+Đăng nhập bằng tài khoản thật đã được cấp trong DB local; DB mới chưa có tài khoản quản trị cần quy trình cấp quyền của nhóm. Lệnh seed hiện tại xóa dữ liệu và chứa dữ liệu demo, không thuộc luồng khởi động mặc định. Không chạy seed để sửa health hoặc ảnh.
+
+Khi chuyển DB đã sửa ảnh sang máy khác, sao chép cả `server/uploads/restaurants/` và `server/uploads/recipes/`; ảnh nguyên liệu nằm trong DB. Git bỏ qua thư mục uploads nên chỉ pull code không khôi phục các ảnh này. Xem [nguồn ảnh và bảo trì](docs/real-image-repairs.md).
 
 Với DB đang có dữ liệu/lịch sử migration cũ, xem [hướng dẫn baseline](docs/AI_INTEGRATION.md) trước khi chạy migrate; không chấp nhận reset.
 
@@ -211,7 +211,7 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 | `CONTENT_MODERATION_TIMEOUT_MS` | `30000` | Deadline HTTP kiểm duyệt (ms), gồm đọc body |
 | `CONTENT_MODERATION_MAX_ATTEMPTS` | `3` | Tổng số lần thử mỗi job; lỗi không tự công khai nội dung |
 | `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
-| `ZIOMAP_API_KEY` | `Key API ZIOMAP` | Khóa API ZIOMAP dùng cho tìm kiếm và bổ sung địa điểm bản đồ quán chay (Tùy chọn) |
+| `ZIOMAP_API_KEY` | `Key API ZIOMAP` | Tìm kiếm, chi tiết và giải mã ảnh đúng Place ID; chỉ BE gửi header `x-api-key`. Thiếu ảnh trả rỗng, không tạo ảnh mẫu; ảnh local đã tải không cần key |
 
 ### 2. `ai_service/.env`
 | Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
@@ -254,6 +254,8 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 - `npm run test:content-moderation`: Kiểm thử API/DB/worker/HTTP kiểm duyệt và migration/seed trên DB test.
 - `npm run db:repair-ingredients`: Cập nhật chi tiết dinh dưỡng nguyên liệu từ catalog chuẩn (`scripts/repair-ingredients.js`).
 - `npm run db:import-ingredient-images`: Tải và lưu trữ binary ảnh nguyên liệu vào PostgreSQL (`scripts/import-ingredient-images.js`).
+- `node scripts/repairRestaurantImages.js`: Chuẩn bị ảnh đúng Google Place ID và manifest, chưa ghi DB; chỉ dùng khi còn mã ảnh chưa giải quyết. `--apply` kiểm tra hash rồi cập nhật có điều kiện trong transaction. Xem [quy trình bảo trì](docs/real-image-repairs.md) trước khi chạy.
+- `npm run test:real-images`: Kiểm tra hash, ảnh trùng và HTTP cho ảnh quán/công thức đã tải; chạy riêng sau khi khôi phục uploads, không nằm trong `npm test` mặc định.
 - `npm run assets:sync`: Đồng bộ nguồn ảnh nguyên liệu từ Wikimedia (`scripts/sync-ingredient-assets.js`).
 
 ### Frontend (`client/`)
@@ -272,6 +274,8 @@ Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằn
 
 ## 10. 📚 Link tài liệu API & ERD
 
+- **Health quản trị & AI chưa có dữ liệu:** [`docs/admin-health-openapi.json`](docs/admin-health-openapi.json).
+- **Ảnh đã xác minh, nguồn và cách chuyển máy:** [`docs/real-image-repairs.md`](docs/real-image-repairs.md), [ảnh quán](docs/restaurant-image-sources.json), [ảnh công thức](docs/recipe-image-sources.json).
 - **AI Gateway, persistence & migration:** [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md), [`docs/ai-openapi.json`](docs/ai-openapi.json).
 - **Kiểm duyệt cộng đồng:** [`docs/CONTENT_MODERATION.md`](docs/CONTENT_MODERATION.md), [`docs/content-moderation-openapi.json`](docs/content-moderation-openapi.json).
 - **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
@@ -294,6 +298,15 @@ npm run test:prepare
 npm test
 npm run test:database
 ```
+
+Kiểm tra riêng health/RBAC, timeout và ảnh đã sửa (từ `server/`, với `.env.test` đã cấu hình và ảnh trong uploads đã được sao chép):
+
+```powershell
+npx vitest run tests/adminHealthApi.test.js tests/adminHealth.test.js tests/adminModelStatus.test.js tests/restaurantImageRepair.test.js tests/placePhoto.test.js tests/placePhotoResolution.test.js tests/ingredientImageImport.test.js tests/places.test.js
+npm run test:real-images
+```
+
+`test:real-images` đọc hai manifest, kiểm tra hash duy nhất và HTTP phục vụ ảnh local, không tải Internet hay ghi DB. `adminHealthApi.test.js` xác thực bằng DB `_test` thật và dùng HTTP fixture local cho tình huống AI lên/lỗi/treo; không cần inference provider. Test ảnh yêu cầu file binary đã sửa, không tự sinh ảnh thay thế khi thiếu file. Bộ `npm test` mặc định không phụ thuộc uploads đã tải trên máy này.
 
 `test:prepare` reset schema public của DB test local, áp dụng migration thật rồi seed SQL. Integration ảnh (`npm run test:ingredient-images`) cần 28 ảnh nguyên liệu thật được import vào DB test; xem tài liệu AI integration. Mỗi file test chạy tuần tự để tránh xung đột fixture cũ.
 
@@ -334,7 +347,7 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
    - *Khắc phục:* Mở `Services` trên Windows, kiểm tra dịch vụ `postgresql-x64-15` đang ở trạng thái `Running`. Kiểm tra lại user/password trong file `.env`.
 2. **Lỗi 403 Forbidden khi truy cập `/api/admin/*`:**
    - *Nguyên nhân:* Đang dùng tài khoản thành viên thông thường (Role 2).
-   - *Khắc phục:* Đăng nhập bằng tài khoản Quản trị viên `admin@swp391.com` / `123456`.
+   - *Khắc phục:* Đăng nhập bằng tài khoản quản trị thật đang hoạt động trong DB; role trong DB quyết định quyền truy cập.
 3. **Lỗi 401 Unauthorized khi Backend gọi AI Service:**
    - *Nguyên nhân:* `INTERNAL_API_KEY` trong `server/.env` không khớp với `INTERNAL_API_KEY` trong `ai_service/.env`.
    - *Khắc phục:* Kiểm tra và đồng bộ giá trị khóa bí mật giữa hai file môi trường.
@@ -344,6 +357,8 @@ Provider được thay thế chỉ trong test; test không gọi DeepSeek thật
 5. **Nội dung kiểm duyệt chờ mãi hoặc job `FAILED`:** Kiểm tra cờ bật, worker chạy đúng DB, khóa nội bộ và provider key. Không seed/reset DB để sửa hàng chờ; Admin có thể duyệt/gỡ thủ công. Xem [bảng lỗi kiểm duyệt](docs/CONTENT_MODERATION.md#xử-lý-sự-cố).
 6. **Video chờ mãi, Groq chưa nhận request:** Khởi động lại BE bằng `npm run dev` / `npm start` để chạy worker tích hợp; kiểm tra `YT_DLP_PATH`, kết nối YouTube và trạng thái/stage của job. Groq chỉ được gọi sau bước metadata/tải âm thanh. Xem [luồng video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền); không seed/reset DB để xử lý hàng chờ.
 7. **Food Scanner báo lỗi hoặc chưa kết luận:** Ảnh tối đa 10 MiB, JPEG/PNG/WebP; model phải hỗ trợ ảnh. Lỗi AI không tạo kết quả thành công giả. `nutritionEstimate=null` nghĩa là chưa có số liệu, không phải 0. Xem [hợp đồng quét ảnh](docs/AI_INTEGRATION.md#quét-ảnh-và-lưu-nhật-ký).
+8. **Health báo AI DOWN hoặc “Chưa có dữ liệu”:** Kiểm tra AI Service port 8000, `AI_SERVICE_URL` và khóa nội bộ; sau đó bấm “Kiểm tra lại”. `UNKNOWN` của mô hình nghĩa là chưa có log phù hợp, không phải lỗi hay tỷ lệ thành công 0%. DB lỗi có thể chặn xác thực admin trước khi chạy probe.
+9. **Ảnh trống sau khi chuyển máy:** Khôi phục đúng thư mục uploads cùng DB, giữ nguyên tên file/hash trong manifest. Không chạy seed hoặc thay bằng ảnh stock; ảnh nguồn không lấy được được để trống. Tám ảnh công thức có nhãn “Ảnh món ăn tham khảo” vì có thể khác biến thể nguyên liệu.
 
 ---
 

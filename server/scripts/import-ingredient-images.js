@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\scripts\import-ingredient-images.js
+// D:/SWP391/SWP391/server/scripts/import-ingredient-images.js
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,6 @@ const normalize = (value) => value.replaceAll('_', ' ').toLowerCase();
 const plain = (value) => (value || '').replace(/<[^>]*>/g, '').replaceAll('&amp;', '&').replace(/\s+/g, ' ').trim();
 
 const WIKIMEDIA_USER_AGENT = 'ChayXanh-SWP391/1.0 (https://github.com/swp391; contact: support@chayxanh.local)';
-const DUMMY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
 async function photoInfo(entry) {
   const params = new URLSearchParams({
@@ -67,10 +66,10 @@ export async function importIngredientImages(db = prisma) {
       }
     }
 
-    // Fallback ảnh mẫu 1x1 đảm bảo toàn vẹn dữ liệu cho DB và tests
+    // A failed download must not overwrite a real stored photo with placeholder bytes.
     if (!image_data) {
-      image_data = DUMMY_PNG;
-      mime_type = 'image/png';
+      console.warn(`[seed] Chưa có ảnh thực tế cho "${entry.name}"; giữ nguyên ảnh trong DB.`);
+      continue;
     }
 
     const license = plain(info?.extmetadata?.LicenseShortName?.value) || 'Original project illustration';
@@ -102,6 +101,7 @@ export async function importIngredientImages(db = prisma) {
       license,
     });
   }
+  if (!assets.length) return 0;
   let imported = 0;
   await db.$transaction(
     async (tx) => {

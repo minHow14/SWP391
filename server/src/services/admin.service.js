@@ -711,12 +711,12 @@ export const getAiModelsStatus = async () => {
     const modelLogs = logs.filter((l) => m.actions.some((prefix) => l.action?.startsWith(prefix)));
     const totalCalls = modelLogs.length;
     const errorCalls = modelLogs.filter((l) => l.status === 'ERROR').length;
-    const successRate = totalCalls > 0 ? Math.round(((totalCalls - errorCalls) / totalCalls) * 100) : 100;
+    const successRate = totalCalls > 0 ? Math.round(((totalCalls - errorCalls) / totalCalls) * 100) : null;
     const lastActive = modelLogs[0]?.createdAt || null;
 
     return {
       ...m,
-      status: errorCalls > 2 ? 'DEGRADED' : 'HEALTHY',
+      status: totalCalls === 0 ? 'UNKNOWN' : errorCalls > 2 ? 'DEGRADED' : 'HEALTHY',
       totalCalls,
       errorCalls,
       successRate,

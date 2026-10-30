@@ -1,7 +1,20 @@
-// d:\Projects\FPT\SWP391\server\src\repositories\place.repository.js
+// D:/SWP391/SWP391/server/src/repositories/place.repository.js
+import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 
 export const placeRepository = {
+  replaceImageUrls(records, db = prisma) {
+    if (!records.length) return Promise.resolve([]);
+    const rows = Prisma.join(records.map((record) => Prisma.sql`
+      (${record.restaurantId}::integer, ${record.placeId}::text,
+       ${record.previousImageUrl}::text, ${record.imageUrl}::text)`));
+    return db.$queryRaw`
+      UPDATE restaurants AS restaurant SET image_url = image.image_url, updated_at = NOW()
+      FROM (VALUES ${rows}) AS image(restaurant_id, place_id, previous_image_url, image_url)
+      WHERE restaurant.restaurant_id = image.restaurant_id AND restaurant.place_id = image.place_id
+        AND restaurant.image_url IS NOT DISTINCT FROM image.previous_image_url
+      RETURNING restaurant.restaurant_id`;
+  },
   /**
    * Truy vấn danh sách nhà hàng lân cận ứng dụng Bounding Box và lọc theo chế độ ăn trên PostgreSQL
    */

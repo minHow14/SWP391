@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\routes\admin.route.js
+// D:/SWP391/SWP391/server/src/routes/admin.route.js
 import express from 'express';
 import * as adminController from '../controllers/admin.controller.js';
 import { authenticate, authorize } from '../middlewares/authMiddleware.js';
@@ -26,6 +26,7 @@ router.use(authenticate, authorize(ROLES.ADMIN));
 
 // FE-10: Dashboard tổng quan
 router.get('/dashboard/stats', adminController.getDashboardStats);
+router.get('/system-health', adminController.getSystemHealth);
 
 // Bảo trì & Data Retention (Xóa mềm 30 ngày & tự động xóa cứng)
 router.get('/maintenance/retention-stats', validate(retentionStatsQuerySchema, 'query'), adminController.getRetentionStats);

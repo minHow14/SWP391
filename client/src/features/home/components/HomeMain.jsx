@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/home/components/HomeMain.jsx
+// D:/SWP391/SWP391/client/src/features/home/components/HomeMain.jsx
 import { useState } from 'react';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -6,6 +6,7 @@ import { useDatabase } from '../../../hooks/useDatabase.js';
 import HomeContentDialog from './HomeContentDialog.jsx';
 import PostMedia from '../../community/components/PostMedia.jsx';
 import ContentImage from '../../../components/common/ContentImage.jsx';
+import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import heroPhoto from '../../../assets/images/chayxanh-bowl.webp';
 
 export default function HomeMain() {
@@ -44,7 +45,7 @@ export default function HomeMain() {
             <Col md={6} xl={3} key={recipe.recipe_id}>
               <Card className="cx-home-interactive-card border-0 rounded-4 h-100 overflow-hidden">
                 <Button variant="link" className="cx-home-media" aria-label={`Xem công thức ${recipe.recipe_name}`} onClick={() => openDetail('recipe', recipe)}>
-                  <ContentImage src={recipe.image} alt={recipe.recipe_name} className="cx-recipe-image" />
+                  <RecipeImage src={recipe.image} alt={recipe.recipe_name} className="cx-recipe-image" />
                 </Button>
                 <Card.Body className="p-3">
                   <h3 className="h6 fw-bold">{recipe.recipe_name}</h3>

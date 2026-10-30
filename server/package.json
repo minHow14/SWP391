@@ -25,6 +25,7 @@
     "test:database": "node tests/workspace.integration.mjs",
     "test:ai-internal-auth": "node tests/ai-internal-auth.integration.mjs",
     "test:ingredient-images": "node tests/ingredient-images.integration.mjs",
+    "test:real-images": "node tests/real-image-assets.integration.mjs",
     "assets:sync": "node scripts/sync-ingredient-assets.js",
     "seed": "npm run db:seed"
   },

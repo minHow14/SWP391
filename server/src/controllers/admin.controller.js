@@ -4,6 +4,11 @@ import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { legacyAiLogResponse } from '../utils/legacyAiLogResponse.js';
+import { getSystemHealth as checkSystemHealth } from '../services/adminHealthService.js';
+
+export const getSystemHealth = asyncHandler(async (req, res) => {
+  return sendSuccess(res, { data: await checkSystemHealth() });
+});
 
 // FE-01: Quản lý thành viên
 export const getUsers = asyncHandler(async (req, res) => {

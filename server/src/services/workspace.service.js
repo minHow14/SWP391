@@ -1,10 +1,10 @@
-// d:\Projects\FPT\SWP391\server\src\services\workspace.service.js
+// D:/SWP391/SWP391/server/src/services/workspace.service.js
 import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { workspaceRepository } from '../repositories/workspace.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { weekRangeOf } from '../utils/weekRange.js';
-import { defaultPlacePhoto } from './places.service.js';
+import { placePhotoUrl } from '../utils/placePhoto.js';
 
 export const ingredientImageUrl = (ingredientId) =>
   `/api/workspace/ingredients/${ingredientId}/image`;
@@ -132,8 +132,8 @@ export const workspaceService = {
         price_range: d?.price_range || 'Chưa cập nhật',
         price: d?.price_range || '',
         separate: d?.separate_kitchen ?? null,
-        image: p.image_url || defaultPlacePhoto(p.name || p.restaurant_id),
-        image_url: p.image_url || defaultPlacePhoto(p.name || p.restaurant_id),
+        image: placePhotoUrl(p.image_url),
+        image_url: placePhotoUrl(p.image_url),
         dishes: p.restaurant_recipes.map((link) => link.recipe.recipe_name).join(', '),
         menu: p.restaurant_recipes.map((link) => ({
           name: link.recipe.recipe_name,
@@ -508,7 +508,7 @@ export const workspaceService = {
         data: {
           name: data.name,
           address: data.address,
-          image_url: data.image_url || defaultPlacePhoto(data.name),
+          image_url: placePhotoUrl(data.image_url),
           diet_type_id: data.diet_type_id,
           latitude: data.latitude,
           longitude: data.longitude,

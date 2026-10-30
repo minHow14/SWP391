@@ -1,10 +1,10 @@
-// client/src/features/restaurants/components/RestaurantDetail.jsx
+// D:/SWP391/SWP391/client/src/features/restaurants/components/RestaurantDetail.jsx
 import { useState } from 'react';
 import ContentDialog from '../../../components/common/ContentDialog.jsx';
 import ContentImage from '../../../components/common/ContentImage.jsx';
 import { restaurantTypes } from '../../../constants/restaurantLabels.js';
 import { restaurantDirections } from '../../../utils/restaurantDirections.js';
-import { getSampleRestaurantPhoto } from '../utils/nearbyHelpers.js';
+import { resolveRestaurantPhoto } from '../utils/nearbyHelpers.js';
 
 const money = (value) => `${value.toLocaleString('vi-VN')}đ`;
 
@@ -29,7 +29,7 @@ export default function RestaurantDetail({ place, user, onReview, onClose }) {
     try{await onReview({stars,text:text.trim()});setText('');setNotice('Đã gửi đánh giá của bạn.');}catch(e){setNotice(e.message);}
   }
   return <ContentDialog title={`Chi tiết ${place.name}`} onClose={onClose} className="cx-restaurant-detail-dialog" hideHeader>
-    <div className="cx-restaurant-detail-hero"><ContentImage src={place.image || place.image_url} fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)} alt="Ảnh minh họa không gian hoặc món ăn của quán" /><button type="button" className="cx-detail-close" onClick={onClose} aria-label="Đóng chi tiết quán">×</button><div><span>{restaurantTypes.find((item) => item.id === place.type)?.name}</span><h2>{place.name}</h2></div></div>
+    <div className="cx-restaurant-detail-hero"><ContentImage src={resolveRestaurantPhoto(place)} emptyText="Chưa có ảnh thực tế" alt={`Ảnh quán ${place.name}`} /><button type="button" className="cx-detail-close" onClick={onClose} aria-label="Đóng chi tiết quán">×</button><div><span>{restaurantTypes.find((item) => item.id === place.type)?.name}</span><h2>{place.name}</h2></div></div>
     <div className="cx-restaurant-detail-body">
       <div className="cx-detail-stats">{[['star-fill', 'Đánh giá chung', place.rating ? `${place.rating} / 5.0` : 'Chưa đánh giá'], ['clock-fill', 'Giờ mở cửa', place.hours], ['tag-fill', 'Mức giá trung bình', place.proposed ? 'Chưa cập nhật' : priceRange]].map(([icon, label, value]) => <div key={label}><i className={`bi bi-${icon}`} aria-hidden="true" /><span><small>{label}</small><strong>{value}</strong></span></div>)}</div>
       <div className="cx-detail-address"><div><i className="bi bi-geo-alt-fill" aria-hidden="true" /><p><strong>Địa chỉ:</strong><span>{place.address}</span></p></div><div className="cx-detail-address-actions"><a href={restaurantDirections(place)} target="_blank" rel="noreferrer"><i className="bi bi-sign-turn-right-fill" aria-hidden="true" /> Chỉ Đường Google Maps</a><span><i className="bi bi-telephone-fill" aria-hidden="true" /> {place.phone || 'Chưa có số liên hệ'}</span><button type="button" onClick={copyAddress}><i className="bi bi-copy" aria-hidden="true" /> Sao Chép Địa Chỉ</button></div></div>

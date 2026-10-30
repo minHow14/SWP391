@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/pages/Restaurants.jsx
+// D:/SWP391/SWP391/client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -11,7 +11,7 @@ import RestaurantProposalForm from '../features/restaurants/components/Restauran
 import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
-import { getSampleRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
+import { resolveRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
 
 const typeName = (type) =>
   type === 'external'
@@ -194,7 +194,7 @@ export default function Restaurants() {
               key={place.id}
             >
               <div className="cx-restaurant-summary">
-                <ContentImage src={place.image || place.image_url} fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)} alt="Ảnh không gian hoặc món ăn minh họa" />
+                <ContentImage src={resolveRestaurantPhoto(place)} emptyText="Chưa có ảnh thực tế" alt={`Ảnh quán ${place.name}`} />
                 <div>
                   <span className={`cx-restaurant-type is-${place.type}`}>
                     {typeName(place.type)}
