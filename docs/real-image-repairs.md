@@ -67,9 +67,30 @@ Lệnh đầu chỉ chuẩn bị ảnh và manifest, dùng tối đa hai kết n
 - `npm test -- --reporter=dot` trong `server/`: 395/395 test, 47 file qua, exit 0. Lượt đầu có một test seed cũ timeout ở subprocess 60 giây; chạy riêng lại hai test seed qua, rồi chạy lại toàn bộ suite qua trong 69,36 giây. Seed test chỉ dùng DB `seed_*_test` tạm, không chạy seed trên DB phát triển.
 - `npm run test:real-images`: xác minh đủ 34 ảnh quán/công thức, hash duy nhất và HTTP 200. DB local chỉ được đọc để đối chiếu tổng 64 ảnh binary như mô tả trên.
 - Frontend: `npm test` 94/94 test; `npm run test:ui -- --reporter=dot` 79/79 test trong 16 file; build thành công. Lint exit 0, không có lỗi, còn hai cảnh báo dependency có sẵn trong `RestaurantMap.jsx`; build còn cảnh báo chunk trên 500 kB.
-- `venv/Scripts/python.exe -m pytest tests/test_health.py -q`: hai test qua; năm cảnh báo deprecation từ SlowAPI. Không gọi inference provider thật và không chạy lại toàn bộ suite AI vì không đổi mã AI ở đợt sửa này.
+- Ở lượt Phase 3 ban đầu, `venv/Scripts/python.exe -m pytest tests/test_health.py -q`: hai test qua; năm cảnh báo deprecation từ SlowAPI. Lượt này chỉ kiểm tra health, chưa chạy toàn bộ suite AI; kết quả bổ sung toàn suite nằm dưới đây.
 - OpenAPI parse JSON thành công, 11 local `$ref` đều tồn tại; README đủ 14 mục. `git diff --check` qua. Review độc lập đã xác nhận sửa lỗi phụ thuộc ảnh local của suite mặc định và không còn phát hiện cần xử lý.
 - Không commit, không reset DB phát triển, không thêm DevOps. Hướng dẫn nguồn/giấy phép và sao chép uploads ở trên vẫn áp dụng khi chuyển dữ liệu sang máy khác.
+
+## Kiểm tra bổ sung sau commit 15b189c
+
+Lời báo hoàn tất ban đầu chưa nêu đủ giới hạn kiểm thử: 395 test backend mặc định không bao gồm các integration `.mjs` chạy riêng; phía AI mới chỉ chạy hai test health. Sau khi người dùng yêu cầu kiểm tra lại, đã chạy thêm:
+
+| Lệnh | Kết quả |
+| --- | --- |
+| `ai_service/venv/Scripts/python.exe -m pytest tests -q` từ thư mục gốc | 242 test qua, năm cảnh báo deprecation SlowAPI |
+| `venv/Scripts/python.exe -m ruff check agents api core schemas main.py tests` từ `ai_service/` | Qua, không có lỗi |
+| `npm run test:database` từ `server/` | Qua sau khi sửa assertion ảnh stock đã lỗi thời |
+| `npm run test:ingredient-images` từ `server/` | Qua, 28 ảnh trong DB test khớp bytes/hash qua API |
+| `npm run test:ai-internal-auth` từ `server/` | Qua, HTTP thật BE → FastAPI với khóa sai/đúng, hoàn quota và provider không khả dụng |
+| `npm run test:real-images` từ `server/` | Qua, 34 ảnh local có hash riêng biệt và HTTP đúng |
+
+Integration Workspace cũ còn yêu cầu giữ URL Unsplash dù yêu cầu nghiệp vụ đã loại ảnh stock. Đã thay bằng ba trường hợp thiếu ảnh/stock/local, kiểm tra cả response API và `restaurants.image_url` lưu trong DB. Thiếu ảnh và stock phải là `null`, URL local hợp lệ được giữ. Không thay mã production để chiều theo assertion cũ.
+
+Fixture đề xuất quán được ghi nhận bằng tên UUID trước khi gửi request; kiểm tra ID trả về và dọn quán/tài khoản test trong transaction ở `finally`, kể cả khi response hoặc assertion lỗi. Đã dọn đúng một bản ghi fixture còn sót từ lần chạy thất bại trên DB `_test`. Review độc lập không còn phát hiện cần xử lý trong thay đổi này.
+
+Sau khi sửa integration, đã chạy lại bộ backend mặc định: 395/395 test trong 47 file, exit 0; client Node: 94/94; UI: 79/79 trong 16 file. Frontend lint exit 0 với hai cảnh báo dependency cũ, build exit 0 với cảnh báo chunk trên 500 kB. Cộng với 242 test AI và bốn integration riêng ở trên, toàn bộ các suite tự động hiện có đã được chạy; các alias video/kiểm duyệt là tập con của suite mặc định, không tính lặp số test.
+
+Các suite tự động đã chạy không đồng nghĩa toàn bộ hành vi thực tế không còn lỗi. Chưa xác minh suy luận bằng API key/provider thật, toàn bộ luồng người dùng bằng E2E, hay toàn bộ dữ liệu seed/demo. Integration AI sử dụng HTTP thật với provider bị vô hiệu hóa có chủ đích. DB phát triển không bị seed/reset hoặc cập nhật bởi các bài kiểm tra này.
 
 ## Phạm vi còn lại của dữ liệu demo
 
