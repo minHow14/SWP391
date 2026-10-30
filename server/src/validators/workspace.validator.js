@@ -39,6 +39,11 @@ export const planRecordSchema = z.object({
   date: dateSchema,
 }).strict();
 
+export const applyAiMealPlanSchema = z.object({
+  generationId: z.uuid(),
+  date: dateSchema,
+}).strict();
+
 export const suggestRestaurantSchema = z.object({
   name: textSchema(255),
   address: textSchema(255),

@@ -1,4 +1,4 @@
-// client/src/features/restaurants/components/NearbyPlaces.jsx
+// D:/SWP391/SWP391/client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
@@ -6,25 +6,12 @@ import { restaurantDirections } from '../../../utils/restaurantDirections.js';
 import ContentImage from '../../../components/common/ContentImage.jsx';
 import {
   CITY_HUBS,
-  HCM_HUBS,
   RADIUS_OPTIONS,
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
   resolveRestaurantPhoto,
-  getSampleRestaurantPhoto,
 } from '../utils/nearbyHelpers.js';
-
-export {
-  CITY_HUBS,
-  HCM_HUBS,
-  RADIUS_OPTIONS,
-  DIET_OPTIONS,
-  checkIsOpenNow,
-  getPosition,
-  resolveRestaurantPhoto,
-  getSampleRestaurantPhoto,
-};
 
 /**
  * Tìm quán chay quanh vị trí người dùng hoặc tại các khu vực trọng điểm đa tỉnh thành.
@@ -400,8 +387,8 @@ export default function NearbyPlaces({
                   <li key={place.id} className="cx-nearby-item">
                     <div className="cx-nearby-thumb-wrap">
                       <ContentImage
-                        src={place.image || place.image_url}
-                        fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)}
+                        src={resolveRestaurantPhoto(place)}
+                        emptyText="Chưa có ảnh thực tế"
                         alt={place.name}
                         className="cx-place-thumb"
                       />

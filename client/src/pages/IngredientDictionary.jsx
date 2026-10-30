@@ -1,5 +1,6 @@
-﻿// client/src/pages/IngredientDictionary.jsx
+// D:/SWP391/SWP391/client/src/pages/IngredientDictionary.jsx
 import { useState } from 'react';
+import { useOutletContext } from 'react-router';
 import IngredientPreview from '../features/ingredients/components/IngredientPreview.jsx';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
@@ -7,7 +8,8 @@ import ContentImage from '../components/common/ContentImage.jsx';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 
 export default function IngredientDictionary() {
-  const { data } = useDatabase();
+  const { data, reload } = useDatabase();
+  const { diet } = useOutletContext() || {};
   const ingredients = data.ingredients;
   const ingredientCategories = [
     { id: 'all', name: 'Tất Cả', emoji: '🌱' },
@@ -27,6 +29,13 @@ export default function IngredientDictionary() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [detail, setDetail] = useState(null);
+  async function showSavedIngredient(ingredient, signal) {
+    const catalog = await reload();
+    if (signal.aborted) return;
+    setCategory('all');
+    setQuery('');
+    setDetail(catalog.ingredients.find((item) => String(item.id) === String(ingredient.id)) || ingredient);
+  }
   const search = normalizeSearch(query.trim());
   const filtered = ingredients.filter(
     (item) =>
@@ -49,7 +58,12 @@ export default function IngredientDictionary() {
           Tra cứu nguyên liệu cơ bản, phụ gia E-number và tìm hiểu nguồn gốc,
           cách sử dụng trong món chay.
         </p>
-        <IngredientPreview ingredients={ingredients} />
+        <IngredientPreview
+          ingredients={ingredients}
+          dietId={diet?.diet_type_id ?? 1}
+          onSelect={setDetail}
+          onSaved={showSavedIngredient}
+        />
         <div className="cx-discovery-search">
           <i className="bi bi-search" aria-hidden="true" />
           <label className="visually-hidden" htmlFor="ingredient-search">

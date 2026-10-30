@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\middlewares\errorMiddleware.js
+// D:/SWP391/SWP391/server/src/middlewares/errorMiddleware.js
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 import logger from '../config/logger.js';
 
@@ -29,7 +29,10 @@ export const globalErrorHandler = (err, req, res, next) => {
   let errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
   let message = err.message || 'Lỗi máy chủ nội bộ';
 
-  if (isUniqueViolation) {
+  if (err.type === 'entity.too.large') {
+    errorCode = 'PAYLOAD_TOO_LARGE';
+    message = 'Dữ liệu gửi lên vượt quá dung lượng cho phép.';
+  } else if (isUniqueViolation) {
     statusCode = HTTP_STATUS.CONFLICT;
     errorCode = 'RESOURCE_ALREADY_EXISTS';
     message = 'Dữ liệu đã tồn tại';

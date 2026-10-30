@@ -1,6 +1,7 @@
 # D:/SWP391/SWP391/ai_service/main.py
 # ai_service/main.py
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from uuid import uuid4
 
@@ -14,20 +15,27 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
+from api.content_moderation import router as content_moderation_router
 from api.food_scanner import router as food_scanner_router
+from api.ingredient_lookup import router as ingredient_lookup_router
 from api.meal_planner import router as meal_planner_router
-from api.video_recipe import router as video_recipe_router, video_recipe_error_handler
+from api.video_recipe import router as video_recipe_router
+from api.video_recipe import video_recipe_error_handler
 from core.config import settings
 from core.ratelimit import limiter
 from core.security import verify_internal_api_key
 from core.video_recipe_errors import VideoRecipeError
+from services.content_moderation import initialize_content_moderation
+from services.ingredient_lookup import initialize_ingredient_lookup
 
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Dịch vụ AI chạy ở chế độ Stateless (không kết nối PostgreSQL)
+    initialize_content_moderation()
+    initialize_ingredient_lookup()
     logger.info("AI Service started successfully.")
     yield
     logger.info("AI Service shutdown.")
@@ -68,10 +76,14 @@ async def request_id_middleware(request: Request, call_next):
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.TRUSTED_PROXIES)
 
 
-def error_response(request: Request, status_code: int, code: str, message: str, details=None):
+def error_response(
+    request: Request, status_code: int, code: str, message: str, details=None
+):
     """Chuẩn hóa response lỗi theo API Contract thống nhất toàn dự án."""
     request_id = getattr(request.state, "request_id", None) or f"req_{uuid4().hex[:12]}"
-    errors_list = details if isinstance(details, list) else ([details] if details else [])
+    errors_list = (
+        details if isinstance(details, list) else ([details] if details else [])
+    )
     return JSONResponse(
         status_code=status_code,
         content={
@@ -87,8 +99,16 @@ def error_response(request: Request, status_code: int, code: str, message: str, 
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
-    errors = [{"field": ".".join(str(part) for part in item["loc"][1:]), "message": item["msg"]} for item in exc.errors()]
-    return error_response(request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", errors)
+    errors = [
+        {
+            "field": ".".join(str(part) for part in item["loc"][1:]),
+            "message": item["msg"],
+        }
+        for item in exc.errors()
+    ]
+    return error_response(
+        request, 422, "INVALID_INPUT", "Dữ liệu đầu vào không hợp lệ.", errors
+    )
 
 
 @app.exception_handler(RateLimitExceeded)
@@ -118,7 +138,9 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException):
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
     logger.error("Unhandled AI error exceptionType=%s", type(exc).__name__)
-    return error_response(request, 500, "INTERNAL_ERROR", "Đã xảy ra lỗi máy chủ trong dịch vụ AI.")
+    return error_response(
+        request, 500, "INTERNAL_ERROR", "Đã xảy ra lỗi máy chủ trong dịch vụ AI."
+    )
 
 
 # Root Endpoint
@@ -151,8 +173,11 @@ app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_actions_router, prefix="/api")
 app.include_router(food_scanner_router, prefix="/api")
 app.include_router(video_recipe_router, prefix="/api")
+app.include_router(content_moderation_router, prefix="/api")
+app.include_router(ingredient_lookup_router, prefix="/api")
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/pages/Restaurants.jsx
+// D:/SWP391/SWP391/client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -11,7 +11,7 @@ import RestaurantProposalForm from '../features/restaurants/components/Restauran
 import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
-import { getSampleRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
+import { resolveRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
 
 const typeName = (type) =>
   type === 'external'
@@ -30,14 +30,14 @@ export default function Restaurants() {
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
   const [searchContext, setSearchContext] = useState(null);
-  const [popupOpen, setPopupOpen] = useState(true);
   const [proposing, setProposing] = useState(false);
   const [notice, setNotice] = useState('');
   const [detail, setDetail] = useState(null);
   const map = useRef(null);
+  const list = useRef(null);
 
   const search = normalizeSearch(query.trim());
-  const filtered = places
+  const sorted = places
     .filter(
       (place) =>
         (type === 'all' || place.type === type) &&
@@ -51,6 +51,9 @@ export default function Restaurants() {
           ? a.price.length - b.price.length
           : b.rating - a.rating
     );
+  // Quán vừa chọn trên bản đồ được đưa lên đầu danh sách để người dùng thấy ngay.
+  const pinned = sorted.find((place) => place.id === selectedId);
+  const filtered = pinned ? [pinned, ...sorted.filter((place) => place !== pinned)] : sorted;
 
   const visibleNearby = nearbyPlaces
     .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
@@ -72,7 +75,7 @@ export default function Restaurants() {
     setCity('all');
     const matchedInCatalog = places.find((p) => p.id === place.restaurant_id || p.id === place.id);
     setSelectedId(matchedInCatalog ? matchedInCatalog.id : place.id);
-    setPopupOpen(true);
+    list.current?.scrollTo({ top: 0, behavior: 'smooth' });
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
@@ -83,7 +86,6 @@ export default function Restaurants() {
     setType('all');
     setCity('all');
     setSelectedId(place.restaurant_id || place.id);
-    setPopupOpen(true);
     setProposing(false);
     setNotice('Đã thêm địa điểm mới.');
   }
@@ -128,10 +130,7 @@ export default function Restaurants() {
             <span className="visually-hidden">Phân loại quán</span>
             <select
               value={type}
-              onChange={(event) => {
-                setType(event.target.value);
-                setPopupOpen(true);
-              }}
+              onChange={(event) => setType(event.target.value)}
             >
               <option value="all">☀ Tất Cả Nhãn Minh Bạch</option>
               {restaurantTypes.map((item) => (
@@ -145,10 +144,7 @@ export default function Restaurants() {
             <span className="visually-hidden">Khu vực</span>
             <select
               value={city}
-              onChange={(event) => {
-                setCity(event.target.value);
-                setPopupOpen(true);
-              }}
+              onChange={(event) => setCity(event.target.value)}
             >
               <option value="all">📍 Tất Cả Khu Vực</option>
               {Array.from(new Set(places.map((place) => place.city))).map((c) => (
@@ -188,7 +184,7 @@ export default function Restaurants() {
       )}
 
       <div className="cx-restaurant-workspace">
-        <section className="cx-restaurant-list" aria-label="Danh sách quán chay">
+        <section className="cx-restaurant-list" aria-label="Danh sách quán chay" ref={list}>
           <p className="visually-hidden" role="status">
             Hiển thị {filtered.length} địa điểm phù hợp.
           </p>
@@ -198,7 +194,7 @@ export default function Restaurants() {
               key={place.id}
             >
               <div className="cx-restaurant-summary">
-                <ContentImage src={place.image || place.image_url} fallbackSrc={getSampleRestaurantPhoto(place.name || place.id)} alt="Ảnh không gian hoặc món ăn minh họa" />
+                <ContentImage src={resolveRestaurantPhoto(place)} emptyText="Chưa có ảnh thực tế" alt={`Ảnh quán ${place.name}`} />
                 <div>
                   <span className={`cx-restaurant-type is-${place.type}`}>
                     {typeName(place.type)}
@@ -296,48 +292,6 @@ export default function Restaurants() {
                 searchCenter={searchContext?.center}
                 searchRadius={searchContext?.radius}
               />
-              <button
-                type="button"
-                className="cx-map-reopen"
-                onClick={() => setPopupOpen(!popupOpen)}
-                aria-expanded={popupOpen}
-              >
-                <i className="bi bi-geo-alt-fill" aria-hidden="true" />{' '}
-                {popupOpen ? 'Ẩn thông tin quán' : 'Xem thông tin quán'}
-              </button>
-              {popupOpen && (
-                <article className="cx-map-place-popup">
-                  <button
-                    type="button"
-                    className="cx-map-popup-close"
-                    aria-label="Đóng thông tin trên bản đồ"
-                    onClick={() => setPopupOpen(false)}
-                  >
-                    ×
-                  </button>
-                  <div className="cx-map-popup-photo">
-                    <ContentImage src={selected.image || selected.image_url} fallbackSrc={getSampleRestaurantPhoto(selected.name || selected.id)} alt="Ảnh minh họa quán đang chọn" />
-                    {selected.rating > 0 && <span>⭐ {selected.rating}</span>}
-                  </div>
-                  <div className="cx-map-popup-body">
-                    <small>{typeName(selected.type)}</small>
-                    <h2>{selected.name}</h2>
-                    <p>📍 {selected.address}</p>
-                    <div>
-                      <span>◷ {selected.hours}</span>
-                      <span>Địa điểm</span>
-                    </div>
-                    <a
-                      href={directions(selected, userLocation)}
-                      target="_blank"
-                      rel="noreferrer"
-                      title="Chỉ đường từ vị trí của bạn"
-                    >
-                      🧭 Chỉ đường tới quán
-                    </a>
-                  </div>
-                </article>
-              )}
             </>
           ) : (
             <div className="cx-map-no-results">

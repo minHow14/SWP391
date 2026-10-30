@@ -27,23 +27,32 @@ class Settings(BaseSettings):
     )
 
     # Khóa xác thực nội bộ bắt buộc Backend Node.js gửi kèm header X-Internal-Api-Key
-    INTERNAL_API_KEY: str = Field(min_length=MIN_KEY_LENGTH, max_length=MAX_KEY_LENGTH, repr=False)
+    INTERNAL_API_KEY: str = Field(
+        min_length=MIN_KEY_LENGTH, max_length=MAX_KEY_LENGTH, repr=False
+    )
 
     @field_validator("INTERNAL_API_KEY")
     @classmethod
     def validate_internal_api_key(cls, value: str) -> str:
         if not is_valid_internal_api_key(value):
-            raise ValueError("INTERNAL_API_KEY must use printable ASCII characters without whitespace.")
+            raise ValueError(
+                "INTERNAL_API_KEY must use printable ASCII characters without whitespace."
+            )
         return value
 
     # DeepSeek: chatbot hỏi đáp và sinh thực đơn tuần
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_MODEL: str = "deepseek-chat"
     DEEPSEEK_FALLBACK_MODEL: str = "deepseek-v4-pro"
+    CONTENT_MODERATION_TIMEOUT_SECONDS: int = Field(default=20, ge=1, le=120)
 
     DEBUG: bool = False
 
-    ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5000"]
+    ALLOWED_ORIGINS: Annotated[list[str], NoDecode] = [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://localhost:5000",
+    ]
     TRUSTED_PROXIES: Annotated[list[str], NoDecode] = ["127.0.0.1", "::1"]
 
     RATE_LIMIT: str = "30/minute"
@@ -54,5 +63,6 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [item.strip() for item in value.split(",") if item.strip()]
         return value
+
 
 settings = Settings()

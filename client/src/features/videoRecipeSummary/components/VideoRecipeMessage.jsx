@@ -38,7 +38,7 @@ export default function VideoRecipeMessage({ message, busy, onRetry }) {
     {message.requestId && failure && <p className="cx-video-recipe-note">Mã yêu cầu: {message.requestId}</p>}
     {message.needsLogin ? <Link to="/dang-nhap">Đăng nhập để tạo công thức</Link> : failure && <Button
       variant="outline-success" size="sm" disabled={busy} onClick={() => onRetry(message)}>
-      {message.job?.status === 'FAILED' ? 'Thử tạo lại' : message.job ? 'Tiếp tục theo dõi' : 'Gửi lại yêu cầu'}
+      {message.historyError ? 'Tải lại lịch sử video' : message.job?.status === 'FAILED' ? 'Thử tạo lại' : message.job ? 'Tiếp tục theo dõi' : 'Gửi lại yêu cầu'}
     </Button>}
     {message.videoUrl && <a className="cx-video-recipe-source" href={message.videoUrl} target="_blank" rel="noopener noreferrer">Xem video nguồn <i className="bi bi-box-arrow-up-right" aria-hidden="true" /></a>}
   </div>;

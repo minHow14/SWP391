@@ -1,5 +1,8 @@
-// client/src/services/foodScannerService.js
+// D:/SWP391/SWP391/client/src/services/foodScannerService.js
 import apiClient from './apiClient.js';
+
+// Give the gateway's default 180-second budget time to return a persisted outcome.
+const FOOD_SCAN_TIMEOUT_MS = 190_000;
 
 /**
  * Chuyển đổi File ảnh sang chuỗi Base64
@@ -38,7 +41,7 @@ export async function analyzeFoodImage({
   scanType = 'AUTO',
   dishName = '',
   allergies = [],
-}) {
+}, signal) {
   const response = await apiClient.post('/ai/food-scanner/analyze', {
     imageBase64,
     mimeType,
@@ -46,7 +49,7 @@ export async function analyzeFoodImage({
     scanType,
     dishName,
     allergies,
-  });
+  }, { signal, timeout: FOOD_SCAN_TIMEOUT_MS });
 
   return response;
 }

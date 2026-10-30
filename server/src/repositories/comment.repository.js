@@ -1,7 +1,10 @@
-// d:\Projects\FPT\SWP391\server\src\repositories\comment.repository.js
+// D:/SWP391/SWP391/server/src/repositories/comment.repository.js
 import prisma from '../config/prisma.js';
 
 export const commentRepository = {
+  lockForUpdate(commentId, db = prisma) {
+    return db.$queryRaw`SELECT comment_id FROM comments WHERE comment_id = ${commentId} FOR UPDATE`;
+  },
   async create(data, include = null, db = prisma) {
     return db.comment.create({
       data,

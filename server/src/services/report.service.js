@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\report.service.js
+// D:/SWP391/SWP391/server/src/services/report.service.js
 import { reportRepository } from '../repositories/report.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
@@ -9,7 +9,8 @@ export const createReport = async (userId, { postId, commentId, reason }) => {
   // ƯU TIÊN 1: BÁO CÁO BÌNH LUẬN (nếu có commentId)
   if (commentId) {
     const comment = await commentRepository.findById(commentId, { post: true });
-    if (!comment || comment.status === COMMENT_STATUS.DELETED) {
+    if (!comment || comment.status !== COMMENT_STATUS.ACTIVE || comment.deleted_at ||
+      comment.post?.status !== POST_STATUS.PUBLISHED || comment.post?.deleted_at) {
       throw ApiError.notFound('Bình luận không tồn tại hoặc đã bị xóa');
     }
     if (comment.user_id === userId) {
@@ -56,7 +57,7 @@ export const createReport = async (userId, { postId, commentId, reason }) => {
   // ƯU TIÊN 2: BÁO CÁO BÀI VIẾT (chỉ có postId, không có commentId)
   if (postId) {
     const post = await postRepository.findPostById(postId);
-    if (!post || post.status === POST_STATUS.DELETED) {
+    if (!post || post.status !== POST_STATUS.PUBLISHED || post.deleted_at) {
       throw ApiError.notFound('Bài viết không tồn tại hoặc đã bị gỡ');
     }
     if (post.author_id === userId) {

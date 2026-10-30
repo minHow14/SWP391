@@ -1,4 +1,4 @@
-// client/src/features/community/components/CommunityPost.jsx
+// D:/SWP391/SWP391/client/src/features/community/components/CommunityPost.jsx
 import { Button, Card, Spinner, Badge } from 'react-bootstrap';
 import { formatCreatedAt } from '../../../utils/formatters.js';
 import PostMedia from './PostMedia.jsx';
@@ -8,7 +8,9 @@ const POST_STATUS_LABELS = {
   PUBLISHED: 'Công khai',
   DRAFT: 'Bản nháp',
   PENDING: 'Chờ duyệt',
-  HIDDEN_BY_AI: 'Đã ẩn',
+  PENDING_MODERATION: 'Đang kiểm duyệt',
+  HIDDEN_BY_AI: 'Chờ Admin xem xét',
+  HIDDEN: 'Đã ẩn',
 };
 
 export default function CommunityPost({
@@ -24,6 +26,7 @@ export default function CommunityPost({
   const liked = post.post_votes?.some((vote) => vote.user_id === user?.user_id);
   const isAuthor = user && post.author_id === user.user_id;
   const isVideo = post.post_type === 'VIDEO' || Boolean(post.video_url);
+  const isPublic = post.status === 'PUBLISHED';
 
   const handleDelete = () => {
     const itemLabel = isVideo ? 'video' : 'bài viết';
@@ -101,7 +104,7 @@ export default function CommunityPost({
         <Button
           variant="link"
           className={liked ? 'is-liked' : ''}
-          disabled={!user || voting}
+          disabled={!user || voting || !isPublic}
           aria-pressed={Boolean(liked)}
           onClick={() => onVote(post)}
         >
@@ -112,13 +115,14 @@ export default function CommunityPost({
           )}
           {post.vote_count || 0} Thích
         </Button>
-        <Button variant="link" onClick={() => onComment(post.post_id)}>
+        <Button variant="link" disabled={!isPublic} onClick={() => onComment(post.post_id)}>
           <i className="bi bi-chat-left-text" aria-hidden="true" />
           {post.comments?.length || 0} Bình luận
         </Button>
         <Button
           variant="link"
           className="cx-report-button"
+          disabled={!isPublic || isAuthor}
           onClick={() =>
             onReport({
               type: 'post',

@@ -141,3 +141,9 @@
   .cx-journal-meal-items > div > span { font-size: 10px; }
   .cx-journal-planner { padding: 18px; }
 }
+.cx-journal-ai-meal { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 12px 14px; border: 1px dashed #86d5a4; border-radius: 15px; background: #f0fdf4; }
+.cx-journal-ai-meal > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cx-journal-ai-meal strong { color: #14532d; font-size: 13px; overflow-wrap: anywhere; }
+.cx-journal-ai-meal small { color: #526174; font-size: 11px; }
+.cx-journal-ai-meal button { flex-shrink: 0; padding: 7px 12px; border: 0; border-radius: 99px; background: #15803d; color: #fff; font-size: 11px; font-weight: 750; }
+.cx-journal-ai-meal button:hover { background: #166534; }

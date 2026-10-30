@@ -1,4 +1,4 @@
-// client/src/pages/Community.jsx
+// D:/SWP391/SWP391/client/src/pages/Community.jsx
 import { useState, useMemo } from 'react';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -8,6 +8,7 @@ import PostComposer from '../features/community/components/PostComposer.jsx';
 import CommunityPost from '../features/community/components/CommunityPost.jsx';
 import PostComments from '../features/community/components/PostComments.jsx';
 import ReportDialog from '../features/community/components/ReportDialog.jsx';
+import ModerationStatusPanel from '../features/community/components/ModerationStatusPanel.jsx';
 import '../features/community/styles/community.css';
 
 export default function Community() {
@@ -121,6 +122,7 @@ export default function Community() {
               {community.notice}
             </Alert>
           )}
+          {view === 'mine' && community.user && <ModerationStatusPanel moderation={community.moderation} />}
 
           {error ? (
             <Alert variant="danger">
@@ -189,6 +191,7 @@ export default function Community() {
           onClose={() => setComposer(null)}
           onSaved={(blog) => {
             community.postSaved(blog);
+            if (blog.jobId) setView('mine');
             setComposer(null);
           }}
         />

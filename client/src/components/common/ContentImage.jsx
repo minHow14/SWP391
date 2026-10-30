@@ -1,4 +1,4 @@
-// client/src/components/common/ContentImage.jsx
+// D:/SWP391/SWP391/client/src/components/common/ContentImage.jsx
 import { useState } from 'react';
 
 export default function ContentImage({
@@ -6,14 +6,10 @@ export default function ContentImage({
   alt,
   className = '',
   emptyText = 'Chưa có ảnh',
-  fallbackSrc = null,
 }) {
   const [failedSrc, setFailedSrc] = useState('');
-  const [triedFallback, setTriedFallback] = useState(false);
 
-  const currentSrc = (!src || failedSrc === src) ? (triedFallback ? null : fallbackSrc) : src;
-
-  if (!currentSrc) {
+  if (!src || failedSrc === src) {
     return (
       <div
         className={`cx-image-fallback ${className}`}
@@ -28,18 +24,11 @@ export default function ContentImage({
 
   return (
     <img
-      src={currentSrc}
+      src={src}
       alt={alt}
       className={className}
       loading="lazy"
-      onError={() => {
-        if (currentSrc === src && fallbackSrc && fallbackSrc !== src) {
-          setFailedSrc(src);
-        } else {
-          setTriedFallback(true);
-          setFailedSrc(currentSrc);
-        }
-      }}
+      onError={() => setFailedSrc(src)}
     />
   );
 }

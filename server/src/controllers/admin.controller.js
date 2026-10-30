@@ -1,9 +1,14 @@
-// d:\Projects\FPT\SWP391\server\src/controllers/admin.controller.js
+// D:/SWP391/SWP391/server/src/controllers/admin.controller.js
 import * as adminService from '../services/admin.service.js';
 import * as purgeService from '../services/purge.service.js';
 import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { legacyAiLogResponse } from '../utils/legacyAiLogResponse.js';
+import { getSystemHealth as checkSystemHealth } from '../services/adminHealthService.js';
+
+export const getSystemHealth = asyncHandler(async (req, res) => {
+  return sendSuccess(res, { data: await checkSystemHealth() });
+});
 
 // FE-01: Quản lý thành viên
 export const getUsers = asyncHandler(async (req, res) => {
@@ -80,6 +85,7 @@ export const updatePost = asyncHandler(async (req, res) => {
     postId: req.params.id,
     title: req.body.title,
     content: req.body.content,
+    currentUser: req.user,
   });
   return sendSuccess(res, {
     message: 'Chỉnh sửa bài viết vi phạm thành công',

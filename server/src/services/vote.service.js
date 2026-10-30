@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\vote.service.js
+// D:/SWP391/SWP391/server/src/services/vote.service.js
 import { voteRepository } from '../repositories/vote.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -25,7 +25,7 @@ export const voteService = {
 
     // Kiểm tra bài viết tồn tại và không bị xóa
     const post = await postRepository.findPostById(numericPostId);
-    if (!post || post.status === POST_STATUS.DELETED) {
+    if (!post || post.status !== POST_STATUS.PUBLISHED || post.deleted_at) {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 
@@ -80,7 +80,7 @@ export const voteService = {
     }
 
     const post = await postRepository.findPostById(numericPostId);
-    if (!post || post.status === POST_STATUS.DELETED) {
+    if (!post || post.status !== POST_STATUS.PUBLISHED || post.deleted_at) {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 

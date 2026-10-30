@@ -206,7 +206,7 @@ export async function streamMealPlan({ request, signal, onProgress }) {
     signal,
     onEvent(name, payload) {
       if (name === 'progress') onProgress?.(payload?.data ?? {});
-      else if (name === 'done') plan = payload?.data ?? null;
+      else if (name === 'done') plan = payload?.data ? { ...payload.data, generationId: payload.meta?.generationId ?? null } : null;
       else if (name === 'error') failure = errorFromEvent(payload);
     },
   });

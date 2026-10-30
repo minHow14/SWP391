@@ -26,7 +26,8 @@ const COMPOSER_SCHEMA = z
     videoUrl: z.string().max(500).optional(),
     thumbnailUrl: z.string().max(500).optional(),
     transcript: z.string().max(50000).optional(),
-    categoryId: z.coerce.number().int().positive().nullable().optional(),
+    categoryId: z.preprocess((value) => value === '' ? null : value,
+      z.coerce.number().int().positive().nullable().optional()),
   })
   .superRefine((data, ctx) => {
     if (data.postType === 'BLOG') {

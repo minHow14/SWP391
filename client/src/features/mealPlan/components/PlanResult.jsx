@@ -2,10 +2,11 @@
 // client/src/features/mealPlan/components/PlanResult.jsx
 import { useState } from 'react';
 import { bmiCategory, formatBmi } from '../../../utils/aiHelpers.js';
+import ApplyToJournal from './ApplyToJournal.jsx';
 
 const MEALS = [['breakfast', 'Sáng'], ['lunch', 'Trưa'], ['dinner', 'Tối'], ['snacks', 'Phụ']];
 
-export default function PlanResult({ plan, onAsk, onRedo }) {
+export default function PlanResult({ plan, onAsk, onRedo, onOpenJournal }) {
   const [selected, setSelected] = useState(0);
   const day = plan.weeklyPlan[selected] ?? plan.weeklyPlan[0];
   const profile = plan.profileSummary;
@@ -45,6 +46,7 @@ export default function PlanResult({ plan, onAsk, onRedo }) {
       )}
       <p className="cx-mp-note">Thực đơn mang tính tham khảo, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng.</p>
       <div className="cx-mp-actions">
+        {plan.generationId && <ApplyToJournal generationId={plan.generationId} onOpenJournal={onOpenJournal} />}
         <button type="button" className="btn btn-outline-success" onClick={onRedo}>Tạo lại</button>
         <button type="button" className="btn btn-success" onClick={() => onAsk(plan)}><i className="bi bi-chat-dots-fill" aria-hidden="true" /> Hỏi trợ lý về thực đơn này</button>
       </div>

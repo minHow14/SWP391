@@ -3,11 +3,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import { getChatUsage } from '../../../services/aiApi.js';
 import { detectYoutubeMessage } from '../../videoRecipeSummary/utils/youtubeMessage.js';
-import { isVideoRecipeMessage, useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRecipeSummary.js';
+import { useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRecipeSummary.js';
 import { useChatRequest } from './useChatRequest.js';
+import { getSession } from '../../../utils/session.js';
+import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
 
 export function useChatBox({ dietTypeId }) {
-  const { data: catalog, user } = useDatabase();
+  const { data: catalog, user, refreshUser } = useDatabase();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [mode, setMode] = useState('chat');
@@ -17,6 +19,7 @@ export function useChatBox({ dietTypeId }) {
   const [planDialog, setPlanDialog] = useState(false);
   const [dialogPlan, setDialogPlan] = useState(null);
   const [contextPlan, setContextPlan] = useState(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [messages, setMessages] = useState([
     {
       id: 0,
@@ -33,19 +36,40 @@ export function useChatBox({ dietTypeId }) {
   const nextId = useRef(1);
   const controller = useRef(null);
   const messagesRef = useRef([]);
-  const video = useVideoRecipeSummary({ userId: user?.user_id || null, enabled: open, setMessages, nextId });
+  const userId = user?.user_id || null;
+  const video = useVideoRecipeSummary({ userId, enabled: open, setMessages, nextId });
 
   useEffect(() => {
-    messagesRef.current = messages;
+    messagesRef.current = messages.filter((message) => message.kind === 'welcome' || message.ownerId === userId);
   });
   useEffect(() => () => controller.current?.abort(), []);
-  const userId = user?.user_id;
+  useEffect(() => {
+    controller.current?.abort();
+    controller.current = null;
+    setMessages((previous) => previous.filter((message) => message.kind === 'welcome'));
+    setBusy(false);
+    setUsage(null);
+    setError('');
+    setDraft('');
+    setMode('chat');
+    setContextPlan(null);
+    setDialogPlan(null);
+    setPlanDialog(false);
+    setHistoryOpen(false);
+    attachmentUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    attachmentUrls.current.length = 0;
+  }, [userId]);
   useEffect(() => {
     if (!open) return undefined;
     const request = new AbortController();
-    getChatUsage(request.signal).then(setUsage).catch(() => {});
+    getChatUsage(request.signal).then((result) => { if (!request.signal.aborted) setUsage(result); }).catch(() => {});
     return () => request.abort();
   }, [open, userId]);
+  useEffect(() => {
+    // Session có thể chưa có chiều cao/cân nặng vừa lưu; xác nhận lại với server trước khi chặn tính năng BMI.
+    if ((open || planDialog) && userId && !hasBodyMeasurements(user.health_profile)) refreshUser?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, planDialog, userId]);
   useEffect(() => {
     const urls = attachmentUrls.current;
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
@@ -68,17 +92,17 @@ export function useChatBox({ dietTypeId }) {
   }, [open, messages]);
 
   function addExchange(question, reply, image) {
-    const userId = nextId.current++;
+    const questionId = nextId.current++;
     const replyId = nextId.current++;
     setMessages((previous) => [
       ...previous,
-      { id: userId, role: 'user', text: question, image },
-      { id: replyId, role: 'assistant', ...reply },
+      { id: questionId, ownerId: userId, role: 'user', text: question, image },
+      { id: replyId, ownerId: userId, role: 'assistant', ...reply },
     ]);
     setError('');
   }
 
-  const ask = useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan });
+  const ask = useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId });
 
   function stopAnswer() {
     controller.current?.abort();
@@ -97,6 +121,7 @@ export function useChatBox({ dietTypeId }) {
     } catch (failure) { setError(failure.message); return; }
     setDraft('');
     setMode('chat');
+    setHistoryOpen(false);
     input.current?.focus();
   }
 
@@ -106,9 +131,28 @@ export function useChatBox({ dietTypeId }) {
   }
 
   function showPlanInChat(plan) {
+    if ((getSession()?.user?.user_id || null) !== userId) return;
     const id = nextId.current++;
-    setMessages((previous) => [...previous, { id, role: 'assistant', kind: 'plan', plan, ...plan.chat }]);
-    getChatUsage().then(setUsage).catch(() => {});
+    setMessages((previous) => [...previous, { id, ownerId: userId, role: 'assistant', kind: 'plan', plan, ...plan.chat }]);
+    getChatUsage().then((result) => { if ((getSession()?.user?.user_id || null) === userId) setUsage(result); }).catch(() => {});
+  }
+
+  function restoreHistory(record) {
+    if ((getSession()?.user?.user_id || null) !== userId) return;
+    const common = { ownerId: userId, generationId: record.id };
+    let restored;
+    if (record.status !== 'COMPLETED') {
+      restored = [{ ...common, id: nextId.current++, role: 'assistant', error: true,
+        text: record.errorMessage || 'Yêu cầu này chưa có kết quả hoàn tất.' }];
+    } else if (record.type === 'CHAT' && record.responsePayload?.reply) {
+      restored = [{ ...common, id: nextId.current++, role: 'user', kind: 'chat', text: record.requestPayload?.message },
+        { ...common, id: nextId.current++, role: 'assistant', kind: 'chat', text: record.responsePayload.reply }];
+    } else if (record.type === 'MEAL_PLAN' && Array.isArray(record.responsePayload?.weeklyPlan)) {
+      const plan = { ...record.responsePayload, generationId: record.id };
+      restored = [{ ...common, id: nextId.current++, role: 'assistant', kind: 'plan', plan, title: plan.title, ...plan.chat }];
+    } else { setError('Lịch sử này chưa có nội dung hợp lệ để mở.'); return; }
+    setMessages((previous) => previous.some((message) => message.generationId === record.id) ? previous : [...previous, ...restored]);
+    setHistoryOpen(false);
   }
 
   function askAboutPlan(plan) {
@@ -149,6 +193,6 @@ export function useChatBox({ dietTypeId }) {
     );
   }
 
-  const visibleMessages = messages.filter((message) => !isVideoRecipeMessage(message) || message.ownerId === (user?.user_id || null));
-  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto };
+  const visibleMessages = messages.filter((message) => message.kind === 'welcome' || message.ownerId === userId);
+  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
 }

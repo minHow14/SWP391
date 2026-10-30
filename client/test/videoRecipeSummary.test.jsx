@@ -2,7 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AxiosError } from 'axios';
 import { useRef, useState } from 'react';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import apiClient from '../src/services/apiClient.js';
 import { getSession, setSession } from '../src/utils/session.js';
 import { detectYoutubeMessage } from '../src/features/videoRecipeSummary/utils/youtubeMessage.js';
@@ -73,6 +73,66 @@ describe('shared Axios authentication errors', () => {
 });
 
 describe('restoring video progress', () => {
+  it('replaces a stopped pending bubble when the server completed while chat was closed', async () => {
+    setSession({ token: 'current', user: { user_id: 7 } });
+    const completed = { jobId: 'job', status: 'COMPLETED', summaryId: 'summary', videoUrl: URL };
+    vi.spyOn(videoRecipeSummaryApi, 'list').mockImplementation(async ({ status }) => status ? [] : [completed]);
+    vi.spyOn(videoRecipeSummaryApi, 'getSummary').mockResolvedValue({ recipe: { ingredients: [], steps: [{ instruction: 'Nấu chín.' }] } });
+    function useHarness() {
+      const [messages, setMessages] = useState([{ id: 1, kind: 'videoRecipe', ownerId: 7, pending: true, job: { jobId: 'job', status: 'PROCESSING' } }]);
+      const nextId = useRef(2);
+      useVideoRecipeSummary({ userId: 7, enabled: true, setMessages, nextId });
+      return messages;
+    }
+    const { result } = renderHook(() => useHarness());
+    await waitFor(() => expect(result.current[0]).toMatchObject({ id: 1, pending: false, job: { status: 'COMPLETED' } }));
+    expect(result.current).toHaveLength(1);
+  });
+
+  it('ignores a late saved recipe after the owner changes', async () => {
+    setSession({ token: 'current', user: { user_id: 7 } });
+    let finish;
+    vi.spyOn(videoRecipeSummaryApi, 'list').mockImplementation(async ({ status }) => status ? [] : [{ jobId: 'job', status: 'COMPLETED', summaryId: 'summary' }]);
+    vi.spyOn(videoRecipeSummaryApi, 'getSummary').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    function useHarness(userId) {
+      const [messages, setMessages] = useState([]);
+      const nextId = useRef(1);
+      useVideoRecipeSummary({ userId, enabled: true, setMessages, nextId });
+      return messages;
+    }
+    const { result, rerender } = renderHook(({ userId }) => useHarness(userId), { initialProps: { userId: 7 } });
+    await waitFor(() => expect(finish).toBeTypeOf('function'));
+    setSession(null);
+    rerender({ userId: null });
+    await act(async () => finish({ recipe: { ingredients: [], steps: [{ instruction: 'Riêng tư' }] } }));
+    expect(result.current).toEqual([]);
+  });
+
+  it('restores recent completed and failed jobs without creating or retrying transcription', async () => {
+    setSession({ token: 'current', user: { user_id: 7 } });
+    const completed = { jobId: 'completed', status: 'COMPLETED', summaryId: 'summary', videoUrl: URL };
+    const failed = { jobId: 'failed', status: 'FAILED', errorMessage: 'Không nhận dạng được âm thanh', videoUrl: URL };
+    vi.spyOn(videoRecipeSummaryApi, 'list').mockImplementation(async ({ status }) => status ? [] : [completed, failed]);
+    const create = vi.spyOn(videoRecipeSummaryApi, 'create');
+    const retry = vi.spyOn(videoRecipeSummaryApi, 'retry');
+    vi.spyOn(videoRecipeSummaryApi, 'getSummary').mockResolvedValue({ recipe: { title: 'Món từ video', ingredients: [], steps: [{ instruction: 'Xào nấm.' }] } });
+    function useHarness(enabled) {
+      const [messages, setMessages] = useState([]);
+      const nextId = useRef(1);
+      useVideoRecipeSummary({ userId: 7, enabled, setMessages, nextId });
+      return messages;
+    }
+    const { result, rerender } = renderHook(({ enabled }) => useHarness(enabled), { initialProps: { enabled: true } });
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(result.current.find((message) => message.job.jobId === 'completed').summary.recipe.title).toBe('Món từ video');
+    expect(result.current.find((message) => message.job.jobId === 'failed')).toMatchObject({ pending: false, job: { errorMessage: 'Không nhận dạng được âm thanh' } });
+    rerender({ enabled: false });
+    rerender({ enabled: true });
+    await waitFor(() => expect(result.current).toHaveLength(2));
+    expect(create).not.toHaveBeenCalled();
+    expect(retry).not.toHaveBeenCalled();
+  });
+
   it('shows a retryable error instead of leaving an old bubble spinning', async () => {
     setSession({ token: 'current', user: { user_id: 7 } });
     vi.spyOn(videoRecipeSummaryApi, 'list').mockRejectedValue(new Error('Mất kết nối'));

@@ -8,8 +8,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "worker:video-recipes": "node src/workers/videoRecipeSummaryWorker.js",
+    "worker:content-moderation": "node src/workers/contentModerationWorker.js",
     "test:video-recipes": "vitest run tests/youtubeVideoUrl.test.js tests/youtubeMetadata.test.js tests/videoRecipeSummaryContract.test.js tests/videoRecipeSummaryDatabase.test.js tests/videoRecipeSummaryApi.test.js tests/videoRecipeSummaryProcessor.test.js tests/videoRecipeSummaryAi.test.js tests/videoRecipeSummaryWorker.test.js",
     "test": "vitest run",
+    "test:content-moderation": "vitest run contentModeration seedModeration",
     "test:watch": "vitest",
     "test:prepare": "node scripts/prepareTestDatabase.js",
     "prisma:migrate": "prisma migrate dev",
@@ -17,17 +19,18 @@
     "prisma:pull": "prisma db pull",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "db:seed": "node prisma/seed.js",
+    "db:seed": "prisma migrate deploy && node prisma/seed.js",
     "db:repair-ingredients": "node scripts/repair-ingredients.js",
     "db:import-ingredient-images": "node scripts/import-ingredient-images.js",
     "test:database": "node tests/workspace.integration.mjs",
     "test:ai-internal-auth": "node tests/ai-internal-auth.integration.mjs",
     "test:ingredient-images": "node tests/ingredient-images.integration.mjs",
+    "test:real-images": "node tests/real-image-assets.integration.mjs",
     "assets:sync": "node scripts/sync-ingredient-assets.js",
-    "seed": "node prisma/seed.js"
+    "seed": "npm run db:seed"
   },
   "prisma": {
-    "seed": "node prisma/seed.js"
+    "seed": "npm run db:seed"
   },
   "keywords": [],
   "author": "",

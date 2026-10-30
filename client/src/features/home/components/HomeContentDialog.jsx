@@ -1,6 +1,6 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/home/components/HomeContentDialog.jsx
+// D:/SWP391/SWP391/client/src/features/home/components/HomeContentDialog.jsx
 import { Modal } from 'react-bootstrap';
-import ContentImage from '../../../components/common/ContentImage.jsx';
+import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
 import PostMedia from '../../community/components/PostMedia.jsx';
 
@@ -15,7 +15,7 @@ export default function HomeContentDialog({ detail, onClose }) {
       </Modal.Header>
       <Modal.Body>
         {kind === 'recipe' && <>
-          <ContentImage src={item.image} alt={title} className="cx-home-detail-image" />
+          <RecipeImage src={item.image} alt={title} className="cx-home-detail-image" />
           <p className="text-secondary mt-3">{item.prep_time} phút · {item.total_calories} kcal</p>
           <h3 className="h6">Nguyên liệu</h3>
           <ul>{item.ingredients.map(ingredient => <li key={ingredient}>{ingredient}</li>)}</ul>

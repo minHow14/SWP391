@@ -1,4 +1,9 @@
--- server/prisma/seed.sql
+-- D:/SWP391/SWP391/server/prisma/seed.sql
+-- npm run seed / npm run db:seed / npx prisma db seed tự chạy migration trước khi nạp dữ liệu.
+-- Nếu nạp trực tiếp file SQL bằng psql, phải chạy npx prisma migrate deploy trước.
+-- CẢNH BÁO: Seed này TRUNCATE dữ liệu hiện có. Chỉ dùng cho DB mới hoặc DB được phép khởi tạo lại.
+-- Kiểm duyệt: moderation_version mặc định 0 (chưa quét), content_moderation_jobs khởi tạo rỗng.
+-- Không tạo cờ/kết quả AI khi chưa có lượt kiểm duyệt thực tế.
 -- ========================================================================
 -- BỘ DỮ LIỆU THỰC TẾ HỆ THỐNG NỀN TẢNG ĂN CHAY CHAYXANH (SWP391)
 -- ========================================================================
@@ -18,6 +23,7 @@ BEGIN;
 -- Xóa sạch dữ liệu cũ và reset quan hệ (Idempotent)
 -- ------------------------------------------------------------------------
 TRUNCATE TABLE
+  "content_moderation_jobs",
   "guest_quota",
   "ai_logs",
   "notifications",
@@ -218,7 +224,7 @@ INSERT INTO "profile_preferences" ("user_id", "calorie_goal", "goal", "protein_g
 
 -- ------------------------------------------------------------------------
 -- 11. BÀI ĐĂNG GỐC CỘNG ĐỒNG (POSTS) (10 bài đăng)
--- Trạng thái: 8 PUBLISHED, 1 PENDING (chờ duyệt), 1 HIDDEN_BY_AI (AI gắn cờ)
+-- Trạng thái: 8 PUBLISHED, 1 PENDING (chờ duyệt), 1 HIDDEN (ẩn; không phải kết quả AI)
 -- ------------------------------------------------------------------------
 INSERT INTO "posts" ("post_id", "author_id", "post_type", "status", "created_at") VALUES
   (1, 4, 'VIDEO', 'PUBLISHED', '2026-10-10T08:00:00.000Z'),
@@ -230,7 +236,7 @@ INSERT INTO "posts" ("post_id", "author_id", "post_type", "status", "created_at"
   (7, 5, 'BLOG', 'PUBLISHED', '2026-10-16T11:00:00.000Z'),
   (8, 6, 'BLOG', 'PUBLISHED', '2026-10-17T09:40:00.000Z'),
   (9, 2, 'BLOG', 'PENDING', '2026-10-21T18:00:00.000Z'),
-  (10, 8, 'BLOG', 'HIDDEN_BY_AI', '2026-10-21T19:30:00.000Z');
+  (10, 8, 'BLOG', 'HIDDEN', '2026-10-21T19:30:00.000Z');
 
 -- ------------------------------------------------------------------------
 -- 12. VIDEO HƯỚNG DẪN NẤU ĂN (VIDEOS) (4 video YouTube thực tế 100% hoạt động)
@@ -468,8 +474,8 @@ INSERT INTO "comments" ("comment_id", "post_id", "user_id", "content", "is_flagg
   (5, 2, 4, 'Salad táo bơ làm cực kỳ nhanh mà ăn lại giòn bùi, mình làm cho cả nhà ăn sáng ai cũng khen ngon.', false, 'ACTIVE', NULL, '2026-10-11T14:15:00.000Z'),
   (6, 4, 2, 'Cơm gạo lứt trộn rau củ với hạt điều rang ăn bùi bùi giòn giòn rất đã miệng anh ơi!', false, 'ACTIVE', NULL, '2026-10-13T18:00:00.000Z'),
   (7, 7, 7, 'Bí quyết giữ rau giòn bằng cách ngâm nước đá rất hiệu quả, cảm ơn chị Thùy Dương!', false, 'ACTIVE', NULL, '2026-10-16T14:20:00.000Z'),
-  (8, 5, 8, 'Ai muốn mua thuốc giảm cân cấp tốc uống là ốm không cần ăn kiêng hay tập luyện liên hệ zalo mình nhé giá rẻ bất ngờ', true, 'HIDDEN_BY_AI', NULL, '2026-10-18T10:00:00.000Z'),
-  (9, 2, 8, 'Nhận quà tặng xe máy miễn phí bấm vào link lừa đảo trúng thưởng nhận quà ngay hôm nay', true, 'ACTIVE', NULL, '2026-10-19T11:00:00.000Z'),
+  (8, 5, 8, 'Ai muốn mua thuốc giảm cân cấp tốc uống là ốm không cần ăn kiêng hay tập luyện liên hệ zalo mình nhé giá rẻ bất ngờ', false, 'HIDDEN', NULL, '2026-10-18T10:00:00.000Z'),
+  (9, 2, 8, 'Nhận quà tặng xe máy miễn phí bấm vào link lừa đảo trúng thưởng nhận quà ngay hôm nay', false, 'HIDDEN', NULL, '2026-10-19T11:00:00.000Z'),
   (10, 3, 3, 'Canh rong biển đậu hũ non này rất hợp cho trẻ nhỏ và người lớn tuổi bồi bổ sức khỏe.', false, 'ACTIVE', NULL, '2026-10-12T15:00:00.000Z');
 
 -- ------------------------------------------------------------------------
