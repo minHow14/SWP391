@@ -1,7 +1,7 @@
 // D:/SWP391/SWP391/server/src/validators/admin.validator.js
 import { z } from 'zod';
 import { textSchema } from './common.validator.js';
-import { USER_STATUS } from '../constants/status.js';
+import { REPORT_STATUS, USER_STATUS } from '../constants/status.js';
 
 export const updateUserStatusSchema = z.object({
   status: z.enum(Object.values(USER_STATUS)),
@@ -40,7 +40,7 @@ export const resolveAiFlaggedItemSchema = z.object({
 }).strict();
 
 export const updateReportStatusSchema = z.object({
-  status: z.enum(['PENDING', 'RESOLVED', 'REJECTED']),
+  status: z.enum(Object.values(REPORT_STATUS)),
   resolutionAction: z.enum(['NONE', 'HIDE_CONTENT', 'none', 'hide_content']).optional(),
 }).strict();
 
