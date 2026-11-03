@@ -1,9 +1,10 @@
 // D:/SWP391/SWP391/server/src/validators/admin.validator.js
 import { z } from 'zod';
 import { textSchema } from './common.validator.js';
+import { USER_STATUS } from '../constants/status.js';
 
 export const updateUserStatusSchema = z.object({
-  status: z.enum(['ACTIVE', 'BANNED', 'DELETED', 'PENDING']),
+  status: z.enum(Object.values(USER_STATUS)),
 }).strict();
 
 export const updatePostStatusSchema = z.object({
