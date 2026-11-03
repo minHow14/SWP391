@@ -44,6 +44,12 @@ export const workspaceService = {
     return res?.data ?? res;
   },
 
+  // Áp dụng thực đơn tuần do AI tạo vào kế hoạch tuần của nhật ký
+  applyAiMealPlan: async (data) => {
+    const res = await apiClient.post('/workspace/plan/apply-ai', data);
+    return res?.data ?? res;
+  },
+
   // Đề xuất quán chay mới
   suggestRestaurant: async (data) => {
     const res = await apiClient.post('/workspace/restaurants', data);

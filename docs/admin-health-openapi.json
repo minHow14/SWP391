@@ -1,0 +1,119 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chay Xanh Admin Health and Model Observations",
+    "version": "1.0.0",
+    "description": "Connectivity probes and observed model statistics. Both endpoints require an active database-backed admin account. No observations means UNKNOWN, never an assumed 100% success rate."
+  },
+  "servers": [{ "url": "http://localhost:5000" }],
+  "security": [{ "bearerAuth": [] }],
+  "paths": {
+    "/api/admin/system-health": {
+      "get": {
+        "operationId": "getSystemHealth",
+        "summary": "Check database and AI HTTP connectivity",
+        "description": "Admin role 1 is checked against the database. Runs SELECT 1 and AI GET /health concurrently with a 3000 ms probe budget, separate from authentication time. Sends X-Internal-Api-Key to AI when configured. AI UP requires HTTP success and success=true, data.status=ok; it does not test inference providers. Returns HTTP 200 with DEGRADED when a probe fails. If database authentication itself fails, the standard error envelope is returned instead. Client refreshes manually and clears stale results on error.",
+        "responses": {
+          "200": {
+            "description": "Probes completed; individual services may be DOWN.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SystemHealthResponse" } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "description": "API request rate limit exceeded." },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/admin/ai/models": {
+      "get": {
+        "operationId": "getAiModelsStatus",
+        "summary": "Read model statistics from recent persisted AI logs",
+        "description": "Classifies up to the 100 most recent logs by action prefix. No matching calls: UNKNOWN, successRate=null, lastActive=null. With observations: DEGRADED when errorCalls>2, otherwise HEALTHY; successRate is the rounded percentage of matching calls without status ERROR. This legacy threshold is observational and is not an inference health check or an accuracy score.",
+        "responses": {
+          "200": {
+            "description": "Observed model statistics, including UNKNOWN when no calls match.",
+            "content": { "application/json": { "schema": {
+              "type": "object", "required": ["success", "message", "data"],
+              "properties": {
+                "success": { "const": true }, "message": { "type": "string" },
+                "data": { "type": "array", "items": { "$ref": "#/components/schemas/AiModelObservation" } }
+              }
+            } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "description": "API request rate limit exceeded." },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Missing, invalid or expired access token.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "Forbidden": {
+        "description": "Stored role is not admin, or account is inactive.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      },
+      "ServerError": {
+        "description": "Request could not complete, including failure to authenticate against the database. Probe results never expose raw database or upstream errors.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object", "required": ["success", "message", "errorCode"],
+        "properties": {
+          "success": { "const": false }, "message": { "type": "string" }, "errorCode": { "type": "string" },
+          "errors": { "type": "array", "items": { "type": "object" } }
+        }
+      },
+      "SystemHealthResponse": {
+        "type": "object", "required": ["success", "message", "data"],
+        "properties": {
+          "success": { "const": true }, "message": { "type": "string" },
+          "data": {
+            "type": "object", "required": ["status", "checkedAt", "services"],
+            "properties": {
+              "status": { "enum": ["HEALTHY", "DEGRADED"] },
+              "checkedAt": { "type": "string", "format": "date-time", "description": "UTC ISO 8601 completion time." },
+              "services": {
+                "type": "array", "minItems": 2, "maxItems": 2,
+                "items": {
+                  "type": "object", "required": ["id", "status"],
+                  "properties": {
+                    "id": { "enum": ["database", "aiService"] }, "status": { "enum": ["UP", "DOWN"] }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "AiModelObservation": {
+        "type": "object",
+        "required": ["id", "name", "type", "provider", "actions", "status", "totalCalls", "errorCalls", "successRate", "lastActive"],
+        "properties": {
+          "id": { "enum": ["recommendation", "chatbot", "moderation"] },
+          "name": { "type": "string" }, "type": { "type": "string" }, "provider": { "type": "string" },
+          "actions": { "type": "array", "items": { "type": "string" } },
+          "status": { "enum": ["UNKNOWN", "HEALTHY", "DEGRADED"] },
+          "totalCalls": { "type": "integer", "minimum": 0 }, "errorCalls": { "type": "integer", "minimum": 0 },
+          "successRate": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 },
+          "lastActive": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "allOf": [{
+          "if": { "properties": { "totalCalls": { "const": 0 } } },
+          "then": { "properties": { "status": { "const": "UNKNOWN" }, "successRate": { "type": "null" }, "lastActive": { "type": "null" } } }
+        }]
+      }
+    }
+  }
+}

@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\comment.service.js
+// D:/SWP391/SWP391/server/src/services/comment.service.js
 import { commentRepository } from '../repositories/comment.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -6,6 +6,10 @@ import { POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
 import { notificationService } from './notification.service.js';
+import { contentModerationService } from './contentModerationService.js';
+import { contentModerationRepository } from '../repositories/contentModerationRepository.js';
+
+const COMMENT_AUTHOR_INCLUDE = { user: { select: { user_id: true, full_name: true } } };
 
 export const commentService = {
   /**
@@ -21,7 +25,7 @@ export const commentService = {
     }
 
     const targetPost = await postRepository.findPostById(numericPostId);
-    if (!targetPost || targetPost.status === POST_STATUS.DELETED) {
+    if (!targetPost || targetPost.status !== POST_STATUS.PUBLISHED || targetPost.deleted_at) {
       throw ApiError.notFound('Target post not found or has been deleted');
     }
 
@@ -30,26 +34,20 @@ export const commentService = {
       throw ApiError.notFound('Commenter user not found');
     }
 
-    const newComment = await commentRepository.create(
-      {
+    const newComment = await contentModerationRepository.transaction(async (tx) => {
+      const comment = await commentRepository.create({
         post_id: numericPostId,
         user_id: numericUserId,
         content: content.trim(),
         is_flagged_by_ai: false,
         status: COMMENT_STATUS.ACTIVE,
-      },
-      {
-        user: {
-          select: {
-            user_id: true,
-            full_name: true,
-          },
-        },
-      }
-    );
+      }, COMMENT_AUTHOR_INCLUDE, tx);
+      const moderation = await contentModerationService.queueComment({ comment }, tx);
+      return { ...comment, ...moderation };
+    });
 
     // Gửi thông báo đến tác giả bài viết nếu người bình luận không phải chính tác giả
-    if (targetPost.author_id && targetPost.author_id !== numericUserId) {
+    if (newComment.status === COMMENT_STATUS.ACTIVE && targetPost.author_id && targetPost.author_id !== numericUserId) {
       const commenterName = authorUser.full_name || 'Một thành viên';
       const snippet = content.trim().length > 40 ? `${content.trim().slice(0, 40)}...` : content.trim();
       notificationService.notify({
@@ -71,7 +69,7 @@ export const commentService = {
     }
 
     const post = await postRepository.findPostById(numericPostId);
-    if (!post || post.status === POST_STATUS.DELETED) {
+    if (!post || post.status !== POST_STATUS.PUBLISHED || post.deleted_at) {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 
@@ -141,29 +139,20 @@ export const commentService = {
       throw ApiError.badRequest('Comment content cannot be empty');
     }
 
-    const comment = await commentRepository.findById(commentId);
-
-    if (!comment || comment.status !== COMMENT_STATUS.ACTIVE) {
-      throw ApiError.notFound('Comment not found or inactive');
-    }
-
-    // KIỂM TRA QUYỀN: Chỉ người viết bình luận mới được sửa
-    if (currentUser && comment.user_id !== currentUser.user_id) {
-      throw ApiError.forbidden('Bạn chỉ có thể chỉnh sửa bình luận của chính mình');
-    }
-
-    return await commentRepository.update(
-      commentId,
-      { content: content.trim() },
-      {
-        user: {
-          select: {
-            user_id: true,
-            full_name: true,
-          },
-        },
+    return contentModerationRepository.transaction(async (tx) => {
+      await commentRepository.lockForUpdate(commentId, tx);
+      const comment = await commentRepository.findById(commentId, COMMENT_AUTHOR_INCLUDE, tx);
+      if (!comment || comment.deleted_at || ![COMMENT_STATUS.ACTIVE, COMMENT_STATUS.PENDING_MODERATION].includes(comment.status)) {
+        throw ApiError.notFound('Comment not found or inactive');
       }
-    );
+      if (currentUser && comment.user_id !== currentUser.user_id) {
+        throw ApiError.forbidden('Bạn chỉ có thể chỉnh sửa bình luận của chính mình');
+      }
+      if (comment.content === content.trim()) return comment;
+      const updated = await commentRepository.update(commentId, { content: content.trim() }, COMMENT_AUTHOR_INCLUDE, tx);
+      const moderation = await contentModerationService.queueComment({ comment: updated }, tx);
+      return { ...updated, ...moderation };
+    });
   },
 
   /**

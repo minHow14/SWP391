@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\prisma\schema.prisma
+// D:/SWP391/SWP391/server/prisma/schema.prisma
 generator client {
   provider = "prisma-client-js"
 }
@@ -18,6 +18,7 @@ model User {
   deleted_at       DateTime?       @db.Timestamptz(6)
   created_at       DateTime?       @default(now()) @db.Timestamptz(6)
   comments         Comment[]
+  contentModerationJobs ContentModerationJob[]
   food_diaries     FoodDiary[]
   health_histories HealthHistory[]
   health_profile   HealthProfile?
@@ -30,11 +31,73 @@ model User {
   restaurant_reviews RestaurantReview[]
   preferences ProfilePreference?
   aiGenerations AiGeneration[]
-  ingredientScans IngredientScan[]
+  videoRecipeSummaryJobs VideoRecipeSummaryJob[]
+  videoRecipeSummaries VideoRecipeSummary[]
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
+}
+
+enum VideoRecipeSummaryJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum VideoRecipeSummaryJobStage {
+  VALIDATING_VIDEO
+  FETCHING_AUDIO
+  TRANSCRIBING
+  SUMMARIZING
+  SAVING_RESULT
+}
+
+model VideoRecipeSummaryJob {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         Int                        @map("user_id")
+  activeUserId   Int?                       @unique(map: "uq_video_recipe_jobs_active_user") @map("active_user_id")
+  videoId        String                     @map("video_id") @db.VarChar(11)
+  videoUrl       String                     @map("video_url") @db.VarChar(255)
+  pipelineVersion String                    @map("pipeline_version") @db.VarChar(20)
+  status         VideoRecipeSummaryJobStatus @default(PENDING)
+  stage          VideoRecipeSummaryJobStage  @default(VALIDATING_VIDEO)
+  attempt        Int                        @default(0)
+  availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  leaseToken     String?                    @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
+  metadata       Json?
+  transcript     Json?
+  errorCode      String?                    @map("error_code") @db.VarChar(100)
+  errorMessage   String?                    @map("error_message") @db.VarChar(500)
+  completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+  summary        VideoRecipeSummary?
+
+  @@unique([userId, videoId, pipelineVersion], map: "uq_video_recipe_jobs_user_source_version")
+  @@index([status, availableAt, createdAt, id], map: "idx_video_recipe_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_video_recipe_jobs_expired_lease")
+  @@index([userId, createdAt, id], map: "idx_video_recipe_jobs_user_created")
+  @@map("video_recipe_summary_jobs")
+}
+
+model VideoRecipeSummary {
+  id        String                @id @default(uuid()) @db.Uuid
+  jobId     String                @unique(map: "uq_video_recipe_summaries_job") @map("job_id") @db.Uuid
+  userId    Int                   @map("user_id")
+  videoId   String                @map("video_id") @db.VarChar(11)
+  videoUrl  String                @map("video_url") @db.VarChar(255)
+  recipe    Json
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+  job       VideoRecipeSummaryJob @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User                  @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([userId, createdAt, id], map: "idx_video_recipe_summaries_user_created")
+  @@map("video_recipe_summaries")
 }
 
 enum AiGenerationStatus {
@@ -46,60 +109,7 @@ enum AiGenerationStatus {
 enum AiGenerationType {
   CHAT
   MEAL_PLAN
-  INGREDIENT_RECOGNITION
-}
-
-enum ScanStatus {
-  PENDING
-  PROCESSING
-  COMPLETED
-  FAILED
-}
-
-enum FreshnessStatus {
-  FRESH
-  GOOD
-  EXPIRING_SOON
-  SPOILED
-}
-
-model IngredientScan {
-  id           String                     @id @default(uuid()) @db.Uuid
-  userId       Int?                       @map("user_id")
-  imageUrl     String                     @map("image_url") @db.VarChar(500)
-  status       ScanStatus                 @default(PENDING)
-  summary      String?                    @db.Text
-  errorCode    String?                    @map("error_code") @db.VarChar(100)
-  errorMessage String?                    @map("error_message") @db.Text
-  createdAt    DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?                  @map("deleted_at") @db.Timestamptz(6)
-  user         User?                      @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
-  items        RecognizedIngredientItem[]
-  @@index([userId, createdAt], map: "idx_ingredient_scans_user_created")
-  @@index([status], map: "idx_ingredient_scans_status")
-  @@map("ingredient_scans")
-}
-
-model RecognizedIngredientItem {
-  id                     String          @id @default(uuid()) @db.Uuid
-  scanId                 String          @map("scan_id") @db.Uuid
-  ingredientId           Int?            @map("ingredient_id")
-  detectedName           String          @map("detected_name") @db.VarChar(150)
-  confidence             Decimal         @db.Decimal(5, 4)
-  quantityEstimate       String?         @map("quantity_estimate") @db.VarChar(100)
-  freshnessStatus        FreshnessStatus @map("freshness_status")
-  freshnessScore         Int             @map("freshness_score") @db.SmallInt
-  estimatedShelfLifeDays Int?            @map("estimated_shelf_life_days") @db.SmallInt
-  spoilageSigns          Json?           @map("spoilage_signs")
-  storageAdvice          String?         @map("storage_advice") @db.VarChar(500)
-  boundingBox            Json?           @map("bounding_box")
-  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  scan                   IngredientScan  @relation(fields: [scanId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  ingredient             Ingredient?     @relation(fields: [ingredientId], references: [ingredient_id], onDelete: SetNull, onUpdate: Cascade)
-  @@index([scanId], map: "idx_recognized_items_scan_id")
-  @@index([ingredientId], map: "idx_recognized_items_ingredient_id")
-  @@map("recognized_ingredient_items")
+  FOOD_SCAN
 }
 
 model AiGeneration {
@@ -185,6 +195,8 @@ model Post {
   author_id       Int
   post_type       String         @db.VarChar(20)
   status          String         @default("PUBLISHED") @db.VarChar(30)
+  moderationVersion Int          @default(0) @map("moderation_version")
+  contentModerationJobs ContentModerationJob[]
   deleted_at      DateTime?      @db.Timestamptz(6)
   created_at      DateTime?      @default(now()) @db.Timestamptz(6)
   blog            Blog?
@@ -258,6 +270,8 @@ model Comment {
   content          String
   is_flagged_by_ai Boolean?  @default(false)
   status           String    @default("ACTIVE") @db.VarChar(30)
+  moderationVersion Int      @default(0) @map("moderation_version")
+  contentModerationJobs ContentModerationJob[]
   deleted_at       DateTime? @db.Timestamptz(6)
   created_at       DateTime? @default(now()) @db.Timestamptz(6)
   post             Post      @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
@@ -281,7 +295,41 @@ model PostVote {
   @@map("post_votes")
 }
 
+enum IngredientLookupJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model IngredientLookupJob {
+  id                String                    @id @default(uuid()) @db.Uuid
+  ownerKey          String                    @map("owner_key") @db.Char(64)
+  activeKey         String?                   @unique(map: "uq_ingredient_lookup_jobs_active") @map("active_key") @db.Char(64)
+  ingredientName    String                    @map("ingredient_name") @db.VarChar(150)
+  status            IngredientLookupJobStatus @default(PENDING)
+  ingredientId      Int?                      @map("ingredient_id")
+  sourcePhoto       Bytes?                    @map("source_photo")
+  sourceMimeType    String?                   @map("source_mime_type") @db.VarChar(50)
+  reservation       Json?
+  leaseToken        String?                   @map("lease_token") @db.Uuid
+  leaseExpiresAt    DateTime?                 @map("lease_expires_at") @db.Timestamptz(6)
+  errorCode         String?                   @map("error_code") @db.VarChar(100)
+  errorMessage      String?                   @map("error_message") @db.VarChar(500)
+  completedAt       DateTime?                 @map("completed_at") @db.Timestamptz(6)
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ingredient        Ingredient?               @relation(fields: [ingredientId], references: [ingredient_id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([ownerKey, createdAt, id], map: "idx_ingredient_lookup_jobs_owner")
+  @@index([status, createdAt, id], map: "idx_ingredient_lookup_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_ingredient_lookup_jobs_expired")
+  @@index([ingredientId], map: "idx_ingredient_lookup_jobs_ingredient")
+  @@map("ingredient_lookup_jobs")
+}
+
 model Ingredient {
+  lookupJobs IngredientLookupJob[]
   details IngredientDetails?
   image IngredientImage?
   ingredient_id      Int                @id @default(autoincrement())
@@ -355,6 +403,11 @@ model MealPlanDetail {
   recipe_id      Int?
   meal_type      String   @db.VarChar(30)
   day_of_week    Int      @db.SmallInt
+  custom_food_name String? @db.VarChar(255)
+  calories       Float?   @db.Real
+  protein        Float?   @db.Real
+  carbs          Float?   @db.Real
+  fat            Float?   @db.Real
   meal_plan      MealPlan @relation(fields: [plan_id], references: [plan_id], onDelete: Cascade, onUpdate: NoAction)
   recipe         Recipe?  @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -390,11 +443,18 @@ model Restaurant {
   latitude           Decimal?           @db.Decimal(10, 7)
   longitude          Decimal?           @db.Decimal(10, 7)
   diet_type_id       Int?               @db.SmallInt
+  source             String             @default("local") @db.VarChar(20)
+  status             String             @default("APPROVED") @db.VarChar(20)
+  place_id           String?            @unique(map: "uq_restaurants_place_id") @db.VarChar(100)
+  created_at         DateTime?          @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?          @updatedAt @db.Timestamptz(6)
   restaurant_recipes RestaurantRecipe[]
   diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
 
   @@index([latitude, longitude], map: "idx_restaurants_coordinates")
   @@index([diet_type_id], map: "idx_restaurants_diet_type")
+  @@index([status, latitude, longitude], map: "idx_restaurants_status_coords")
+  @@index([diet_type_id, latitude, longitude], map: "idx_restaurants_diet_coords")
   @@map("restaurants")
 }
 
@@ -407,6 +467,47 @@ model RestaurantRecipe {
 
   @@id([restaurant_id, recipe_id])
   @@map("restaurant_recipes")
+}
+
+enum ContentModerationJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ContentModerationJob {
+  id             String                     @id @default(uuid()) @db.Uuid
+  userId         Int                        @map("user_id")
+  postId         Int?                       @map("post_id")
+  commentId      Int?                       @map("comment_id")
+  contentVersion Int                        @map("content_version")
+  title          String?                    @db.VarChar(255)
+  content        String
+  status         ContentModerationJobStatus  @default(PENDING)
+  attempt        Int                        @default(0)
+  availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  leaseToken     String?                    @map("lease_token") @db.Uuid
+  leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
+  result         Json?
+  applied        Boolean                    @default(false)
+  errorCode      String?                    @map("error_code") @db.VarChar(100)
+  errorMessage   String?                    @map("error_message") @db.VarChar(500)
+  completedAt    DateTime?                   @map("completed_at") @db.Timestamptz(6)
+  createdAt      DateTime                    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime                    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  post           Post?                      @relation(fields: [postId], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
+  comment        Comment?                   @relation(fields: [commentId], references: [comment_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([postId, contentVersion], map: "uq_content_moderation_jobs_post_version")
+  @@unique([commentId, contentVersion], map: "uq_content_moderation_jobs_comment_version")
+  @@index([userId], map: "idx_content_moderation_jobs_user")
+  @@index([postId], map: "idx_content_moderation_jobs_post")
+  @@index([commentId], map: "idx_content_moderation_jobs_comment")
+  @@index([status, availableAt, createdAt, id], map: "idx_content_moderation_jobs_queue")
+  @@index([status, leaseExpiresAt], map: "idx_content_moderation_jobs_lease")
+  @@map("content_moderation_jobs")
 }
 
 model Report {

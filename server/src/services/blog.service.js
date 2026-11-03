@@ -1,10 +1,12 @@
-// d:\Projects\FPT\SWP391\server\src\services\blog.service.js
+// D:/SWP391/SWP391/server/src/services/blog.service.js
 import prisma from '../config/prisma.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
+import { contentModerationService } from './contentModerationService.js';
+import { notificationService } from './notification.service.js';
 
 export const blogService = {
   /**
@@ -94,9 +96,12 @@ export const blogService = {
         name: a.file_name,
       }));
 
+      const moderation = await contentModerationService.queuePost({ post: newPost, title: newBlog.title, content: newBlog.content }, tx);
+
       return {
         ...newPost,
         ...newBlog,
+        ...moderation,
         category_id: numericCategoryId,
         categoryId: numericCategoryId,
         category: categoryInfo,
@@ -227,7 +232,7 @@ export const blogService = {
   /**
    * Lấy chi tiết một Blog theo ID
    */
-  async getBlogById(id) {
+  async getBlogById(id, currentUser) {
     const postId = Number(id);
     if (isNaN(postId)) {
       throw ApiError.badRequest('Invalid blog ID format');
@@ -260,6 +265,9 @@ export const blogService = {
     if (!blog || !blog.post || blog.post.status === POST_STATUS.DELETED) {
       throw ApiError.notFound('Blog post not found');
     }
+
+    const canPreview = currentUser && (currentUser.role === ROLES.ADMIN || currentUser.user_id === blog.post.author_id);
+    if (blog.post.status !== POST_STATUS.PUBLISHED && !canPreview) throw ApiError.notFound('Blog post not found');
 
     const { post, ...blogData } = blog;
     const firstCat = post?.post_categories?.[0];
@@ -347,6 +355,11 @@ export const blogService = {
     }
 
     return await prisma.$transaction(async (tx) => {
+      // Serialize edits before comparing text so every job contains the version actually saved.
+      await postRepository.lockBlog(postId, tx);
+      const currentBlog = await postRepository.findBlogById(postId, { post: true }, tx);
+      if (!currentBlog || currentBlog.post.status === POST_STATUS.DELETED) throw ApiError.notFound('Blog post not found');
+      const textChanged = ['title', 'content'].some((field) => updateData[field] !== undefined && updateData[field] !== currentBlog[field]);
       const updatedBlog = await postRepository.updateBlog(
         postId,
         updateData,
@@ -394,9 +407,13 @@ export const blogService = {
       }));
 
       const { post, ...blogData } = updatedBlog;
+      const moderation = textChanged ? await contentModerationService.queuePost({
+        post, title: updatedBlog.title, content: updatedBlog.content,
+      }, tx) : {};
       return {
         ...post,
         ...blogData,
+        ...moderation,
         category_id:
           numericCategoryId !== undefined
             ? numericCategoryId
@@ -451,6 +468,9 @@ export const blogService = {
         where: { post_id: postId },
         data: { status: POST_STATUS.DELETED, deleted_at: now },
       });
+      if (currentUser?.role === ROLES.ADMIN && currentUser.user_id !== post.author_id) {
+        await notificationService.notifyPostRemoval({ userId: post.author_id, postId }, tx);
+      }
     });
 
     return { message: 'Bài viết đã được xóa thành công' };

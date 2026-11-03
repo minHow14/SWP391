@@ -37,27 +37,27 @@ export function DatabaseProvider({ children }) {
     return () => controller.abort();
   }, []);
 
+  // Hồ sơ trong session có thể cũ (đăng nhập, sửa ở tab khác) nên lấy lại từ server khi cần.
+  const refreshUser = useCallback(async () => {
+    const session = getSession();
+    if (!session?.token) return;
+    try {
+      const result = await authService.getMe();
+      const fetchedUser = result?.user || result?.data?.user;
+      if (fetchedUser && getSession()?.token === session.token) setSession({ ...session, user: fetchedUser });
+    } catch {
+      // Giữ nguyên hồ sơ hiện có nếu không tải lại được.
+    }
+  }, []);
+
   useEffect(() => {
-    let active = true;
     const sync = () => setUser(getSession()?.user || null);
     window.addEventListener('chayxanh-session', sync);
-    const session = getSession();
-    if (session?.token) {
-      authService
-        .getMe()
-        .then((result) => {
-          const fetchedUser = result?.user || result?.data?.user;
-          if (active && fetchedUser && getSession()?.token === session.token) {
-            setSession({ ...session, user: fetchedUser });
-          }
-        })
-        .catch(() => {});
-    }
-    return () => {
-      active = false;
-      window.removeEventListener('chayxanh-session', sync);
-    };
-  }, []);
+    refreshUser();
+    return () => window.removeEventListener('chayxanh-session', sync);
+  }, [refreshUser]);
+
+  useEffect(() => subscribeSyncEvent('USER_CHANGED', refreshUser), [refreshUser]);
 
   // Lắng nghe sự kiện đồng bộ để tự động cập nhật catalog ngay khi có thay đổi (cross-tab / cross-component)
   useEffect(() => {
@@ -72,7 +72,7 @@ export function DatabaseProvider({ children }) {
   }, [reload]);
 
   return (
-    <DatabaseContext.Provider value={{ data, error, user, reload }}>
+    <DatabaseContext.Provider value={{ data, error, user, reload, refreshUser }}>
       {children}
     </DatabaseContext.Provider>
   );

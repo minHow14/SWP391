@@ -1,5 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\workspace.controller.js
 import { workspaceService } from '../services/workspace.service.js';
+import { mealPlanJournalService } from '../services/mealPlanJournalService.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 
@@ -50,6 +51,11 @@ export const setMealPlan = asyncHandler(async (req, res) => {
 
 export const recordPlanToDiary = asyncHandler(async (req, res) => {
   const result = await workspaceService.recordPlanToDiary(req.user.user_id, req.body);
+  return sendSuccess(res, { data: result });
+});
+
+export const applyAiMealPlan = asyncHandler(async (req, res) => {
+  const result = await mealPlanJournalService.applyAiMealPlan(req.user.user_id, req.body);
   return sendSuccess(res, { data: result });
 });
 

@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\admin.service.js
+// D:/SWP391/SWP391/server/src/services/admin.service.js
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
@@ -16,6 +16,8 @@ import { aiService } from './ai.service.js';
 import { guestQuotaService } from './guestQuotaService.js';
 import { guestQuotaAdminService } from './guestQuotaAdminService.js';
 import { notificationService } from './notification.service.js';
+import { blogService } from './blog.service.js';
+import { contentModerationRepository } from '../repositories/contentModerationRepository.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -229,14 +231,16 @@ export const updatePostStatus = async ({ postId, status }) => {
   const isDeleting = status === POST_STATUS.DELETED;
   const deletedAt = isDeleting ? new Date() : null;
 
-  return prisma.post.update({
-    where: { post_id: id },
-    data: { status, deleted_at: deletedAt },
-    include: { blog: true, video: true },
+  return prisma.$transaction(async (tx) => {
+    const updatedPost = await postRepository.updatePost(id, { status, deleted_at: deletedAt }, { blog: true, video: true }, tx);
+    if (isDeleting && post.status !== POST_STATUS.DELETED) {
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
+    }
+    return updatedPost;
   });
 };
 
-export const updatePost = async ({ postId, title, content }) => {
+export const updatePost = async ({ postId, title, content, currentUser }) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({
     where: { post_id: id },
@@ -245,13 +249,7 @@ export const updatePost = async ({ postId, title, content }) => {
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
   if (post.post_type === 'BLOG' && post.blog) {
-    await prisma.blog.update({
-      where: { post_id: id },
-      data: {
-        title: title || post.blog.title,
-        content: content || post.blog.content,
-      },
-    });
+    await blogService.updateBlog(id, { title, content }, currentUser);
   } else if (post.post_type === 'VIDEO' && post.video) {
     await prisma.video.update({
       where: { post_id: id },
@@ -294,7 +292,10 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
     }
 
     // 2. Xóa cứng hoàn toàn khỏi cơ sở dữ liệu
-    await postRepository.hardDeletePost(id);
+    await prisma.$transaction(async (tx) => {
+      await postRepository.hardDeletePost(id, tx);
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
+    });
 
     // 3. Dọn dẹp các tệp tĩnh trên đĩa nếu được lưu cục bộ trong /uploads/
     for (const fileUrl of filesToCleanup) {
@@ -543,7 +544,7 @@ export const deleteCategory = async (categoryId) => {
 export const getAiFlaggedContent = async () => {
   const [flaggedPosts, flaggedComments] = await Promise.all([
     prisma.post.findMany({
-      where: { status: POST_STATUS.HIDDEN_BY_AI },
+      where: { status: { in: [POST_STATUS.HIDDEN_BY_AI, POST_STATUS.PENDING_MODERATION] }, deleted_at: null },
       orderBy: { created_at: 'desc' },
       include: {
         author: { select: { user_id: true, full_name: true, email: true } },
@@ -553,7 +554,9 @@ export const getAiFlaggedContent = async () => {
     }),
     prisma.comment.findMany({
       where: {
-        OR: [{ status: COMMENT_STATUS.HIDDEN_BY_AI }, { is_flagged_by_ai: true }],
+        deleted_at: null,
+        status: { notIn: [COMMENT_STATUS.DELETED, COMMENT_STATUS.HIDDEN] },
+        OR: [{ status: { in: [COMMENT_STATUS.HIDDEN_BY_AI, COMMENT_STATUS.PENDING_MODERATION] } }, { is_flagged_by_ai: true }],
       },
       orderBy: { created_at: 'desc' },
       include: {
@@ -569,14 +572,25 @@ export const getAiFlaggedContent = async () => {
     }),
   ]);
 
+  const targets = [...flaggedPosts.map((post) => ({ postId: post.post_id, contentVersion: post.moderationVersion })),
+    ...flaggedComments.map((comment) => ({ commentId: comment.comment_id, contentVersion: comment.moderationVersion }))];
+  const jobs = await contentModerationRepository.findForTargets(targets);
+  const byTarget = new Map(jobs.map((job) => [job.postId ? `POST:${job.postId}` : `COMMENT:${job.commentId}`, job]));
   return {
-    posts: flaggedPosts,
-    comments: flaggedComments,
+    posts: flaggedPosts.map((post) => ({ ...post, moderation: byTarget.get(`POST:${post.post_id}`) || null })),
+    comments: flaggedComments.map((comment) => ({ ...comment, moderation: byTarget.get(`COMMENT:${comment.comment_id}`) || null })),
     totalFlagged: flaggedPosts.length + flaggedComments.length,
   };
 };
 
-export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes = '' }) => {
+function getModerationDecisionVersion(entity, contentVersion) {
+  if ((entity.moderationVersion > 0 || contentVersion !== undefined) && entity.moderationVersion !== contentVersion) {
+    throw ApiError.conflict('Nội dung đã thay đổi hoặc thiếu phiên bản. Vui lòng làm mới trước khi quyết định.');
+  }
+  return contentVersion ?? entity.moderationVersion;
+}
+
+export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes = '', contentVersion }) => {
   const id = Number(entityId);
   const type = entityType?.toUpperCase();
   const normalizedAction = action?.toUpperCase();
@@ -584,11 +598,12 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
   if (type === 'POST') {
     const post = await prisma.post.findUnique({ where: { post_id: id } });
     if (!post) throw ApiError.notFound('Không tìm thấy bài viết');
+    if (post.deleted_at || post.status === POST_STATUS.DELETED) throw ApiError.conflict('Nội dung đã bị gỡ. Vui lòng làm mới hàng chờ.');
+    const decisionVersion = getModerationDecisionVersion(post, contentVersion);
 
     if (normalizedAction === 'APPROVE') {
-      const updated = await prisma.post.update({
-        where: { post_id: id },
-        data: { status: POST_STATUS.PUBLISHED },
+      const updated = await contentModerationRepository.resolvePost({ id, contentVersion: decisionVersion,
+        data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
       });
 
       await aiLogService.recordLog({
@@ -606,10 +621,10 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
         where: { post_id: id },
         data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
       });
-      const res = await tx.post.update({
-        where: { post_id: id },
+      const res = await contentModerationRepository.resolvePost({ id, contentVersion: decisionVersion,
         data: { status: POST_STATUS.DELETED, deleted_at: new Date() },
-      });
+      }, tx);
+      await notificationService.notifyPostRemoval({ userId: post.author_id, postId: id }, tx);
       await aiLogService.recordLog({
         modelName: 'deepseek-chat',
         action: 'MODERATION_MANUAL_OVERRIDE',
@@ -625,11 +640,12 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
   if (type === 'COMMENT') {
     const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
     if (!comment) throw ApiError.notFound('Không tìm thấy bình luận');
+    if (comment.deleted_at || comment.status === COMMENT_STATUS.DELETED) throw ApiError.conflict('Nội dung đã bị gỡ. Vui lòng làm mới hàng chờ.');
+    const decisionVersion = getModerationDecisionVersion(comment, contentVersion);
 
     if (normalizedAction === 'APPROVE') {
-      const updated = await prisma.comment.update({
-        where: { comment_id: id },
-        data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false },
+      const updated = await contentModerationRepository.resolveComment({ id, contentVersion: decisionVersion,
+        data: { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: false, deleted_at: null },
       });
 
       await aiLogService.recordLog({
@@ -643,10 +659,9 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
 
     // Khi gỡ bỏ bình luận bị AI gắn cờ: Cập nhật DELETED (không xóa cứng khỏi DB)
     const updated = await prisma.$transaction(async (tx) => {
-      const res = await tx.comment.update({
-        where: { comment_id: id },
-        data: { status: COMMENT_STATUS.DELETED, deleted_at: new Date() },
-      });
+      const res = await contentModerationRepository.resolveComment({ id, contentVersion: decisionVersion,
+        data: { status: COMMENT_STATUS.DELETED, is_flagged_by_ai: false, deleted_at: new Date() },
+      }, tx);
       await aiLogService.recordLog({
         modelName: 'deepseek-chat',
         action: 'MODERATION_MANUAL_OVERRIDE',
@@ -696,12 +711,12 @@ export const getAiModelsStatus = async () => {
     const modelLogs = logs.filter((l) => m.actions.some((prefix) => l.action?.startsWith(prefix)));
     const totalCalls = modelLogs.length;
     const errorCalls = modelLogs.filter((l) => l.status === 'ERROR').length;
-    const successRate = totalCalls > 0 ? Math.round(((totalCalls - errorCalls) / totalCalls) * 100) : 100;
+    const successRate = totalCalls > 0 ? Math.round(((totalCalls - errorCalls) / totalCalls) * 100) : null;
     const lastActive = modelLogs[0]?.createdAt || null;
 
     return {
       ...m,
-      status: errorCalls > 2 ? 'DEGRADED' : 'HEALTHY',
+      status: totalCalls === 0 ? 'UNKNOWN' : errorCalls > 2 ? 'DEGRADED' : 'HEALTHY',
       totalCalls,
       errorCalls,
       successRate,
@@ -854,16 +869,16 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     } else if (report.post_id) {
       // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
       // -> Gỡ bỏ bài viết đó và các bình luận thuộc bài viết đó
-      await prisma.$transaction([
-        prisma.comment.updateMany({
+      await prisma.$transaction(async (tx) => {
+        await tx.comment.updateMany({
           where: { post_id: report.post_id },
           data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
-        }),
-        prisma.post.update({
-          where: { post_id: report.post_id },
-          data: { status: POST_STATUS.DELETED, deleted_at: now },
-        }),
-      ]);
+        });
+        await postRepository.updatePost(report.post_id, { status: POST_STATUS.DELETED, deleted_at: now }, null, tx);
+        if (report.post.status !== POST_STATUS.DELETED) {
+          await notificationService.notifyPostRemoval({ userId: report.post.author_id, postId: report.post_id }, tx);
+        }
+      });
     }
   }
 

@@ -1,0 +1,2 @@
+# D:/SWP391/SWP391/server/requirements-tools.txt
+yt-dlp[default]==2026.10.21

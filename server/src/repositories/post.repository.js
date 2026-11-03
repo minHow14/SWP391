@@ -1,7 +1,10 @@
-// d:\Projects\FPT\SWP391\server\src\repositories\post.repository.js
+// D:/SWP391/SWP391/server/src/repositories/post.repository.js
 import prisma from '../config/prisma.js';
 
 export const postRepository = {
+  lockBlog(postId, db = prisma) {
+    return db.$queryRaw`SELECT post_id FROM blogs WHERE post_id = ${postId} FOR UPDATE`;
+  },
   async createPost(data, db = prisma) {
     return db.post.create({ data });
   },

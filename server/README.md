@@ -96,7 +96,7 @@ Client Request
       ▼
 [Express App & Global Middlewares]
   ├── CORS (quản lý truy cập từ Client URL)
-  ├── JSON Parser & URL-encoded (giới hạn payload 1MB)
+  ├── JSON Parser & URL-encoded (1 MiB; riêng JSON quét ảnh có giới hạn base64 cho ảnh 10 MiB)
   └── X-Request-Id Tracing
       │
       ▼
@@ -188,7 +188,8 @@ Client Request
 | `POST` | `/api/workspace/diary` | Có (Bearer Token) | Thêm bữa ăn vào nhật ký ăn uống |
 | `DELETE` | `/api/workspace/diary/:id` | Có (Bearer Token) | Xóa món ăn khỏi nhật ký cá nhân |
 | `PUT` | `/api/workspace/plan` | Có (Bearer Token) | Lên kế hoạch món ăn theo ngày trong tuần |
-| `POST` | `/api/workspace/plan/record` | Có (Bearer Token) | Lưu toàn bộ món từ kế hoạch tuần vào nhật ký ngày |
+| `POST` | `/api/workspace/plan/apply-ai` | Có (Bearer Token) | Ghi thực đơn tuần AI đã hoàn tất vào kế hoạch tuần (`{ generationId, date }`), thay món cũ của tuần đó |
+| `POST` | `/api/workspace/plan/record` | Có (Bearer Token) | Lưu toàn bộ món (công thức hoặc món AI) từ kế hoạch tuần vào nhật ký ngày |
 | `POST` | `/api/workspace/restaurants` | Có (Bearer Token) | Đề xuất địa điểm quán chay mới |
 | `POST` | `/api/workspace/restaurants/:id/reviews` | Có (Bearer Token) | Đăng đánh giá và chấm sao nhà hàng |
 
@@ -240,17 +241,36 @@ PLACES_RATE_LIMIT=60
 # Tạo Prisma Client type-safe
 npm run prisma:generate
 
-# Đồng bộ trực tiếp cấu trúc schema vào PostgreSQL database local
-npm run prisma:push
-
-# Nạp toàn bộ dữ liệu mẫu chuẩn & tự động xác thực vào PostgreSQL
+# Tự áp dụng migration còn thiếu rồi seed; chỉ dùng DB mới hoặc DB được phép xóa dữ liệu
 npm run seed
 
 # (Tùy chọn) Mở giao diện trực quan Prisma Studio để xem dữ liệu
 npm run prisma:studio
 ```
 
+`npm run seed`, `npm run db:seed` và `npx prisma db seed` dùng chung luồng: `prisma migrate deploy` → `seed.js` → `prisma/seed.sql`. Migration lỗi thì dừng trước khi seed; migration đã áp dụng được bỏ qua. DB mới nhận toàn bộ lịch sử migration, bao gồm 5 thay đổi đã kiểm tra:
+
+- `20261023113000_schema_indexes_and_decimal_optimization`: giá `Decimal(18,2)` và các index.
+- `20261025113000_health_history_recorded_date_timestamptz`: ngày ghi nhận sức khỏe có múi giờ.
+- `20261026075600_add_restaurant_source_place_id_status`: nguồn, mã địa điểm và trạng thái nhà hàng.
+- `20261026124500_add_food_scan_ai_generation_type`: loại tác vụ `FOOD_SCAN`.
+- `20261028112816_add_content_moderation_jobs`: bảng job và phiên bản nội dung kiểm duyệt.
+- `20261029030511_add_custom_meals_to_meal_plan_details`: cột nullable `custom_food_name`, `calories`, `protein`, `carbs`, `fat` cho món AI trong kế hoạch tuần.
+
+File SQL chỉ nạp dữ liệu, không sao chép lệnh thay đổi schema từ migration. Nếu nạp trực tiếp bằng `psql`, phải chạy `npx prisma migrate deploy` trước. **Seed hiện dùng `TRUNCATE ... CASCADE`: chạy lại sẽ xóa dữ liệu hiện có, bao gồm job kiểm duyệt.** Với DB đang sử dụng, chỉ chạy `npx prisma migrate deploy`, không chạy seed. Chạy trực tiếp `node prisma/seed.js` cũng yêu cầu DB đã được migrate.
+
+Sau seed, `content_moderation_jobs` rỗng, `moderation_version` của bài viết/bình luận bằng `0` (chưa được AI quét), không có cờ AI hoặc kết quả kiểm duyệt gán sẵn. Các mục bị ẩn trong bộ dữ liệu dùng trạng thái `HIDDEN`. Seed không gọi AI và không tự tạo job cho nội dung cũ.
+
+Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_ENABLED=false`, `CONTENT_MODERATION_TIMEOUT_MS=30000`, `CONTENT_MODERATION_MAX_ATTEMPTS=3`. Để bật, cấu hình cùng khóa nội bộ BE/AI, khởi chạy AI Service, đặt cờ `true`, restart API; worker kiểm duyệt tự chạy cùng tiến trình API (`npm run worker:content-moderation` chỉ dùng khi muốn thêm worker độc lập). Job được trả ngay bằng `202`; người dùng không phải đợi AI xong. Xem [hướng dẫn vận hành, chính sách và khôi phục lỗi](../docs/CONTENT_MODERATION.md), [OpenAPI](../docs/content-moderation-openapi.json).
+
 ### 4. Khởi chạy Server:
+
+`npm run dev` và `npm start` tự khởi động worker video cùng API. Worker dùng lease trong PostgreSQL và được abort/đợi trước khi ngắt Prisma khi shutdown. Lệnh `npm run worker:video-recipes` chỉ cần khi chủ động chạy thêm worker độc lập; không thay thế worker kiểm duyệt riêng.
+
+Video cần `YT_DLP_PATH` trỏ tới executable yt-dlp trên PATH hoặc đường dẫn tuyệt đối (có thể dùng executable trong venv AI sau khi cài requirements). AI Service cần `GROQ_API_KEY` và DeepSeek key; FFmpeg mặc định lấy từ imageio-ffmpeg. Chi tiết biến môi trường nằm trong `.env.example` và [luồng local](../docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
+
+Hợp đồng [AI OpenAPI](../docs/ai-openapi.json) mô tả `/api/v1/ai-generations` (gồm `FOOD_SCAN`), `/api/ai/food-scanner/analyze` và các endpoint job/công thức video. Danh sách lịch sử không trả base64 ảnh hoặc prompt nội bộ; chi tiết lịch sử chỉ chủ sở hữu đọc được. Scanner nhận ảnh decoded tối đa 10 MiB qua parser JSON riêng có tính phần base64; các route khác giữ 1 MiB. Kết quả sai/lỗi provider không được lưu thành công và không có fallback dữ liệu giả. Nhật ký dinh dưỡng vẫn ghi qua `/api/workspace/diary`, độc lập với lịch sử AI.
+
 - **Chế độ phát triển (Auto-reload với nodemon):**
   ```bash
   npm run dev
@@ -262,11 +282,17 @@ npm run prisma:studio
 
 ### 5. Chạy kiểm thử tự động:
 ```bash
-# Chạy 21 unit & boundary integration tests với Vitest
+# Chạy đầy đủ unit & integration tests với Vitest trên DB _test
 npm test
+
+# Chỉ chạy kiểm thử kiểm duyệt và migration/seed
+npm run test:content-moderation
 
 # Kiểm thử tích hợp toàn bộ luồng nghiệp vụ Database & Workspace
 npm run test:database
+
+# HTTP thật BE → FastAPI: khóa nội bộ và scanner không có provider
+npm run test:ai-internal-auth
 
 # Chế độ watch tự động chạy lại khi thay đổi code
 npm run test:watch

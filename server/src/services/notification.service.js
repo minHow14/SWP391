@@ -1,8 +1,16 @@
-// d:\Projects\FPT\SWP391\server\src\services\notification.service.js
+// D:/SWP391/SWP391/server/src/services/notification.service.js
 import { notificationRepository } from '../repositories/notification.repository.js';
 import { ApiError } from '../utils/apiError.js';
 
 export const notificationService = {
+  async notifyPostRemoval({ userId, postId }, db) {
+    // Persist with the deletion transaction so a successful removal always has a notification.
+    return notificationRepository.create({
+      user_id: userId,
+      content: `Bài đăng #${postId} của bạn đã bị quản trị viên xóa.`,
+    }, db);
+  },
+
   /**
    * Lấy danh sách thông báo của người dùng kèm phân trang và bóc tách metadata
    */

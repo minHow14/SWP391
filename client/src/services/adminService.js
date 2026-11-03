@@ -1,9 +1,10 @@
-﻿// client/src/services/adminService.js
+// D:/SWP391/SWP391/client/src/services/adminService.js
 import apiClient from './apiClient.js';
 
 export const adminService = {
   // FE-10: Dashboard tổng quan
   getDashboardStats: () => apiClient.get('/admin/dashboard/stats'),
+  getSystemHealth: (signal) => apiClient.get('/admin/system-health', { signal }),
 
   // FE-01: Quản lý thành viên
   getUsers: (params = {}) => apiClient.get('/admin/users', { params }),
@@ -30,7 +31,7 @@ export const adminService = {
   deleteCategory: (categoryId) => apiClient.delete(`/admin/categories/${categoryId}`),
 
   // FE-05: Kiểm duyệt nội dung gắn cờ AI
-  getAiFlaggedContent: () => apiClient.get('/admin/moderation/flagged'),
+  getAiFlaggedContent: (signal) => apiClient.get('/admin/moderation/flagged', { signal }),
   resolveAiFlaggedItem: (data) => apiClient.post('/admin/moderation/resolve', data),
 
   // FE-06 & FE-07: Giám sát AI models, logs và metrics

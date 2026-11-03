@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\tests/aiGeneration.test.js
+// D:/SWP391/SWP391/server/tests/aiGeneration.test.js
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
@@ -6,6 +6,7 @@ import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { aiLogService } from '../src/services/aiLogService.js';
+import { createGuestSession } from './helpers/guestSession.js';
 
 const trace = { modelName: 'generation-test-model', attempt: 1, messages: [
   { role: 'system', content: 'INTERNAL_PROMPT_FOR_PERSISTENCE_TEST' }, { role: 'user', content: 'Thực đơn chay' },
@@ -14,6 +15,7 @@ const stream = (events) => new Response(events.map(([name, data]) => `event: ${n
 const metadata = (data = trace) => ['metadata', { success: true, data }];
 const done = (data) => ['done', { success: true, ...(data && { data }), meta: { modelName: trace.modelName } }];
 let owner, other, token;
+const guestIds = [];
 beforeAll(async () => {
   const data = (name) => ({ email: `ai-generation-${name}-${randomUUID()}@example.invalid`, full_name: name, password_hash: 'unused-test-hash' });
   owner = await prisma.user.create({ data: data('owner') });
@@ -23,12 +25,30 @@ beforeAll(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: [owner.user_id, other.user_id] } } });
+  await prisma.guestQuota.deleteMany({ where: { guestId: { in: guestIds } } });
   await prisma.$disconnect();
 });
 const generate = (payload, path = 'chat/stream') => request(app).post(`/api/ai/${path}`).set('Authorization', `Bearer ${token}`).send(payload);
 const latest = () => prisma.aiGeneration.findFirst({ where: { userId: owner.user_id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
 
 describe('persisted AI generations with real PostgreSQL', () => {
+  it('filters scan history by FOOD_SCAN while preserving owner isolation and internal prompt privacy', async () => {
+    const record = await prisma.aiGeneration.create({ data: { userId: owner.user_id, type: 'FOOD_SCAN', status: 'COMPLETED',
+      modelName: 'history-test-model', requestPayload: { dishName: 'Nấm', imageBase64: 'SCAN_IMAGE_BYTES' }, promptMessages: trace.messages,
+      responsePayload: { dishName: 'Nấm', status: 'clear' } } });
+    const response = await request(app).get('/api/v1/ai-generations?type=FOOD_SCAN&limit=1').set('Authorization', `Bearer ${token}`);
+    expect(response.status).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0]).toMatchObject({ id: record.id, type: 'FOOD_SCAN' });
+    expect(response.body.data[0]).not.toHaveProperty('promptMessages');
+    expect(response.body.data[0].requestPayload).toEqual({ dishName: 'Nấm' });
+    const detail = await request(app).get(`/api/v1/ai-generations/${record.id}`).set('Authorization', `Bearer ${token}`);
+    expect(detail.body.data.requestPayload.imageBase64).toBe('SCAN_IMAGE_BYTES');
+    const stranger = await request(app).get('/api/v1/ai-generations?type=FOOD_SCAN')
+      .set('Authorization', `Bearer ${generateToken({ user_id: other.user_id })}`);
+    expect(stranger.status).toBe(200);
+    expect(stranger.body.data).toEqual([]);
+  });
   it('saves validated input, actual prompts including retries, reply and completion before done', async () => {
     const payload = { message: 'Thực đơn chay', dietaryType: 'vegan' };
     const second = { ...trace, attempt: 2, messages: [...trace.messages, { role: 'user', content: 'Điều chỉnh' }] };
@@ -95,9 +115,11 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect((await request(app).get('/api/v1/ai-generations?userId=1').set('Authorization', `Bearer ${token}`)).status).toBe(400);
   });
   it('does not create histories for guests', async () => {
+    const session = await createGuestSession(app);
+    guestIds.push(session.guestId);
     const count = await prisma.aiGeneration.count();
     vi.stubGlobal('fetch', vi.fn(async () => stream([metadata(), done()])));
-    const response = await request(app).post('/api/ai/chat/stream').set('X-Guest-Id', `generation-${randomUUID()}`).send({ message: 'Guest test' });
+    const response = await session.agent.post('/api/ai/chat/stream').send({ message: 'Guest test' });
     expect(response.text).toContain('event: done');
     expect(await prisma.aiGeneration.count()).toBe(count);
   });

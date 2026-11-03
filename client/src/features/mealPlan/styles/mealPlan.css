@@ -43,3 +43,6 @@
   .cx-mp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cx-mp-checklist { columns: 1; }
 }
+.cx-mp-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 12px 14px; border-radius: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; }
+.cx-mp-apply p { flex: 1 1 100%; margin: 0; font-size: 13px; }
+.cx-mp-apply-done { color: #14532d; }

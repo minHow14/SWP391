@@ -1,12 +1,12 @@
-﻿// client/src/features/home/components/HomeContentDialog.jsx
+// D:/SWP391/SWP391/client/src/features/home/components/HomeContentDialog.jsx
 import { Modal } from 'react-bootstrap';
-import ContentImage from '../../../components/common/ContentImage.jsx';
+import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
-import heroPhoto from '../../../assets/images/chayxanh-bowl.webp';
+import PostMedia from '../../community/components/PostMedia.jsx';
 
 export default function HomeContentDialog({ detail, onClose }) {
   const { kind, item } = detail;
-  const title = kind === 'hero' ? 'Bữa ăn thực vật ChayXanh' : item.recipe_name || item.title;
+  const title = item.recipe_name || item.title;
 
   return (
     <Modal show onHide={onClose} centered scrollable size="lg" className="cx-home-detail" aria-labelledby="cx-home-detail-title">
@@ -14,9 +14,8 @@ export default function HomeContentDialog({ detail, onClose }) {
         <Modal.Title id="cx-home-detail-title" as="h2">{title}</Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        {kind === 'hero' && <ContentImage src={heroPhoto} alt={title} className="cx-home-detail-image" />}
         {kind === 'recipe' && <>
-          <ContentImage src={item.image} alt={title} className="cx-home-detail-image" />
+          <RecipeImage src={item.image} alt={title} className="cx-home-detail-image" />
           <p className="text-secondary mt-3">{item.prep_time} phút · {item.total_calories} kcal</p>
           <h3 className="h6">Nguyên liệu</h3>
           <ul>{item.ingredients.map(ingredient => <li key={ingredient}>{ingredient}</li>)}</ul>
@@ -28,6 +27,7 @@ export default function HomeContentDialog({ detail, onClose }) {
           <p className="small text-secondary mt-3">{item.author_full_name}</p>
           <p className="cx-home-detail-text">{item.content}</p>
         </>}
+        {kind === 'article' && <PostMedia attachments={item.attachments} />}
       </Modal.Body>
     </Modal>
   );

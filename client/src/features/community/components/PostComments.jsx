@@ -1,4 +1,4 @@
-﻿// client/src/features/community/components/PostComments.jsx
+// D:/SWP391/SWP391/client/src/features/community/components/PostComments.jsx
 import { useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
@@ -9,10 +9,15 @@ const COMMENT_SCHEMA = z.object({ content: z.string().trim().min(1, 'Vui lòng n
 
 export default function PostComments({ post, user, onClose, onComment, onReport, show = true }) {
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(COMMENT_SCHEMA) });
   async function submit(values) {
-    setError('');
-    try { await onComment(post.post_id, values.content); reset(); }
+    setError(''); setNotice('');
+    try {
+      const result = await onComment(post.post_id, values.content);
+      setNotice(result?.jobId ? 'Bình luận đang chờ kiểm duyệt. Bạn có thể đóng cửa sổ và tiếp tục sử dụng ứng dụng.' : 'Đã gửi bình luận.');
+      reset();
+    }
     catch (failure) { setError(failure.message); }
   }
   return <Modal show={show} onHide={onClose} animation={false} centered scrollable>
@@ -29,6 +34,7 @@ export default function PostComments({ post, user, onClose, onComment, onReport,
           </Button></div><p>{comment.content}</p>
       </article>)}
       {error && <Alert variant="danger">{error}</Alert>}
+      {notice && <Alert variant="info" role="status">{notice}</Alert>}
       {user ? <Form onSubmit={handleSubmit(submit)} noValidate>
         <Form.Group controlId="community-comment"><Form.Label>Bình luận của bạn</Form.Label>
           <Form.Control as="textarea" rows={3} maxLength={5000} {...register('content')} isInvalid={Boolean(errors.content)} disabled={isSubmitting} />

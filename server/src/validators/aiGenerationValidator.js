@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src/validators/aiGenerationValidator.js
+// D:/SWP391/SWP391/server/src/validators/aiGenerationValidator.js
 import { z } from 'zod';
 import { ApiError } from '../utils/apiError.js';
 
@@ -9,7 +9,7 @@ export const promptTraceSchema = z.object({
 const querySchema = z.object({
   page: z.coerce.number().int().min(1).max(10000).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
-  type: z.enum(['CHAT', 'MEAL_PLAN']).optional(),
+  type: z.enum(['CHAT', 'MEAL_PLAN', 'FOOD_SCAN']).optional(),
   status: z.enum(['PROCESSING', 'COMPLETED', 'FAILED']).optional(),
 }).strict();
 const paramsSchema = z.object({ id: z.uuid() }).strict();

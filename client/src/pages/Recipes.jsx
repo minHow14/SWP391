@@ -1,10 +1,10 @@
-﻿// client/src/pages/Recipes.jsx
+// D:/SWP391/SWP391/client/src/pages/Recipes.jsx
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { filterRecipes } from '../utils/recipeFilters.js';
 import ContentDialog from '../components/common/ContentDialog.jsx';
-import ContentImage from '../components/common/ContentImage.jsx';
+import RecipeImage from '../components/common/RecipeImage.jsx';
 
 export default function Recipes() {
   const {data}=useDatabase();
@@ -97,7 +97,7 @@ export default function Recipes() {
             <div className="col-12 col-md-6 col-xl-4" key={recipe.recipe_id}>
               <article className="cx-recipe-card h-100">
                 <div className="position-relative">
-                  <ContentImage
+                  <RecipeImage
                     src={recipe.image}
                     alt={recipe.recipe_name}
                     className="cx-recipe-image"

@@ -1,10 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/chat/components/ChatBox.jsx
-// client/src/features/chat/components/ChatBox.jsx
 import ChatMessage from './ChatMessage.jsx';
+import ChatComposer from './ChatComposer.jsx';
 import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';
 import { useChatBox } from '../hooks/useChatBox.js';
 import { Link } from 'react-router';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
+import AiGenerationHistory from '../../aiHistory/components/AiGenerationHistory.jsx';
 
 const suggestions = [
   {
@@ -21,7 +22,8 @@ const suggestions = [
 ];
 
 export default function ChatBox({ dietTypeId }) {
-  const { catalog, user, open, setOpen, draft, setDraft, mode, error, busy, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto } = useChatBox({ dietTypeId });
+  const chat = useChatBox({ dietTypeId });
+  const { catalog, user, open, setOpen, error, busy, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages, launcher, messageList, fileInput, ask, retryVideo, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto } = chat;
   const needsProfile = Boolean(user) && !hasBodyMeasurements(user.health_profile);
 
   return (
@@ -59,13 +61,16 @@ export default function ChatBox({ dietTypeId }) {
             </button>
           </header>
           <div className="cx-chat-tools" aria-label="Tính năng nhanh">
-            <button type="button" onClick={() => fileInput.current.click()}>
+            {user && <button type="button" aria-expanded={chat.historyOpen} onClick={() => chat.setHistoryOpen(!chat.historyOpen)}>
+              <i className="bi bi-clock-history" aria-hidden="true" /> Lịch sử AI
+            </button>}
+            <button type="button" disabled={busy} onClick={() => fileInput.current.click()}>
               <i className="bi bi-camera-fill" aria-hidden="true" /> Quét ảnh
             </button>
-            <button type="button" onClick={() => openMealPlan()}>
+            <button type="button" disabled={busy} onClick={() => openMealPlan()}>
               <i className="bi bi-calendar3" aria-hidden="true" /> Thực đơn tuần
             </button>
-            <button type="button" onClick={selectSummary}>
+            <button type="button" disabled={busy} onClick={selectSummary}>
               <i className="bi bi-file-earmark-text" aria-hidden="true" /> Tóm
               tắt video
             </button>
@@ -86,17 +91,21 @@ export default function ChatBox({ dietTypeId }) {
             aria-relevant="additions text"
             aria-label="Lịch sử hội thoại"
           >
-            {messages.map((message) => (
-              <ChatMessage key={message.id} message={message} busy={busy} actions={{ ask, openMealPlan, askAboutPlan }} />
+            {chat.historyOpen && <AiGenerationHistory userId={user?.user_id} onSelect={chat.restoreHistory} />}
+            {!chat.historyOpen && messages.map((message) => (
+              <ChatMessage key={message.id} message={message} busy={busy} actions={{ ask, openMealPlan, askAboutPlan, retryVideo }} />
             ))}
           </div>
           <div className="cx-chat-suggestions" aria-label="Chủ đề gợi ý">
             {suggestions.map((suggestion) => suggestion.requiresProfile && needsProfile ? (
-              <Link key={suggestion.label} to="/ho-so">Bổ sung hồ sơ để xem BMI</Link>
+              <Link key={suggestion.label} to="/ho-so" className="cx-chat-suggestion-link">
+                <i className="bi bi-person-lines-fill" aria-hidden="true" /> Bổ sung hồ sơ để xem BMI
+              </Link>
             ) : (
               <button
                 type="button"
                 key={suggestion.label}
+                disabled={busy}
                 onClick={() => sendMessage(suggestion.text, 'chat')}
               >
                 <i className={`bi bi-${suggestion.icon}`} aria-hidden="true" />{' '}
@@ -115,54 +124,7 @@ export default function ChatBox({ dietTypeId }) {
               {error}
             </p>
           )}
-          <form
-            className="cx-chat-composer"
-            onSubmit={(event) => {
-              event.preventDefault();
-              sendMessage();
-            }}
-          >
-            <label htmlFor="cx-chat-input" className="visually-hidden">
-              Nhập tin nhắn cho Trợ Lý Tư Vấn
-            </label>
-            <textarea
-              id="cx-chat-input"
-              ref={input}
-              rows={1}
-              maxLength={5000}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={
-                mode === 'summary'
-                  ? 'Dán nội dung hướng dẫn cần trích...'
-                  : 'Hỏi Trợ Lý Tư Vấn về ăn chay...'
-              }
-              onKeyDown={(event) => {
-                if (
-                  event.key === 'Enter' &&
-                  !event.shiftKey &&
-                  !event.nativeEvent.isComposing
-                ) {
-                  event.preventDefault();
-                  sendMessage();
-                }
-              }}
-            />
-            {busy ? (
-              <button type="button" className="btn btn-success" aria-label="Dừng trả lời" onClick={stopAnswer}>
-                <i className="bi bi-stop-fill" aria-hidden="true" />
-              </button>
-            ) : (
-              <button
-                type="submit"
-                className="btn btn-success"
-                aria-label="Gửi tin nhắn"
-                disabled={!draft.trim()}
-              >
-                <i className="bi bi-send-fill" aria-hidden="true" />
-              </button>
-            )}
-          </form>
+          <ChatComposer chat={chat} />
           <p className="cx-chat-disclaimer">
             Trợ lý AI chỉ mang tính tham khảo, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng.
           </p>
@@ -170,7 +132,7 @@ export default function ChatBox({ dietTypeId }) {
       )}
       {planDialog && (
         <MealPlanDialog
-          key={dialogPlan?.title || 'new'}
+          key={`${user?.user_id || 'guest'}:${dialogPlan?.title || 'new'}`}
           catalog={catalog}
           user={user}
           dietTypeId={dietTypeId}

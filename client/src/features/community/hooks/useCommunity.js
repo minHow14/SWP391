@@ -1,4 +1,4 @@
-// client/src/features/community/hooks/useCommunity.js
+// D:/SWP391/SWP391/client/src/features/community/hooks/useCommunity.js
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import {
@@ -8,6 +8,7 @@ import {
   deletePost as deletePostApi,
 } from '../../../services/communityService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import { useContentModeration } from './useContentModeration.js';
 
 function normalizePost(blog, user) {
   const post = { ...blog, ...blog.post };
@@ -37,6 +38,10 @@ export function useCommunity() {
   const [votingIds, setVotingIds] = useState([]);
   const voteLocks = useRef(new Set());
   const userId = user?.user_id;
+  const refreshModeratedContent = useCallback(() => {
+    emitSyncEvent('MODERATION_CHANGED');
+  }, []);
+  const moderation = useContentModeration({ userId, onSettled: refreshModeratedContent });
 
   useEffect(() => {
     setSaved([]);
@@ -86,7 +91,8 @@ export function useCommunity() {
       post_votes: previous?.post_votes || [],
     };
     setSaved((current) => combinePosts(current, [post]));
-    setNotice('Đã lưu bài viết của bạn.');
+    setNotice(blog.jobId ? 'Đã lưu bài viết. Nội dung đang chờ kiểm duyệt trước khi công khai.' : 'Đã lưu bài viết của bạn.');
+    moderation.refresh();
     await reload().catch(() => {});
     emitSyncEvent('POST_CHANGED');
   }
@@ -128,16 +134,20 @@ export function useCommunity() {
   }
 
   async function comment(postId, content) {
-    await addPostComment(postId, content);
+    const response = await addPostComment(postId, content);
+    const result = response.data || response;
+    moderation.refresh();
     emitSyncEvent('COMMENT_CHANGED');
+    return result;
   }
 
   const catalog = data?.posts || [];
   const feed = catalog.filter((post) => post.post_type === 'BLOG' || post.post_type === 'VIDEO');
   const ownPosts =
     mine.userId === userId
-      ? mine.posts.map((post) => catalog.find((item) => item.post_id === post.post_id) || post)
+      ? mine.posts.map((post) => post.status === 'PUBLISHED' ? catalog.find((item) => item.post_id === post.post_id) || post : post)
       : [];
+  const unpublishedIds = new Set(saved.filter((post) => post.status !== 'PUBLISHED').map((post) => post.post_id));
 
   return {
     user,
@@ -152,10 +162,11 @@ export function useCommunity() {
     comment,
     postSaved,
     removePost,
-    feed: combinePosts(feed, saved.filter((post) => post.status === 'PUBLISHED')),
+    feed: combinePosts(feed.filter((post) => !unpublishedIds.has(post.post_id)), saved.filter((post) => post.status === 'PUBLISHED')),
     ownPosts: userId ? combinePosts(ownPosts, saved.filter((post) => post.author_id === userId)) : [],
     mineLoading: Boolean(userId && (mine.loading || mine.userId !== userId)),
     mineError: mine.userId === userId ? mine.error : '',
     retryMine: loadMine,
+    moderation,
   };
 }

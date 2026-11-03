@@ -1,0 +1,14 @@
+/* D:/SWP391/SWP391/client/src/features/videoRecipeSummary/styles/videoRecipeSummary.css */
+.cx-video-recipe { min-width: 0; overflow-wrap: anywhere; }
+.cx-video-recipe-progress { display: flex; align-items: center; gap: 10px; color: var(--cx-forest, #166534); }
+.cx-video-recipe-progress .spinner-border { flex-shrink: 0; }
+.cx-video-recipe-title { font-size: 1rem; line-height: 1.4; margin: 0 0 14px; font-weight: 700; }
+.cx-video-recipe-label { font-size: .875rem; font-weight: 700; margin: 16px 0 8px; }
+.cx-video-recipe ul, .cx-video-recipe ol { padding-left: 20px; margin-bottom: 12px; }
+.cx-video-recipe li { margin-bottom: 8px; line-height: 1.6; }
+.cx-video-recipe-note { color: #526253; font-size: .75rem; margin: 12px 0 0; }
+.cx-video-recipe-source { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: #166534; margin-top: 8px; }
+.cx-video-recipe .btn { min-height: 44px; }
+.cx-video-recipe a:focus-visible, .cx-video-recipe button:focus-visible { outline: 2px solid #166534; outline-offset: 3px; }
+.cx-chat-composer .cx-chat-input-group { flex: 1; min-width: 0; }
+@media (prefers-reduced-motion: reduce) { .cx-video-recipe .spinner-border { animation-duration: 2s; } }

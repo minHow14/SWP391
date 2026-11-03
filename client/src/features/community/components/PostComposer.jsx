@@ -1,4 +1,4 @@
-// client/src/features/community/components/PostComposer.jsx
+// D:/SWP391/SWP391/client/src/features/community/components/PostComposer.jsx
 import { Alert, Button, Form, Modal, ProgressBar, Spinner } from 'react-bootstrap';
 import { usePostComposer } from '../hooks/usePostComposer.js';
 import { POST_MEDIA_ACCEPT, MAX_POST_ATTACHMENTS } from '../../../utils/postAttachments.js';
@@ -42,7 +42,7 @@ export default function PostComposer({ post, user, categories = [], onClose, onS
             <strong>{user?.full_name}</strong>
             <span className="cx-post-metadata">
               <i className="bi bi-globe2 me-1" aria-hidden="true" />
-              Chia sẻ công khai với cộng đồng ChayXanh
+              Chia sẻ với cộng đồng ChayXanh
             </span>
           </div>
         </div>

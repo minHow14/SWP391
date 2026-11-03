@@ -3,24 +3,28 @@
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';
 import { chatHistory, dietTypeToAi, friendlyAiError, isQuotaError, planToMenuContext } from '../../../utils/aiHelpers.js';
+import { getSession } from '../../../utils/session.js';
 
-export function useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan }) {
+export function useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId }) {
   async function ask(question, { retry = false } = {}) {
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
+    const owned = () => controller.current === current && (getSession()?.user?.user_id || null) === userId;
+    const active = () => owned() && !current.signal.aborted;
     // Bỏ bong bóng lỗi cũ; khi thử lại thì bỏ cả tin hỏi cuối để không bị lặp trong lịch sử
     const kept = messagesRef.current.filter((message) => !message.error);
     const last = kept.at(-1);
     const base = retry && last?.role === 'user' && last.text === question ? kept.slice(0, -1) : kept;
     const userMessageId = nextId.current++;
     const replyId = nextId.current++;
-    const update = (patch) =>
-      setMessages((previous) => previous.map((message) => (message.id === replyId ? { ...message, ...patch } : message)));
+    const update = (patch) => {
+      if (owned()) setMessages((previous) => previous.map((message) => (message.id === replyId ? { ...message, ...patch } : message)));
+    };
     setMessages([
       ...base,
-      { id: userMessageId, role: 'user', kind: 'chat', text: question },
-      { id: replyId, role: 'assistant', kind: 'chat', text: '', pending: true },
+      { id: userMessageId, ownerId: userId, role: 'user', kind: 'chat', text: question },
+      { id: replyId, ownerId: userId, role: 'assistant', kind: 'chat', text: '', pending: true },
     ]);
     setBusy(true);
     setError('');
@@ -31,11 +35,13 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
         dietaryType: dietTypeToAi(dietTypeId),
         menuContext: contextPlan ? planToMenuContext(contextPlan) : undefined,
         signal: current.signal,
-        onToken: (token) =>
-          setMessages((previous) =>
+        onToken: (token) => {
+          if (active()) setMessages((previous) =>
             previous.map((message) => (message.id === replyId ? { ...message, text: message.text + token } : message))
-          ),
+          );
+        },
       });
+      if (!active()) return;
       update({ pending: false });
       setMessages((previous) =>
         previous.map((message) =>
@@ -46,6 +52,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
       );
       setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining: remaining } : previous));
     } catch (failure) {
+      if (!owned()) return;
       if (current.signal.aborted) {
         update({ pending: false });
       } else {
@@ -55,11 +62,12 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
           // Dịch vụ AI không dùng được: dùng tra cứu công thức của ChayXanh thay vì để người dùng trống tay
           lookup = await getDatabaseReply(question).catch(() => null);
         }
+        if (!active()) return;
         if (lookup) {
           setMessages((previous) =>
             previous.map((message) =>
               message.id === replyId
-                ? { id: replyId, role: 'assistant', kind: 'lookup', ...lookup, footer: 'Trợ lý AI đang bận nên đây là kết quả tra cứu công thức. Bạn có thể thử hỏi lại sau.' }
+                ? { id: replyId, ownerId: userId, role: 'assistant', kind: 'lookup', ...lookup, footer: 'Trợ lý AI đang bận nên đây là kết quả tra cứu công thức. Bạn có thể thử hỏi lại sau.' }
                 : message
             )
           );
@@ -73,7 +81,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
             retryQuestion: question,
           });
         }
-        if (isQuotaError(failure)) getChatUsage().then(setUsage).catch(() => {});
+        if (isQuotaError(failure)) getChatUsage(current.signal).then((result) => { if (active()) setUsage(result); }).catch(() => {});
       }
     } finally {
       if (controller.current === current) setBusy(false);

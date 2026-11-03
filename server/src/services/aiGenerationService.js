@@ -1,13 +1,26 @@
-// d:\Projects\FPT\SWP391\server\src/services/aiGenerationService.js
+// D:/SWP391/SWP391/server/src/services/aiGenerationService.js
 import { aiGenerationRepository } from '../repositories/aiGenerationRepository.js';
 import { aiLogService } from './aiLogService.js';
 import { aiGatewayError } from '../utils/aiGatewayError.js';
 
+function listRecord(record) {
+  if (record.type !== 'FOOD_SCAN') return record;
+  // Listing scan history must not resend up to 10 MiB of image bytes per row.
+  const requestPayload = { ...record.requestPayload };
+  delete requestPayload.imageBase64;
+  return { ...record, requestPayload };
+}
+
 export const aiGenerationService = {
   async start(context) {
     if (!context.identity.userId) return null;
+    const mapFeatureType = (feature) => {
+      if (feature === 'chatbot') return 'CHAT';
+      if (feature === 'mealPlanner') return 'MEAL_PLAN';
+      return 'FOOD_SCAN';
+    };
     const record = await aiGenerationRepository.create({
-      userId: context.identity.userId, type: context.feature === 'chatbot' ? 'CHAT' : 'MEAL_PLAN',
+      userId: context.identity.userId, type: mapFeatureType(context.feature),
       modelName: 'ai-service', requestPayload: context.payload, promptMessages: [],
     });
     return record.id;
@@ -45,6 +58,6 @@ export const aiGenerationService = {
   },
   async listOwned(query) {
     const [data, total] = await Promise.all([aiGenerationRepository.findPage(query), aiGenerationRepository.count(query)]);
-    return { data, meta: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
+    return { data: data.map(listRecord), meta: { page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) } };
   },
 };

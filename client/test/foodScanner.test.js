@@ -38,3 +38,10 @@ test('Keto and Eat Clean require their own scanner rules', () => {
   assert.equal(analyzeIngredients(scanDemo.ingredients, 6).status, 'unknown');
   assert.equal(analyzeIngredients(scanDemo.ingredients, 7).status, 'unknown');
 });
+
+test('avocado, butter and almonds are not mistaken for beef or onion', () => {
+  assert.equal(analyzeIngredients('bơ, bơ sáp, hạnh nhân, hạt hạnh nhân, sữa hạnh nhân', 5).status, 'clear');
+  assert.equal(analyzeIngredients('thịt bò, bò kho', 1).findings.length, 2);
+  assert.deepEqual(analyzeIngredients('hành lá, hành tím', 5).findings.map((item) => item.layer), [4, 4]);
+  assert.equal(analyzeIngredients('hành lá, hành tím', 1).status, 'clear');
+});

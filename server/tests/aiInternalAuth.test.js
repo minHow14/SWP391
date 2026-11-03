@@ -6,6 +6,7 @@ import app from '../src/app.js';
 import { aiConfig } from '../src/config/aiConfig.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
+import { createGuestSession } from './helpers/guestSession.js';
 
 vi.mock('../src/config/aiConfig.js', async (importOriginal) => {
   const original = await importOriginal();
@@ -14,13 +15,14 @@ vi.mock('../src/config/aiConfig.js', async (importOriginal) => {
 
 const PREFIX = `ai-internal-auth-${randomUUID()}`;
 const ORIGINAL_KEY = aiConfig.internalApiKey;
-let member, admin, memberToken, adminToken;
+let member, admin, memberToken, adminToken, guestSession;
 const failure = (status) => new Response(`PRIVATE_RESPONSE_${ORIGINAL_KEY}`, { status });
-const requestGeneration = (path = 'chat/stream') => request(app).post(`/api/ai/${path}`).set('X-Guest-Id', PREFIX);
+const requestGeneration = (path = 'chat/stream') => guestSession.agent.post(`/api/ai/${path}`);
 const chatPayload = { message: 'Kiểm tra khóa nội bộ' };
 const action = () => `ADMIN_CLEAR_CHATBOT_CACHE_BY_${admin.user_id}`;
 
 beforeAll(async () => {
+  guestSession = await createGuestSession(app);
   const data = (name, role) => ({ email: `${PREFIX}-${name}@example.invalid`, full_name: name, password_hash: 'unused-test-hash', role });
   member = await prisma.user.create({ data: data('member', 2) });
   admin = await prisma.user.create({ data: data('admin', 1) });
@@ -29,7 +31,7 @@ beforeAll(async () => {
 afterEach(() => { aiConfig.internalApiKey = ORIGINAL_KEY; vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: [member.user_id, admin.user_id] } } });
-  await prisma.guestQuota.deleteMany({ where: { guestId: PREFIX } });
+  await prisma.guestQuota.deleteMany({ where: { guestId: guestSession.guestId } });
   await prisma.$disconnect();
 });
 
@@ -45,7 +47,7 @@ describe('internal AI authentication failures', () => {
     expect(response.body.errorCode).toBe('AI_NOT_CONFIGURED');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(await prisma.aiGeneration.count()).toBe(before);
-    expect(await prisma.guestQuota.findFirst({ where: { guestId: PREFIX } })).toBeNull();
+    expect(await prisma.guestQuota.findFirst({ where: { guestId: guestSession.guestId } })).toBeNull();
   });
 
   it.each([
@@ -60,7 +62,7 @@ describe('internal AI authentication failures', () => {
     expect(JSON.stringify(response.body)).not.toContain(ORIGINAL_KEY);
     expect(JSON.stringify(response.body)).not.toContain('PRIVATE_RESPONSE');
     expect(response.body.meta.requestId).toBeTruthy();
-    expect((await prisma.guestQuota.findFirst({ where: { guestId: PREFIX } })).usedCount).toBe(0);
+    expect((await prisma.guestQuota.findFirst({ where: { guestId: guestSession.guestId } })).usedCount).toBe(0);
     expect(await prisma.aiLog.count({ where: { status: 'SUCCESS' } })).toBe(successBefore);
     const log = await prisma.aiLog.findFirst({ orderBy: { logId: 'desc' } });
     expect(log.status).toBe('ERROR');

@@ -24,4 +24,7 @@ export function weekDates(date) {
 export function totals(entries = []) {
   return entries.reduce((sum, entry) => Object.fromEntries(Object.entries(sum).map(([key, value]) => [key, Math.round((value + entry[key]) * 10) / 10])), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 }
-
+/** Món AI gợi ý của một ngày, bổ sung chất xơ để dùng chung với `totals`. */
+export function aiMealsOf(customPlans, day) {
+  return Object.values(customPlans?.[day] || {}).map((meal) => ({ ...meal, fiber: 0 }));
+}

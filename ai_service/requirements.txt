@@ -18,6 +18,10 @@ langchain-community==0.4.2
 langchain-openai==1.7.2
 httpx==0.28.1
 
+# Local video audio extraction; FFmpeg binary is supplied by the wheel.
+yt-dlp[default]==2026.10.21
+imageio-ffmpeg==0.6.0
+
 # Text Processing, Fuzzy Matching & Caching (Tối ưu hóa so khớp nguyên liệu)
 unidecode==1.4.0
 rapidfuzz==3.14.6

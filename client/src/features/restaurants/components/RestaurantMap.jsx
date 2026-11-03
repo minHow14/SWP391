@@ -1,4 +1,4 @@
-﻿// client/src/features/restaurants/components/RestaurantMap.jsx
+// client/src/features/restaurants/components/RestaurantMap.jsx
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { hasCoordinates } from '../../../utils/restaurantDirections.js';
@@ -18,7 +18,14 @@ const layers = [
   },
 ];
 
-export default function RestaurantMap({ places, selected, onSelect }) {
+export default function RestaurantMap({
+  places,
+  selected,
+  onSelect,
+  userLocation = null,
+  searchCenter = null,
+  searchRadius = null,
+}) {
   const container = useRef(null);
   const instance = useRef(null);
   const select = useRef(onSelect);
@@ -30,8 +37,15 @@ export default function RestaurantMap({ places, selected, onSelect }) {
   }, [onSelect]);
 
   useEffect(() => {
+    const initialLat = hasCoordinates(userLocation)
+      ? userLocation.latitude ?? userLocation.lat
+      : 10.7769;
+    const initialLng = hasCoordinates(userLocation)
+      ? userLocation.longitude ?? userLocation.lng
+      : 106.7009;
+
     const map = L.map(container.current, { scrollWheelZoom: false }).setView(
-      [10.7769, 106.7009],
+      [initialLat, initialLng],
       13
     );
     instance.current = map;
@@ -94,7 +108,44 @@ export default function RestaurantMap({ places, selected, onSelect }) {
   }, []);
 
   useEffect(() => {
+    if (!instance.current) return;
     const group = L.layerGroup().addTo(instance.current);
+
+    // 1. Vòng tròn bán kính tìm kiếm (nếu có tâm và bán kính)
+    if (hasCoordinates(searchCenter) && Number.isFinite(searchRadius) && searchRadius > 0) {
+      const cLat = searchCenter.latitude ?? searchCenter.lat;
+      const cLng = searchCenter.longitude ?? searchCenter.lng;
+      L.circle([cLat, cLng], {
+        radius: searchRadius * 1000,
+        color: '#059669',
+        fillColor: '#10b981',
+        fillOpacity: 0.08,
+        weight: 1.5,
+        dashArray: '5, 8',
+      }).addTo(group);
+    }
+
+    // 2. Marker vị trí người dùng (User Location) với hiệu ứng Radar Pulse
+    if (hasCoordinates(userLocation)) {
+      const uLat = userLocation.latitude ?? userLocation.lat;
+      const uLng = userLocation.longitude ?? userLocation.lng;
+      const userIcon = L.divIcon({
+        className: 'cx-user-marker-wrapper',
+        html: '<div class="cx-user-pulse-dot" title="Vị trí của bạn"><span class="cx-user-pulse-ring"></span><span class="cx-user-pulse-core"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span></div>',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+      L.marker([uLat, uLng], {
+        icon: userIcon,
+        title: 'Vị trí của bạn (GPS)',
+        alt: 'Vị trí của bạn',
+        zIndexOffset: 2000,
+      })
+        .bindTooltip('Vị trí của bạn (GPS)', { direction: 'top', offset: [0, -14] })
+        .addTo(group);
+    }
+
+    // 3. Marker các quán chay
     for (const place of places.filter(hasCoordinates)) {
       const active = place.id === selected?.id;
       const icon = L.divIcon({
@@ -105,7 +156,7 @@ export default function RestaurantMap({ places, selected, onSelect }) {
       });
       const label = document.createElement('span');
       label.textContent = place.name;
-      L.marker([place.latitude, place.longitude], {
+      L.marker([place.latitude ?? place.lat, place.longitude ?? place.lng], {
         icon,
         title: place.name,
         alt: place.name,
@@ -115,12 +166,29 @@ export default function RestaurantMap({ places, selected, onSelect }) {
         .on('click', () => select.current(place))
         .addTo(group);
     }
+
     return () => group.remove();
-  }, [places, selected?.id]);
+  }, [
+    places,
+    selected?.id,
+    userLocation?.lat,
+    userLocation?.latitude,
+    userLocation?.lng,
+    userLocation?.longitude,
+    searchCenter?.lat,
+    searchCenter?.latitude,
+    searchCenter?.lng,
+    searchCenter?.longitude,
+    searchRadius,
+  ]);
 
   useEffect(() => {
-    if (hasCoordinates(selected))
-      instance.current.setView([selected.latitude, selected.longitude], 15);
+    if (hasCoordinates(selected) && instance.current) {
+      instance.current.setView(
+        [selected.latitude ?? selected.lat, selected.longitude ?? selected.lng],
+        15
+      );
+    }
   }, [selected]);
 
   return (
@@ -130,6 +198,20 @@ export default function RestaurantMap({ places, selected, onSelect }) {
         className="cx-live-map-canvas"
         aria-label="Bản đồ tương tác vị trí quán chay"
       />
+      {hasCoordinates(userLocation) && (
+        <button
+          type="button"
+          className="cx-map-recenter-user"
+          onClick={() => {
+            const uLat = userLocation.latitude ?? userLocation.lat;
+            const uLng = userLocation.longitude ?? userLocation.lng;
+            instance.current?.setView([uLat, uLng], 15);
+          }}
+          title="Căn giữa về vị trí của bạn"
+        >
+          <i className="bi bi-crosshair" aria-hidden="true" /> Vị trí của tôi
+        </button>
+      )}
       {unavailable && (
         <div className="cx-map-load-error" role="status">
           Không tải được nền bản đồ. Bạn vẫn có thể chọn quán hoặc mở chỉ đường.

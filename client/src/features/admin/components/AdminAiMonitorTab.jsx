@@ -1,9 +1,10 @@
-// client/src/features/admin/components/AdminAiMonitorTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminAiMonitorTab.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { Row, Col, Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
+import { Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import AdminAiInterveneModal from './AdminAiInterveneModal.jsx';
 import { subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminAiModelCards from './AdminAiModelCards.jsx';
 
 export default function AdminAiMonitorTab() {
   const [models, setModels] = useState([]);
@@ -85,26 +86,7 @@ export default function AdminAiMonitorTab() {
         </Alert>
       ) : (
         <>
-          {/* Trạng thái 3 Mô hình AI */}
-          <Row className="g-3 mb-4">
-            {models.map((m) => (
-              <Col xs={12} md={4} key={m.id}>
-                <div className="admin-card p-3 h-100">
-                  <div className="d-flex justify-content-between align-items-center mb-2">
-                    <h6 className="fw-bold mb-0 text-dark">{m.name}</h6>
-                    <span className={`cx-badge ${m.status === 'HEALTHY' ? 'cx-badge-active' : 'cx-badge-locked'}`}>
-                      {m.status === 'HEALTHY' ? 'Hoạt động tốt' : 'Cảnh báo sự cố'}
-                    </span>
-                  </div>
-                  <div className="text-muted small mb-3">{m.type} · <span className="text-secondary">{m.provider}</span></div>
-                  <div className="d-flex justify-content-between small text-muted border-top pt-2">
-                    <span>Tổng lượt gọi: <strong>{m.totalCalls}</strong></span>
-                    <span>Tỷ lệ chuẩn: <strong className="text-success">{m.successRate}%</strong></span>
-                  </div>
-                </div>
-              </Col>
-            ))}
-          </Row>
+          <AdminAiModelCards models={models} />
 
           {/* Bảng Logs */}
           <div className="admin-card overflow-hidden">

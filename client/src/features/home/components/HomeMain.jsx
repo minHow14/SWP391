@@ -1,10 +1,12 @@
-﻿// client/src/features/home/components/HomeMain.jsx
+// D:/SWP391/SWP391/client/src/features/home/components/HomeMain.jsx
 import { useState } from 'react';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import HomeContentDialog from './HomeContentDialog.jsx';
+import PostMedia from '../../community/components/PostMedia.jsx';
 import ContentImage from '../../../components/common/ContentImage.jsx';
+import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import heroPhoto from '../../../assets/images/chayxanh-bowl.webp';
 
 export default function HomeMain() {
@@ -30,10 +32,9 @@ export default function HomeMain() {
               <span>{data.recipes.length} công thức</span><span>{data.restaurants.length} quán chay</span><span>{articles.length} bài chia sẻ</span>
             </div>
           </div>
-          <Button variant="link" className="cx-home-media cx-hero-media" aria-label="Xem ảnh Bữa ăn thực vật ChayXanh" onClick={() => openDetail('hero', null)}>
+          <div className="cx-hero-media">
             <ContentImage src={heroPhoto} alt="Bữa ăn thực vật ChayXanh" className="cx-hero-photo" />
-            <span className="cx-home-media-hint">Xem ảnh <i className="bi bi-arrows-fullscreen" aria-hidden="true" /></span>
-          </Button>
+          </div>
         </section>
         <section className="cx-section">
           <div className="cx-home-section-heading">
@@ -44,7 +45,7 @@ export default function HomeMain() {
             <Col md={6} xl={3} key={recipe.recipe_id}>
               <Card className="cx-home-interactive-card border-0 rounded-4 h-100 overflow-hidden">
                 <Button variant="link" className="cx-home-media" aria-label={`Xem công thức ${recipe.recipe_name}`} onClick={() => openDetail('recipe', recipe)}>
-                  <ContentImage src={recipe.image} alt={recipe.recipe_name} className="cx-recipe-image" />
+                  <RecipeImage src={recipe.image} alt={recipe.recipe_name} className="cx-recipe-image" />
                 </Button>
                 <Card.Body className="p-3">
                   <h3 className="h6 fw-bold">{recipe.recipe_name}</h3>
@@ -78,8 +79,9 @@ export default function HomeMain() {
           </div>
           <Row className="g-4">{articles.slice(0, 4).map(post => (
             <Col md={6} key={post.post_id}>
-              <Card className="border-0 rounded-4 p-4 h-100">
+              <Card className="cx-home-interactive-card border-0 rounded-4 p-4 h-100">
                 <h3 className="h6 fw-bold">{post.title}</h3><p className="small text-secondary">{post.content}</p>
+                <PostMedia attachments={post.attachments} />
                 <p className="small mt-3 mb-0">{post.author_full_name} · {post.comments.length} bình luận</p>
                 <Button variant="outline-success" size="sm" className="align-self-start mt-3" onClick={() => openDetail('article', post)}>Xem chi tiết</Button>
               </Card>

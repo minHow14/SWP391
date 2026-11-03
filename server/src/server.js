@@ -1,12 +1,29 @@
-// d:\Projects\FPT\SWP391\server\src\server.js
+// D:/SWP391/SWP391/server/src/server.js
 import app from './app.js';
 import config from './config/index.js';
 import prisma from './config/prisma.js';
 import { startAutoPurgeCron } from './services/purge.service.js';
+import { runVideoRecipeSummaryWorker } from './workers/videoRecipeSummaryWorker.js';
+import { runContentModerationWorker } from './workers/contentModerationWorker.js';
+import { runIngredientLookupWorker } from './workers/ingredientLookupWorker.js';
+import { logger } from './config/logger.js';
 
 let purgeCronInterval = null;
+const workerController = new AbortController();
+let backgroundWorkers = Promise.resolve();
 
 const server = app.listen(config.port, () => {
+  const videoWorker = runVideoRecipeSummaryWorker({ signal: workerController.signal }).catch((error) => {
+    logger.error({ errorCode: error.errorCode || 'VIDEO_WORKER_ERROR' }, 'Video recipe worker stopped unexpectedly');
+  });
+  // Runs with the API so posts/comments never sit in PENDING_MODERATION just because no extra terminal was started.
+  const moderationWorker = runContentModerationWorker({ signal: workerController.signal }).catch((error) => {
+    logger.error({ errorCode: error.errorCode || 'MODERATION_WORKER_ERROR' }, 'Content moderation worker stopped unexpectedly');
+  });
+  const ingredientWorker = runIngredientLookupWorker({ signal: workerController.signal }).catch((error) => {
+    logger.error({ errorCode: error.errorCode || 'INGREDIENT_LOOKUP_WORKER_ERROR' }, 'Ingredient lookup worker stopped unexpectedly');
+  });
+  backgroundWorkers = Promise.all([videoWorker, moderationWorker, ingredientWorker]);
   console.log(`===============================================`);
   console.log(`🚀 Server running on: http://localhost:${config.port}`);
   console.log(`⚙️  Environment: ${config.env}`);
@@ -35,8 +52,10 @@ const gracefulShutdown = async (signal) => {
   if (purgeCronInterval) {
     clearInterval(purgeCronInterval);
   }
+  workerController.abort();
   server.close(async () => {
     try {
+      await backgroundWorkers;
       await prisma.$disconnect();
       console.log('Database connection disconnected.');
     } catch (err) {

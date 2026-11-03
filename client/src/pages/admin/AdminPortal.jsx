@@ -1,4 +1,4 @@
-﻿// client/src/pages/admin/AdminPortal.jsx
+// client/src/pages/admin/AdminPortal.jsx
 import { useState, useEffect } from 'react';
 import { Container, Row, Col, Nav, Alert } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';
@@ -154,7 +154,7 @@ export default function AdminPortal() {
           </Col>
 
           <Col xs={12} lg={8} xl={9}>
-            <div className="admin-card p-3 p-md-4 min-vh-75">
+            <div className={activeTab === 'dashboard' ? 'admin-dashboard-wrapper' : 'admin-card p-3 p-md-4 min-vh-75'}>
               {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={handleSelectTab} />}
               {activeTab === 'members' && <AdminMembersTab />}
               {activeTab === 'posts' && <AdminPostsTab />}

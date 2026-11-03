@@ -8,10 +8,11 @@ import config from '../src/config/index.js';
 import prisma from '../src/config/prisma.js';
 import { userRepository } from '../src/repositories/user.repository.js';
 import { generateToken } from '../src/utils/jwt.js';
+import { createGuestSession } from './helpers/guestSession.js';
 
 const PREFIX = `ai-authorization-${randomUUID()}`;
 const userIds = [];
-let member, other, admin, memberToken, adminToken, privateRecord;
+let member, other, admin, memberToken, adminToken, privateRecord, guestSession;
 const token = (user, role = user.role) => generateToken({ user_id: user.user_id, role });
 const postChat = () => request(app).post('/api/ai/chat/stream').set('X-Guest-Id', PREFIX);
 const auth = (pending, value = memberToken) => pending.set('Authorization', `Bearer ${value}`);
@@ -42,7 +43,7 @@ beforeAll(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: userIds } } });
-  await prisma.guestQuota.deleteMany({ where: { guestId: PREFIX } });
+  if (guestSession) await prisma.guestQuota.deleteMany({ where: { guestId: guestSession.guestId } });
   await prisma.$disconnect();
 });
 
@@ -64,6 +65,7 @@ describe('backend owns AI authentication and authorization', () => {
     expect(response.body.errorCode).toBe('UNAUTHORIZED');
     expect(fetchMock).not.toHaveBeenCalled();
     expect(await prisma.aiGeneration.count()).toBe(before);
+    expect(response.headers['set-cookie']).toBeUndefined();
     expect(await prisma.guestQuota.findFirst({ where: { guestId: PREFIX } })).toBeNull();
   });
 
@@ -149,12 +151,14 @@ describe('backend owns AI authentication and authorization', () => {
   });
 
   it('keeps a caller without JWT in guest mode despite forged identity headers', async () => {
+    guestSession = await createGuestSession(app);
     const fetchMock = vi.fn(async () => upstream()); vi.stubGlobal('fetch', fetchMock);
     const count = await prisma.aiGeneration.count();
-    const response = await postChat().set('X-User-Id', String(admin.user_id)).set('X-User-Role', 'ADMIN').send(payload);
+    const response = await guestSession.agent.post('/api/ai/chat/stream').set('X-Guest-Id', PREFIX)
+      .set('X-User-Id', String(admin.user_id)).set('X-User-Role', 'ADMIN').send(payload);
     expect(response.text).toContain('"remaining":2');
     const headers = fetchMock.mock.calls[0][1].headers;
-    expect(headers['X-Guest-Id']).toBe(PREFIX);
+    expect(headers['X-Guest-Id']).toBe(guestSession.guestId);
     expect(headers['X-User-Id']).toBeUndefined();
     expect(headers['X-User-Role']).toBeUndefined();
     expect(await prisma.aiGeneration.count()).toBe(count);

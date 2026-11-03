@@ -25,26 +25,33 @@ export default function AdminQuickActions({ onNavigateTab, pendingReports = 0, f
   ];
 
   return (
-    <div className="admin-card p-3 mb-4">
+    <div className="cx-action-launchpad mb-4 p-3">
       <div className="d-flex align-items-center justify-content-between mb-2">
-        <span className="small fw-bold text-uppercase text-muted" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
-          <i className="bi bi-lightning-charge-fill text-warning me-1" /> Thao tác quản trị nhanh
+        <span className="cx-eyebrow text-muted">
+          <i className="bi bi-lightning-charge-fill text-warning me-1" />
+          Phím tắt điều hành nhanh
         </span>
-        <span className="small text-muted" style={{ fontSize: '0.75rem' }}>Chuyển nhanh đến phân hệ cần xử lý</span>
+        <span className="small text-muted" style={{ fontSize: '0.75rem' }}>
+          Chuyển đổi trực tiếp giữa các module nghiệp vụ
+        </span>
       </div>
       <div className="d-flex flex-wrap gap-2">
         {actions.map((act) => (
           <Button
             key={act.key}
-            variant="outline-secondary"
+            variant="light"
             size="sm"
-            className="admin-quick-action-btn rounded-pill d-inline-flex align-items-center gap-1 px-3 py-1 text-dark"
+            className="cx-action-chip rounded-pill d-inline-flex align-items-center gap-2 px-3 py-1"
             onClick={() => onNavigateTab(act.key)}
           >
-            <i className={`bi ${act.icon} text-success`} />
-            <span className="small fw-semibold">{act.label}</span>
+            <i className={`bi ${act.icon} cx-action-chip-icon`} />
+            <span className="cx-action-chip-label">{act.label}</span>
             {act.badge && (
-              <Badge bg={act.badgeVariant || 'danger'} pill className="ms-1 px-2 py-1" style={{ fontSize: '0.65rem' }}>
+              <Badge
+                bg={act.badgeVariant || 'danger'}
+                pill
+                className="ms-1 px-2 py-1 cx-action-chip-badge"
+              >
                 {act.badge}
               </Badge>
             )}

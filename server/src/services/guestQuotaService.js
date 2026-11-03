@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src/services/guestQuotaService.js
+// D:/SWP391/SWP391/server/src/services/guestQuotaService.js
 import { z } from 'zod';
 import { aiConfig } from '../config/aiConfig.js';
 import { guestQuotaRepository } from '../repositories/guestQuotaRepository.js';
@@ -33,12 +33,12 @@ export const guestQuotaService = {
     return usageData({ guestId: normalizedGuestId, period, used: usage?.usedCount ?? 0 });
   },
 
-  async reserveTurn({ guestId, now = new Date() }) {
+  async reserveTurn({ guestId, now = new Date() }, db) {
     const normalizedGuestId = validateGuestId(guestId);
     const period = getAiQuotaPeriod(now);
     const reservation = await guestQuotaRepository.reserveTurn({
       guestId: normalizedGuestId, quotaDate: period.quotaDate, dailyLimit: aiConfig.guestDailyLimit,
-    });
+    }, db);
     if (reservation === null) {
       const error = new ApiError(TOO_MANY_REQUESTS, 'Bạn đã sử dụng hết lượt AI trong ngày.');
       error.errorCode = 'AI_QUOTA_EXCEEDED';

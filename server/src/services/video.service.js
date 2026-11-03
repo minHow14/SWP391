@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\video.service.js
+// D:/SWP391/SWP391/server/src/services/video.service.js
 import prisma from '../config/prisma.js';
 import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
@@ -6,6 +6,7 @@ import { ApiError } from '../utils/index.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { categoryRepository } from '../repositories/category.repository.js';
+import { notificationService } from './notification.service.js';
 
 export const videoService = {
   /**
@@ -370,6 +371,9 @@ export const videoService = {
           deleted_at: now,
         },
       });
+      if (currentUser?.role === ROLES.ADMIN && currentUser.user_id !== post.author_id) {
+        await notificationService.notifyPostRemoval({ userId: post.author_id, postId }, tx);
+      }
     });
 
     return { message: 'Video deleted successfully' };

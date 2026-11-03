@@ -1,4 +1,4 @@
-// client/test/communityService.test.js
+// D:/SWP391/SWP391/client/test/communityService.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -9,6 +9,7 @@ import {
   addPostComment,
   togglePostVote,
   createReport,
+  getContentModerationJobs,
 } from '../src/services/communityService.js';
 import apiClient from '../src/services/apiClient.js';
 
@@ -16,6 +17,25 @@ const originalRequest = apiClient.request;
 const originalGet = apiClient.get;
 const originalPost = apiClient.post;
 const originalDelete = apiClient.delete;
+
+test('savePost preserves the moderation receipt returned beside a blog', async () => {
+  apiClient.request = async () => ({ data: { blog: { post_id: 7, status: 'PENDING_MODERATION' }, jobId: 'pending-job', moderationStatus: 'PENDING' } });
+  const result = await savePost({ values: { title: 'Sườn chay', content: 'Làm từ nấm.' } });
+  assert.equal(result.jobId, 'pending-job');
+  assert.equal(result.moderationStatus, 'PENDING');
+  assert.equal(result.status, 'PENDING_MODERATION');
+});
+
+test('getContentModerationJobs uses paginated authenticated API and accepts cancellation', async () => {
+  const controller = new AbortController();
+  apiClient.get = async (url, options) => {
+    assert.equal(url, '/v1/content-moderation-jobs');
+    assert.deepEqual(options.params, { page: 2, limit: 5 });
+    assert.equal(options.signal, controller.signal);
+    return { data: { items: [] }, meta: { total: 0, pending: 0 } };
+  };
+  assert.deepEqual((await getContentModerationJobs({ page: 2, limit: 5 }, controller.signal)).data.items, []);
+});
 
 afterEach(() => {
   apiClient.request = originalRequest;

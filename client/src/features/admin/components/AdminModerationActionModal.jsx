@@ -1,4 +1,4 @@
-// client/src/features/admin/components/AdminModerationActionModal.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminModerationActionModal.jsx
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 
 export default function AdminModerationActionModal({
@@ -17,7 +17,7 @@ export default function AdminModerationActionModal({
     <Modal show={!!actionItem} onHide={submitting ? undefined : onClose} centered>
       <Modal.Header closeButton={!submitting}>
         <Modal.Title className="fs-5 fw-bold">
-          {isApprove ? 'Xác Nhận Khôi Phục Nội Dung' : 'Xác Nhận Gỡ Bỏ Vi Phạm'}
+          {isApprove ? 'Xác nhận cho phép hiển thị' : 'Xác nhận gỡ nội dung'}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
@@ -28,7 +28,7 @@ export default function AdminModerationActionModal({
           </Alert>
         )}
         <p className="small mb-2">
-          Hành động: <strong>{isApprove ? 'PHÊ DUYỆT KHÔI PHỤC' : 'GỠ BỎ VĨNH VIỄN'}</strong> cho:
+          Hành động: <strong>{isApprove ? 'CHO PHÉP HIỂN THỊ' : 'GỠ NỘI DUNG'}</strong> cho:
         </p>
         <div className="p-2 border rounded-3 bg-light small mb-3 text-truncate">
           {actionItem.title}
@@ -40,6 +40,7 @@ export default function AdminModerationActionModal({
           <Form.Control
             as="textarea"
             rows={3}
+            maxLength={500}
             className="rounded-3"
             placeholder="VD: Đã rà soát thực tế không có dấu hiệu quảng cáo hay vi phạm..."
             value={notes}
