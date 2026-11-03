@@ -115,6 +115,11 @@ export const updateUserStatus = async ({ targetUserId, status, currentAdminId })
 
   const user = await prisma.user.findUnique({ where: { user_id: id } });
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
+  if (user.status === USER_STATUS.DELETED) {
+    const error = ApiError.conflict('Tài khoản đã xóa cần được khôi phục bằng chức năng khôi phục tài khoản.');
+    error.errorCode = 'ACCOUNT_RESTORE_REQUIRED';
+    throw error;
+  }
 
   const isDeleting = status === USER_STATUS.DELETED;
   const deletedAt = isDeleting ? new Date() : null;
