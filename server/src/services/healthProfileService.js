@@ -5,7 +5,7 @@ export async function syncHealthProfileWeightHistory(userId, profile, tx) {
   if (profile.weight == null) return;
   const numericWeight = Number(profile.weight);
 
-  const [latest] = await userRepository.getHealthHistories(userId, tx);
+  const latest = await userRepository.findLatestHealthHistory(userId, tx);
   if (latest && Number(latest.weight) === numericWeight) return;
 
   const currentHeight = profile.height != null

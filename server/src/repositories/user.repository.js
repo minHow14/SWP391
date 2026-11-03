@@ -179,6 +179,14 @@ export const userRepository = {
     });
   },
 
+  findLatestHealthHistory(userId, db = prisma) {
+    return db.healthHistory.findFirst({
+      where: { user_id: Number(userId) },
+      orderBy: { history_id: 'desc' },
+      select: { weight: true },
+    });
+  },
+
   async findHealthProfile(userId, db = prisma) {
     return db.healthProfile.findUnique({
       where: { user_id: Number(userId) },

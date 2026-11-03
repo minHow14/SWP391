@@ -54,6 +54,28 @@ describe('journal profile weight history', () => {
     expect(histories[0]).toMatchObject({ weight: 72, bmi: 22.2 });
   });
 
+  it('compares persisted precision when saving the same fractional measurements twice', async () => {
+    const measurements = { weight: 62.7123456789, height: 175.123456789 };
+    expect((await saveJournalProfile(measurements)).status).toBe(200);
+    expect((await saveJournalProfile(measurements)).status).toBe(200);
+    const response = await getHistory();
+    expect(response.body.data.histories).toHaveLength(1);
+    expect(response.body.data.histories[0].weight).toBe(response.body.data.currentProfile.weight);
+  });
+
+  it('does not duplicate a journal weight when another measurement has a future recorded date', async () => {
+    expect((await saveJournalProfile()).status).toBe(200);
+    const future = await request(app).post('/api/v1/auth/me/weight').set('Authorization', authorization)
+      .send({ weight: 80, recordedDate: '2099-01-01T00:00:00.000Z' });
+    expect(future.status).toBe(201);
+    expect((await saveJournalProfile()).status).toBe(200);
+    expect((await saveJournalProfile({ calorieGoal: 2100 })).status).toBe(200);
+    const histories = (await getHistory()).body.data.histories;
+    expect(histories).toHaveLength(3);
+    expect(histories[0].weight).toBe(80);
+    expect(histories.filter((history) => history.weight === 70)).toHaveLength(2);
+  });
+
   it('shares history with the auth profile endpoint and does not record a cleared weight', async () => {
     const updateAuth = (health_profile) => request(app).patch('/api/v1/auth/me')
       .set('Authorization', authorization).send({ health_profile });

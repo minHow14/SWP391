@@ -355,9 +355,9 @@ export const workspaceService = {
    */
   async updateProfile(userId, { height, weight, calorieGoal, goal }) {
     await prisma.$transaction(async (tx) => {
-      await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
+      const savedProfile = await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
       await workspaceRepository.upsertProfilePreferences(userId, calorieGoal, goal, tx);
-      await syncHealthProfileWeightHistory(userId, { height, weight }, tx);
+      await syncHealthProfileWeightHistory(userId, savedProfile, tx);
     });
 
     return { saved: true };

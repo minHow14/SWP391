@@ -253,13 +253,13 @@ export const authService = {
         if (profile.gender !== undefined) {
           profile.gender = normalizeGender(profile.gender);
         }
-        await userRepository.upsertHealthProfile(user_id, profile, tx);
+        const savedProfile = await userRepository.upsertHealthProfile(user_id, profile, tx);
 
         if (profile.health_goal !== undefined) {
           await userRepository.upsertProfilePreference(user_id, profile.health_goal, tx);
         }
 
-        await syncHealthProfileWeightHistory(user_id, profile, tx);
+        if (profile.weight !== undefined) await syncHealthProfileWeightHistory(user_id, savedProfile, tx);
       }
 
       if (allergy_ids !== undefined) {
