@@ -1,13 +1,12 @@
-// client/src/features/admin/components/AdminPostsTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminPostsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
 export default function AdminPostsTab() {
-  const [posts, setPosts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -15,22 +14,9 @@ export default function AdminPostsTab() {
   const [editForm, setEditForm] = useState({ title: '', content: '' });
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchPosts = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await adminService.getPosts({ postType: typeFilter, status: statusFilter, search, limit: 50 });
-      setPosts(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      setError(err.message || 'Không thể tải danh sách bài viết');
-    } finally {
-      setLoading(false);
-    }
-  }, [typeFilter, statusFilter, search]);
-
-  useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+  const fetchPage = useCallback((pagination) => adminService.getPosts({ postType: typeFilter, status: statusFilter, search, ...pagination }), [typeFilter, statusFilter, search]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([typeFilter, statusFilter, search]), limit: 50, errorMessage: 'Không thể tải danh sách bài viết' });
+  const { data: posts, loading, error, setError, refresh: fetchPosts } = pagination;
 
   // Tự động cập nhật danh sách bài viết khi có tác động từ các tab/trang khác
   useEffect(() => {
@@ -113,21 +99,21 @@ export default function AdminPostsTab() {
             <Form.Control
               size="sm"
               className="rounded-3"
-              placeholder="Tìm theo tiêu đề hoặc tác giả..."
+              aria-label="Tìm theo tiêu đề hoặc tác giả..." placeholder="Tìm theo tiêu đề hoặc tác giả..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchPosts()}
             />
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+            <Form.Select aria-label="Loại bài đăng" size="sm" className="rounded-3" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
               <option value="">Tất cả bài viết & video nấu ăn</option>
               <option value="BLOG">Bài viết Blog chia sẻ</option>
               <option value="VIDEO">Video nấu ăn chay</option>
             </Form.Select>
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
               <option value="PUBLISHED">Đã phê duyệt</option>
               <option value="PENDING">Chờ phê duyệt</option>
@@ -175,7 +161,7 @@ export default function AdminPostsTab() {
                 const title = p.blog?.title || p.video?.title || 'Không có tiêu đề';
                 return (
                   <tr key={p.post_id}>
-                    <td className="stt-col">{index + 1}</td>
+                    <td className="stt-col">{(pagination.page - 1) * pagination.limit + index + 1}</td>
                     <td>
                       <div className="fw-semibold text-dark text-truncate" style={{ maxWidth: 320 }}>{title}</div>
                       <div className="text-muted small">Tác giả: {p.author?.full_name}</div>
@@ -245,6 +231,7 @@ export default function AdminPostsTab() {
           <Button variant="success" size="sm" className="rounded-3" onClick={handleSaveEdit}>Lưu cập nhật</Button>
         </Modal.Footer>
       </Modal>
+      <AdminPagination {...pagination} />
     </div>
   );
 }

@@ -1,32 +1,18 @@
-// client/src/features/admin/components/AdminReportsTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminReportsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
 export default function AdminReportsTab() {
-  const [reports, setReports] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchReports = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await adminService.getReports({ status: statusFilter, limit: 50 });
-      setReports(res.data);
-    } catch (err) {
-      setError(err.message || 'Không thể tải danh sách báo cáo vi phạm');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
-
-  useEffect(() => {
-    fetchReports();
-  }, [fetchReports]);
+  const fetchPage = useCallback((pagination) => adminService.getReports({ status: statusFilter, ...pagination }), [statusFilter]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter]), limit: 50, errorMessage: 'Không thể tải danh sách báo cáo vi phạm' });
+  const { data: reports, loading, error, setError, refresh: fetchReports } = pagination;
 
   // Tự động cập nhật danh sách báo cáo khi có thay đổi liên quan
   useEffect(() => {
@@ -97,7 +83,7 @@ export default function AdminReportsTab() {
       <div className="admin-card mb-3 p-3">
         <Row className="g-2 align-items-center">
           <Col xs={12} sm={4}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái báo cáo</option>
               <option value="PENDING">Chờ xử lý</option>
               <option value="RESOLVED">Đã giải quyết</option>
@@ -222,6 +208,7 @@ export default function AdminReportsTab() {
           </Table>
         </div>
       )}
+      <AdminPagination {...pagination} />
     </div>
   );
 }

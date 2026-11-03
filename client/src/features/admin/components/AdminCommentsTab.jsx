@@ -1,39 +1,20 @@
-// client/src/features/admin/components/AdminCommentsTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminCommentsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
 export default function AdminCommentsTab() {
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [flagFilter, setFlagFilter] = useState('');
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchComments = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await adminService.getComments({
-        status: statusFilter,
-        isFlagged: flagFilter,
-        search,
-        limit: 50,
-      });
-      setComments(res.data);
-    } catch (err) {
-      setError(err.message || 'Không thể tải danh sách bình luận');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, flagFilter, search]);
-
-  useEffect(() => {
-    fetchComments();
-  }, [fetchComments]);
+  const fetchPage = useCallback((pagination) => adminService.getComments({ status: statusFilter, isFlagged: flagFilter, search, ...pagination }), [statusFilter, flagFilter, search]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter, flagFilter, search]), limit: 50, errorMessage: 'Không thể tải danh sách bình luận' });
+  const { data: comments, loading, error, setError, refresh: fetchComments } = pagination;
 
   // Tự động cập nhật danh sách bình luận khi có tác động từ các tab/trang khác
   useEffect(() => {
@@ -91,14 +72,14 @@ export default function AdminCommentsTab() {
             <Form.Control
               size="sm"
               className="rounded-3"
-              placeholder="Tìm kiếm nội dung bình luận..."
+              aria-label="Tìm kiếm nội dung bình luận..." placeholder="Tìm kiếm nội dung bình luận..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchComments()}
             />
           </Col>
           <Col xs={6} md={3}>
-            <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
               <option value="ACTIVE">Đang hiển thị</option>
               <option value="HIDDEN_BY_AI">Đã ẩn</option>
@@ -106,7 +87,7 @@ export default function AdminCommentsTab() {
             </Form.Select>
           </Col>
           <Col xs={6} md={2}>
-            <Form.Select size="sm" className="rounded-3" value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)}>
+            <Form.Select aria-label="Cờ AI" size="sm" className="rounded-3" value={flagFilter} onChange={(e) => setFlagFilter(e.target.value)}>
               <option value="">Bộ lọc cờ AI</option>
               <option value="true">Có cờ nghi vấn</option>
               <option value="false">Bình thường</option>
@@ -212,6 +193,7 @@ export default function AdminCommentsTab() {
           </Table>
         </div>
       )}
+      <AdminPagination {...pagination} />
     </div>
   );
 }

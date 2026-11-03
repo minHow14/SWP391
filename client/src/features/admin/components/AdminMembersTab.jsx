@@ -1,36 +1,22 @@
-// client/src/features/admin/components/AdminMembersTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminMembersTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import AdminMemberContentModal from './AdminMemberContentModal.jsx';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
 export default function AdminMembersTab() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedUserContent, setSelectedUserContent] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await adminService.getUsers({ search, status: statusFilter, limit: 50 });
-      setUsers(res.data);
-    } catch (err) {
-      setError(err.message || 'Không thể tải danh sách thành viên');
-    } finally {
-      setLoading(false);
-    }
-  }, [search, statusFilter]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const fetchPage = useCallback((pagination) => adminService.getUsers({ search, status: statusFilter, ...pagination }), [search, statusFilter]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([search, statusFilter]), limit: 50, errorMessage: 'Không thể tải danh sách thành viên' });
+  const { data: users, loading, error, setError, refresh: fetchUsers } = pagination;
 
   // Tự động cập nhật danh sách khi có sự kiện thay đổi người dùng
   useEffect(() => {
@@ -106,13 +92,13 @@ export default function AdminMembersTab() {
               <Form.Control
                 size="sm"
                 className="rounded-3"
-                placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
+                aria-label="Tìm kiếm theo họ tên hoặc địa chỉ email..." placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">Tất cả trạng thái</option>
                 <option value="ACTIVE">Đang hoạt động</option>
                 <option value="LOCKED">Bị tạm khóa</option>
@@ -161,7 +147,7 @@ export default function AdminMembersTab() {
             <tbody>
               {users.map((u, index) => (
                 <tr key={u.user_id}>
-                  <td className="stt-col">{index + 1}</td>
+                  <td className="stt-col">{(pagination.page - 1) * pagination.limit + index + 1}</td>
                   <td>
                     <div className="fw-semibold text-dark">{u.full_name}</div>
                     <div className="text-muted small">{u.email}</div>
@@ -215,6 +201,7 @@ export default function AdminMembersTab() {
 
       {/* Modal xem nội dung của User */}
       <AdminMemberContentModal content={selectedUserContent} loading={contentLoading} onHide={() => setSelectedUserContent(null)} />
+      <AdminPagination {...pagination} />
     </div>
   );
 }

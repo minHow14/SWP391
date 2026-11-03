@@ -4,39 +4,24 @@ import { Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import AdminAiInterveneModal from './AdminAiInterveneModal.jsx';
 import { subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import AdminAiModelCards from './AdminAiModelCards.jsx';
 
 export default function AdminAiMonitorTab() {
-  const [models, setModels] = useState([]);
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [showInterveneModal, setShowInterveneModal] = useState(false);
   const [selectedLogForIntervene, setSelectedLogForIntervene] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [modelsRes, logsRes] = await Promise.all([
-        adminService.getAiModels(),
-        adminService.getAiLogs({ status: statusFilter, action: actionFilter, limit: 30 }),
-      ]);
-      setModels(modelsRes.data);
-      setLogs(logsRes.data);
-    } catch (err) {
-      setError(err.message || 'Không thể tải dữ liệu giám sát mô hình AI');
-    } finally {
-      setLoading(false);
-    }
+  const fetchPage = useCallback(async (pagination) => {
+    const [modelsRes, logsRes] = await Promise.all([adminService.getAiModels(), adminService.getAiLogs({ status: statusFilter, action: actionFilter, ...pagination })]);
+    return { ...logsRes, models: modelsRes.data };
   }, [statusFilter, actionFilter]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter, actionFilter]), limit: 30, errorMessage: 'Không thể tải dữ liệu giám sát mô hình AI' });
+  const { data: logs, loading, error, refresh: fetchData } = pagination;
+  const models = pagination.response?.models ?? [];
 
   // Tự động cập nhật số liệu và nhật ký AI khi có can thiệp hoặc kiểm duyệt
   useEffect(() => {
@@ -94,13 +79,13 @@ export default function AdminAiMonitorTab() {
               <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
                 <h6 className="fw-bold mb-0 text-dark">Lịch sử Hoạt động & Nhật ký Phản hồi AI (ai_logs)</h6>
                 <div className="d-flex gap-2">
-                  <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 160 }}>
+                  <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={{ width: 160 }}>
                     <option value="">Tất cả trạng thái</option>
                     <option value="SUCCESS">Thành công (SUCCESS)</option>
                     <option value="ERROR">Gặp lỗi (ERROR)</option>
                     <option value="RESOLVED_BY_ADMIN">Đã can thiệp thủ công</option>
                   </Form.Select>
-                  <Form.Select size="sm" className="rounded-3" value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} style={{ width: 180 }}>
+                  <Form.Select aria-label="Tác vụ AI" size="sm" className="rounded-3" value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} style={{ width: 180 }}>
                     <option value="">Tất cả tác vụ</option>
                     <option value="SPAM_DETECTION">Kiểm duyệt Spam</option>
                     <option value="CHATBOT_GUEST_QUERY">Tư vấn Chatbot</option>
@@ -178,6 +163,7 @@ export default function AdminAiMonitorTab() {
           fetchData();
         }}
       />
+      <AdminPagination {...pagination} />
     </div>
   );
 }
