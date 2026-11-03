@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\auth.service.js
+// D:/SWP391/SWP391/server/src/services/auth.service.js
 import { z } from 'zod';
 import prisma from '../config/prisma.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -13,6 +13,7 @@ import {
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
+import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
 const MAX_USER_ID = 2_147_483_647;
 const tokenClaimsSchema = z.object({ user_id: z.number().int().positive().max(MAX_USER_ID) });
@@ -40,32 +41,6 @@ export function normalizeGender(val) {
   if (['FEMALE', 'NỮ', 'NU', 'F'].includes(s)) return 'FEMALE';
   if (['OTHER', 'KHÁC', 'KHAC', 'O'].includes(s)) return 'OTHER';
   throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
-}
-
-async function syncHealthProfileWeightHistory(userId, profile, tx) {
-  if (profile.weight == null) return;
-  const numericWeight = Number(profile.weight);
-  if (numericWeight < 20 || numericWeight > 350) return;
-
-  const latestHistories = await userRepository.getHealthHistories(userId, tx);
-  const latest = latestHistories[0];
-  if (latest && Number(latest.weight) === numericWeight) return;
-
-  let calculatedBmi = null;
-  const currentHeight = profile.height != null
-    ? Number(profile.height)
-    : (await userRepository.findHealthProfile(userId, tx))?.height;
-
-  if (currentHeight && currentHeight > 0) {
-    const heightMeters = currentHeight / 100;
-    calculatedBmi = Number((numericWeight / (heightMeters * heightMeters)).toFixed(1));
-  }
-
-  await userRepository.addHealthHistory(
-    userId,
-    { weight: numericWeight, bmi: calculatedBmi, recorded_date: new Date() },
-    tx
-  );
 }
 
 export const authService = {
