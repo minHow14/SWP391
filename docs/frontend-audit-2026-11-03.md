@@ -1,5 +1,11 @@
 # Rà soát frontend và kết nối backend/AI — 03/11/2026
 
+## Tiến độ sửa sau rà soát
+
+Phase 1 trên nhánh `fix-frontend` đã sửa backend cho các mục 02, 03, bảo vệ dữ liệu khôi phục ở mục 06 và đồng bộ lịch sử ở mục 10. Caller frontend của 06 và đồng bộ session ở 10 vẫn thuộc Phase 2. Các mục frontend/AI khác chưa được đánh dấu hoàn tất.
+
+Kết quả mới nhất: `npm test` trong server đạt **425/425 test, 51/51 file**, trên database `_test` riêng. Có review độc lập; các lỗi đồng thời, DELETE lặp lại, độ chính xác REAL và thứ tự lịch sử được tái hiện bằng test trước khi sửa. Danh sách commit và phạm vi còn lại ở [báo cáo Phase 1](D:/SWP391/SWP391/docs/frontend-repairs-phase1.md).
+
 ## Kết luận và phạm vi
 
 Các luồng chính đã có kết nối trong mã nguồn. Vẫn còn lỗi hợp đồng API, đồng bộ dữ liệu, xử lý kết quả AI và một số thao tác giao diện chưa được triển khai.
@@ -144,6 +150,12 @@ P1: ưu tiên cao vì bảo mật, sai dữ liệu đầu vào hoặc chặn ch�
 - [ChatBox.jsx:21](D:/SWP391/SWP391/client/src/features/chat/components/ChatBox.jsx:21) yêu cầu hồ sơ có số đo, nhưng chỉ gửi câu Tôi muốn tính chỉ số BMI.
 - [useChatRequest.js:32](D:/SWP391/SWP391/client/src/features/chat/hooks/useChatRequest.js:32) truyền message/history/diet/menuContext, không gửi chiều cao hoặc cân nặng; gateway không bổ sung hồ sơ.
 - Hậu quả: nút không thể tự tính từ số đo đã lưu nếu lịch sử chat chưa có số đo. Không khẳng định AI luôn trả sai; dữ liệu cần thiết chưa được nối vào thao tác này.
+
+### 20. P1 — Khôi phục tài khoản chưa bảo toàn trạng thái kiểm duyệt gốc
+
+- Phát hiện bổ sung trong review Phase 1: dữ liệu hiện chỉ giữ trạng thái DELETED và deleted_at, không giữ trạng thái bài/bình luận trước khi xóa tài khoản.
+- Luồng restore hiện phục hồi bài về PUBLISHED và bình luận về ACTIVE. Bài đã HIDDEN_BY_AI/HIDDEN/PENDING_MODERATION/DRAFT trước khi tài khoản bị xóa có thể được công khai sau restore.
+- Đây là hành vi có sẵn, không được giải quyết chỉ bằng bảo vệ timestamp. Cần chốt quy tắc khôi phục và lưu metadata trạng thái cũ; dữ liệu đã mất trạng thái trước xóa không thể tự suy ra. Chưa sửa trong Phase 1, cần xử lý riêng trước khi coi luồng khôi phục hoàn chỉnh.
 
 ## Chức năng giao diện còn thiếu kết nối
 

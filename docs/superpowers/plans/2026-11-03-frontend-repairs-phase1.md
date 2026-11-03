@@ -35,9 +35,9 @@
 
 **Interface:** `updateUserStatusSchema` accepts ACTIVE, LOCKED and DELETED, rejecting BANNED, PENDING, unknown status and extra fields.
 
-- [ ] Write and run the failing contract regression before changing production code.
-- [ ] Replace the divergent enum with canonical USER_STATUS values.
-- [ ] Run the focused regression; commit as `fix(admin-members): accept canonical account statuses`.
+- [x] Write and run the failing contract regression before changing production code.
+- [x] Replace the divergent enum with canonical USER_STATUS values.
+- [x] Run the focused regression; commit as `fix(admin-members): accept canonical account statuses`.
 
 ## Task 2: Report status validation
 
@@ -47,9 +47,9 @@
 
 **Interface:** `updateReportStatusSchema` accepts PENDING, RESOLVED and DISMISSED, preserving resolutionAction validation and rejecting REJECTED.
 
-- [ ] Write and run the failing report regression.
-- [ ] Use canonical REPORT_STATUS values; run both status contract files.
-- [ ] Commit as `fix(admin-reports): accept canonical dismissal status`.
+- [x] Write and run the failing report regression.
+- [x] Use canonical REPORT_STATUS values; run both status contract files.
+- [x] Commit as `fix(admin-reports): accept canonical dismissal status`.
 
 ## Task 3: Preserve account restoration metadata
 
@@ -59,10 +59,10 @@
 
 **Interface:** Generic PATCH status cannot reactivate a deleted account; it returns 409 and preserves deleted_at. Existing POST restore reactivates the account and only the content deleted with it.
 
-- [ ] Write an API regression creating isolated account/post/comment fixtures in the test DB; verify PATCH activation currently erases deletion metadata.
-- [ ] Add a guard directing deleted-account state transitions to explicit restoration.
-- [ ] Verify normal lock/unlock, protected deleted state, and explicit selective restoration.
-- [ ] Commit as `fix(admin-members): preserve deleted account restoration metadata`.
+- [x] Write an API regression creating isolated account/post/comment fixtures in the test DB; verify PATCH activation currently erases deletion metadata.
+- [x] Add a guard directing deleted-account state transitions to explicit restoration.
+- [x] Verify normal lock/unlock, protected deleted state, and explicit selective restoration.
+- [x] Commit as `fix(admin-members): preserve deleted account restoration metadata`.
 
 ## Task 4: Synchronize journal profile weight history
 
@@ -74,16 +74,17 @@
 
 **Interface:** Shared `syncHealthProfileWeightHistory(userId, profile, tx)` persists a changed profile weight and calculated BMI through userRepository, using the caller transaction. Both auth and workspace profile updates invoke it. No duplicate history for unchanged weight, no record for null weight; preserve existing API response shapes.
 
-- [ ] Reproduce missing history through PATCH workspace/profile and GET auth/me/health-history.
-- [ ] Extract the existing synchronization into the shared service and invoke it from workspace's existing transaction.
-- [ ] Cover updated BMI, unchanged weight, both profile endpoints and transaction rollback.
-- [ ] Commit as `fix(journal): synchronize profile edits with weight history`.
+- [x] Reproduce missing history through PATCH workspace/profile and GET auth/me/health-history.
+- [x] Extract the existing synchronization into the shared service and invoke it from workspace's existing transaction.
+- [x] Cover updated BMI, unchanged weight, both profile endpoints and transaction rollback.
+- [x] Commit as `fix(journal): synchronize profile edits with weight history`.
 
 ## Completion
 
-- [ ] Run backend suite against `_test`, inspect every failure, and record any environment limits.
-- [ ] Request one independent review of Phase 1; resolve important findings with regression checks.
-- [ ] Record commits and checks, then ask for confirmation to start frontend/AI Phase 2.
+- [x] Run backend suite against `_test`, inspect every failure, and record any environment limits.
+- [x] Request one independent review of Phase 1; resolve important findings within this phase with regression checks.
+- [x] Record commits and checks in `D:/SWP391/SWP391/docs/frontend-repairs-phase1.md`.
+- [ ] Receive confirmation for Phase 2, required by root AGENTS.md line 107.
 
 ## Deferred to Phase 2/3
 
@@ -93,4 +94,10 @@ Frontend-only fixes include credentials disclosure, refresh/logout wiring, resto
 
 - Started on `fix-frontend`, base commit `03b2852`; existing untracked community-image-sources.md and docs/superpowers content remain untouched except this new plan.
 - Ruling: the user already authorized repairs to the written audit; proceed without an additional design approval gate. Honor the explicit project phase boundary.
-- Baseline: full backend test command launched with workspace TEMP/TMP and `_test` enforcement; result pending.
+- Baseline: full backend suite passed, 395 tests / 47 files.
+- Task 1 complete: `9c2dda0`; 8 contract tests GREEN after 3 expected RED failures.
+- Task 2 complete: `5e03515`; 15 combined contract tests GREEN after 2 expected report failures.
+- Task 3 complete: `53abe81`; review follow-up `96c097c` serializes account lifecycle mutations and makes DELETE idempotent, with RED→GREEN API regressions. Ruling: PATCH DELETED delegates to the same cascade and is idempotent, rather than rejecting a repeat deletion; this preserves deletion timestamps across both entry points.
+- Task 4 complete: `726ff19`; review follow-up `e1bca95` deduplicates persisted precision and last-appended history. Ruling: remove the old 20..350 silent filter because the profile endpoints already validate 10..400; standalone weight recording retains its own existing bounds.
+- Final independent review: four actionable concurrency/idempotency/dedup findings reproduced and fixed in one pass. The related PATCH deletion-cascade bypass was also reproduced and fixed. Pre-existing loss of original moderation state on account restore is recorded as audit issue 20 and requires a separate metadata/business decision; it is not claimed fixed here.
+- Final suite after review fixes: 425/425 tests, 51/51 files, exit 0. Whitespace check clean. No frontend/AI implementation or schema changes in this phase.
