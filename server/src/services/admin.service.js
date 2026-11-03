@@ -107,27 +107,27 @@ export const getUserContent = async (userId) => {
   return { user, posts, comments };
 };
 
+async function getLockedAccount(userId, tx) {
+  const user = await userRepository.lockAccount(userId, tx);
+  if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
+  return user;
+}
+
 export const updateUserStatus = async ({ targetUserId, status, currentAdminId }) => {
   const id = Number(targetUserId);
   if (id === currentAdminId) {
     throw ApiError.badRequest('Không thể tự thay đổi trạng thái của chính tài khoản đang đăng nhập');
   }
 
-  const user = await prisma.user.findUnique({ where: { user_id: id } });
-  if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
-  if (user.status === USER_STATUS.DELETED) {
-    const error = ApiError.conflict('Tài khoản đã xóa cần được khôi phục bằng chức năng khôi phục tài khoản.');
-    error.errorCode = 'ACCOUNT_RESTORE_REQUIRED';
-    throw error;
-  }
-
-  const isDeleting = status === USER_STATUS.DELETED;
-  const deletedAt = isDeleting ? new Date() : null;
-
-  return prisma.user.update({
-    where: { user_id: id },
-    data: { status, deleted_at: deletedAt },
-    select: { user_id: true, email: true, full_name: true, status: true, role: true, deleted_at: true },
+  if (status === USER_STATUS.DELETED) return deleteUser({ targetUserId: id, currentAdminId });
+  return prisma.$transaction(async (tx) => {
+    const user = await getLockedAccount(id, tx);
+    if (user.status === USER_STATUS.DELETED) {
+      const error = ApiError.conflict('Tài khoản đã xóa cần được khôi phục bằng chức năng khôi phục tài khoản.');
+      error.errorCode = 'ACCOUNT_RESTORE_REQUIRED';
+      throw error;
+    }
+    return userRepository.updateAccountStatus(id, { status }, tx);
   });
 };
 
@@ -137,56 +137,24 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
     throw ApiError.badRequest('Không thể tự xóa tài khoản của chính mình');
   }
 
-  const user = await prisma.user.findUnique({ where: { user_id: id } });
-  if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
-
-  const now = new Date();
   return prisma.$transaction(async (tx) => {
-    // Chỉ soft-delete các bình luận đang hoạt động (không đè lên bình luận đã xóa từ trước)
-    await tx.comment.updateMany({
-      where: { user_id: id, status: { not: COMMENT_STATUS.DELETED } },
-      data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
-    });
-    // Chỉ soft-delete các bài viết chưa bị xóa từ trước
-    await tx.post.updateMany({
-      where: { author_id: id, status: { not: POST_STATUS.DELETED } },
-      data: { status: POST_STATUS.DELETED, deleted_at: now },
-    });
-    return tx.user.update({
-      where: { user_id: id },
-      data: { status: USER_STATUS.DELETED, deleted_at: now },
-      select: { user_id: true, email: true, full_name: true, status: true, deleted_at: true },
-    });
+    const user = await getLockedAccount(id, tx);
+    if (user.status === USER_STATUS.DELETED) return user;
+    const deletedAt = new Date();
+    await userRepository.softDeleteAccountContent(id, deletedAt, tx);
+    return userRepository.updateAccountStatus(id, { status: USER_STATUS.DELETED, deletedAt }, tx);
   });
 };
 
 export const restoreUser = async (userId) => {
   const id = Number(userId);
-  const user = await prisma.user.findUnique({ where: { user_id: id } });
-  if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
-  if (user.status !== USER_STATUS.DELETED) {
-    throw ApiError.badRequest('Tài khoản này không ở trạng thái đã xóa');
-  }
-
-  const userDeletedAt = user.deleted_at;
-
   return prisma.$transaction(async (tx) => {
-    // Chỉ khôi phục bài viết và bình luận bị xóa cùng lúc với tài khoản (tránh hồi sinh bài/comment vi phạm đã xóa trước đó)
-    if (userDeletedAt) {
-      await tx.comment.updateMany({
-        where: { user_id: id, status: COMMENT_STATUS.DELETED, deleted_at: userDeletedAt },
-        data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
-      });
-      await tx.post.updateMany({
-        where: { author_id: id, status: POST_STATUS.DELETED, deleted_at: userDeletedAt },
-        data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
-      });
+    const user = await getLockedAccount(id, tx);
+    if (user.status !== USER_STATUS.DELETED) {
+      throw ApiError.badRequest('Tài khoản này không ở trạng thái đã xóa');
     }
-    return tx.user.update({
-      where: { user_id: id },
-      data: { status: USER_STATUS.ACTIVE, deleted_at: null },
-      select: { user_id: true, email: true, full_name: true, status: true, deleted_at: true },
-    });
+    if (user.deleted_at) await userRepository.restoreAccountContent(id, user.deleted_at, tx);
+    return userRepository.updateAccountStatus(id, { status: USER_STATUS.ACTIVE }, tx);
   });
 };
 

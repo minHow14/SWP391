@@ -1,5 +1,6 @@
-// d:\Projects\FPT\SWP391\server\src/repositories/user.repository.js
+// D:/SWP391/SWP391/server/src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
+import { COMMENT_STATUS, POST_STATUS } from '../constants/status.js';
 
 export const DEFAULT_USER_SAFE_SELECT = {
   user_id: true,
@@ -12,6 +13,44 @@ export const DEFAULT_USER_SAFE_SELECT = {
 };
 
 export const userRepository = {
+  async lockAccount(userId, db = prisma) {
+    const [user] = await db.$queryRaw`
+      SELECT user_id, email, full_name, role, status, deleted_at
+      FROM users WHERE user_id = ${Number(userId)} FOR UPDATE
+    `;
+    return user || null;
+  },
+
+  updateAccountStatus(userId, { status, deletedAt = null }, db = prisma) {
+    return db.user.update({
+      where: { user_id: Number(userId) },
+      data: { status, deleted_at: deletedAt },
+      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true },
+    });
+  },
+
+  async softDeleteAccountContent(userId, deletedAt, db = prisma) {
+    await db.comment.updateMany({
+      where: { user_id: Number(userId), status: { not: COMMENT_STATUS.DELETED } },
+      data: { status: COMMENT_STATUS.DELETED, deleted_at: deletedAt },
+    });
+    await db.post.updateMany({
+      where: { author_id: Number(userId), status: { not: POST_STATUS.DELETED } },
+      data: { status: POST_STATUS.DELETED, deleted_at: deletedAt },
+    });
+  },
+
+  async restoreAccountContent(userId, deletedAt, db = prisma) {
+    await db.comment.updateMany({
+      where: { user_id: Number(userId), status: COMMENT_STATUS.DELETED, deleted_at: deletedAt },
+      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
+    });
+    await db.post.updateMany({
+      where: { author_id: Number(userId), status: POST_STATUS.DELETED, deleted_at: deletedAt },
+      data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
+    });
+  },
+
   findAuthIdentityById(userId, db = prisma) {
     return db.user.findUnique({
       where: { user_id: userId },
