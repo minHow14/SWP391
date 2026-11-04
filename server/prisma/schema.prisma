@@ -195,6 +195,7 @@ model Post {
   author_id       Int
   post_type       String         @db.VarChar(20)
   status          String         @default("PUBLISHED") @db.VarChar(30)
+  statusBeforeAccountDeletion String? @map("status_before_account_deletion") @db.VarChar(30)
   moderationVersion Int          @default(0) @map("moderation_version")
   contentModerationJobs ContentModerationJob[]
   deleted_at      DateTime?      @db.Timestamptz(6)
@@ -270,6 +271,7 @@ model Comment {
   content          String
   is_flagged_by_ai Boolean?  @default(false)
   status           String    @default("ACTIVE") @db.VarChar(30)
+  statusBeforeAccountDeletion String? @map("status_before_account_deletion") @db.VarChar(30)
   moderationVersion Int      @default(0) @map("moderation_version")
   contentModerationJobs ContentModerationJob[]
   deleted_at       DateTime? @db.Timestamptz(6)
