@@ -267,7 +267,7 @@ Cấu hình kiểm duyệt có sẵn trong `.env.example`: `CONTENT_MODERATION_E
 
 `npm run dev` và `npm start` tự khởi động worker video cùng API. Worker dùng lease trong PostgreSQL và được abort/đợi trước khi ngắt Prisma khi shutdown. Lệnh `npm run worker:video-recipes` chỉ cần khi chủ động chạy thêm worker độc lập; không thay thế worker kiểm duyệt riêng.
 
-Video cần `YT_DLP_PATH` trỏ tới executable yt-dlp trên PATH hoặc đường dẫn tuyệt đối (có thể dùng executable trong venv AI sau khi cài requirements). AI Service cần `GROQ_API_KEY` và DeepSeek key; FFmpeg mặc định lấy từ imageio-ffmpeg. Chi tiết biến môi trường nằm trong `.env.example` và [luồng local](../docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
+Video cần `YT_DLP_PATH` trỏ tới executable yt-dlp trên PATH hoặc đường dẫn tuyệt đối trong venv AI để kiểm tra metadata; không tải audio. AI Service dùng `youtube-transcript-api` lấy phụ đề Việt thủ công rồi tự động; thiếu phụ đề báo “Video chưa có phụ đề phù hợp”. Không cần STT/FFmpeg hoặc khóa nhận dạng; DeepSeek vẫn cần key để tạo công thức. Xem [luồng local](../docs/AI_INTEGRATION.md#video-youtube-chạy-nền), [hợp đồng backend](docs/videoRecipeSummaryBackend.md) và [OpenAPI AI video](../docs/video-recipe-ai-openapi.json).
 
 Hợp đồng [AI OpenAPI](../docs/ai-openapi.json) mô tả `/api/v1/ai-generations` (gồm `FOOD_SCAN`), `/api/ai/food-scanner/analyze` và các endpoint job/công thức video. Danh sách lịch sử không trả base64 ảnh hoặc prompt nội bộ; chi tiết lịch sử chỉ chủ sở hữu đọc được. Scanner nhận ảnh decoded tối đa 10 MiB qua parser JSON riêng có tính phần base64; các route khác giữ 1 MiB. Kết quả sai/lỗi provider không được lưu thành công và không có fallback dữ liệu giả. Nhật ký dinh dưỡng vẫn ghi qua `/api/workspace/diary`, độc lập với lịch sử AI.
 
@@ -281,6 +281,9 @@ Hợp đồng [AI OpenAPI](../docs/ai-openapi.json) mô tả `/api/v1/ai-generat
   ```
 
 ### 5. Chạy kiểm thử tự động:
+
+Kiểm thử video với provider thật chạy riêng bằng `node tests/videoRecipeSummaryCaptions.integration.mjs`, không thuộc `npm test`. Script chỉ dùng DB loopback `_test`, kết nối AI đang chạy bằng cấu hình trong `server/.env`, gọi YouTube/DeepSeek thật và tự xóa fixture của nó. Không chạy đồng thời suite/worker khác trên hàng chờ test; provider có thể tính phí. Xem [kiểm thử video](docs/videoRecipeSummaryBackend.md#verification).
+
 ```bash
 # Chạy đầy đủ unit & integration tests với Vitest trên DB _test
 npm test

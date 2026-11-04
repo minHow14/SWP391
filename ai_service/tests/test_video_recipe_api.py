@@ -14,13 +14,6 @@ from services.video_recipe import summarize_video
 from tests.test_video_recipe_schemas import request_payload, transcript_payload
 
 
-@pytest.fixture(autouse=True)
-def configured_groq(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        "api.video_recipe.video_recipe_settings.groq_api_key", "test-only-groq-key"
-    )
-
-
 def parse_events(text: str) -> list[dict]:
     import json
 
@@ -45,8 +38,7 @@ def test_stream_stages_and_complete_transcript(
     client, internal_headers: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     async def transcribe(body, progress):
-        await progress("FETCHING_AUDIO")
-        await progress("TRANSCRIBING")
+        await progress("FETCHING_CAPTIONS")
         return VideoTranscript.model_validate(transcript_payload())
 
     monkeypatch.setattr("api.video_recipe.transcribe_video", transcribe)
@@ -57,20 +49,17 @@ def test_stream_stages_and_complete_transcript(
     )
     assert response.status_code == 200
     events = parse_events(response.text)
-    assert [item["stage"] for item in events[:-1]] == ["FETCHING_AUDIO", "TRANSCRIBING"]
+    assert [item["stage"] for item in events[:-1]] == ["FETCHING_CAPTIONS"]
     assert events[-1]["data"]["transcript"] == transcript_payload()
 
 
-def test_stream_keeps_quota_cooldown_and_hides_details(
+def test_stream_returns_missing_captions_without_completion(
     client, internal_headers: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     async def transcribe(body, progress):
-        await progress("TRANSCRIBING")
+        await progress("FETCHING_CAPTIONS")
         raise VideoRecipeError(
-            "VIDEO_AI_RATE_LIMITED",
-            "Hết hạn mức nhận dạng.",
-            status=429,
-            retry_after_ms=120_000,
+            "VIDEO_CAPTIONS_UNAVAILABLE", "Video chưa có phụ đề phù hợp"
         )
 
     monkeypatch.setattr("api.video_recipe.transcribe_video", transcribe)
@@ -79,21 +68,35 @@ def test_stream_keeps_quota_cooldown_and_hides_details(
         json=request_payload(),
         headers=internal_headers,
     )
-    assert parse_events(response.text)[-1]["retryAfterMs"] == 120_000
+    assert response.status_code == 200
+    assert parse_events(response.text)[-1]["errorCode"] == "VIDEO_CAPTIONS_UNAVAILABLE"
+    assert parse_events(response.text)[-1]["message"] == "Video chưa có phụ đề phù hợp"
     assert "event: done" not in response.text
 
 
-def test_missing_groq_key_returns_explicit_service_error(
+def test_caption_stream_does_not_require_a_speech_recognition_key(
     client, internal_headers: dict, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("api.video_recipe.video_recipe_settings.groq_api_key", "")
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        "api.video_recipe.video_recipe_settings",
+        SimpleNamespace(groq_api_key=""),
+        raising=False,
+    )
+
+    async def transcribe(body, progress):
+        await progress("FETCHING_CAPTIONS")
+        return VideoTranscript.model_validate(transcript_payload())
+
+    monkeypatch.setattr("api.video_recipe.transcribe_video", transcribe)
     response = client.post(
         "/api/video-recipe-transcriptions/stream",
         json=request_payload(),
         headers=internal_headers,
     )
-    assert response.status_code == 503
-    assert response.json()["success"] is False
+    assert response.status_code == 200
+    assert parse_events(response.text)[-1]["success"] is True
 
 
 @pytest.mark.asyncio

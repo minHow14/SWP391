@@ -1,110 +1,117 @@
 <!-- D:/SWP391/SWP391/server/docs/videoRecipeSummaryBackend.md -->
-# Video recipe summary backend — Phase 1
+# YouTube recipe jobs and Vietnamese captions
 
-This phase provides authenticated job APIs, persistence and a local worker. FastAPI transcription/summarization and the chat UI are Phase 2. Until those endpoints exist, a valid video job reports `VIDEO_AI_NOT_READY`; no recipe is fabricated.
+The authenticated backend owns jobs, metadata validation, retries, transcript checkpoints and recipes. FastAPI retrieves existing native Vietnamese captions with youtube-transcript-api and sends the validated transcript to DeepSeek for recipe extraction. Audio downloading and STT are not part of this pipeline. Captions have no provider key or STT cost; recipe generation still requires a configured, billable DeepSeek account. The transcript library uses an unofficial YouTube interface and can be blocked or changed by YouTube.
 
-## Local prerequisites and startup
+## Local setup
 
-Use the existing PostgreSQL configuration and Node >=20. The metadata executable is yt-dlp with its default dependencies; enable a supported Node JavaScript runtime. No Docker, queue server or cloud storage is required.
-
-From `D:\SWP391\SWP391\server`, in a Python environment with Python >=3.11:
+Run PostgreSQL first, then AI, backend and frontend. From the repository root in PowerShell:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-tools.txt
-.\.venv\Scripts\yt-dlp.exe --version
-npm install
+cd ai_service
+python -m venv venv
+.\venv\Scripts\python.exe -m pip install -r requirements.txt
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+# Configure INTERNAL_API_KEY and DEEPSEEK_API_KEY before starting.
+.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+Linux/macOS uses `./venv/bin/python`. In `server/.env`, set the same internal key and set `YT_DLP_PATH` to the absolute `ai_service/venv/Scripts/yt-dlp.exe` path (`venv/bin/yt-dlp` on Linux/macOS). It reads metadata only. In another terminal:
+
+```powershell
+cd server
+npm ci --include=optional
 npx prisma migrate deploy
-npx prisma generate
+npm run prisma:generate
 npm run dev
 ```
 
-Set `YT_DLP_PATH` in local `server/.env` to the absolute path of `.venv/Scripts/yt-dlp.exe`, or activate the environment before starting the worker. `prisma migrate deploy` above uses the development DB in `.env`; the new migration only adds video-recipe tables, indexes and constraints. Never run test preparation against that DB.
-
-In a second terminal, from the server directory:
-
-```powershell
-npm run worker:video-recipes
-```
-
-The worker processes one job at a time, renews its lease, recovers expired leases, and disconnects Prisma on SIGINT/SIGTERM. Jobs survive browser disconnects. Automatic retries are bounded; manual retry is an authenticated request on an owned FAILED job. Only one active job per account is permitted, including during retry backoff.
+The API starts a video worker automatically. `npm run worker:video-recipes` is optional for an additional worker; PostgreSQL leases fence concurrent claims. No external queue or deployment setup is needed. Migration `20261104062755_add_video_caption_stage` only adds `FETCHING_CAPTIONS` to the stage enum and preserves history.
 
 ## Public API
 
-All endpoints below require `Authorization: Bearer <access-token>`. Missing/invalid/expired credentials return 401 before any video inspection/provider call. Existing account-status checks apply. Unknown or foreign job/result identifiers return 404.
+Every route requires Bearer authentication and ownership; unknown or foreign identifiers return 404. Each member may have one pending/processing video. Responses use the project's success/error envelope and UTC ISO 8601 timestamps.
 
-| Method | Path | Input/result |
+| Method | Path | Behavior |
 | --- | --- | --- |
-| POST | `/api/v1/video-recipe-summary-jobs` | Strict JSON `{videoUrl: string}`. Canonicalizes supported HTTPS YouTube watch/shorts/embed/youtu.be URLs. 202 for new or active job; 200 for completed same-account/source/version cache. |
-| GET | `/api/v1/video-recipe-summary-jobs` | `page` default 1, `limit` default 10/max 100, optional status. Owned jobs only, createdAt/id ordering, envelope meta page/limit/total. Supports resuming after reload. |
-| GET | `/api/v1/video-recipe-summary-jobs/:jobId` | Public job progress and summaryId. No transcript, lease token, raw provider data or userId. |
-| POST | `/api/v1/video-recipe-summary-jobs/:jobId/retries` | Empty JSON body. Requeues an owned failed job and retains any complete transcript checkpoint. 202; an already completed job returns 200. |
-| GET | `/api/v1/video-recipe-summaries/:summaryId` | Owned recipe, source URL/video ID, jobId and timestamps. |
+| POST | `/api/v1/video-recipe-summary-jobs` | Strict `{videoUrl}`; 202 for new/active, 200 for a completed owned source/version. An existing failed source returns `409 VIDEO_JOB_FAILED`. |
+| GET | `/api/v1/video-recipe-summary-jobs` | Owned history; page default 1, limit default 10/max 100; optional status and videoId. |
+| GET | `/api/v1/video-recipe-summary-jobs/:jobId` | Safe progress, summaryId and errors; no transcript, lease token or internal owner ID. |
+| POST | `/api/v1/video-recipe-summary-jobs/:jobId/retries` | Empty body; requeues an owned failed job, retains a valid transcript checkpoint; returns 202, or 200 if already complete. |
+| GET | `/api/v1/video-recipe-summaries/:summaryId` | Persisted owned recipe and source; no provider call. |
 
-Success envelope: `success`, `message`, `data`, `meta.requestId`; errors include `success:false`, `message`, `errorCode`, `errors`. IDs are UUID strings. Business timestamps are UTC ISO 8601; segment offsets are seconds from the start of the video.
+Metadata must identify one accessible, non-live video with duration in `(0,660]`. Playlists, unsupported URLs, unknown duration and inaccessible sources fail before caption retrieval. Downloadable audio formats are irrelevant. New stages are `VALIDATING_VIDEO`, `FETCHING_CAPTIONS`, `SUMMARIZING`, `SAVING_RESULT`. The historical `FETCHING_AUDIO` and `TRANSCRIBING` enum values remain readable, but are not emitted by the caption pipeline. Only `COMPLETED` means the recipe transaction committed.
 
-Job states: PENDING, PROCESSING, COMPLETED, FAILED. Stages: VALIDATING_VIDEO, FETCHING_AUDIO, TRANSCRIBING, SUMMARIZING, SAVING_RESULT. Only COMPLETED means the recipe has been committed. Error codes include INVALID_YOUTUBE_URL, VIDEO_TOO_LONG, VIDEO_DURATION_UNKNOWN, VIDEO_UNAVAILABLE, VIDEO_AUDIO_UNAVAILABLE, VIDEO_INSPECTOR_UNAVAILABLE, VIDEO_JOB_ALREADY_ACTIVE, VIDEO_JOB_FAILED, VIDEO_AI_NOT_READY, VIDEO_AI_TIMEOUT, VIDEO_AI_RATE_LIMITED and VIDEO_AI_INVALID_OUTPUT.
+Public schemas: [AI gateway OpenAPI](../../docs/ai-openapi.json).
 
-A video's duration must be positive and <=660 seconds. Unknown duration, inaccessible sources, live streams, playlists and missing audio fail before AI processing. A page returning HTTP 200 is not sufficient validation. The inspector does not download media or run user-controlled shell text.
+## Internal AI contract
 
-A metadata subprocess deadline reports VIDEO_METADATA_TIMEOUT and uses the bounded retry policy; it is not reported as a permanently inaccessible video. Worker cancellation/lease loss still takes precedence over subprocess timeout classification.
-
-## Internal Phase 2 contract
-
-Both calls are BE → FastAPI and require `X-Internal-Api-Key` matching `INTERNAL_API_KEY`. Redirects are rejected, response size is bounded, and the worker uses a separate video timeout. These endpoints are not implemented by Phase 1.
+Both endpoints require `X-Internal-Api-Key`. The backend rejects redirects and bounds response bytes. [Internal OpenAPI](../../docs/video-recipe-ai-openapi.json) describes the exact video request and response schemas; the running FastAPI schema is available at `/openapi.json`.
 
 ### POST `/api/video-recipe-transcriptions/stream`
 
-JSON fields: jobId, videoId, videoUrl (canonical), maxDurationSeconds (660), model (`whisper-large-v3`), language (`vi`). AI must independently enforce byte/duration limits while fetching and decoding audio. It must finish all chunks and merge transcript content before sending done.
+Strict request fields: `jobId`, `videoId`, canonical `videoUrl`, `maxDurationSeconds` (660), `durationSeconds` (backend-verified full video duration), and `language` (`vi`). There is no model field or speech recognition key.
 
-Response content type: text/event-stream. Events have `event:` and JSON `data:` lines separated by a blank line:
+Content type is `text/event-stream`. Each event has `event:` and JSON `data:` lines separated by a blank line:
 
-- `progress`: `{stage: "FETCHING_AUDIO"}` or `{stage: "TRANSCRIBING"}` reflecting actual activity. Stages cannot regress. TRANSCRIBING must be reported before done.
-- `done`: `{success:true,data:{transcript}}`; transcript contains language `vi`, durationSeconds in (0,660], and nonempty ordered segments. Each segment has startSeconds, endSeconds and text; no segment may extend past durationSeconds. Total transcript text <=100000 characters, <=2000 segments, each segment <=10000 characters.
-- `error`: `{errorCode, message}`. Known source codes VIDEO_TOO_LONG, VIDEO_NO_SPEECH, VIDEO_AUDIO_UNAVAILABLE, VIDEO_NOT_RECIPE map to safe backend messages. Other errors are sanitized. Never send provider keys, temporary file paths or raw stderr.
+- `progress`: `stage=FETCHING_CAPTIONS` before completion.
+- `done`: `success=true`, `data.transcript` with language `vi`, full `durationSeconds`, and ordered nonempty segments containing `startSeconds`, `endSeconds`, `text`.
+- `error`: `success=false`, safe `message` and `errorCode`; no signed URLs, credentials or raw provider diagnostics.
 
-If provider quota is reached after streaming begins, emit `error` with errorCode `VIDEO_AI_RATE_LIMITED` and retryAfterMs as an integer in [0,2147483647]. Backend preserves that cooldown and sanitizes the message. Invalid cooldown values fail closed rather than causing an earlier retry.
+The AI lists native Vietnamese tracks, uses a manual track first and tries the generated track if manual captions are absent or have no usable text. It never translates a foreign-language track or falls back to STT. Caption display times can overlap: earlier display intervals are clipped at the next start; equal-start text is merged without dropping words. Caption ends are clipped to the full video duration. Invalid ordering/timestamps/content fail closed. Limits remain 2,000 segments, 10,000 characters per segment and 100,000 characters total.
 
-Backend cancels the stream after validated done and persists a transcript checkpoint before requesting a recipe. Midstream errors/EOF do not result in a partial recipe.
+Caption HTTP responses are capped at 4 MiB, including redirect responses. Reads process available decoded data with cancellation/deadline checks; socket timeout is at most five seconds. Blocking library calls run off the FastAPI event loop, and cancellation drains their owned worker before returning.
 
-`transcript.durationSeconds` must describe the full decoded audio, not the final chunk or the span containing speech. It must match the validated video metadata duration within two seconds (codec/container tolerance); the 660-second hard limit still applies independently. Both initial and resumed checkpoints are checked against saved source metadata. Speech need not fill the entire recording: gaps and trailing silence remain valid. A material mismatch reports `VIDEO_TRANSCRIPT_INCOMPLETE` before any summarization or complete checkpoint is saved.
+Full video duration comes from verified metadata, not the final subtitle cue. Backend checks both new and resumed checkpoints against source metadata, allowing the existing two-second duration tolerance. Gaps and trailing silence are valid. A material mismatch fails with `VIDEO_TRANSCRIPT_INCOMPLETE` before summarization.
 
 ### POST `/api/video-recipe-summaries`
 
-JSON fields: jobId, videoId, language (`vi`), transcript (the complete checkpoint). AI uses its existing DeepSeek configuration and returns JSON `{success:true,data:{recipe}}`.
+Strict request fields: `jobId`, `videoId`, `language=vi`, and the validated `transcript`. DeepSeek returns `data.recipe` with nullable `title`, `ingredients` (name, nullable quantity/unit, sourceSegmentIndexes), and nonempty `steps` (instruction, sourceSegmentIndexes). All source indexes must reference actual transcript segments. References provide traceability, not a guarantee of culinary accuracy; absent quantities/times/temperatures must not be invented.
 
-Recipe fields:
+DeepSeek rate limits use `VIDEO_AI_RATE_LIMITED` and Retry-After. The worker honors cooldowns and its bounded attempt budget. If recipe generation fails after a transcript checkpoint, manual retry reuses that checkpoint. A crash before checkpoint persistence may repeat a provider call; exactly-once inference is not promised.
 
-- title: nonempty string <=255 characters or null when unknown.
-- ingredients: array <=100 items; each has name, quantity (string or null), unit (string or null), sourceSegmentIndexes (nonempty array of zero-based integer segment references).
-- steps: 1–100 items; each has instruction (nonempty, <=4000 characters) and sourceSegmentIndexes.
+## Errors and recovery
 
-Unknown fields and out-of-range references are rejected. Source references establish traceability, not a guarantee that a model's prose is correct; quality must be evaluated against real cooking videos. Do not invent quantities, timing, temperatures or nutritional information absent from speech.
+| Code | Behavior |
+| --- | --- |
+| `VIDEO_CAPTIONS_UNAVAILABLE` | Terminal source failure; message is `Video chưa có phụ đề phù hợp`. |
+| `VIDEO_CAPTIONS_BLOCKED` | YouTube blocked access; distinct from missing captions; no automatic retry loop. |
+| `VIDEO_CAPTIONS_TIMEOUT` | Caption retrieval timeout; bounded automatic retry. |
+| `VIDEO_AI_UNAVAILABLE` / `VIDEO_AI_TIMEOUT` | Unavailable AI/network or backend deadline; bounded retry. |
+| `VIDEO_AI_INVALID_OUTPUT` | Invalid or oversized transcript/recipe data; no fabricated result. |
+| `VIDEO_METADATA_TIMEOUT` | Metadata deadline; retryable, distinct from an inaccessible video. |
+| `VIDEO_JOB_FAILED` | Repeated create on failed source; call the owned job's `/retries` route. |
 
-HTTP 429 should include Retry-After. Worker delays by at least that duration or its configured minimum and gives up after VIDEO_JOB_MAX_ATTEMPTS automatic attempts. Internal 401/403 and missing endpoints are configuration failures rather than endlessly retried calls. A crash after provider success but before checkpoint persistence can repeat a request; this is not an exactly-once provider guarantee.
+Start AI with the project venv, then restart backend/workers after schema/environment changes. `PENDING` needs a live worker against the right DB; `VALIDATING_VIDEO` needs yt-dlp; `FETCHING_CAPTIONS` needs accessible native Vietnamese captions. Keep saved history and do not seed/reset or requeue all jobs to repair a single failure.
 
 ## Configuration
 
-| Variable | Default | Meaning |
+| Service / variable | Default | Purpose |
 | --- | --- | --- |
-| YT_DLP_PATH | yt-dlp | Local executable path; never a shell command with arguments |
-| VIDEO_METADATA_TIMEOUT_MS | 30000 | Metadata process timeout |
-| VIDEO_AI_TIMEOUT_MS | 600000 | Deadline for each video AI call, not a promised processing time |
-| VIDEO_JOB_LEASE_MS | 90000 | Worker lease; minimum 30000 |
-| VIDEO_JOB_POLL_MS | 2000 | Idle database poll interval; minimum 250 |
-| VIDEO_JOB_RETRY_MS | 30000 | Minimum automatic retry delay; minimum 1000 |
-| VIDEO_JOB_MAX_ATTEMPTS | 3 | Automatic claim/recovery budget, allowed 1–5 |
+| BE `YT_DLP_PATH` | yt-dlp | Metadata executable, never a shell command with arguments |
+| BE `VIDEO_METADATA_TIMEOUT_MS` | 30000 | Metadata process deadline |
+| BE `VIDEO_AI_TIMEOUT_MS` | 600000 | Deadline per internal video AI call |
+| BE `VIDEO_JOB_LEASE_MS` / `VIDEO_JOB_POLL_MS` | 90000 / 2000 | Lease and idle polling |
+| BE `VIDEO_JOB_RETRY_MS` / `VIDEO_JOB_MAX_ATTEMPTS` | 30000 / 3 | Minimum retry delay and bounded attempts |
+| AI `VIDEO_CAPTIONS_TIMEOUT_SECONDS` | 30 | Caption request budget, >0 to 120 seconds |
+| AI `VIDEO_SUMMARY_TIMEOUT_SECONDS` | 120 | Recipe model timeout, >0 to 300 seconds |
 
-The account's active slot and source/version uniqueness are enforced by PostgreSQL. Expired workers are fenced by leaseToken and expiry on every write. Completion and result insertion share one transaction. If DeepSeek fails after a saved transcript, retry skips Groq. No guest quota is consumed, and no other user's cached result is shared.
-
-If the configured attempt budget is reduced, queued jobs that already reached the new limit are marked FAILED and release the account slot; they do not remain unclaimable forever. Their validated transcript checkpoint remains available for an explicit retry.
+The same `INTERNAL_API_KEY` is required on both services. `DEEPSEEK_API_KEY` belongs only to AI. Old audio/STT settings are unused and may be removed from local `.env` files.
 
 ## Verification
 
-Populate `server/.env.test` with a separate local DB whose name ends in `_test`. Never put secrets into commits. The existing test loader refuses databases without this suffix.
+Ordinary suites use an isolated local database ending in `_test`, stub external providers only inside tests, and never call a paid provider:
 
 ```powershell
+cd server
 npm run test:video-recipes
+npm test
 ```
 
-The tests create uniquely named users and clean up their own rows. Unit/provider doubles exist only in test files; production never returns those fixtures. Full provider/video quality verification belongs to Phase 2/3 with real user-supplied videos and API keys.
+The explicit live check uses actual YouTube captions and DeepSeek and writes only to the configured `_test` DB. With the project AI already running and keys/tool path configured in `server/.env`, run:
+
+```powershell
+node tests/videoRecipeSummaryCaptions.integration.mjs
+```
+
+It verifies an actual internal-auth failure followed by the public manual-retry route, real caption/recipe persistence and the no-Vietnamese-caption failure path. It cleans up only its own test account and cascading records. Do not run it while another suite/worker is using the test queue; it refuses a nonempty active queue. Live checks can consume DeepSeek quota; external source/provider failures must be reported, not replaced with canned results.

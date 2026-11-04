@@ -19,12 +19,12 @@ async function obtainTranscript(job, dependencies) {
   await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { stage: 'VALIDATING_VIDEO' } });
   const metadata = await inspect({ videoId: job.videoId, videoUrl: job.videoUrl, signal });
   signal.throwIfAborted();
-  await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { metadata, stage: 'FETCHING_AUDIO' } });
+  await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { metadata, stage: 'FETCHING_CAPTIONS' } });
   const onStage = async (stage) => {
     signal.throwIfAborted();
     await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { stage } });
   };
-  const transcript = validateCompleteVideoTranscript({ transcript: await ai.transcribe({ job, onStage, signal }), metadata, videoId: job.videoId });
+  const transcript = validateCompleteVideoTranscript({ transcript: await ai.transcribe({ job, metadata, onStage, signal }), metadata, videoId: job.videoId });
   signal.throwIfAborted();
   await repository.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { transcript, stage: 'SUMMARIZING' } });
   return transcript;

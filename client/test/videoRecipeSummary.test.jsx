@@ -2,18 +2,32 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AxiosError } from 'axios';
 import { useRef, useState } from 'react';
-import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import apiClient from '../src/services/apiClient.js';
 import { getSession, setSession } from '../src/utils/session.js';
 import { detectYoutubeMessage } from '../src/features/videoRecipeSummary/utils/youtubeMessage.js';
 import { observeVideoRecipeJob } from '../src/features/videoRecipeSummary/utils/videoRecipeJobs.js';
 import { useVideoRecipeSummary } from '../src/features/videoRecipeSummary/hooks/useVideoRecipeSummary.js';
 import { videoRecipeSummaryApi } from '../src/services/videoRecipeSummaryApi.js';
+import VideoRecipeMessage from '../src/features/videoRecipeSummary/components/VideoRecipeMessage.jsx';
 
 const URL = 'https://www.youtube.com/watch?v=AbCdEfGhI12';
 const originalAdapter = apiClient.defaults.adapter;
 beforeEach(() => { setSession(null); });
 afterEach(() => { cleanup(); apiClient.defaults.adapter = originalAdapter; setSession(null); sessionStorage.clear(); });
+
+describe('caption recipe status', () => {
+  it('shows caption retrieval while processing and the server message when captions are missing', () => {
+    const { rerender } = render(<VideoRecipeMessage message={{ pending: true,
+      job: { status: 'PROCESSING', stage: 'FETCHING_CAPTIONS' } }} busy onRetry={vi.fn()} />);
+    expect(screen.getByRole('status').textContent).toContain('Đang lấy phụ đề tiếng Việt…');
+    rerender(<VideoRecipeMessage message={{ job: { status: 'FAILED', errorCode: 'VIDEO_CAPTIONS_UNAVAILABLE',
+      errorMessage: 'Video chưa có phụ đề phù hợp' } }} busy={false} onRetry={vi.fn()} />);
+    expect(screen.getByRole('alert').textContent).toBe('Video chưa có phụ đề phù hợp');
+    expect(screen.queryByRole('status')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Thử tạo lại' }).disabled).toBe(false);
+  });
+});
 
 describe('YouTube detection on chat send', () => {
   it.each([`Tạo công thức từ ${URL}`, 'youtube.com/watch?v=AbCdEfGhI12', 'https://youtu.be/AbCdEfGhI12.'])('recognizes a video inside text', (text) => {

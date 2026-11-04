@@ -59,6 +59,15 @@ describe('video recipe persistence with isolated PostgreSQL', () => {
     await jobs.recoverExpired({ maxAttempts: 3, retryMs: 1 });
     expect(await jobs.findSource(source())).toMatchObject({ status: 'PENDING', transcript, leaseToken: null });
   });
+  it('persists caption retrieval progress under a valid worker lease', async () => {
+    const created = await jobs.create(source());
+    const job = await jobs.claim({ leaseMs: 90_000, maxAttempts: 3 });
+    expect(job.id).toBe(created.id);
+    await jobs.updateLeased({ id: job.id, leaseToken: job.leaseToken, data: { stage: 'FETCHING_CAPTIONS' } });
+    expect(await jobs.findOwned({ id: job.id, userId: owner.user_id })).toMatchObject({
+      status: 'PROCESSING', stage: 'FETCHING_CAPTIONS',
+    });
+  });
   it('releases a queued account slot when the configured attempt budget is lowered', async () => {
     await jobs.create(source({ attempt: 2 }));
     await jobs.recoverExpired({ maxAttempts: 1, retryMs: 1 });

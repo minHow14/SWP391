@@ -24,8 +24,13 @@ describe('metadata gate before AI', () => {
   it('rejects overlong videos before any AI boundary', async () => {
     await expect(service(metadata({ duration: 661 })).inspect(SOURCE)).rejects.toMatchObject({ errorCode: 'VIDEO_TOO_LONG' });
   });
+  it.each([{ formats: [] }, { formats: undefined }])('accepts caption sources without downloadable audio formats %j', async ({ formats }) => {
+    await expect(service(metadata({ formats })).inspect(SOURCE)).resolves.toMatchObject({
+      videoId: SOURCE.videoId, durationSeconds: 660,
+    });
+  });
   it.each([{ duration: null }, { duration: 0 }, { live_status: 'is_live' }, { is_live: true },
-    { availability: 'private' }, { formats: [] }, { id: 'Different12' }, { _type: 'playlist' }])('fails closed for invalid metadata %j', async (patch) => {
+    { availability: 'private' }, { id: 'Different12' }, { _type: 'playlist' }])('fails closed for invalid metadata %j', async (patch) => {
     await expect(service(metadata(patch)).inspect(SOURCE)).rejects.toHaveProperty('errorCode');
   });
   it('reports a missing metadata executable without exposing stderr', async () => {

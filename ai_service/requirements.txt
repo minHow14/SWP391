@@ -18,9 +18,11 @@ langchain-community==0.4.2
 langchain-openai==1.7.2
 httpx==0.28.1
 
-# Local video audio extraction; FFmpeg binary is supplied by the wheel.
+# YouTube metadata and existing Vietnamese captions; no audio/STT dependency.
 yt-dlp[default]==2026.10.21
-imageio-ffmpeg==0.6.0
+youtube-transcript-api==1.2.4
+requests==2.34.2
+urllib3==2.8.0
 
 # Text Processing, Fuzzy Matching & Caching (Tối ưu hóa so khớp nguyên liệu)
 unidecode==1.4.0

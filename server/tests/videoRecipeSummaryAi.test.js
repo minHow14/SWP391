@@ -3,30 +3,45 @@ import { describe, expect, it, vi } from 'vitest';
 import { createVideoRecipeSummaryAiService } from '../src/services/videoRecipeSummaryAiService.js';
 
 const JOB = { id: 'job-fixture', videoId: 'AbCdEfGhI12', videoUrl: 'https://www.youtube.com/watch?v=AbCdEfGhI12' };
+const METADATA = { videoId: JOB.videoId, title: 'Video fixture', durationSeconds: 1 };
 const TRANSCRIPT = { language: 'vi', durationSeconds: 1, segments: [{ startSeconds: 0, endSeconds: 1, text: 'Xào nấm.' }] };
 const CONFIG = { url: 'http://127.0.0.1:8000', internalApiKey: 'unit-test-internal-key' };
 const events = (items) => new Response(items.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
 const service = (fetchImpl, extra = {}) => createVideoRecipeSummaryAiService({ fetchImpl, config: CONFIG, ...extra });
 
 describe('video recipe internal AI transport', () => {
-  it('sends the canonical source, chosen model and internal key and consumes stage events', async () => {
+  it('sends the verified video duration without an STT model and consumes caption progress', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(events([
-      ['progress', { stage: 'FETCHING_AUDIO' }], ['progress', { stage: 'TRANSCRIBING' }], ['done', { success: true, data: { transcript: TRANSCRIPT } }],
+      ['progress', { stage: 'FETCHING_CAPTIONS' }], ['done', { success: true, data: { transcript: TRANSCRIPT } }],
     ]));
     const onStage = vi.fn();
-    expect(await service(fetchImpl).transcribe({ job: JOB, onStage })).toEqual(TRANSCRIPT);
+    expect(await service(fetchImpl).transcribe({ job: JOB, metadata: METADATA, onStage })).toEqual(TRANSCRIPT);
     const [url, options] = fetchImpl.mock.calls[0];
     expect(url).toBe(`${CONFIG.url}/api/video-recipe-transcriptions/stream`);
     expect(options.headers['X-Internal-Api-Key']).toBe(CONFIG.internalApiKey);
     expect(options.redirect).toBe('error');
-    expect(JSON.parse(options.body)).toMatchObject({ videoId: JOB.videoId, model: 'whisper-large-v3', language: 'vi', maxDurationSeconds: 660 });
-    expect(onStage.mock.calls.map(([stage]) => stage)).toEqual(['FETCHING_AUDIO', 'TRANSCRIBING']);
+    expect(JSON.parse(options.body)).toEqual({ jobId: JOB.id, videoId: JOB.videoId, videoUrl: JOB.videoUrl,
+      durationSeconds: 1, language: 'vi', maxDurationSeconds: 660 });
+    expect(onStage.mock.calls.map(([stage]) => stage)).toEqual(['FETCHING_CAPTIONS']);
   });
   it('rejects missing completion, missing stage, invalid stage and upstream error events', async () => {
-    for (const items of [[], [['progress', { stage: 'SUMMARIZING' }]], [['done', { success: true, data: { transcript: TRANSCRIPT } }]],
+    for (const items of [[], [['progress', { stage: 'SUMMARIZING' }]], [['progress', { stage: 'FETCHING_AUDIO' }]],
+      [['progress', { stage: 'TRANSCRIBING' }]], [['done', { success: true, data: { transcript: TRANSCRIPT } }]],
       [['error', { errorCode: 'PRIVATE_PROVIDER_FAILURE', message: 'SECRET' }]]]) {
-      await expect(service(vi.fn().mockResolvedValue(events(items))).transcribe({ job: JOB, onStage: vi.fn() })).rejects.toHaveProperty('errorCode');
+      await expect(service(vi.fn().mockResolvedValue(events(items))).transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toHaveProperty('errorCode');
     }
+  });
+  it.each([
+    ['VIDEO_CAPTIONS_UNAVAILABLE', 'Video chưa có phụ đề phù hợp', 422, false],
+    ['VIDEO_CAPTIONS_BLOCKED', 'YouTube đang chặn truy cập phụ đề. Vui lòng thử lại sau.', 503, false],
+    ['VIDEO_CAPTIONS_TIMEOUT', 'Lấy phụ đề video đã quá thời gian chờ.', 504, true],
+  ])('preserves safe caption failure %s without exposing upstream details', async (errorCode, message, statusCode, retryable) => {
+    const client = service(vi.fn().mockResolvedValue(events([
+      ['progress', { stage: 'FETCHING_CAPTIONS' }], ['error', { errorCode, message: 'PRIVATE_PROVIDER_DETAIL' }],
+    ])));
+    await expect(client.transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toMatchObject({
+      errorCode, message, statusCode, retryable,
+    });
   });
   it('honors Retry-After and hides provider error messages', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('PRIVATE_PROVIDER_DETAIL', { status: 429, headers: { 'Retry-After': '60' } }));
@@ -36,18 +51,18 @@ describe('video recipe internal AI transport', () => {
   });
   it('preserves provider cooldown reported after a transcription stream starts', async () => {
     const client = service(vi.fn().mockResolvedValue(events([
-      ['progress', { stage: 'TRANSCRIBING' }],
+      ['progress', { stage: 'FETCHING_CAPTIONS' }],
       ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs: 120_000, message: 'PRIVATE_PROVIDER_DETAIL' }],
     ])));
-    await expect(client.transcribe({ job: JOB, onStage: vi.fn() })).rejects.toMatchObject({
+    await expect(client.transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toMatchObject({
       errorCode: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs: 120_000,
     });
   });
   it.each([-1, '120000', 2_147_483_648])('rejects invalid streaming cooldown %s instead of retrying early', async (retryAfterMs) => {
     const client = service(vi.fn().mockResolvedValue(events([
-      ['progress', { stage: 'TRANSCRIBING' }], ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs }],
+      ['progress', { stage: 'FETCHING_CAPTIONS' }], ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs }],
     ])));
-    await expect(client.transcribe({ job: JOB, onStage: vi.fn() })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_INVALID_OUTPUT');
+    await expect(client.transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_INVALID_OUTPUT');
   });
   it.each([401, 403, 404])('maps unavailable internal endpoint %s to an explicit service error', async (status) => {
     const client = service(vi.fn().mockResolvedValue(new Response('SECRET', { status })));
@@ -66,11 +81,11 @@ describe('video recipe internal AI transport', () => {
   it('finishes and cancels the stream on done without waiting for the server to close it', async () => {
     const cancel = vi.fn();
     const wire = [
-      ['progress', { stage: 'TRANSCRIBING' }], ['done', { success: true, data: { transcript: TRANSCRIPT } }],
+      ['progress', { stage: 'FETCHING_CAPTIONS' }], ['done', { success: true, data: { transcript: TRANSCRIPT } }],
     ].map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join('');
     const response = new Response(new ReadableStream({ start(controller) { controller.enqueue(new TextEncoder().encode(wire)); }, cancel }),
       { headers: { 'Content-Type': 'text/event-stream' } });
-    await expect(service(vi.fn().mockResolvedValue(response), { timeoutMs: 40 }).transcribe({ job: JOB, onStage: vi.fn() })).resolves.toEqual(TRANSCRIPT);
+    await expect(service(vi.fn().mockResolvedValue(response), { timeoutMs: 40 }).transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).resolves.toEqual(TRANSCRIPT);
     expect(cancel).toHaveBeenCalled();
   });
   it('refuses outbound calls when the internal key is missing', async () => {
