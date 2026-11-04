@@ -10,16 +10,16 @@ import AdminAiModelCards from './AdminAiModelCards.jsx';
 
 export default function AdminAiMonitorTab() {
   const [statusFilter, setStatusFilter] = useState('');
-  const [actionFilter, setActionFilter] = useState('');
+  const [featureFilter, setFeatureFilter] = useState('');
   const [showInterveneModal, setShowInterveneModal] = useState(false);
   const [selectedLogForIntervene, setSelectedLogForIntervene] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
   const fetchPage = useCallback(async (pagination) => {
-    const [modelsRes, logsRes] = await Promise.all([adminService.getAiModels(), adminService.getAiLogs({ status: statusFilter, action: actionFilter, ...pagination })]);
+    const [modelsRes, logsRes] = await Promise.all([adminService.getAiModels(), adminService.getAiLogs({ status: statusFilter, feature: featureFilter, ...pagination })]);
     return { ...logsRes, models: modelsRes.data };
-  }, [statusFilter, actionFilter]);
-  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter, actionFilter]), limit: 30, errorMessage: 'Không thể tải dữ liệu giám sát mô hình AI' });
+  }, [statusFilter, featureFilter]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter, featureFilter]), limit: 30, errorMessage: 'Không thể tải dữ liệu giám sát mô hình AI' });
   const { data: logs, loading, error, refresh: fetchData } = pagination;
   const models = pagination.response?.models ?? [];
 
@@ -85,11 +85,11 @@ export default function AdminAiMonitorTab() {
                     <option value="ERROR">Gặp lỗi (ERROR)</option>
                     <option value="RESOLVED_BY_ADMIN">Đã can thiệp thủ công</option>
                   </Form.Select>
-                  <Form.Select aria-label="Tác vụ AI" size="sm" className="rounded-3" value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} style={{ width: 180 }}>
-                    <option value="">Tất cả tác vụ</option>
-                    <option value="SPAM_DETECTION">Kiểm duyệt Spam</option>
-                    <option value="CHATBOT_GUEST_QUERY">Tư vấn Chatbot</option>
-                    <option value="NUTRIENT_ANALYSIS">Phân tích Dinh dưỡng</option>
+                  <Form.Select aria-label="Chức năng AI" size="sm" className="rounded-3" value={featureFilter} onChange={(e) => setFeatureFilter(e.target.value)} style={{ width: 180 }}>
+                    <option value="">Tất cả chức năng</option>
+                    <option value="chatbot">Tư vấn Chatbot</option>
+                    <option value="mealPlanner">Lập thực đơn</option>
+                    <option value="other">Khác (quét món, kiểm duyệt)</option>
                   </Form.Select>
                 </div>
               </div>
@@ -113,8 +113,9 @@ export default function AdminAiMonitorTab() {
                     {logs.map((log) => {
                       const actionLabel =
                         log.action === 'SPAM_DETECTION' ? 'Kiểm duyệt Spam' :
-                        log.action === 'CHATBOT_GUEST_QUERY' ? 'Chatbot Tư vấn' :
-                        log.action === 'NUTRIENT_ANALYSIS' ? 'Phân tích Món ăn' :
+                        log.action?.startsWith('CHAT') ? 'Chatbot Tư vấn' :
+                        log.action?.startsWith('MEAL_PLANNER') ? 'Lập thực đơn' :
+                        log.action?.startsWith('FOOD_SCAN') ? 'Phân tích Món ăn' :
                         log.action === 'MODERATION_MANUAL_OVERRIDE' ? 'Duyệt thủ công' : log.action;
                       return (
                         <tr key={log.log_id}>
