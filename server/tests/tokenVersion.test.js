@@ -1,11 +1,12 @@
 // D:/SWP391/SWP391/server/tests/tokenVersion.test.js
 import './loadTestEnvironment.js';
 import { randomUUID } from 'node:crypto';
-import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken, generateRefreshToken, hashPassword, verifyToken } from '../src/utils/jwt.js';
+import { userRepository } from '../src/repositories/user.repository.js';
 
 let user;
 const PASSWORD = 'OriginalPassword123!';
@@ -14,10 +15,29 @@ beforeEach(async () => {
   user = await prisma.user.create({ data: { email: `token-version-${randomUUID()}@example.invalid`,
     full_name: 'Authentication version regression', password_hash: await hashPassword(PASSWORD) } });
 });
-afterEach(async () => { if (user) await prisma.user.delete({ where: { user_id: user.user_id } }); });
+afterEach(async () => { vi.restoreAllMocks(); if (user) await prisma.user.delete({ where: { user_id: user.user_id } }); });
 afterAll(() => prisma.$disconnect());
 
 describe('revoking credentials after password changes', () => {
+  it.each(['password reset', 'account lock', 'account deletion'])('rejects a stale password change after a concurrent %s', async (event) => {
+    const readAccount = userRepository.findWithPasswordById.bind(userRepository);
+    const resetHash = await hashPassword('IndependentReset123!');
+    vi.spyOn(userRepository, 'findWithPasswordById').mockImplementationOnce(async (userId) => {
+      const snapshot = await readAccount(userId);
+      const mutation = event === 'password reset' ? { password_hash: resetHash, tokenVersion: 1 }
+        : { status: event === 'account lock' ? 'LOCKED' : 'DELETED', deleted_at: event === 'account deletion' ? new Date() : null };
+      await prisma.user.update({ where: { user_id: userId }, data: mutation });
+      return snapshot;
+    });
+    const response = await request(app).post('/api/auth/change-password')
+      .set(header(generateToken({ user_id: user.user_id, role: user.role })))
+      .send({ currentPassword: PASSWORD, newPassword: 'StaleReplacement123!' });
+    expect(response.status).toBe(409);
+    expect(response.body.data?.token).toBeUndefined();
+    const persisted = await prisma.user.findUnique({ where: { user_id: user.user_id } });
+    expect(persisted.password_hash).toBe(event === 'password reset' ? resetHash : user.password_hash);
+  });
+
   it('rejects old access and refresh tokens after the account token version changes', async () => {
     const claims = { user_id: user.user_id, role: user.role, tokenVersion: 0 };
     const access = generateToken(claims);

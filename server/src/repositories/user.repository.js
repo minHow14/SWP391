@@ -1,6 +1,6 @@
 // D:/SWP391/SWP391/server/src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
-import { COMMENT_STATUS, POST_STATUS } from '../constants/status.js';
+import { COMMENT_STATUS, POST_STATUS, USER_STATUS } from '../constants/status.js';
 
 export const DEFAULT_USER_SAFE_SELECT = {
   user_id: true,
@@ -160,11 +160,10 @@ export const userRepository = {
     });
   },
 
-  async updatePassword(userId, password_hash, db = prisma) {
-    return db.user.update({
-      where: { user_id: Number(userId) },
-      data: { password_hash, tokenVersion: { increment: 1 } },
-      select: { ...DEFAULT_USER_SAFE_SELECT, tokenVersion: true },
+  async updatePassword(userId, { expectedHash, passwordHash }, db = prisma) {
+    return db.user.updateMany({
+      where: { user_id: Number(userId), password_hash: expectedHash, status: USER_STATUS.ACTIVE, deleted_at: null },
+      data: { password_hash: passwordHash, tokenVersion: { increment: 1 } },
     });
   },
 

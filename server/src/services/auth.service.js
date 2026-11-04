@@ -46,6 +46,14 @@ export function normalizeGender(val) {
   throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
 }
 
+async function replaceUnchangedPassword(user, passwordHash) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await userRepository.updatePassword(user.user_id, { expectedHash: user.password_hash, passwordHash }, tx);
+    if (updated.count !== 1) throw ApiError.conflict('Tài khoản hoặc mật khẩu vừa thay đổi. Vui lòng đăng nhập lại.');
+    return userRepository.findAuthIdentityById(user.user_id, tx);
+  });
+}
+
 export const authService = {
   /**
    * Đăng ký tài khoản người dùng mới
@@ -332,7 +340,7 @@ export const authService = {
     }
 
     const newHash = await hashPassword(newPass);
-    const updated = await userRepository.updatePassword(user_id, newHash);
+    const updated = await replaceUnchangedPassword(user, newHash);
     const claims = { user_id, email: updated.email, role: updated.role, tokenVersion: updated.tokenVersion };
     return { message: 'Đổi mật khẩu thành công', token: generateToken(claims), refreshToken: generateRefreshToken(claims) };
   },
