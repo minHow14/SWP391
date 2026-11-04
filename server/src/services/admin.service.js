@@ -153,8 +153,15 @@ export const restoreUser = async (userId) => {
     if (user.status !== USER_STATUS.DELETED) {
       throw ApiError.badRequest('Tài khoản này không ở trạng thái đã xóa');
     }
-    if (user.deleted_at) await userRepository.restoreAccountContent(id, user.deleted_at, tx);
-    return userRepository.updateAccountStatus(id, { status: USER_STATUS.ACTIVE }, tx);
+    const restoration = user.deleted_at
+      ? await userRepository.restoreAccountContent(id, user.deleted_at, tx)
+      : { restoredPosts: 0, restoredComments: 0, skippedPosts: 0, skippedComments: 0 };
+    const skipped = restoration.skippedPosts + restoration.skippedComments;
+    const warning = !user.deleted_at
+      ? 'Không có mốc xóa tài khoản; nội dung đã xóa được giữ nguyên.'
+      : skipped > 0 ? `Giữ nguyên ${skipped} nội dung đã xóa vì không có trạng thái gốc trước khi xóa tài khoản.` : '';
+    const restoredUser = await userRepository.updateAccountStatus(id, { status: USER_STATUS.ACTIVE }, tx);
+    return { ...restoredUser, restoration, ...(warning ? { warning } : {}) };
   });
 };
 

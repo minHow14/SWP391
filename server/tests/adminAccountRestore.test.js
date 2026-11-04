@@ -119,3 +119,51 @@ describe('admin account deletion and restoration', () => {
     expect(await prisma.comment.findUnique({ where: { comment_id: earlierComment.comment_id } })).toMatchObject({ status: 'DELETED', deleted_at: previousDeletion });
   });
 });
+
+it('restores every original post and comment moderation status exactly', async () => {
+  const postStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'PENDING_MODERATION', 'HIDDEN_BY_AI', 'HIDDEN'];
+  const commentStatuses = ['ACTIVE', 'PENDING_MODERATION', 'HIDDEN_BY_AI', 'HIDDEN'];
+  const posts = await Promise.all(postStatuses.map((status) => prisma.post.create({ data: {
+    author_id: member.user_id, post_type: 'BLOG', status,
+  } })));
+  const comments = await Promise.all(commentStatuses.map((status) => prisma.comment.create({ data: {
+    user_id: member.user_id, post_id: posts[0].post_id, content: `Restore ${status}`, status,
+  } })));
+  expect((await deleteMember()).status).toBe(200);
+  const restored = await request(app).post(`/api/admin/users/${member.user_id}/restore`).set('Authorization', authorization);
+  expect(restored.status).toBe(200);
+  for (const post of posts) {
+    expect(await prisma.post.findUnique({ where: { post_id: post.post_id } })).toMatchObject({ status: post.status, deleted_at: null, statusBeforeAccountDeletion: null });
+  }
+  for (const comment of comments) {
+    expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: comment.status, deleted_at: null, statusBeforeAccountDeletion: null });
+  }
+  expect(restored.body.data.restoration).toEqual({ restoredPosts: 6, restoredComments: 4, skippedPosts: 0, skippedComments: 0 });
+});
+
+it('keeps legacy content deleted and warns when its original status is unavailable', async () => {
+  const deletedAt = new Date();
+  await prisma.user.update({ where: { user_id: member.user_id }, data: { status: 'DELETED', deleted_at: deletedAt } });
+  const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG', status: 'DELETED', deleted_at: deletedAt } });
+  const comment = await prisma.comment.create({ data: { user_id: member.user_id, post_id: post.post_id, content: 'Legacy unknown state', status: 'DELETED', deleted_at: deletedAt } });
+  const restored = await request(app).post(`/api/admin/users/${member.user_id}/restore`).set('Authorization', authorization);
+  expect(restored.status).toBe(200);
+  expect(restored.body.data.restoration).toEqual({ restoredPosts: 0, restoredComments: 0, skippedPosts: 1, skippedComments: 1 });
+  expect(restored.body.data.warning).toMatch(/trạng thái.*trước khi xóa/);
+  expect(await prisma.post.findUnique({ where: { post_id: post.post_id } })).toMatchObject({ status: 'DELETED', deleted_at: deletedAt });
+  expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: 'DELETED', deleted_at: deletedAt });
+});
+
+it('preserves the status snapshot across simultaneous and repeated deletion', async () => {
+  const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG', status: 'HIDDEN_BY_AI' } });
+  const comment = await prisma.comment.create({ data: { user_id: member.user_id, post_id: post.post_id, content: 'Pending moderation', status: 'PENDING_MODERATION' } });
+  const responses = await Promise.all([deleteMember(), deleteMember()]);
+  expect(responses.map((response) => response.status)).toEqual([200, 200]);
+  expect(await prisma.post.findUnique({ where: { post_id: post.post_id } })).toMatchObject({ status: 'DELETED', statusBeforeAccountDeletion: 'HIDDEN_BY_AI' });
+  expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: 'DELETED', statusBeforeAccountDeletion: 'PENDING_MODERATION' });
+  expect((await deleteMember()).status).toBe(200);
+  const restored = await request(app).post(`/api/admin/users/${member.user_id}/restore`).set('Authorization', authorization);
+  expect(restored.status).toBe(200);
+  expect(await prisma.post.findUnique({ where: { post_id: post.post_id } })).toMatchObject({ status: 'HIDDEN_BY_AI' });
+  expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: 'PENDING_MODERATION' });
+});

@@ -30,25 +30,31 @@ export const userRepository = {
   },
 
   async softDeleteAccountContent(userId, deletedAt, db = prisma) {
-    await db.comment.updateMany({
-      where: { user_id: Number(userId), status: { not: COMMENT_STATUS.DELETED } },
-      data: { status: COMMENT_STATUS.DELETED, deleted_at: deletedAt },
-    });
-    await db.post.updateMany({
-      where: { author_id: Number(userId), status: { not: POST_STATUS.DELETED } },
-      data: { status: POST_STATUS.DELETED, deleted_at: deletedAt },
-    });
+    // Copy the existing column in the same UPDATE so no moderation state is guessed or read stale.
+    await db.$executeRaw`UPDATE comments
+      SET status_before_account_deletion = status, status = ${COMMENT_STATUS.DELETED}, deleted_at = ${deletedAt}
+      WHERE user_id = ${Number(userId)} AND status <> ${COMMENT_STATUS.DELETED}`;
+    await db.$executeRaw`UPDATE posts
+      SET status_before_account_deletion = status, status = ${POST_STATUS.DELETED}, deleted_at = ${deletedAt}
+      WHERE author_id = ${Number(userId)} AND status <> ${POST_STATUS.DELETED}`;
   },
 
   async restoreAccountContent(userId, deletedAt, db = prisma) {
-    await db.comment.updateMany({
+    const restoredComments = await db.$executeRaw`UPDATE comments
+      SET status = status_before_account_deletion, status_before_account_deletion = NULL, deleted_at = NULL
+      WHERE user_id = ${Number(userId)} AND status = ${COMMENT_STATUS.DELETED} AND deleted_at = ${deletedAt}
+        AND status_before_account_deletion IS NOT NULL AND status_before_account_deletion <> ${COMMENT_STATUS.DELETED}`;
+    const restoredPosts = await db.$executeRaw`UPDATE posts
+      SET status = status_before_account_deletion, status_before_account_deletion = NULL, deleted_at = NULL
+      WHERE author_id = ${Number(userId)} AND status = ${POST_STATUS.DELETED} AND deleted_at = ${deletedAt}
+        AND status_before_account_deletion IS NOT NULL AND status_before_account_deletion <> ${POST_STATUS.DELETED}`;
+    const skippedComments = await db.comment.count({
       where: { user_id: Number(userId), status: COMMENT_STATUS.DELETED, deleted_at: deletedAt },
-      data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
     });
-    await db.post.updateMany({
+    const skippedPosts = await db.post.count({
       where: { author_id: Number(userId), status: POST_STATUS.DELETED, deleted_at: deletedAt },
-      data: { status: POST_STATUS.PUBLISHED, deleted_at: null },
     });
+    return { restoredPosts, restoredComments, skippedPosts, skippedComments };
   },
 
   findAuthIdentityById(userId, db = prisma) {
