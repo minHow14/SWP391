@@ -6,6 +6,7 @@ from pathlib import Path
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import Field
 
+from core.dietary import KETO_NET_CARBS_LIMIT_G, dietary_guidance
 from core.llm import get_json_model_name, get_structured_llm
 from core.nutrition import (
     NutritionTargets,
@@ -37,7 +38,8 @@ class MealItem(CamelModel):
     instructions: str | None = Field(None, description="Cách chế biến nhanh hoặc mẹo nấu")
     estimated_calories: int = Field(..., description="Lượng calo ước tính (kcal)")
     protein_g: float = Field(..., description="Lượng protein (g)")
-    carbs_g: float = Field(..., description="Lượng carbs (g)")
+    carbs_g: float = Field(..., ge=0, allow_inf_nan=False, description="Tổng carbohydrate (g), bao gồm chất xơ")
+    fiber_g: float | None = Field(None, ge=0, allow_inf_nan=False, description="Chất xơ (g); bắt buộc có cho từng bữa khi lập Keto")
     fat_g: float = Field(..., description="Lượng chất béo fat (g)")
 
 
@@ -79,6 +81,19 @@ def _day_meals(day: DailyMealPlan) -> list[tuple[str, MealItem]]:
     return meals
 
 
+def _keto_day_errors(day: DailyMealPlan) -> list[str]:
+    """Reject unverified or excessive daily net carbs, including snacks."""
+    meals = [meal for _, meal in _day_meals(day)]
+    if any(meal.fiber_g is None for meal in meals):
+        return [f'{day.day}: thiếu chất xơ (fiberG), chưa thể xác minh carb thuần của Keto.']
+    if any(meal.fiber_g > meal.carbs_g for meal in meals):
+        return [f'{day.day}: chất xơ không được lớn hơn tổng carbohydrate.']
+    net_carbs = sum(meal.carbs_g - meal.fiber_g for meal in meals)
+    if net_carbs >= KETO_NET_CARBS_LIMIT_G:
+        return [f'{day.day}: {net_carbs:g} g carb thuần; Keto cần dưới {KETO_NET_CARBS_LIMIT_G} g/ngày.']
+    return []
+
+
 def validate_plan(
     plan: GeneratedMealPlan,
     targets: NutritionTargets,
@@ -105,6 +120,8 @@ def validate_plan(
     low = targets.target_calories * (1 - CALORIE_TOLERANCE)
     high = targets.target_calories * (1 + CALORIE_TOLERANCE)
     for day in plan.weekly_plan:
+        if dietary_type == 'keto':
+            hard.extend(_keto_day_errors(day))
         meals = _day_meals(day)
         day_calories = sum(m.estimated_calories for _, m in meals)
         total_protein += sum(m.protein_g for _, m in meals)
@@ -193,6 +210,7 @@ Hãy tạo thực đơn chay chi tiết {days} ngày (bắt đầu từ Thứ Ha
 - Giới tính: {gender}
 - Mục tiêu sức khỏe: {goal}
 - Chế độ ăn chay: {dietary_type}
+- Quy tắc bắt buộc: {dietary_guidance(dietary_type)}
 - DỊ ỨNG & KIÊNG ĂN (TUYỆT ĐỐI TRÁNH): {allergy_text}
 - NGUYÊN LIỆU ĐÃ CÓ SẴN (Ưu tiên tận dụng): {pantry_text}
 
@@ -205,7 +223,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
 - title: Tiêu đề
 - summary: Tóm tắt dinh dưỡng
 - profileSummary: bmi ({targets.bmi}), bmiCategory, targetDailyCalories ({targets.target_calories}), primaryGoal, dietaryType, usedAvailableIngredients
-- weeklyPlan: đúng {days} ngày, mỗi ngày có bữa sáng (breakfast), trưa (lunch), tối (dinner), phụ (snacks), đầy đủ estimatedCalories, proteinG, carbsG, fatG
+- weeklyPlan: đúng {days} ngày, mỗi ngày có bữa sáng (breakfast), trưa (lunch), tối (dinner), phụ (snacks), đầy đủ estimatedCalories, proteinG, carbsG, fatG; Keto bắt buộc thêm fiberG cho từng bữa để hậu kiểm carb thuần dưới 50 g/ngày
 - groceryShoppingList: danh sách mua sắm những đồ còn thiếu
 - nutritionistTips: các mẹo hữu ích cho chế độ ăn này
 """
@@ -299,6 +317,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                     result = GeneratedMealPlan.model_validate(result)
                 if not isinstance(result, GeneratedMealPlan):
                     raise TypeError("Kết quả từ LLM không đúng định dạng schema GeneratedMealPlan")
+                result.profile_summary.dietary_type = dietary_type
 
                 await progress("validating", "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...", attempt=attempt)
                 hard, soft = validate_plan(result, targets, days, allergies, available_ingredients, dietary_type)

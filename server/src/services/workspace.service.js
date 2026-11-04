@@ -5,6 +5,7 @@ import { workspaceRepository } from '../repositories/workspace.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { weekRangeOf } from '../utils/weekRange.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
+import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
 export const ingredientImageUrl = (ingredientId) =>
   `/api/workspace/ingredients/${ingredientId}/image`;
@@ -354,8 +355,9 @@ export const workspaceService = {
    */
   async updateProfile(userId, { height, weight, calorieGoal, goal }) {
     await prisma.$transaction(async (tx) => {
-      await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
+      const savedProfile = await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
       await workspaceRepository.upsertProfilePreferences(userId, calorieGoal, goal, tx);
+      await syncHealthProfileWeightHistory(userId, savedProfile, tx);
     });
 
     return { saved: true };

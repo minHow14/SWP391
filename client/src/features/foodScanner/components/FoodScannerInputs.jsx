@@ -15,10 +15,11 @@ export default function FoodScannerInputs({ scanner, dietOptions, diet }) {
     </div>
     <Form.Group controlId="scan-diet" className="mb-3">
       <Form.Label>Chế độ ăn chay áp dụng</Form.Label>
-      <Form.Select value={diet.id} onChange={(event) => diet.onChange(Number(event.target.value))} disabled={scanner.loading}>
+      <Form.Select value={diet.id} onChange={(event) => diet.onChange(Number(event.target.value))}>
         {dietOptions.map((item) => <option key={item.diet_type_id} value={item.diet_type_id}>{item.emoji} {item.name}</option>)}
       </Form.Select>
     </Form.Group>
+    <p className="small text-muted">Dị ứng cá nhân đã lưu: {scanner.allergies.length ? scanner.allergies.join(', ') : 'Chưa có thông tin dị ứng.'}</p>
     <Form.Group controlId="scan-name" className="mb-3">
       <Form.Label>Tên món ăn / Sản phẩm (Tùy chọn)</Form.Label>
       <Form.Control value={scanner.name} maxLength={150} onChange={(event) => scanner.setName(event.target.value)} disabled={scanner.loading} />
@@ -47,7 +48,7 @@ export default function FoodScannerInputs({ scanner, dietOptions, diet }) {
           </figure>}
         </div>
       </fieldset>
-      <Button variant="success" size="lg" className="w-100" type="submit" disabled={scanner.loading || !scanner.photo?.base64}>
+      <Button variant="success" size="lg" className="w-100" type="submit" disabled={scanner.loading || scanner.blocked || !scanner.photo?.base64}>
         {scanner.loading ? <><Spinner size="sm" animation="border" /> Đang phân tích hình ảnh…</> : 'Phân tích bằng AI Vision'}
       </Button>
     </Form> : <Form onSubmit={scanner.analyzeText}>

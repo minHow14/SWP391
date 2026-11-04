@@ -1,257 +1,98 @@
-// client/src/features/auth/components/AuthForm.jsx
-import { useState } from 'react';
-import { Spinner } from 'react-bootstrap';
-import AuthHeader from './AuthHeader.jsx';
+// D:/SWP391/SWP391/client/src/features/auth/components/AuthForm.jsx
+import { useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Alert, Button, Card, Col, Container, Form, InputGroup, Row, Spinner } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router';
+import AuthHeader from './AuthHeader.jsx';
 import { authService } from '../../../services/authService.js';
-import { setSession } from '../../../utils/session.js';
+import { getSessionSnapshot, setSession } from '../../../utils/session.js';
 import { getAuthDestination } from '../utils/authRedirect.js';
+import { loginSchema, registrationSchema } from '../utils/authValidation.js';
 
 export default function AuthForm({ isRegister = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
-  const [busy,setBusy]=useState(false);
-  const navigate=useNavigate();
+  const inFlight = useRef(false);
+  const navigate = useNavigate();
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
+    resolver: zodResolver(isRegister ? registrationSchema : loginSchema),
+    defaultValues: { email: '', password: '', full_name: '', remember: false, agreement: false },
+  });
 
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if(busy)return;
-    const form=new FormData(event.currentTarget);
-    setBusy(true);
+  async function submit(values) {
+    if (inFlight.current) return;
+    inFlight.current = true; setMessage('');
+    const snapshot = getSessionSnapshot();
     try {
-      const payload = {
-        email: form.get('email') || form.get('account'),
-        password: form.get('password'),
-        ...(isRegister ? { full_name: form.get('full_name') } : {}),
-      };
+      const payload = { email: values.email, password: values.password,
+        ...(isRegister ? { full_name: values.full_name } : {}) };
       const result = isRegister ? await authService.register(payload) : await authService.login(payload);
-
-
-
-
-
-
-
-
       const user = result?.user || result?.data?.user;
       const token = result?.token || result?.data?.token;
-      setSession({ token, user });
+      if (snapshot.identityRevision !== getSessionSnapshot().identityRevision) return;
+      if (!token || !user) throw new Error('Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.');
+      setSession({ token, user }, { remember: Boolean(values.remember) });
       navigate(getAuthDestination({ user, isRegister }), { replace: true });
-    } catch (error) {
-      setMessage(error.message);
-    } finally {
-      setBusy(false);
-    }
+    } catch (error) { setMessage(error.message); }
+    finally { inFlight.current = false; }
   }
 
-  return (
-    <main id="main-content" tabIndex={-1} className="cx-auth-page min-vh-100 bg-success bg-opacity-10 d-flex align-items-center py-5">
-      <div className="container">
-        <div className="row justify-content-center">
-          <div className="col-12 col-sm-10 col-md-8 col-lg-6 col-xl-5">
-            <section className="card border-0 rounded-4 shadow-lg overflow-hidden">
-              <AuthHeader isRegister={isRegister} />
-
-              <div className="card-body p-4">
-                <form onSubmit={handleSubmit} onChange={() => setMessage('')} aria-busy={busy}>
-                  {isRegister && (
-                    <div className="mb-4">
-                      <label
-                        htmlFor="fullName"
-                        className="form-label small fw-semibold"
-                      >
-                        Họ và tên
-                      </label>
-
-                      <div className="input-group border rounded-3 overflow-hidden">
-                        <span className="input-group-text bg-white border-0 text-secondary">
-                          <i className="bi bi-person" aria-hidden="true"></i>
-                        </span>
-
-                        <input
-                          id="fullName"
-                          name="full_name"
-                          type="text"
-                          className="form-control border-0 py-3"
-                          placeholder="Nhập họ và tên của bạn"
-                          autoComplete="name"
-                          maxLength={255}
-                          required
-                          pattern=".*\S.*"
-                          title="Vui lòng nhập họ và tên."
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Email hoặc tên đăng nhập */}
-                  <div className="mb-4">
-                    <label
-                      htmlFor="account"
-                      className="form-label small fw-semibold"
-                    >
-                      Email
-                    </label>
-
-                    <div className="input-group border rounded-3 overflow-hidden">
-                      <span className="input-group-text bg-white border-0 text-secondary">
-                        <i className="bi bi-envelope" aria-hidden="true"></i>
-                      </span>
-
-                      <input
-                        id="account"
-                        name="email"
-                        type="email"
-                        maxLength={255}
-                        className="form-control border-0 py-3"
-                        placeholder="Nhập email của bạn"
-                        autoComplete={isRegister ? 'email' : 'username'}
-                        title="Vui lòng nhập email hợp lệ."
-                        required
-                      />
-                    </div>
+  return <Container as="main" id="main-content" tabIndex={-1} className="cx-auth-page min-vh-100 d-flex align-items-center py-5">
+    <Row className="justify-content-center w-100 g-0">
+      <Col xs={12} sm={10} md={8} lg={6} xl={5}>
+        <Card as="section" className="border-0 rounded-4 shadow-lg overflow-hidden">
+          <AuthHeader isRegister={isRegister} />
+          <Card.Body className="p-4">
+            <Form onSubmit={(event) => handleSubmit(submit)(event)} noValidate aria-busy={isSubmitting} onChange={() => setMessage('')}>
+              <fieldset disabled={isSubmitting}>
+                <legend className="visually-hidden">Thông tin tài khoản</legend>
+                {isRegister && <Form.Group controlId="fullName" className="mb-4">
+                  <Form.Label className="small fw-semibold">Họ và tên</Form.Label>
+                  <Form.Control type="text" autoComplete="name" maxLength={255} required {...register('full_name')}
+                    isInvalid={Boolean(errors.full_name)} aria-invalid={Boolean(errors.full_name)} aria-describedby={errors.full_name ? 'full-name-error' : undefined} />
+                  {errors.full_name && <Form.Control.Feedback type="invalid" id="full-name-error" role="alert">{errors.full_name.message}</Form.Control.Feedback>}
+                </Form.Group>}
+                <Form.Group controlId="account" className="mb-4">
+                  <Form.Label className="small fw-semibold">Email</Form.Label>
+                  <Form.Control type="email" autoComplete={isRegister ? 'email' : 'username'} maxLength={255} required {...register('email')}
+                    isInvalid={Boolean(errors.email)} aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'account-error' : undefined} />
+                  {errors.email && <Form.Control.Feedback type="invalid" id="account-error" role="alert">{errors.email.message}</Form.Control.Feedback>}
+                </Form.Group>
+                <Form.Group controlId="password" className="mb-4">
+                  <div className="d-flex justify-content-between align-items-baseline gap-2">
+                    <Form.Label className="small fw-semibold">Mật khẩu</Form.Label>
+                    {!isRegister && <Link to="/quen-mat-khau" className="small text-success text-decoration-none">Quên mật khẩu?</Link>}
                   </div>
-
-                  {/* Mật khẩu */}
-                  <div className="mb-4">
-                    <div className="d-flex justify-content-between align-items-baseline gap-2">
-                      <label
-                        htmlFor="password"
-                        className="form-label small fw-semibold"
-                      >
-                        Mật khẩu
-                      </label>
-
-                      {!isRegister && (
-                        <button
-                          type="button"
-                          className="btn btn-link text-success text-decoration-none p-0 small"
-                          onClick={() =>
-                            setMessage('Chưa kết nối chức năng quên mật khẩu.')
-                          }
-                        >
-                          Quên mật khẩu?
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="input-group border rounded-3 overflow-hidden">
-                      <span className="input-group-text bg-white border-0 text-secondary">
-                        <i className="bi bi-lock-fill" aria-hidden="true"></i>
-                      </span>
-
-                      <input
-                        id="password"
-                        name="password"
-                        type={showPassword ? 'text' : 'password'}
-                        className="form-control border-0 py-3"
-                        placeholder={
-                          isRegister ? 'Ít nhất 8 ký tự' : 'Nhập mật khẩu'
-                        }
-                        autoComplete={
-                          isRegister ? 'new-password' : 'current-password'
-                        }
-                        minLength={isRegister ? 8 : undefined}
-                        maxLength={128}
-                        required
-                      />
-
-                      <button
-                        type="button"
-                        className="btn bg-white border-0 text-secondary"
-                        onClick={() => setShowPassword(!showPassword)}
-                        aria-label={
-                          showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'
-                        }
-                        aria-pressed={showPassword}
-                      >
-                        <i
-                          className={
-                            showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'
-                          }
-                          aria-hidden="true"
-                        ></i>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Checkbox */}
-                  <div className="form-check mb-4">
-                    <input
-                      id="agreement"
-                      name={isRegister ? 'agreement' : 'remember'}
-                      type="checkbox"
-                      className="form-check-input"
-                      required={isRegister}
-                    />
-
-                    <label
-                      htmlFor="agreement"
-                      className="form-check-label small text-secondary"
-                    >
-                      {isRegister ? (
-                        <>
-                          Tôi đồng ý với{' '}
-                          <button
-                            type="button"
-                            className="btn btn-link text-success text-decoration-none fw-semibold p-0 small"
-                            onClick={() =>
-                              setMessage(
-                                'Điều khoản dịch vụ sẽ được bổ sung sau.'
-                              )
-                            }
-                          >
-                            Điều khoản dịch vụ
-                          </button>
-                          {' & '}
-                          <button
-                            type="button"
-                            className="btn btn-link text-success text-decoration-none fw-semibold p-0 small"
-                            onClick={() =>
-                              setMessage(
-                                'Chính sách bảo mật sẽ được bổ sung sau.'
-                              )
-                            }
-                          >
-                            Chính sách bảo mật
-                          </button>
-                        </>
-                      ) : (
-                        'Ghi nhớ đăng nhập'
-                      )}
-                    </label>
-                  </div>
-
-                  {message && (
-                    <div className="alert alert-info small" role="status">
-                      {message}
-                    </div>
-                  )}
-
-                  <button
-                    type="submit"
-                    disabled={busy}
-                    className="btn btn-success bg-gradient w-100 py-3 rounded-3 fw-semibold shadow-sm"
-                  >
-                    {busy && <Spinner animation="border" size="sm" className="me-2" aria-hidden="true" />}
-                    <span role="status">{busy ? 'Đang xử lý…' : isRegister ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}</span>
-                  </button>
-                </form>
-              </div>
-
-              <footer className="text-center bg-success bg-opacity-10 p-3 small">
-                Trở về{' '}
-                <Link
-                  to="/"
-                  className="text-success fw-semibold text-decoration-none"
-                >
-                  Trang chủ Cộng Đồng Chay Xanh
-                </Link>
-              </footer>
-            </section>
-          </div>
-        </div>
-      </div>
-    </main>
-  );
+                  <InputGroup>
+                    <Form.Control type={showPassword ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'}
+                      minLength={isRegister ? 8 : undefined} maxLength={128} required {...register('password')}
+                      isInvalid={Boolean(errors.password)} aria-invalid={Boolean(errors.password)} aria-describedby={errors.password ? 'password-error' : undefined} />
+                    <Button type="button" variant="outline-secondary" onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'} aria-pressed={showPassword}>
+                      <i className={showPassword ? 'bi bi-eye-slash' : 'bi bi-eye'} aria-hidden="true" />
+                    </Button>
+                  </InputGroup>
+                  {errors.password && <div className="invalid-feedback d-block" id="password-error" role="alert">{errors.password.message}</div>}
+                </Form.Group>
+                <Form.Check id="agreement" className="mb-4 small text-secondary" type="checkbox" required={isRegister}
+                  {...register(isRegister ? 'agreement' : 'remember')} isInvalid={Boolean(errors.agreement)}
+                  label={isRegister ? <>Tôi đồng ý với <Link to="/dieu-khoan" className="text-success">Điều khoản dịch vụ</Link>{' & '}
+                    <Link to="/chinh-sach-bao-mat" className="text-success">Chính sách bảo mật</Link></> : 'Ghi nhớ đăng nhập'} />
+                {errors.agreement && <p role="alert" className="small text-danger">{errors.agreement.message}</p>}
+                {message && <Alert variant="danger" className="small">{message}</Alert>}
+                <Button type="submit" disabled={isSubmitting} variant="success" className="bg-gradient w-100 py-3 rounded-3 fw-semibold shadow-sm">
+                  {isSubmitting && <Spinner animation="border" size="sm" className="me-2" aria-hidden="true" />}
+                  <span role="status">{isSubmitting ? 'Đang xử lý…' : isRegister ? 'Đăng Ký Tài Khoản' : 'Đăng Nhập Ngay'}</span>
+                </Button>
+              </fieldset>
+            </Form>
+          </Card.Body>
+          <Card.Footer className="text-center bg-success bg-opacity-10 p-3 small">
+            Trở về <Link to="/" className="text-success fw-semibold text-decoration-none">Trang chủ Cộng Đồng Chay Xanh</Link>
+          </Card.Footer>
+        </Card>
+      </Col>
+    </Row>
+  </Container>;
 }

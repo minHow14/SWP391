@@ -56,6 +56,42 @@ erDiagram
     }
 ```
 
+## Khôi phục mật khẩu, nội dung pháp lý và trạng thái trước xóa tài khoản
+
+Ba migration bổ sung ngày 04/11/2026: `20261104002853_preserve_account_content_status`, `20261104003005_add_password_reset_tokens`, `20261104003257_add_legal_documents`. Chi tiết API: [frontend-repairs-openapi.json](frontend-repairs-openapi.json).
+
+`PasswordResetToken` ánh xạ `password_reset_tokens`. `userId` tham chiếu khóa Int hiện có `User.user_id`, index ghép `(userId, expiresAt)`, `onDelete/onUpdate: Cascade`. `tokenHash` unique là SHA-256 của token ngẫu nhiên 32 byte; không lưu token gốc. `tokenVersion` là snapshot phiên bản mật khẩu; so sánh với `User.tokenVersion` (cột `token_version`, mặc định 0). Đổi/đặt lại mật khẩu tăng phiên bản này để từ chối access token, refresh token và link khôi phục cũ.
+
+`LegalDocument` ánh xạ `legal_documents`, không có quan hệ tác giả trong schema hiện tại. `slug` unique nhận `terms-of-service` hoặc `privacy-policy` qua validator API. Bản đầu version 1, mỗi lần cập nhật tăng 1. `published=false` ẩn bản nháp và đặt `publishedAt=null`; công bố lưu thời gian UTC. Không seed nội dung pháp lý.
+
+```mermaid
+erDiagram
+    User ||--o{ PasswordResetToken : owns
+    PasswordResetToken {
+        uuid id PK
+        int userId FK "user_id"
+        varchar tokenHash UK "token_hash, SHA-256 hex64"
+        int tokenVersion "token_version"
+        datetime expiresAt "expires_at"
+        datetime consumedAt "consumed_at, nullable"
+        datetime createdAt "created_at"
+        datetime updatedAt "updated_at"
+    }
+    LegalDocument {
+        uuid id PK
+        varchar slug UK
+        varchar title "max 200"
+        text content
+        int version
+        boolean published
+        datetime publishedAt "published_at, nullable"
+        datetime createdAt "created_at"
+        datetime updatedAt "updated_at"
+    }
+```
+
+`Post.statusBeforeAccountDeletion` và `Comment.statusBeforeAccountDeletion` ánh xạ `status_before_account_deletion`, VARCHAR(30) nullable. Khi xóa tài khoản, snapshot trạng thái và đánh dấu DELETED trong cùng transaction. Restore chỉ phục hồi nội dung cùng mốc xóa có snapshot hợp lệ, sau đó xóa snapshot; nội dung cũ không có snapshot tiếp tục DELETED và API trả số lượng/cảnh báo. Không tự chuyển nội dung ẩn/chờ kiểm duyệt thành công khai.
+
 ## Các bảng nghiệp vụ
 
 Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với file cấu hình Prisma (`server/prisma/schema.prisma`).
@@ -69,6 +105,7 @@ erDiagram
         int user_id PK
         varchar email
         varchar password_hash
+        int tokenVersion "token_version, default 0"
         varchar full_name
         smallint role
         varchar status
@@ -123,6 +160,7 @@ erDiagram
         int author_id FK
         varchar post_type
         varchar status
+        varchar statusBeforeAccountDeletion "status_before_account_deletion, nullable"
         datetime deleted_at
         datetime created_at
     }
@@ -159,6 +197,7 @@ erDiagram
         text content
         boolean is_flagged_by_ai
         varchar status
+        varchar statusBeforeAccountDeletion "status_before_account_deletion, nullable"
         datetime deleted_at
         datetime created_at
     }

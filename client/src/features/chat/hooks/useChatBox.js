@@ -7,6 +7,8 @@ import { useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRe
 import { useChatRequest } from './useChatRequest.js';
 import { getSession } from '../../../utils/session.js';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
+import { bmiCategory, calcBmi, formatBmi } from '../../../utils/aiHelpers.js';
+import { useChatPhoto } from './useChatPhoto.js';
 
 export function useChatBox({ dietTypeId }) {
   const { data: catalog, user, refreshUser } = useDatabase();
@@ -32,7 +34,6 @@ export function useChatBox({ dietTypeId }) {
   const launcher = useRef(null);
   const messageList = useRef(null);
   const fileInput = useRef(null);
-  const attachmentUrls = useRef([]);
   const nextId = useRef(1);
   const controller = useRef(null);
   const messagesRef = useRef([]);
@@ -56,8 +57,6 @@ export function useChatBox({ dietTypeId }) {
     setDialogPlan(null);
     setPlanDialog(false);
     setHistoryOpen(false);
-    attachmentUrls.current.forEach((url) => URL.revokeObjectURL(url));
-    attachmentUrls.current.length = 0;
   }, [userId]);
   useEffect(() => {
     if (!open) return undefined;
@@ -70,10 +69,6 @@ export function useChatBox({ dietTypeId }) {
     if ((open || planDialog) && userId && !hasBodyMeasurements(user.health_profile)) refreshUser?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, planDialog, userId]);
-  useEffect(() => {
-    const urls = attachmentUrls.current;
-    return () => urls.forEach((url) => URL.revokeObjectURL(url));
-  }, []);
   useEffect(() => {
     if (!open) return;
     input.current?.focus();
@@ -103,6 +98,7 @@ export function useChatBox({ dietTypeId }) {
   }
 
   const ask = useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId });
+  const photo = useChatPhoto({ user, ingredients: catalog?.ingredients, dietTypeId, controller, nextId, setMessages, setBusy, setError, blocked: busy || video.busy });
 
   function stopAnswer() {
     controller.current?.abort();
@@ -110,7 +106,7 @@ export function useChatBox({ dietTypeId }) {
 
   function sendMessage(text = draft, forcedMode) {
     const question = text.trim();
-    if (!question || busy || video.busy) return;
+    if (!question || busy || video.busy || (controller.current && !controller.current.signal.aborted)) return;
     const activeMode = forcedMode || mode;
     try {
       const source = detectYoutubeMessage(question);
@@ -170,29 +166,14 @@ export function useChatBox({ dietTypeId }) {
     input.current?.focus();
   }
 
-  function attachPhoto(event) {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Chọn ảnh JPG, PNG hoặc WebP.');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Ảnh cần nhỏ hơn 5 MB.');
-      return;
-    }
-    const url = URL.createObjectURL(file);
-    attachmentUrls.current.push(url);
-    addExchange(
-      `Ảnh nguyên liệu: ${file.name}`,
-      {
-        text: 'Mình đã hiển thị ảnh bạn chọn. Ảnh chỉ ở trên thiết bị và chưa được gửi đi. Chưa hỗ trợ nhận diện ảnh nguyên liệu; bạn có thể nhập tên nguyên liệu để trò chuyện.',
-      },
-      url
-    );
+  function showBmi() {
+    if (busy || video.busy || (controller.current && !controller.current.signal.aborted)) return;
+    if (!hasBodyMeasurements(user?.health_profile)) { setError('Vui lòng đăng nhập và bổ sung chiều cao, cân nặng trong hồ sơ để xem BMI.'); return; }
+    const { height, weight } = user.health_profile;
+    const bmi = calcBmi(height, weight);
+    addExchange('Xem BMI từ số đo hồ sơ', { kind: 'bmi', text: `Theo hồ sơ: chiều cao ${height} cm, cân nặng ${weight} kg. BMI: ${formatBmi(bmi)} (${bmiCategory(bmi)}).` });
   }
 
-  const visibleMessages = messages.filter((message) => message.kind === 'welcome' || message.ownerId === userId);
-  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
+  const visibleMessages = messages.filter((message) => (message.kind === 'welcome' || message.ownerId === userId) && (!message.scanContext || message.scanContext === photo.contextKey));
+  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, showBmi, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto: photo.attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
 }

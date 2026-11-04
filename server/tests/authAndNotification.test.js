@@ -107,6 +107,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.success).toBe(true);
 
     // Lấy email user1
+    userToken = res.body.data.token;
     const meRes = await request(app)
       .get('/api/v1/auth/me')
       .set('Authorization', `Bearer ${userToken}`);

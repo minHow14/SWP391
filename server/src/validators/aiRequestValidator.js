@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src/validators/aiRequestValidator.js
+// D:/SWP391/SWP391/server/src/validators/aiRequestValidator.js
 import { z } from 'zod';
 import { ApiError } from '../utils/apiError.js';
 
@@ -8,7 +8,7 @@ const MAX_HISTORY_LENGTH = 10;
 const MAX_INGREDIENTS = 100;
 const MAX_INGREDIENT_LENGTH = 100;
 const ingredientList = z.array(z.string().trim().min(1).max(MAX_INGREDIENT_LENGTH)).max(MAX_INGREDIENTS).optional();
-const dietaryType = z.enum(['vegan', 'lacto', 'ovo', 'lacto_ovo']).optional();
+const dietaryType = z.enum(['vegan', 'lacto', 'ovo', 'lacto_ovo', 'buddhist', 'keto', 'eat_clean']).optional();
 
 export const aiChatSchema = z.object({
   message: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH),

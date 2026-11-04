@@ -1,11 +1,10 @@
-// client/src/features/admin/components/AdminCategoryRow.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminCategoryRow.jsx
 import { Button, Badge } from 'react-bootstrap';
 import AdminCategoryDetailRow from './AdminCategoryDetailRow.jsx';
 
 export default function AdminCategoryRow({
   cat,
   index,
-  isFood,
   isExpanded,
   recipeTotal,
   postTotal,
@@ -42,8 +41,8 @@ export default function AdminCategoryRow({
           </span>
         </td>
         <td>
-          <span className={`cx-badge ${isFood ? 'cx-badge-active' : 'cx-badge-info'}`}>
-            {isFood ? 'Món ăn & Công thức' : 'Blog (Bài viết)'}
+          <span className="cx-badge cx-badge-neutral">
+            {recipeTotal > 0 && postTotal > 0 ? 'Công thức và bài viết' : recipeTotal > 0 ? 'Món ăn & Công thức' : postTotal > 0 ? 'Blog (Bài viết)' : 'Chưa sử dụng'}
           </span>
         </td>
         <td>

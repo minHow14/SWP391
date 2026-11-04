@@ -1,12 +1,13 @@
-// client/src/pages/Journal.jsx
-import { useEffect, useState } from 'react';
+// D:/SWP391/SWP391/client/src/pages/Journal.jsx
+import { useEffect, useRef, useState } from 'react';
+import { Spinner } from 'react-bootstrap';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import { aiMealsOf, mealGroups, todayKey, weekDates, totals } from '../utils/journal.js';
 import AiSuggestedMeal from '../features/journal/components/AiSuggestedMeal.jsx';
-import { subscribeSyncEvent } from '../utils/syncEvents.js';
+import { emitSyncEvent, subscribeSyncEvent } from '../utils/syncEvents.js';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { workspaceService } from '../services/workspaceService.js';
-import { getSession } from '../utils/session.js';
+import { getSession, getSessionSnapshot } from '../utils/session.js';
 import { Link } from 'react-router';
 import HealthProfileNotice from '../features/profile/components/HealthProfileNotice.jsx';
 import { hasBodyMeasurements } from '../features/profile/utils/healthProfile.js';
@@ -18,7 +19,7 @@ const displayDate = (date, options = { day: '2-digit', month: '2-digit' }) =>
   );
 
 export default function Journal() {
-  const { data: catalog, user } = useDatabase();
+  const { data: catalog, user, refreshUser } = useDatabase();
   const mealSamples = catalog.recipes.map((r) => ({
     id: String(r.recipe_id),
     recipe_id: r.recipe_id,
@@ -33,6 +34,8 @@ export default function Journal() {
   const [tab, setTab] = useState('day');
   const [adding, setAdding] = useState(null);
   const [editingProfile, setEditingProfile] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const profileSaveLock = useRef(false);
   const saveStatus = 'Nhật ký cá nhân';
   const [notice, setNotice] = useState('');
 
@@ -180,6 +183,12 @@ export default function Journal() {
 
   async function updateProfile(event) {
     event.preventDefault();
+    const session = getSession();
+    if (profileSaveLock.current || session?.user?.user_id !== user.user_id) return;
+    const snapshot = getSessionSnapshot();
+    const isCurrentSession = () => getSessionSnapshot().identityRevision === snapshot.identityRevision && getSession()?.user?.user_id === user.user_id;
+    profileSaveLock.current = true;
+    setProfileSaving(true);
     const form = new FormData(event.currentTarget);
     try {
       await workspaceService.updateProfile({
@@ -188,10 +197,17 @@ export default function Journal() {
         calorieGoal: Number(form.get('calorieGoal')),
         goal: form.get('goal'),
       });
+      if (!isCurrentSession()) return;
+      emitSyncEvent('USER_CHANGED', { userId: user.user_id });
+      await refreshUser();
+      if (!isCurrentSession()) return;
       await refresh();
-      setEditingProfile(false);
+      if (isCurrentSession()) setEditingProfile(false);
     } catch (e) {
-      setNotice(e.message);
+      if (isCurrentSession()) setNotice(e.message);
+    } finally {
+      profileSaveLock.current = false;
+      setProfileSaving(false);
     }
   }
 
@@ -587,7 +603,7 @@ export default function Journal() {
         </ContentDialog>
       )}
       {editingProfile && (
-        <ContentDialog title="Chỉnh Hồ Sơ & Mục Tiêu" onClose={() => setEditingProfile(false)}>
+        <ContentDialog title="Chỉnh Hồ Sơ & Mục Tiêu" onClose={() => !profileSaving && setEditingProfile(false)}>
           <form className="cx-journal-entry-form" onSubmit={updateProfile}>
             <label>
               Chiều cao (cm)
@@ -636,7 +652,10 @@ export default function Journal() {
             <p>
               BMI được tính từ chiều cao và cân nặng. Trang này ghi chép số liệu và không tự đề xuất mục tiêu dinh dưỡng.
             </p>
-            <button type="submit">Lưu Hồ Sơ</button>
+            <button type="submit" disabled={profileSaving} aria-busy={profileSaving}>
+              {profileSaving && <Spinner size="sm" animation="border" aria-hidden="true" className="me-2" />}
+              Lưu Hồ Sơ
+            </button>
           </form>
         </ContentDialog>
       )}

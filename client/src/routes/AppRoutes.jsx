@@ -1,4 +1,4 @@
-﻿// client/src/routes/AppRoutes.jsx
+﻿// D:/SWP391/SWP391/client/src/routes/AppRoutes.jsx
 import { lazy, Suspense } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { Routes, Route, Navigate } from 'react-router';
@@ -7,6 +7,8 @@ import SiteLayout from '../components/layout/SiteLayout.jsx';
 const Home = lazy(() => import('../pages/Home.jsx'));
 const Login = lazy(() => import('../pages/auth/Login.jsx'));
 const Register = lazy(() => import('../pages/auth/Register.jsx'));
+const ForgotPassword = lazy(() => import('../pages/auth/ForgotPassword.jsx'));
+const ResetPassword = lazy(() => import('../pages/auth/ResetPassword.jsx'));
 const Recipes = lazy(() => import('../pages/Recipes.jsx'));
 const Community = lazy(() => import('../pages/Community.jsx'));
 const FoodScanner = lazy(() => import('../pages/FoodScanner.jsx'));
@@ -16,6 +18,7 @@ const Restaurants = lazy(() => import('../pages/Restaurants.jsx'));
 const Journal = lazy(() => import('../pages/Journal.jsx'));
 const Profile = lazy(() => import('../pages/Profile.jsx'));
 const AdminAi = lazy(() => import('../pages/admin/AdminAi.jsx'));
+const LegalDocument = lazy(() => import('../pages/LegalDocument.jsx'));
 const AdminPortal = lazy(() => import('../pages/admin/AdminPortal.jsx'));
 
 export default function AppRoutes() {
@@ -34,9 +37,13 @@ export default function AppRoutes() {
           <Route path="/cong-thuc" element={<Recipes />} />
           <Route path="/cong-dong" element={<Community />} />
         </Route>
+        <Route path="/dieu-khoan" element={<LegalDocument slug="terms-of-service" />} />
+        <Route path="/chinh-sach-bao-mat" element={<LegalDocument slug="privacy-policy" />} />
         <Route path="/admin" element={<AdminPortal />} />
         <Route path="/dang-nhap" element={<Login />} />
         <Route path="/dang-ky" element={<Register />} />
+        <Route path="/quen-mat-khau" element={<ForgotPassword />} />
+        <Route path="/dat-lai-mat-khau" element={<ResetPassword />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

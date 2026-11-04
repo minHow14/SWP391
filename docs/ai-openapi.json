@@ -786,7 +786,10 @@
               "vegan",
               "lacto",
               "ovo",
-              "lacto_ovo"
+              "lacto_ovo",
+              "buddhist",
+              "keto",
+              "eat_clean"
             ]
           },
           "menuContext": {
@@ -795,8 +798,7 @@
           }
         },
         "required": [
-          "message",
-          "history"
+          "message"
         ],
         "additionalProperties": false
       },
@@ -857,7 +859,10 @@
               "vegan",
               "lacto",
               "ovo",
-              "lacto_ovo"
+              "lacto_ovo",
+              "buddhist",
+              "keto",
+              "eat_clean"
             ]
           },
           "allergies": {
@@ -888,7 +893,8 @@
           "heightCm",
           "weightKg"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Seven dietary identities are preserved. Keto output requires fiberG for every meal/snack, 0 <= fiberG <= carbsG, and daily net carbohydrates strictly below 50 g. Buddhist excludes animal products and alliums. Eat Clean follows existing minimal-processing requirements without an invented numeric macro limit."
       },
       "FoodScanRequest": {
         "type": "object",
@@ -912,7 +918,7 @@
           "dietTypeId": {
             "type": "integer",
             "minimum": 1,
-            "description": "ID chế độ ăn chay"
+            "description": "Positive catalog diet ID; current mappings 1 vegan, 2 lacto, 3 ovo, 4 lacto_ovo, 5 buddhist, 6 keto, 7 eat_clean. Does not remap an unsupported identity to another diet."
           },
           "scanType": {
             "type": "string",
@@ -1077,7 +1083,7 @@
               "restaurantChecklist",
               "swapSuggestions"
             ],
-            "description": "clear cannot contain violation findings. Unknown nutrition is null/omitted, never invented zeros."
+            "description": "clear cannot contain violation findings. Unknown nutrition is null/omitted, never invented zeros. Keto image results remain warning: one photo cannot verify daily net carbohydrates. Saved allergies must be passed by the client; they are not automatically injected by the gateway."
           },
           "meta": {
             "type": "object",

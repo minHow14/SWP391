@@ -1,5 +1,6 @@
-// d:\Projects\FPT\SWP391\server\src/repositories/user.repository.js
+// D:/SWP391/SWP391/server/src/repositories/user.repository.js
 import prisma from '../config/prisma.js';
+import { COMMENT_STATUS, POST_STATUS, USER_STATUS } from '../constants/status.js';
 
 export const DEFAULT_USER_SAFE_SELECT = {
   user_id: true,
@@ -12,10 +13,54 @@ export const DEFAULT_USER_SAFE_SELECT = {
 };
 
 export const userRepository = {
+  async lockAccount(userId, db = prisma) {
+    const [user] = await db.$queryRaw`
+      SELECT user_id, email, full_name, role, status, deleted_at
+      FROM users WHERE user_id = ${Number(userId)} FOR UPDATE
+    `;
+    return user || null;
+  },
+
+  updateAccountStatus(userId, { status, deletedAt = null }, db = prisma) {
+    return db.user.update({
+      where: { user_id: Number(userId) },
+      data: { status, deleted_at: deletedAt },
+      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true },
+    });
+  },
+
+  async softDeleteAccountContent(userId, deletedAt, db = prisma) {
+    // Copy the existing column in the same UPDATE so no moderation state is guessed or read stale.
+    await db.$executeRaw`UPDATE comments
+      SET status_before_account_deletion = status, status = ${COMMENT_STATUS.DELETED}, deleted_at = ${deletedAt}
+      WHERE user_id = ${Number(userId)} AND status <> ${COMMENT_STATUS.DELETED}`;
+    await db.$executeRaw`UPDATE posts
+      SET status_before_account_deletion = status, status = ${POST_STATUS.DELETED}, deleted_at = ${deletedAt}
+      WHERE author_id = ${Number(userId)} AND status <> ${POST_STATUS.DELETED}`;
+  },
+
+  async restoreAccountContent(userId, deletedAt, db = prisma) {
+    const restoredComments = await db.$executeRaw`UPDATE comments
+      SET status = status_before_account_deletion, status_before_account_deletion = NULL, deleted_at = NULL
+      WHERE user_id = ${Number(userId)} AND status = ${COMMENT_STATUS.DELETED} AND deleted_at = ${deletedAt}
+        AND status_before_account_deletion IS NOT NULL AND status_before_account_deletion <> ${COMMENT_STATUS.DELETED}`;
+    const restoredPosts = await db.$executeRaw`UPDATE posts
+      SET status = status_before_account_deletion, status_before_account_deletion = NULL, deleted_at = NULL
+      WHERE author_id = ${Number(userId)} AND status = ${POST_STATUS.DELETED} AND deleted_at = ${deletedAt}
+        AND status_before_account_deletion IS NOT NULL AND status_before_account_deletion <> ${POST_STATUS.DELETED}`;
+    const skippedComments = await db.comment.count({
+      where: { user_id: Number(userId), status: COMMENT_STATUS.DELETED, deleted_at: deletedAt },
+    });
+    const skippedPosts = await db.post.count({
+      where: { author_id: Number(userId), status: POST_STATUS.DELETED, deleted_at: deletedAt },
+    });
+    return { restoredPosts, restoredComments, skippedPosts, skippedComments };
+  },
+
   findAuthIdentityById(userId, db = prisma) {
     return db.user.findUnique({
       where: { user_id: userId },
-      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true },
+      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true, tokenVersion: true },
     });
   },
 
@@ -32,6 +77,7 @@ export const userRepository = {
       select: {
         ...DEFAULT_USER_SAFE_SELECT,
         password_hash: true,
+        tokenVersion: true,
       },
     });
   },
@@ -114,11 +160,10 @@ export const userRepository = {
     });
   },
 
-  async updatePassword(userId, password_hash, db = prisma) {
-    return db.user.update({
-      where: { user_id: Number(userId) },
-      data: { password_hash },
-      select: DEFAULT_USER_SAFE_SELECT,
+  async updatePassword(userId, { expectedHash, passwordHash }, db = prisma) {
+    return db.user.updateMany({
+      where: { user_id: Number(userId), password_hash: expectedHash, status: USER_STATUS.ACTIVE, deleted_at: null },
+      data: { password_hash: passwordHash, tokenVersion: { increment: 1 } },
     });
   },
 
@@ -137,6 +182,14 @@ export const userRepository = {
     return db.healthHistory.findMany({
       where: { user_id: Number(userId) },
       orderBy: [{ recorded_date: 'desc' }, { history_id: 'desc' }],
+    });
+  },
+
+  findLatestHealthHistory(userId, db = prisma) {
+    return db.healthHistory.findFirst({
+      where: { user_id: Number(userId) },
+      orderBy: { history_id: 'desc' },
+      select: { weight: true },
     });
   },
 

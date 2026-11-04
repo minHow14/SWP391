@@ -1,0 +1,192 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chay Xanh — Authentication, legal documents and account restoration",
+    "version": "1.0.0",
+    "description": "Contracts implemented in the frontend repair phases. Authentication and admin routes also have legacy /api/auth and /api/admin aliases. Legal-document routes exist only under /api/v1. Responses may include extra legacy root fields; clients should use data/message/meta. Refresh identity binding is required before retrying a protected request."
+  },
+  "servers": [{ "url": "http://localhost:5000" }],
+  "paths": {
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "summary": "Request a single-use password reset email",
+        "description": "Checks real SMTP configuration and connectivity before account lookup. Known, unknown, locked and deleted addresses receive the same accepted message. Delivery failure after SMTP verification revokes the newly issued link while retaining that generic response. This does not guarantee delivery or equal response timing. Raw token is emailed only in /dat-lai-mat-khau#token=<64 lowercase hex characters>; API responses never return it. Auth rate limiting applies.",
+        "requestBody": { "$ref": "#/components/requestBodies/ForgotPassword" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/RecoveryAccepted" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": {
+            "description": "SMTP configuration or connectivity is unavailable for every address; errorCode PASSWORD_RESET_UNAVAILABLE.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "Consume a password reset link once",
+        "description": "Browser reads the token from the URL fragment and sends it in this JSON body. Password is 8–128 characters and at most 72 UTF-8 bytes. The user must still be active, not deleted and on the token's original tokenVersion. Consumption, password hash replacement, tokenVersion increment and invalidation of all other links occur in one transaction. Old access and refresh tokens are rejected. The response clears the refresh cookie; sign in again with the new password.",
+        "requestBody": { "$ref": "#/components/requestBodies/ResetPassword" },
+        "responses": {
+          "200": {
+            "description": "Password reset. Cache-Control: no-store. Clears refreshToken at Path=/api with HttpOnly and SameSite=Strict; Secure in production.",
+            "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Set-Cookie": { "schema": { "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } }
+          },
+          "400": {
+            "description": "Validation failure or PASSWORD_RESET_TOKEN_INVALID for unknown, expired, consumed, revoked or ineligible-account links. No password/token mutation on failure.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "refreshAccessToken",
+        "summary": "Refresh an access token and return its account identity",
+        "description": "Accepts a refreshToken cookie or a legacy JSON refreshToken field. In the current app, JSON body takes precedence over the raw Cookie header when both are present; a pre-parsed req.cookies value would take priority if supplied by middleware. Browser clients send only the HttpOnly cookie. No bearer token is required. Checks persisted account state and tokenVersion. Does not rotate the refresh cookie. Client must compare data.userId with the original session user before storing the token or retrying; a shared browser cookie can belong to another tab's account.",
+        "security": [{ "refreshCookie": [] }, {}],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "properties": { "refreshToken": { "type": "string", "minLength": 1 } } } } } },
+        "responses": {
+          "200": {
+            "description": "Fresh access token for data.userId.",
+            "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+              "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["token", "accessToken", "userId"], "properties": {
+                "token": { "type": "string" }, "accessToken": { "type": "string" }, "userId": { "type": "integer", "minimum": 1 }
+              } }
+            } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "Clear the browser refresh cookie",
+        "description": "No bearer token required. Clears refreshToken with the same Path=/api, HttpOnly, SameSite=Strict and production Secure attributes used at login. Does not revoke an already issued access token. Frontend clears local/tab session immediately and orders pending password-change/logout cookie responses before another login.",
+        "responses": { "200": { "description": "Cookie cleared.", "headers": { "Set-Cookie": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } } } }
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "operationId": "changePassword",
+        "summary": "Change the authenticated user's password and replace current credentials",
+        "security": [{ "bearerAuth": [] }],
+        "description": "Current-password verification and conditional write reject a concurrent password replacement, account lock or deletion. Successful writes increment tokenVersion, invalidate older access/refresh tokens and return a replacement access token while setting a replacement refresh cookie. The frontend retains the token only if the initiating login identity is still current. Historical snake_case/oldPassword aliases remain accepted; canonical client fields are documented here. The 72-byte recovery limit is specific to reset-password; this existing endpoint validates 8–128 characters.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["currentPassword", "newPassword"], "properties": {
+          "currentPassword": { "type": "string", "minLength": 1, "maxLength": 128 }, "newPassword": { "type": "string", "minLength": 8, "maxLength": 128 }
+        } } } } },
+        "responses": {
+          "200": { "description": "Replacement token in data.token and replacement refresh cookie. Legacy data.refreshToken is also returned; do not log it.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["token", "refreshToken"], "properties": { "token": { "type": "string" }, "refreshToken": { "type": "string" } } }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "description": "Password or account changed concurrently; sign in again.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/v1/legal-documents/{slug}": {
+      "parameters": [{ "$ref": "#/components/parameters/LegalSlug" }],
+      "get": {
+        "operationId": "getPublishedLegalDocument",
+        "summary": "Read published administrator-authored content",
+        "description": "Public; no seeded or placeholder legal text. Returns 404 for both absent and draft content. UI routes: /dieu-khoan and /chinh-sach-bao-mat. Content is Markdown; the frontend disables raw HTML and unsafe URLs.",
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/admin/legal-documents/{slug}": {
+      "parameters": [{ "$ref": "#/components/parameters/LegalSlug" }],
+      "get": {
+        "operationId": "getAdminLegalDocument", "summary": "Read a draft or published document", "security": [{ "bearerAuth": [] }],
+        "description": "Requires active ADMIN role 1 from the database. A missing document returns 404; admin UI opens an empty authoring form.",
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "put": {
+        "operationId": "saveLegalDocument", "summary": "Save and optionally publish a legal document", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN. Upserts the two supported documents. First version is 1; every update increments version, including draft saves. published=true sets publishedAt to the current UTC time; false clears it and hides content from public GET.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LegalDocumentInput" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
+      }
+    },
+    "/api/v1/admin/users/{id}/status": {
+      "parameters": [{ "$ref": "#/components/parameters/AccountId" }],
+      "patch": {
+        "operationId": "updateAccountStatus", "summary": "Activate, lock or soft-delete an account", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN. DELETED performs the same soft-delete cascade as DELETE /admin/users/{id}, capturing original post/comment states. Repeated deletion preserves its timestamp. ACTIVE/LOCKED on an already DELETED account returns 409 ACCOUNT_RESTORE_REQUIRED; use explicit restore. Self/admin protection still applies.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "additionalProperties": false, "properties": { "status": { "type": "string", "enum": ["ACTIVE", "LOCKED", "DELETED"] } } } } } },
+        "responses": { "200": { "description": "Updated account in data.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AccountSuccess" } } } }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "description": "ACCOUNT_RESTORE_REQUIRED", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
+      }
+    },
+    "/api/v1/admin/users/{id}/restore": {
+      "parameters": [{ "$ref": "#/components/parameters/AccountId" }],
+      "post": {
+        "operationId": "restoreAccount", "summary": "Restore an account and its recorded original content states", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN and an account currently DELETED. Locks the account row and restores only account-deleted content at the same deletion timestamp with known statusBeforeAccountDeletion. Clears restored metadata. Content deleted separately or legacy content missing its original state stays DELETED. Missing account deletion timestamp also leaves content untouched and returns a warning. Never promotes hidden/draft/pending content to public by guessing.",
+        "responses": {
+          "200": { "description": "Account becomes ACTIVE; data.restoration reports counts and data.warning is present when original deletion metadata is missing.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RestoredAccountSuccess" } } } },
+          "400": { "description": "Invalid ID or account not DELETED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
+      "refreshCookie": { "type": "apiKey", "in": "cookie", "name": "refreshToken" }
+    },
+    "parameters": {
+      "LegalSlug": { "name": "slug", "in": "path", "required": true, "schema": { "type": "string", "enum": ["terms-of-service", "privacy-policy"] } },
+      "AccountId": { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 2147483647 } }
+    },
+    "requestBodies": {
+      "ForgotPassword": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email"], "additionalProperties": false, "properties": { "email": { "type": "string", "format": "email", "maxLength": 255, "description": "Trimmed and looked up case-insensitively via normalized lowercase email." } } } } } },
+      "ResetPassword": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token", "newPassword"], "additionalProperties": false, "properties": {
+        "token": { "type": "string", "pattern": "^[a-f0-9]{64}$", "writeOnly": true },
+        "newPassword": { "type": "string", "minLength": 8, "maxLength": 128, "writeOnly": true, "description": "Also at most 72 UTF-8 bytes; backend rejects excess instead of bcrypt truncation." }
+      } } } } }
+    },
+    "responses": {
+      "RecoveryAccepted": { "description": "Generic accepted message, data is empty. No account existence or delivery guarantee. Cache-Control: no-store.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } } },
+      "ValidationError": { "description": "Invalid input; errors contains field/message entries.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unauthorized": { "description": "Missing, invalid, expired or revoked credentials.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Forbidden": { "description": "Inactive account or insufficient role.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Resource absent, or public legal document not published.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "RateLimited": { "description": "Authentication request limit exceeded.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "LegalDocument": { "description": "Saved document in data, timestamps in ISO 8601 UTC.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/LegalDocument" } } } } } }
+    },
+    "schemas": {
+      "Error": { "type": "object", "required": ["success", "message", "errorCode", "errors"], "properties": {
+        "success": { "const": false }, "message": { "type": "string" }, "errorCode": { "type": "string" },
+        "errors": { "type": "array", "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } } }
+      } },
+      "MessageSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object" } } },
+      "LegalDocumentInput": { "type": "object", "required": ["title", "content"], "additionalProperties": false, "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 }, "content": { "type": "string", "minLength": 1, "maxLength": 100000 }, "published": { "type": "boolean", "default": false }
+      } },
+      "LegalDocument": { "type": "object", "required": ["id", "slug", "title", "content", "version", "published", "publishedAt", "createdAt", "updatedAt"], "properties": {
+        "id": { "type": "string", "format": "uuid" }, "slug": { "type": "string", "enum": ["terms-of-service", "privacy-policy"] },
+        "title": { "type": "string" }, "content": { "type": "string" }, "version": { "type": "integer", "minimum": 1 }, "published": { "type": "boolean" },
+        "publishedAt": { "type": ["string", "null"], "format": "date-time" }, "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": "string", "format": "date-time" }
+      } },
+      "AccountSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/Account" } } },
+      "Account": { "type": "object", "required": ["user_id", "email", "full_name", "role", "status", "deleted_at"], "description": "Existing account API retains these legacy snake_case fields; no global rename was made by the repairs.", "properties": {
+        "user_id": { "type": "integer" }, "email": { "type": "string", "format": "email" }, "full_name": { "type": "string" }, "role": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ACTIVE", "LOCKED", "DELETED"] }, "deleted_at": { "type": ["string", "null"], "format": "date-time" }
+      } },
+      "RestoredAccountSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": {
+        "allOf": [{ "$ref": "#/components/schemas/Account" }, { "type": "object", "required": ["restoration"], "properties": { "warning": { "type": "string" }, "restoration": { "type": "object", "required": ["restoredPosts", "restoredComments", "skippedPosts", "skippedComments"], "properties": {
+          "restoredPosts": { "type": "integer", "minimum": 0 }, "restoredComments": { "type": "integer", "minimum": 0 }, "skippedPosts": { "type": "integer", "minimum": 0 }, "skippedComments": { "type": "integer", "minimum": 0 }
+        } } } }]
+      } } }
+    }
+  }
+}

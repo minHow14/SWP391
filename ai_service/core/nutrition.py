@@ -298,12 +298,24 @@ DIET_FORBIDDEN = {
     "lacto": ALLERGEN_ALIASES["egg"],   # có sữa, không trứng
     "ovo": ALLERGEN_ALIASES["dairy"],   # có trứng, không sữa
     "lacto_ovo": [],
+    "buddhist": ALLERGEN_ALIASES["egg"] + ALLERGEN_ALIASES["dairy"] + HONEY_TERMS,
+    "keto": [],
+    "eat_clean": [
+        "duong tinh luyen", "duong trang", "duong cat", "dau tinh luyen",
+        "dau mo tinh luyen", "refined sugar", "white sugar", "refined oil",
+    ],
 }
+ALLIUM_TERMS = [
+    "hành", "tỏi", "hẹ", "kiệu", "nén", "hanh la", "hanh tim", "toi", "kieu", "hung cu",
+    "onion", "garlic", "chive", "chives", "shallot", "leek", "scallion",
+]
 
 
 def diet_key(dietary_type: str | None) -> str:
-    """Chuẩn hoá trường phái chay: vegan / thuần chay, lacto, ovo, lacto_ovo (mặc định)."""
+    """Preserve canonical diet identities; retain legacy vegetarian aliases."""
     key = _norm(dietary_type or "").replace("-", "_").replace(" ", "_")
+    if key in DIET_FORBIDDEN:
+        return key
     if "vegan" in key or "thuan_chay" in key:
         return "vegan"
     lacto, ovo = "lacto" in key, "ovo" in key
@@ -319,8 +331,10 @@ def find_diet_violations(meals: Iterable[Meal], dietary_type: str | None) -> lis
     diet = diet_key(dietary_type)
     checks = [
         (_term_patterns(ANIMAL_TERMS, plant_based_ok=True, animal=True), True, "không phải món chay"),
-        (_term_patterns(DIET_FORBIDDEN[diet], plant_based_ok=True), False, f"không phù hợp chế độ '{diet}'"),
+        (_term_patterns(DIET_FORBIDDEN[diet], plant_based_ok=diet != 'eat_clean'), False, f"không phù hợp chế độ '{diet}'"),
     ]
+    if diet == 'buddhist':
+        checks.append((_term_patterns(ALLIUM_TERMS), False, 'ngũ vị tân không phù hợp chay Phật giáo'))
     violations = []
     for meal in meals:
         for patterns, strip_plants, reason in checks:

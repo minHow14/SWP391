@@ -1,6 +1,7 @@
 // D:/SWP391/SWP391/client/src/services/aiApi.js
 // client/src/services/aiApi.js
-import { getSession } from '../utils/session.js';
+import { getSession, getSessionSnapshot, setSession } from '../utils/session.js';
+import { refreshSession } from './apiClient.js';
 
 // Toàn bộ cuộc gọi AI đi qua Backend Gateway API (/api)
 const AI_BASE = (import.meta.env?.VITE_API_URL || '/api').replace(/\/$/, '');
@@ -60,17 +61,30 @@ async function toError(response) {
   });
 }
 
+function sendWithToken(path, { method, body, signal }) {
+  return fetch(`${AI_BASE}${path}`, {
+    method, signal, credentials: 'include', headers: headers(body !== undefined),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
+}
+
 async function send(path, { method = 'GET', body, signal } = {}) {
+  const snapshot = getSessionSnapshot();
+  const options = { method, body, signal };
   try {
-    return await fetch(`${AI_BASE}${path}`, {
-      method,
-      signal,
-      headers: headers(body !== undefined),
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-    });
+    let response = await sendWithToken(path, options);
+    if (response.status === 401 && snapshot.token) {
+      const refreshed = await refreshSession(snapshot);
+      if (refreshed && refreshed.revision === getSessionSnapshot().revision && !signal?.aborted) {
+        response = await sendWithToken(path, options);
+        if (response.status === 401 && refreshed.revision === getSessionSnapshot().revision) setSession(null);
+      }
+    }
+    return response;
   } catch (cause) {
     if (signal?.aborted) throw cause;
-    throw new AiApiError({ cause });
+    throw new AiApiError({ cause, status: cause.status || 0,
+      ...(cause.status && { code: cause.code, message: cause.message }) });
   }
 }
 

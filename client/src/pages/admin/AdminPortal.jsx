@@ -1,6 +1,6 @@
-// client/src/pages/admin/AdminPortal.jsx
+// D:/SWP391/SWP391/client/src/pages/admin/AdminPortal.jsx
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Nav, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Nav } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';
 
@@ -11,9 +11,10 @@ import AdminCommentsTab from '../../features/admin/components/AdminCommentsTab.j
 import AdminCategoriesTab from '../../features/admin/components/AdminCategoriesTab.jsx';
 import AdminAiModerationTab from '../../features/admin/components/AdminAiModerationTab.jsx';
 import AdminAiMonitorTab from '../../features/admin/components/AdminAiMonitorTab.jsx';
+import AdminLegalDocumentsTab from '../../features/admin/components/AdminLegalDocumentsTab.jsx';
 import AdminReportsTab from '../../features/admin/components/AdminReportsTab.jsx';
 
-const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'reports'];
+const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'reports', 'legal-documents'];
 
 export default function AdminPortal() {
   const { user } = useDatabase();
@@ -73,11 +74,6 @@ export default function AdminPortal() {
               <p className="text-muted small">
                 Bạn cần đăng nhập bằng tài khoản có quyền <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông tin này.
               </p>
-              <Alert variant="success" className="text-start small bg-success-subtle border-0">
-                <strong>Tài khoản Quản trị viên hệ thống:</strong>
-                <div>Email: <code>admin@swp391.com</code></div>
-                <div>Mật khẩu: <code>123456</code></div>
-              </Alert>
               <div className="d-flex justify-content-center gap-2">
                 <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-3">
                   <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng nhập
@@ -101,6 +97,7 @@ export default function AdminPortal() {
     { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
     { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
     { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
+    { key: 'legal-documents', label: 'Điều khoản & bảo mật', icon: 'bi-file-earmark-text' },
     { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
   ];
 
@@ -162,6 +159,7 @@ export default function AdminPortal() {
               {activeTab === 'categories' && <AdminCategoriesTab />}
               {activeTab === 'ai-moderation' && <AdminAiModerationTab />}
               {activeTab === 'ai-monitor' && <AdminAiMonitorTab />}
+              {activeTab === 'legal-documents' && <AdminLegalDocumentsTab />}
               {activeTab === 'reports' && <AdminReportsTab />}
             </div>
           </Col>

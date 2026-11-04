@@ -7,15 +7,9 @@ import AdminCategoryRow from './AdminCategoryRow.jsx';
 import AdminCategoryPreviewModal from './AdminCategoryPreviewModal.jsx';
 import AdminCategoryFormModal from './AdminCategoryFormModal.jsx';
 
-const getCategoryType = (cat) => {
-  const hasRecipes = (cat.recipes?.length || cat._count?.recipes || 0) > 0;
-  const hasPosts = (cat.post_categories?.length || cat._count?.post_categories || 0) > 0;
-  if (hasRecipes && !hasPosts) return 'RECIPE';
-  if (hasPosts && !hasRecipes) return 'BLOG';
-  return /món|salad|gỏi|súp|canh|xào|chiên|kho|lẩu|điểm tâm|bánh|chè|tráng miệng|thức uống|chay/i.test(cat.name)
-    ? 'RECIPE'
-    : 'BLOG';
-};
+const hasCategoryUsage = (cat, type) => type === 'RECIPE'
+  ? (cat.recipes?.length ?? cat._count?.recipes ?? 0) > 0
+  : (cat.post_categories?.length ?? cat._count?.post_categories ?? 0) > 0;
 
 export default function AdminCategoriesTab() {
   const [categories, setCategories] = useState([]);
@@ -31,7 +25,6 @@ export default function AdminCategoriesTab() {
   const [modalMode, setModalMode] = useState('CREATE');
   const [activeCategory, setActiveCategory] = useState(null);
   const [categoryName, setCategoryName] = useState('');
-  const [targetType, setTargetType] = useState('RECIPE');
   const [actionMsg, setActionMsg] = useState('');
 
   const fetchCategories = useCallback(async () => {
@@ -65,22 +58,21 @@ export default function AdminCategoriesTab() {
     });
   };
 
-  const recipeCount = useMemo(() => categories.filter((c) => getCategoryType(c) === 'RECIPE').length, [categories]);
-  const blogCount = useMemo(() => categories.filter((c) => getCategoryType(c) === 'BLOG').length, [categories]);
+  const recipeCount = useMemo(() => categories.filter((c) => hasCategoryUsage(c, 'RECIPE')).length, [categories]);
+  const blogCount = useMemo(() => categories.filter((c) => hasCategoryUsage(c, 'BLOG')).length, [categories]);
 
   const filteredCategories = useMemo(() => {
     return categories.filter((cat) => {
       const matchSearch = cat.name.toLowerCase().includes(search.trim().toLowerCase());
-      const matchType = typeFilter === 'ALL' || getCategoryType(cat) === typeFilter;
+      const matchType = typeFilter === 'ALL' || hasCategoryUsage(cat, typeFilter);
       return matchSearch && matchType;
     });
   }, [categories, search, typeFilter]);
 
-  const handleOpenCreate = (preselectedType = 'RECIPE') => {
+  const handleOpenCreate = () => {
     setModalMode('CREATE');
     setActiveCategory(null);
     setCategoryName('');
-    setTargetType(preselectedType);
     setShowModal(true);
   };
 
@@ -88,7 +80,6 @@ export default function AdminCategoriesTab() {
     setModalMode('EDIT');
     setActiveCategory(cat);
     setCategoryName(cat.name);
-    setTargetType(getCategoryType(cat));
     setShowModal(true);
   };
 
@@ -133,9 +124,9 @@ export default function AdminCategoriesTab() {
       <div className="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
         <div>
           <h4 className="fw-bold mb-1 text-dark">Quản Lý Danh Mục Món & Blog</h4>
-          <p className="text-muted small mb-0">Quản lý phân loại Tên món ăn & công thức và Chuyên mục Blog (chứa các bài viết)</p>
+          <p className="text-muted small mb-0">Nhóm hiển thị theo công thức và bài viết đang liên kết với danh mục</p>
         </div>
-        <Button variant="success" size="sm" className="rounded-3 px-3 fw-medium" onClick={() => handleOpenCreate(typeFilter === 'BLOG' ? 'BLOG' : 'RECIPE')}>
+        <Button variant="success" size="sm" className="rounded-3 px-3 fw-medium" onClick={() => handleOpenCreate()}>
           <i className="bi bi-plus-lg me-1" /> Thêm danh mục mới
         </Button>
       </div>
@@ -170,7 +161,7 @@ export default function AdminCategoriesTab() {
             <Form.Control
               size="sm"
               className="bg-white rounded-3"
-              placeholder="Tìm kiếm danh mục..."
+              aria-label="Tìm kiếm danh mục" placeholder="Tìm kiếm danh mục..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -192,7 +183,7 @@ export default function AdminCategoriesTab() {
         <div className="text-center py-5 border rounded-4 bg-light">
           <i className="bi bi-tags text-muted display-4" />
           <p className="mt-2 text-muted">Chưa có danh mục nào phù hợp với bộ lọc</p>
-          <Button variant="success" size="sm" className="rounded-3" onClick={() => handleOpenCreate('RECIPE')}>Tạo danh mục</Button>
+          <Button variant="success" size="sm" className="rounded-3" onClick={() => handleOpenCreate()}>Tạo danh mục</Button>
         </div>
       ) : (
         <div className="admin-card overflow-hidden">
@@ -201,7 +192,7 @@ export default function AdminCategoriesTab() {
               <tr>
                 <th style={{ width: 75 }} className="ps-3 text-center">STT</th>
                 <th>Tên danh mục</th>
-                <th>Phân loại nhóm</th>
+                <th>Đang sử dụng cho</th>
                 <th>Công thức liên kết</th>
                 <th>Bài viết liên kết</th>
                 <th className="text-end pe-3">Hành động</th>
@@ -213,7 +204,6 @@ export default function AdminCategoriesTab() {
                   key={cat.category_id}
                   cat={cat}
                   index={index}
-                  isFood={getCategoryType(cat) === 'RECIPE'}
                   isExpanded={expandedIds.has(cat.category_id)}
                   recipeTotal={cat.recipes?.length ?? (cat._count?.recipes || 0)}
                   postTotal={cat.post_categories?.length ?? (cat._count?.post_categories || 0)}
@@ -239,8 +229,6 @@ export default function AdminCategoriesTab() {
       <AdminCategoryFormModal
         show={showModal} onHide={() => setShowModal(false)}
         modalMode={modalMode}
-        targetType={targetType}
-        setTargetType={setTargetType}
         categoryName={categoryName} setCategoryName={setCategoryName}
         onSubmit={handleSave}
       />
