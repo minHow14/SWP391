@@ -3,6 +3,7 @@ import { Modal } from 'react-bootstrap';
 import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
 import PostMedia from '../../community/components/PostMedia.jsx';
+import RecipeInstructions from '../../../components/common/RecipeInstructions.jsx';
 
 export default function HomeContentDialog({ detail, onClose }) {
   const { kind, item } = detail;
@@ -20,7 +21,7 @@ export default function HomeContentDialog({ detail, onClose }) {
           <h3 className="h6">Nguyên liệu</h3>
           <ul>{item.ingredients.map(ingredient => <li key={ingredient}>{ingredient}</li>)}</ul>
           <h3 className="h6">Cách nấu</h3>
-          <p className="cx-home-detail-text">{item.instructions}</p>
+          <RecipeInstructions instructions={item.instructions} />
         </>}
         {kind === 'video' && <ContentVideo src={item.video_url} poster={item.thumbnail_url} title={title} />}
         {(kind === 'video' || kind === 'article') && <>

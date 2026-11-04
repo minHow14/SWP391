@@ -60,10 +60,7 @@ export default function AuthForm({ isRegister = false }) {
                   {errors.email && <Form.Control.Feedback type="invalid" id="account-error" role="alert">{errors.email.message}</Form.Control.Feedback>}
                 </Form.Group>
                 <Form.Group controlId="password" className="mb-4">
-                  <div className="d-flex justify-content-between align-items-baseline gap-2">
-                    <Form.Label className="small fw-semibold">Mật khẩu</Form.Label>
-                    {!isRegister && <Link to="/quen-mat-khau" className="small text-success text-decoration-none">Quên mật khẩu?</Link>}
-                  </div>
+                  <Form.Label className="small fw-semibold">Mật khẩu</Form.Label>
                   <InputGroup>
                     <Form.Control type={showPassword ? 'text' : 'password'} autoComplete={isRegister ? 'new-password' : 'current-password'}
                       minLength={isRegister ? 8 : undefined} maxLength={128} required {...register('password')}
@@ -74,6 +71,9 @@ export default function AuthForm({ isRegister = false }) {
                     </Button>
                   </InputGroup>
                   {errors.password && <div className="invalid-feedback d-block" id="password-error" role="alert">{errors.password.message}</div>}
+                  {!isRegister && <div className="d-flex justify-content-end mt-2">
+                    <Link to="/quen-mat-khau" className="small text-success text-decoration-none">Quên mật khẩu?</Link>
+                  </div>}
                 </Form.Group>
                 <Form.Check id="agreement" className="mb-4 small text-secondary" type="checkbox" required={isRegister}
                   {...register(isRegister ? 'agreement' : 'remember')} isInvalid={Boolean(errors.agreement)}
