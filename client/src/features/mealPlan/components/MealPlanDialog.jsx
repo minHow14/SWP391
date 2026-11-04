@@ -18,7 +18,10 @@ const ACTIVITY = [
   ['sedentary', 'Ít vận động'], ['light', 'Nhẹ (1-3 buổi/tuần)'], ['moderate', 'Vừa (3-5 buổi/tuần)'],
   ['active', 'Nhiều (6-7 buổi/tuần)'], ['very_active', 'Rất nhiều'],
 ];
-const DIETS = [['vegan', 'Thuần chay'], ['lacto', 'Chay có sữa'], ['ovo', 'Chay có trứng'], ['lacto_ovo', 'Chay trứng & sữa']];
+const DIETS = [
+  ['vegan', 'Thuần chay'], ['lacto', 'Chay có sữa'], ['ovo', 'Chay có trứng'], ['lacto_ovo', 'Chay trứng & sữa'],
+  ['buddhist', 'Chay Phật giáo'], ['keto', 'Keto chay'], ['eat_clean', 'Eat Clean chay'],
+];
 const GENDERS = [['', 'Chưa chọn'], ['male', 'Nam'], ['female', 'Nữ'], ['other', 'Khác']];
 const ALLERGY_HINTS = ['Đậu phộng', 'Đậu nành', 'Gluten', 'Sữa', 'Trứng', 'Nấm', 'Mè', 'Hạt cây'];
 export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan, onClose, onDone, onAsk }) {

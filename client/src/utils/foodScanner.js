@@ -14,10 +14,10 @@ const rules = [
   { pattern: /\b(tom|ca com|ca hoi|ca ngu|cua|muc|thit|heo|lon|ga|vit)\b/, reason: 'Phát hiện từ khóa thịt hoặc hải sản.', layer: 1 },
   { pattern: /(?<!\p{L})bò(?!\p{L})/u, reason: 'Phát hiện từ khóa thịt bò.', layer: 1, accented: true },
   { pattern: /\b(gelatin|collagen|mo dong vat|dau ca|xuong)\b/, reason: 'Có thể chứa chiết xuất hoặc phụ phẩm động vật.', layer: 2 },
-  { pattern: /\b(sua|whey|casein|pho mai|cheese|butter|cream)\b/, reason: 'Thành phần từ sữa không phù hợp với chế độ đã chọn.', layer: 3, allowed: [2, 4, 5] },
+  { pattern: /\b(sua|whey|casein|pho mai|cheese|butter|cream)\b/, reason: 'Thành phần từ sữa không phù hợp với chế độ đã chọn.', layer: 3, allowed: [2, 4] },
   { pattern: /\b(trung|egg)\b/, reason: 'Thành phần trứng không phù hợp với chế độ đã chọn.', layer: 3, allowed: [3, 4] },
-  { pattern: /\b(mat ong|honey)\b/, reason: 'Mật ong không phù hợp với chế độ thuần chay.', layer: 3, allowed: [2, 3, 4, 5] },
-  { pattern: /\b(hanh(?! nhan)|toi|he|kieu|hung cu)\b/, reason: 'Ngũ vị tân cần được loại bỏ trong chế độ chay Phật giáo.', layer: 4, only: 5 },
+  { pattern: /\b(mat ong|honey)\b/, reason: 'Mật ong không phù hợp với chế độ đã chọn.', layer: 3, allowed: [2, 3, 4] },
+  { pattern: /\b(hanh(?! nhan)|toi|he|kieu|nen|hung cu)\b/, reason: 'Ngũ vị tân cần được loại bỏ trong chế độ chay Phật giáo.', layer: 4, only: 5 },
 ];
 
 // A bounded text demo, not OCR or a certified ingredient database.

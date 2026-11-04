@@ -11,6 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 from agents.chatbot_agent import chatbot_agent
 from core.activity_log import record_ai_log
 from core.config import settings
+from core.dietary import DietaryType
 from core.prompt_trace import prompt_trace
 from core.ratelimit import rate_limit
 from core.security import (
@@ -43,9 +44,9 @@ class ChatRequest(CamelModel):
         default_factory=list,
         description="Lịch sử trao đổi trước đó giữa người dùng và trợ lý",
     )
-    dietary_type: str | None = Field(
+    dietary_type: DietaryType | None = Field(
         None,
-        description="Trường phái ăn chay của người dùng (ví dụ: vegan, lacto, ovo, lacto_ovo)",
+        description="Chế độ ăn: vegan, lacto, ovo, lacto_ovo, buddhist, keto, eat_clean",
     )
     menu_context: Any | None = Field(
         None,

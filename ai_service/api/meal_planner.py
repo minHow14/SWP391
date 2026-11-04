@@ -15,6 +15,7 @@ from agents.meal_planner_agent import (
     meal_planner_agent,
 )
 from core.activity_log import record_ai_log
+from core.dietary import DietaryType
 from core.llm import get_json_model_name
 from core.meal_chat import ChatBubble, plan_to_chat_bubble
 from core.ratelimit import rate_limit
@@ -51,9 +52,9 @@ class MealPlanRequest(CamelModel):
         "light",
         description="Mức vận động: sedentary (ít), light (nhẹ), moderate (vừa), active (nhiều), very_active (rất nhiều)",
     )
-    dietary_type: str = Field(
+    dietary_type: DietaryType = Field(
         "vegan",
-        description="Trường phái ăn chay: vegan (thuần chay), lacto, ovo, lacto_ovo",
+        description="Chế độ ăn: vegan, lacto, ovo, lacto_ovo, buddhist, keto, eat_clean",
     )
     allergies: list[str] | None = Field(
         default_factory=list,

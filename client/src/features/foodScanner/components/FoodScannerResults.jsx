@@ -8,11 +8,13 @@ const STATUS = {
 };
 // Lịch sử quét cũ có thể còn trạng thái đã bị gỡ; hiển thị trung tính thay vì khẳng định phù hợp hay không.
 const LEGACY_STATUS = { variant: 'secondary', title: 'KẾT QUẢ PHÂN TÍCH' };
+const UNVERIFIED_STATUS = { variant: 'warning', title: 'CẦN KIỂM TRA THÊM VỀ CHẾ ĐỘ ĂN' };
 const LAYER_LABELS = { 1: 'Thịt & hải sản', 2: 'Phụ phẩm động vật', 3: 'Sữa, trứng, mật ong', 4: 'Ngũ vị tân', 5: 'Dị ứng cá nhân' };
 const NUTRIENTS = { calories: ['Năng lượng', 'kcal'], protein: ['Chất đạm', 'g'], carbs: ['Đường bột', 'g'], fat: ['Chất béo', 'g'] };
 
 export default function FoodScannerResults({ result, textResult, onSave }) {
-  const status = STATUS[result?.status] || LEGACY_STATUS;
+  const unverified = result?.status === 'warning' && !result.findings?.some((item) => item.severity === 'violation');
+  const status = unverified ? UNVERIFIED_STATUS : STATUS[result?.status] || LEGACY_STATUS;
   return <>
     {result && <Alert variant={status.variant} className="mt-4 p-4" aria-label="Kết quả phân tích hình ảnh AI">
       <h2 className="h4 fw-bold">{status.title}</h2>

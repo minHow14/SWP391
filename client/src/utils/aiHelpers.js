@@ -11,9 +11,9 @@ const strip = (text) =>
     .toLowerCase()
     .trim();
 
-/** diet_type_id của web -> dietaryType của AI. Chay Phật giáo dùng 'vegan' (không sản phẩm động vật, an toàn nhất). */
+/** Giữ nguyên danh tính chế độ ăn đã lưu khi gửi tới AI. */
 export function dietTypeToAi(dietTypeId) {
-  return { 1: 'vegan', 2: 'lacto', 3: 'ovo', 4: 'lacto_ovo', 5: 'vegan', 6: 'lacto_ovo' }[Number(dietTypeId)];
+  return { 1: 'vegan', 2: 'lacto', 3: 'ovo', 4: 'lacto_ovo', 5: 'buddhist', 6: 'keto', 7: 'eat_clean' }[Number(dietTypeId)];
 }
 
 export function genderToAi(gender) {
@@ -73,7 +73,7 @@ export function mealPlanDefaults({ user, ingredients = [], dietTypeId } = {}) {
     goal: goalToAi(profile?.health_goal),
     activityLevel: 'light',
     dietaryType: dietTypeToAi(profile?.diet_type_id ?? dietTypeId) || 'vegan',
-    allergies: (user?.allergies || []).map((item) => names.get(item.ingredient_id) || item.name).filter(Boolean),
+    allergies: (user?.allergies || []).map((item) => item.ingredient?.name || item.name || names.get(item.ingredient_id)).filter(Boolean),
     availableIngredients: [],
     days: 7,
   };
