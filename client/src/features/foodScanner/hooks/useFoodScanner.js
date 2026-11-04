@@ -72,7 +72,11 @@ export function useFoodScanner(dietId, allergies = [], allergyError = '') {
     if (allergyError || payload?.dietTypeId !== dietId || allergyKey(payload?.allergies || []) !== allergyKey(allergies)) {
       return setState({ contextKey, error: 'Kết quả lịch sử có chế độ ăn hoặc dị ứng khác hồ sơ hiện tại. Hãy chọn đúng chế độ ăn và quét lại.' });
     }
-    setState({ contextKey, result: record.responsePayload });
+    const historicalResult = record.responsePayload;
+    const result = dietId === 6 && historicalResult?.status === 'clear' ? { ...historicalResult,
+      status: 'warning', summary: `Keto: chưa thể xác minh carb thuần dưới 50 g/ngày từ một ảnh; cần khẩu phần, chất xơ và toàn bộ bữa ăn trong ngày. ${historicalResult.summary || ''}`,
+    } : historicalResult;
+    setState({ contextKey, result });
   }
 
   function removePhoto() { fileVersion.current += 1; invalidate(); setPhoto(null); }
