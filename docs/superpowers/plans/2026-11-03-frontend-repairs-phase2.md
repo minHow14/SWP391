@@ -8,7 +8,7 @@
 
 **Architecture:** Extend existing React-Bootstrap screens and hooks. Reuse the Axios instance for ordinary calls; retain streaming fetch where needed with the same session refresh behavior. Preserve supported diets across FE/BE/AI, and use existing persisted profile/catalog data.
 
-**Tech stack:** Existing React, React Router, React-Bootstrap, Axios, Zod, FastAPI/Pydantic, Prisma, Vitest, RTL, Node test runner and Pytest. No new dependencies or DevOps.
+**Tech stack:** Existing React, React Router, React-Bootstrap, Axios, Zod, FastAPI/Pydantic, Prisma, Vitest, RTL, Node test runner and Pytest. SMTP delivery uses Nodemailer; no DevOps changes.
 
 ## Constraints
 
@@ -19,8 +19,8 @@
 - Add meaningful regression coverage and observe failures before implementing nontrivial logic.
 - Test backend only on `_test`; no paid model calls or fabricated production data.
 - Stop after Phase 2 for confirmation before Phase 3 documentation/integration work, per root AGENTS.md.
-- Password recovery delivery/legal documents require real supplied information. A pending question asks whether unsupported controls should be hidden.
-- Original moderation states on account restoration are not recorded in the current schema. A pending question asks for intended behavior; do not guess lost data or silently publish moderated content.
+- User authorized implementing backend password recovery and legal documents. SMTP requires real provider configuration; legal content is entered and published by administrators, with no invented text.
+- User requires restoring exact pre-deletion moderation states. Additive metadata preserves future transitions; legacy content with missing states remains deleted with a warning.
 
 ## Ownership and files (full paths)
 
@@ -78,20 +78,20 @@
 
 ## Tasks and acceptance
 
-- [ ] Remove seeded admin credentials from the public UI and production bundle.
-- [ ] Refresh expired access tokens once for concurrent requests; retry once; preserve newer login/logout sessions; do not clear session for a transient refresh network error.
-- [ ] Call backend logout and clear local session consistently. Make remember-me actually control session persistence, if retained.
-- [ ] Wire safe account restore after restoration policy is resolved; expose genuine pagination on all limited admin tables.
-- [ ] Align log filters and guest-quota UI with gateway actions and signed-cookie guestId.
-- [ ] Remove nonfunctional category-group selection unless actual persisted business contract is supplied.
-- [ ] Preserve seven existing diet identities across FE/BE/AI, based on seed descriptions; enforce Buddhist exclusions and Keto bounds from existing requirements; do not claim unsupported checks.
-- [ ] Pass actual member allergies into scanner, invalidate/abort stale scans on diet/profile/input changes, show unknown text-check status explicitly, display real swapSuggestions.
-- [ ] Connect chat photo entry point to existing scanner rather than preview-only messages; BMI quick action must use saved measurements.
-- [ ] Preserve normalized own-post attachments/comments through load/edit/remove.
-- [ ] Refresh shared profile/session after journal edits; sort restaurant prices numerically with unknown prices last.
-- [ ] Handle unsupported auth/legal controls according to user response.
-- [ ] Run client Node tests, UI tests, lint/build, relevant backend/Pytest suites, and inspect rendered desktop/mobile behavior when local runtime is available.
-- [ ] One final independent review; fix significant findings and commit reports. Ask before Phase 3.
+- [x] Remove seeded admin credentials from the public UI and production bundle.
+- [x] Refresh expired access tokens once for concurrent requests; retry once; preserve newer login/logout sessions; do not clear session for a transient refresh network error.
+- [x] Call backend logout and clear local session consistently. Make remember-me actually control session persistence, if retained.
+- [x] Wire safe account restore after restoration policy is resolved; expose genuine pagination on all limited admin tables.
+- [x] Align log filters and guest-quota UI with gateway actions and signed-cookie guestId.
+- [x] Remove nonfunctional category-group selection unless actual persisted business contract is supplied.
+- [x] Preserve seven existing diet identities across FE/BE/AI, based on seed descriptions; enforce Buddhist exclusions and Keto bounds from existing requirements; do not claim unsupported checks.
+- [x] Pass actual member allergies into scanner, invalidate/abort stale scans on diet/profile/input changes, show unknown text-check status explicitly, display real swapSuggestions.
+- [x] Connect chat photo entry point to existing scanner rather than preview-only messages; BMI quick action must use saved measurements.
+- [x] Preserve normalized own-post attachments/comments through load/edit/remove.
+- [x] Refresh shared profile/session after journal edits; sort restaurant prices numerically with unknown prices last.
+- [x] Handle unsupported auth/legal controls according to user response.
+- [x] Run client Node tests, UI tests, lint/build, relevant backend/Pytest suites, and inspect rendered desktop/mobile behavior when local runtime is available.
+- [x] One final independent review; fix significant findings and commit reports. Ask before Phase 3.
 
 ## Review focus
 
@@ -106,3 +106,5 @@
 - Base: `0faf828`; Phase 1 verified with 425 backend tests.
 - User already approved the written audit and Phase 2. Continue implementation without an extra design gate.
 - All agents share the selected checkout and edit only assigned domains; Git index is root-owned.
+
+- Final Phase 2 verification and per-function commits: [results](D:/SWP391/SWP391/docs/frontend-repairs-phase2.md). Root paused at the phase boundary for user confirmation before Phase 3.

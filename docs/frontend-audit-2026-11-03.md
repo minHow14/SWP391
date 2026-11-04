@@ -2,9 +2,9 @@
 
 ## Tiến độ sửa sau rà soát
 
-Phase 1 trên nhánh `fix-frontend` đã sửa backend cho các mục 02, 03, bảo vệ dữ liệu khôi phục ở mục 06 và đồng bộ lịch sử ở mục 10. Caller frontend của 06 và đồng bộ session ở 10 vẫn thuộc Phase 2. Các mục frontend/AI khác chưa được đánh dấu hoàn tất.
+Phase 1 và Phase 2 trên nhánh `fix-frontend` đã triển khai các bản sửa cho 20 mục bên dưới và bốn chức năng thiếu kết nối. Nội dung từng mục giữ lại bằng chứng tại thời điểm rà soát ban đầu; không mô tả trạng thái mã hiện tại. Danh sách commit, hành vi sau sửa và giới hạn được ghi ở [báo cáo Phase 2](D:/SWP391/SWP391/docs/frontend-repairs-phase2.md).
 
-Kết quả mới nhất: `npm test` trong server đạt **425/425 test, 51/51 file**, trên database `_test` riêng. Có review độc lập; các lỗi đồng thời, DELETE lặp lại, độ chính xác REAL và thứ tự lịch sử được tái hiện bằng test trước khi sửa. Danh sách commit và phạm vi còn lại ở [báo cáo Phase 1](D:/SWP391/SWP391/docs/frontend-repairs-phase1.md).
+Kết quả mới nhất ngày 04/11: backend **483 test**, frontend **129 test logic + 169 test UI**, AI **284 test** đạt; build thành công. Lint còn hai cảnh báo effect bản đồ. Chưa kiểm chứng SMTP/provider AI thật; nội dung pháp lý cần quản trị viên công bố; trạng thái nội dung đã mất metadata từ trước migration không được tự suy diễn khi khôi phục. Kết quả cũ ở các bảng dưới là baseline ngày 03/11. Lịch sử Phase 1 ở [báo cáo Phase 1](D:/SWP391/SWP391/docs/frontend-repairs-phase1.md).
 
 ## Kết luận và phạm vi
 
