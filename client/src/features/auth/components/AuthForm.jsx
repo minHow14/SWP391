@@ -1,10 +1,10 @@
-// client/src/features/auth/components/AuthForm.jsx
+// D:/SWP391/SWP391/client/src/features/auth/components/AuthForm.jsx
 import { useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import AuthHeader from './AuthHeader.jsx';
 import { Link, useNavigate } from 'react-router';
 import { authService } from '../../../services/authService.js';
-import { setSession } from '../../../utils/session.js';
+import { getSessionSnapshot, setSession } from '../../../utils/session.js';
 import { getAuthDestination } from '../utils/authRedirect.js';
 
 export default function AuthForm({ isRegister = false }) {
@@ -17,6 +17,7 @@ export default function AuthForm({ isRegister = false }) {
     event.preventDefault();
     if(busy)return;
     const form=new FormData(event.currentTarget);
+    const snapshot = getSessionSnapshot();
     setBusy(true);
     try {
       const payload = {
@@ -35,7 +36,9 @@ export default function AuthForm({ isRegister = false }) {
 
       const user = result?.user || result?.data?.user;
       const token = result?.token || result?.data?.token;
-      setSession({ token, user });
+      if (snapshot.identityRevision !== getSessionSnapshot().identityRevision) return;
+      if (!token || !user) throw new Error('Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.');
+      setSession({ token, user }, { remember: form.get('remember') === 'on' });
       navigate(getAuthDestination({ user, isRegister }), { replace: true });
     } catch (error) {
       setMessage(error.message);
