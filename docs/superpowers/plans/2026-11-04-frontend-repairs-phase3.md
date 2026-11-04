@@ -34,11 +34,11 @@
 **Consumes:** client `authService`, `apiClient`, `setSession/getSession`, `getPasswordResetToken`; server `app`, Prisma and signed JWT helpers.
 **Produces:** Reproducible real HTTP/DB coverage included in `server npm test`.
 
-- [ ] Exercise forgot → SMTP test capture → fragment parse → reset → reject reuse → old credentials/session revoked → new login.
-- [ ] Exercise an expired access token plus matching refresh cookie: original profile write succeeds and token stays with the same user.
-- [ ] Exercise a refresh cookie from another account: client rejects and neither account is modified.
-- [ ] Run the focused suite; any actual production defect must get a failing regression before a minimal fix and separate commit.
-- [ ] Commit only the new integration test after it passes.
+- [x] Exercise forgot → SMTP test capture → fragment parse → reset → reject reuse → old credentials/session revoked → new login.
+- [x] Exercise an expired access token plus matching refresh cookie: original profile write succeeds and token stays with the same user.
+- [x] Exercise a refresh cookie from another account: client rejects and neither account is modified.
+- [x] Run the focused suite; any actual production defect must get a failing regression before a minimal fix and separate commit.
+- [x] Commit only the new integration test after it passes.
 
 ## Task 2: API and schema documentation
 
@@ -47,11 +47,11 @@
 **Consumes:** Current request validators, routes, services and Prisma mappings.
 **Produces:** Actual recovery/refresh/legal/restore API contracts and additive schema documentation; canonical seven-diet contract in AI docs.
 
-- [ ] Document password limits/fragment transport, no-store, generic response vs SMTP 503, JWT revocation and refresh `userId`.
-- [ ] Document public/admin legal endpoints, allowed slugs, draft visibility and saved fields; exact restoration counts/warnings and legacy missing metadata.
-- [ ] Update ERD for PasswordResetToken, LegalDocument, tokenVersion and original moderation states without modifying migrations.
-- [ ] Parse JSON, resolve internal references, inspect schemas against code and run appropriate contract suites.
-- [ ] Commit the documentation independently.
+- [x] Document password limits/fragment transport, no-store, generic response vs SMTP 503, JWT revocation and refresh `userId`.
+- [x] Document public/admin legal endpoints, allowed slugs, draft visibility and saved fields; exact restoration counts/warnings and legacy missing metadata.
+- [x] Update ERD for PasswordResetToken, LegalDocument, tokenVersion and original moderation states without modifying migrations.
+- [x] Parse JSON, resolve internal references, inspect schemas against code and run appropriate contract suites.
+- [x] Commit the documentation independently.
 
 ## Task 3: Local setup and test instructions
 
@@ -60,21 +60,21 @@
 **Consumes:** Actual package scripts, lockfiles, Vite proxy and service environment validators.
 **Produces:** All 14 README sections remain; accurate SMTP, legal, migrations, test DB and warning guidance.
 
-- [ ] Add SMTP variables/TLS settings and legal publishing steps; no actual secrets or placeholder legal content.
-- [ ] Explain normal DB migrate vs destructive test preparation; commands start from explicit directories and do not overwrite configured env files.
-- [ ] Correct stale client environment claims and runtime requirements from installed package engines.
-- [ ] Explain test scope and real-provider limits; preserve existing valid operational guidance.
-- [ ] Verify Markdown links, sample-variable coverage and scripts against repository files. Commit separately.
+- [x] Add SMTP variables/TLS settings and legal publishing steps; no actual secrets or placeholder legal content.
+- [x] Explain normal DB migrate vs destructive test preparation; commands start from explicit directories and do not overwrite configured env files.
+- [x] Correct stale client environment claims and runtime requirements from installed package engines.
+- [x] Explain test scope and real-provider limits; preserve existing valid operational guidance.
+- [x] Verify Markdown links, sample-variable coverage and scripts against repository files. Commit separately.
 
 ## Task 4: Final verification and report
 
 **Files:** Create `D:/SWP391/SWP391/docs/frontend-repairs-phase3.md`; update this plan's checkboxes with measured results.
 
-- [ ] Run all server, client Node/UI and AI tests; client lint/build; validate schema and migration state read-only.
-- [ ] Fresh independent review of Phase 3 changes; fix consequential findings with focused verification.
-- [ ] Capture precise map warning lines, dependency lists and implications, leaving map behavior unchanged as requested.
-- [ ] Record counts, commit references, remaining configuration-dependent checks and lack of push/merge.
-- [ ] Commit report; verify tracked working tree clean and preserve unrelated untracked files.
+- [x] Run all server, client Node/UI and AI tests; client lint/build; validate schema and migration state read-only.
+- [x] Fresh independent review of Phase 3 changes; fix consequential findings with focused verification.
+- [x] Capture precise map warning lines, dependency lists and implications, leaving map behavior unchanged as requested.
+- [x] Record counts, commit references, remaining configuration-dependent checks and lack of push/merge.
+- [x] Commit report; verify tracked working tree clean and preserve unrelated untracked files.
 
 ## Decisions and progress
 
@@ -82,3 +82,10 @@
 - Pre-flight: Task 1 consumes the implemented Phase 2 APIs; Tasks 2/3 describe those contracts. No runtime interface changes planned.
 - Ruling: SMTP and provider calls are replaced only in automated tests; actual email delivery cannot be claimed without user-configured provider credentials. Do not request or print secrets.
 - Ruling: The map warnings will be explained, not silently altered; no runtime map failure has been established from lint alone.
+
+- Task 1 complete: b96b5f0; focused HTTP suite 3/3. Initial fixture-order assumption corrected by asserting ownership by user_id, no production change.
+- Task 2 complete: 54c3cc8, 5d70ff3; JSON/references and FastAPI OpenAPI model validation pass. Review corrected credential-source precedence.
+- Task 3 complete: README has 14 sections, links and sample-variable coverage verified; explicit SMTP/test safety and actual lockfile engines documented.
+- Task 4 complete: server486, client129Node+169UI, AI284; workspace and real FastAPI HTTP scripts pass; lint0errors/2mapwarnings, build passes. Full results in D:/SWP391/SWP391/docs/frontend-repairs-phase3.md.
+- Final review: independent reviewer checked Phase3 range plus README/env diffs. One P2 documentation mismatch fixed; no new runtime bug established. Existing worker-startup comment corrected within the requested local-setup documentation scope.
+- Ruling: no new skill scratch workspace is needed for code generation; this phase adds one integration test and documentation only, using existing ignored node_modules/.cache/frontend-repairs for outputs. Reuse of the selected checkout is mandated by the user's one-branch instruction.

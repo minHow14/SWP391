@@ -4,7 +4,7 @@
 
 Phase 1 và Phase 2 trên nhánh `fix-frontend` đã triển khai các bản sửa cho 20 mục bên dưới và bốn chức năng thiếu kết nối. Nội dung từng mục giữ lại bằng chứng tại thời điểm rà soát ban đầu; không mô tả trạng thái mã hiện tại. Danh sách commit, hành vi sau sửa và giới hạn được ghi ở [báo cáo Phase 2](D:/SWP391/SWP391/docs/frontend-repairs-phase2.md).
 
-Kết quả mới nhất ngày 04/11: backend **483 test**, frontend **129 test logic + 169 test UI**, AI **284 test** đạt; build thành công. Lint còn hai cảnh báo effect bản đồ. Chưa kiểm chứng SMTP/provider AI thật; nội dung pháp lý cần quản trị viên công bố; trạng thái nội dung đã mất metadata từ trước migration không được tự suy diễn khi khôi phục. Kết quả cũ ở các bảng dưới là baseline ngày 03/11. Lịch sử Phase 1 ở [báo cáo Phase 1](D:/SWP391/SWP391/docs/frontend-repairs-phase1.md).
+Kết quả mới nhất ngày 04/11 sau Phase 3: backend **486 test**, frontend **129 test logic + 169 test UI**, AI **284 test** đạt; build thành công. Test HTTP FE → BE → DB và HTTP BE → FastAPI thật cũng đạt. Lint còn hai cảnh báo effect bản đồ, giải thích trong [báo cáo Phase 3](D:/SWP391/SWP391/docs/frontend-repairs-phase3.md). Chưa kiểm chứng SMTP/provider AI thật; nội dung pháp lý cần quản trị viên công bố; trạng thái nội dung đã mất metadata từ trước migration không được tự suy diễn khi khôi phục. Kết quả cũ ở các bảng dưới là baseline ngày 03/11. Lịch sử Phase 1 ở [báo cáo Phase 1](D:/SWP391/SWP391/docs/frontend-repairs-phase1.md).
 
 ## Kết luận và phạm vi
 
