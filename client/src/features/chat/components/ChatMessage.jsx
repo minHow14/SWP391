@@ -2,6 +2,7 @@
 import { Link } from 'react-router';
 import MarkdownMessage from './MarkdownMessage.jsx';
 import VideoRecipeMessage from '../../videoRecipeSummary/components/VideoRecipeMessage.jsx';
+import ChatFoodScanMessage from './ChatFoodScanMessage.jsx';
 
 export default function ChatMessage({ message, busy, actions }) {
   const { ask, openMealPlan, askAboutPlan } = actions;
@@ -40,6 +41,7 @@ export default function ChatMessage({ message, busy, actions }) {
           ) : (
             <p>{message.text}</p>
           ))}
+        {message.kind === 'foodScan' && message.result && <ChatFoodScanMessage result={message.result} />}
         {message.items && (
           <ul>
             {message.items.map((item, index) => (

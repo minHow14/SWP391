@@ -64,7 +64,7 @@ export default function ChatBox({ dietTypeId }) {
             {user && <button type="button" aria-expanded={chat.historyOpen} onClick={() => chat.setHistoryOpen(!chat.historyOpen)}>
               <i className="bi bi-clock-history" aria-hidden="true" /> Lịch sử AI
             </button>}
-            <button type="button" disabled={busy} onClick={() => fileInput.current.click()}>
+            <button type="button" disabled={busy} title="Ảnh JPG, PNG hoặc WebP, tối đa 10 MB" onClick={() => fileInput.current.click()}>
               <i className="bi bi-camera-fill" aria-hidden="true" /> Quét ảnh
             </button>
             <button type="button" disabled={busy} onClick={() => openMealPlan()}>
