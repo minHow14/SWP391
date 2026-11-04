@@ -1,9 +1,25 @@
-// client/src/features/profile/hooks/useProfileForm.js
+// D:/SWP391/SWP391/client/src/features/profile/hooks/useProfileForm.js
 import { useState, useEffect, useRef } from 'react';
 import { authService } from '../../../services/authService.js';
-import { getSession, setSession } from '../../../utils/session.js';
+import { getSession, getSessionSnapshot, setSession } from '../../../utils/session.js';
 import { emitSyncEvent } from '../../../utils/syncEvents.js';
 import { profileValues } from '../utils/profileValues.js';
+
+function profileRequest(values) {
+  const nullableNumber = (value) => (value === '' ? null : Number(value));
+  return {
+    full_name: values.full_name.trim(),
+    health_profile: {
+      height: nullableNumber(values.height),
+      weight: nullableNumber(values.weight),
+      dob: values.dob || null,
+      gender: values.gender.trim() || null,
+      diet_type_id: nullableNumber(values.diet_type_id),
+      health_goal: values.health_goal.trim() || null,
+    },
+    allergy_ids: values.allergy_ids,
+  };
+}
 
 export function useProfileForm({ userId }) {
   const [account, setAccount] = useState(null);
@@ -42,38 +58,26 @@ export function useProfileForm({ userId }) {
   async function save(event) {
     event.preventDefault();
     if (saving.current) return;
-    const session = getSession();
-    if (session?.user?.user_id !== userId) return;
+    const snapshot = getSessionSnapshot();
+    if (snapshot.userId !== userId) return;
 
     saving.current = true;
     setBusy(true);
     setError('');
     setNotice('');
 
-    const nullableNumber = (value) => (value === '' ? null : Number(value));
     try {
-      const result = await authService.updateMe({
-        full_name: values.full_name.trim(),
-        health_profile: {
-          height: nullableNumber(values.height),
-          weight: nullableNumber(values.weight),
-          dob: values.dob || null,
-          gender: values.gender.trim() || null,
-          diet_type_id: nullableNumber(values.diet_type_id),
-          health_goal: values.health_goal.trim() || null,
-        },
-        allergy_ids: values.allergy_ids,
-      });
-
+      const result = await authService.updateMe(profileRequest(values));
       const user = result?.user || result?.data?.user;
-      if (getSession()?.token !== session.token) return;
+      const session = getSession();
+      if (snapshot.identityRevision !== getSessionSnapshot().identityRevision || session?.user?.user_id !== userId) return;
       setAccount(user);
       setValues(profileValues(user));
       setSession({ ...session, user });
       setNotice('Đã lưu hồ sơ cá nhân.');
       emitSyncEvent('USER_CHANGED', { userId });
     } catch (err) {
-      setError(err.message);
+      if (snapshot.identityRevision === getSessionSnapshot().identityRevision) setError(err.message);
     } finally {
       saving.current = false;
       setBusy(false);
