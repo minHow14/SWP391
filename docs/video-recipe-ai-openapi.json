@@ -1,0 +1,603 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chay Xanh internal video captions and recipes",
+    "version": "2.0.0",
+    "description": "Internal HTTP contract. Backend owns authorization, source metadata, job state and persistence; AI has no database access."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8000"
+    }
+  ],
+  "paths": {
+    "/api/video-recipe-transcriptions/stream": {
+      "post": {
+        "tags": [
+          "Video Recipes"
+        ],
+        "summary": "Retrieve existing native Vietnamese captions",
+        "description": "Backend supplies verified full video duration. Prefer native manual vi captions, then generated vi if missing/empty. No translation, audio download or STT. Request model overrides are forbidden. Response progress must precede done; errors do not produce partial results. Caption library uses an unofficial YouTube interface; access and fixed latency are not guaranteed.",
+        "operationId": "transcribe_recipe_video_api_video_recipe_transcriptions_stream_post",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoTranscriptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "SSE progress FETCHING_CAPTIONS, then done with a full VideoTranscript or error. VIDEO_CAPTIONS_UNAVAILABLE: Video chưa có phụ đề phù hợp; VIDEO_CAPTIONS_BLOCKED: access blocked; VIDEO_CAPTIONS_TIMEOUT: timeout. Each data line is JSON; events are separated by a blank line.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Strict input validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid X-Internal-Api-Key."
+          }
+        },
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ],
+        "x-sse-events": {
+          "progress": {
+            "type": "object",
+            "required": [
+              "stage"
+            ],
+            "properties": {
+              "stage": {
+                "const": "FETCHING_CAPTIONS"
+              }
+            }
+          },
+          "done": {
+            "type": "object",
+            "required": [
+              "success",
+              "data"
+            ],
+            "properties": {
+              "success": {
+                "const": true
+              },
+              "data": {
+                "type": "object",
+                "required": [
+                  "transcript"
+                ],
+                "properties": {
+                  "transcript": {
+                    "$ref": "#/components/schemas/VideoTranscript"
+                  }
+                }
+              }
+            }
+          },
+          "error": {
+            "$ref": "#/components/schemas/VideoError"
+          }
+        }
+      }
+    },
+    "/api/video-recipe-summaries": {
+      "post": {
+        "tags": [
+          "Video Recipes"
+        ],
+        "summary": "Generate a grounded recipe with DeepSeek",
+        "description": "Requires a configured DeepSeek key and incurs provider usage. All ingredient/step sourceSegmentIndexes must refer to existing transcript segments. Invalid/non-recipe output produces a safe error; no fabricated fallback.",
+        "operationId": "create_video_recipe_summary_api_video_recipe_summaries_post",
+        "parameters": [
+          {
+            "name": "X-Internal-Api-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Internal-Api-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoSummaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated recipe generated from transcript.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "recipe"
+                      ],
+                      "properties": {
+                        "recipe": {
+                          "$ref": "#/components/schemas/VideoRecipe"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Strict input validation failed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid X-Internal-Api-Key."
+          },
+          "429": {
+            "description": "Provider rate limit; Retry-After carries the cooldown.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Invalid recipe/provider output.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AI provider is not ready or unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "internalApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Internal-Api-Key"
+      }
+    },
+    "schemas": {
+      "VideoTranscriptionRequest": {
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "videoId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{11}$",
+            "title": "Videoid"
+          },
+          "videoUrl": {
+            "type": "string",
+            "maxLength": 255,
+            "title": "Videourl"
+          },
+          "maxDurationSeconds": {
+            "type": "integer",
+            "const": 660,
+            "title": "Maxdurationseconds",
+            "default": 660
+          },
+          "durationSeconds": {
+            "type": "number",
+            "maximum": 660.0,
+            "minimum": 0.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Durationseconds"
+          },
+          "language": {
+            "type": "string",
+            "const": "vi",
+            "title": "Language",
+            "default": "vi"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "jobId",
+          "videoId",
+          "videoUrl",
+          "durationSeconds"
+        ],
+        "title": "VideoTranscriptionRequest"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VideoSummaryRequest": {
+        "properties": {
+          "jobId": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Jobid"
+          },
+          "videoId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{11}$",
+            "title": "Videoid"
+          },
+          "language": {
+            "type": "string",
+            "const": "vi",
+            "title": "Language",
+            "default": "vi"
+          },
+          "transcript": {
+            "$ref": "#/components/schemas/VideoTranscript"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "jobId",
+          "videoId",
+          "transcript"
+        ],
+        "title": "VideoSummaryRequest"
+      },
+      "VideoTranscript": {
+        "properties": {
+          "language": {
+            "type": "string",
+            "const": "vi",
+            "title": "Language",
+            "default": "vi"
+          },
+          "durationSeconds": {
+            "type": "number",
+            "maximum": 660.0,
+            "minimum": 0.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Durationseconds"
+          },
+          "segments": {
+            "items": {
+              "$ref": "#/components/schemas/VideoSegment"
+            },
+            "type": "array",
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Segments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "durationSeconds",
+          "segments"
+        ],
+        "title": "VideoTranscript"
+      },
+      "VideoSegment": {
+        "properties": {
+          "startSeconds": {
+            "type": "number",
+            "maximum": 660.0,
+            "minimum": 0.0,
+            "title": "Startseconds"
+          },
+          "endSeconds": {
+            "type": "number",
+            "maximum": 660.0,
+            "minimum": 0.0,
+            "title": "Endseconds"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "startSeconds",
+          "endSeconds",
+          "text"
+        ],
+        "title": "VideoSegment"
+      },
+      "VideoRecipe": {
+        "additionalProperties": false,
+        "properties": {
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "ingredients": {
+            "items": {
+              "$ref": "#/components/schemas/VideoIngredient"
+            },
+            "maxItems": 100,
+            "title": "Ingredients",
+            "type": "array"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/VideoRecipeStep"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "title",
+          "ingredients",
+          "steps"
+        ],
+        "title": "VideoRecipe",
+        "type": "object"
+      },
+      "VideoIngredient": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "sourceSegmentIndexes": {
+            "items": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Sourcesegmentindexes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "quantity",
+          "unit",
+          "sourceSegmentIndexes"
+        ],
+        "title": "VideoIngredient",
+        "type": "object"
+      },
+      "VideoRecipeStep": {
+        "additionalProperties": false,
+        "properties": {
+          "instruction": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Instruction",
+            "type": "string"
+          },
+          "sourceSegmentIndexes": {
+            "items": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "maxItems": 2000,
+            "minItems": 1,
+            "title": "Sourcesegmentindexes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instruction",
+          "sourceSegmentIndexes"
+        ],
+        "title": "VideoRecipeStep",
+        "type": "object"
+      },
+      "VideoError": {
+        "type": "object",
+        "required": [
+          "success",
+          "message",
+          "errorCode",
+          "errors"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "retryAfterMs": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}

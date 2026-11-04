@@ -16,9 +16,6 @@ function validatedMetadata(value, videoId) {
   if (!['public', 'unlisted'].includes(value.availability)) throw metadataError('VIDEO_UNAVAILABLE', 'Không thể truy cập video YouTube này.');
   if (!Number.isFinite(value.duration) || value.duration <= 0) throw metadataError('VIDEO_DURATION_UNKNOWN', 'Không xác định được thời lượng video.');
   if (value.duration > MAX_VIDEO_DURATION_SECONDS) throw metadataError('VIDEO_TOO_LONG', 'Video cần có thời lượng không quá 11 phút.');
-  if (!value.formats?.some((format) => format.acodec && format.acodec !== 'none' && typeof format.url === 'string')) {
-    throw metadataError('VIDEO_AUDIO_UNAVAILABLE', 'Video không có nguồn âm thanh khả dụng.');
-  }
   return { videoId, title: typeof value.title === 'string' ? value.title.slice(0, 255) : null, durationSeconds: value.duration };
 }
 

@@ -19,7 +19,7 @@ def request_payload() -> dict:
         "videoId": VIDEO_ID,
         "videoUrl": f"https://www.youtube.com/watch?v={VIDEO_ID}",
         "maxDurationSeconds": 660,
-        "model": "whisper-large-v3",
+        "durationSeconds": 60,
         "language": "vi",
     }
 
@@ -47,13 +47,23 @@ def test_contract_matches_backend_camel_case() -> None:
         {"videoId": "Different12"},
         {"maxDurationSeconds": 661},
         {"language": "en"},
-        {"model": "whisper-large-v3-turbo"},
+        {"model": "whisper-large-v3"},
+        {"durationSeconds": 0},
+        {"durationSeconds": 661},
+        {"durationSeconds": float("nan")},
         {"userId": 1},
     ],
 )
 def test_rejects_noncanonical_or_unsupported_sources(patch: dict) -> None:
     with pytest.raises(ValidationError):
         VideoTranscriptionRequest.model_validate(request_payload() | patch)
+
+
+def test_caption_request_requires_verified_video_duration() -> None:
+    payload = request_payload()
+    del payload["durationSeconds"]
+    with pytest.raises(ValidationError):
+        VideoTranscriptionRequest.model_validate(payload)
 
 
 @pytest.mark.parametrize(

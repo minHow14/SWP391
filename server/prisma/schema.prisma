@@ -79,6 +79,7 @@ enum VideoRecipeSummaryJobStatus {
 
 enum VideoRecipeSummaryJobStage {
   VALIDATING_VIDEO
+  FETCHING_CAPTIONS
   FETCHING_AUDIO
   TRANSCRIBING
   SUMMARIZING

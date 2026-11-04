@@ -6,12 +6,17 @@ import { videoRecipeSummaryError } from '../utils/videoRecipeSummaryError.js';
 import { createSseParser } from '../utils/sseParser.js';
 import { transcriptSchema } from '../validators/videoRecipeSummaryValidator.js';
 
-const TRANSCRIPTION_STAGES = ['FETCHING_AUDIO', 'TRANSCRIBING'];
+const TRANSCRIPTION_STAGES = ['FETCHING_CAPTIONS'];
 const invalidOutput = () => videoRecipeSummaryError({ status: 502, code: 'VIDEO_AI_INVALID_OUTPUT', message: 'Dịch vụ AI trả về dữ liệu video không hợp lệ.' });
 const unavailable = () => videoRecipeSummaryError({ status: 503, code: 'VIDEO_AI_UNAVAILABLE', message: 'Dịch vụ xử lý video tạm thời không khả dụng.', retryable: true });
-const SOURCE_ERRORS = Object.freeze({ VIDEO_TOO_LONG: 'Video cần có thời lượng không quá 11 phút.',
-  VIDEO_NO_SPEECH: 'Video không có đủ lời nói để tạo công thức.', VIDEO_AUDIO_UNAVAILABLE: 'Không lấy được âm thanh của video.',
-  VIDEO_NOT_RECIPE: 'Không tìm thấy đủ hướng dẫn nấu ăn trong lời nói của video.' });
+const SOURCE_ERRORS = Object.freeze({
+  VIDEO_TOO_LONG: { message: 'Video cần có thời lượng không quá 11 phút.' },
+  VIDEO_UNAVAILABLE: { message: 'Không thể truy cập video YouTube này.' },
+  VIDEO_CAPTIONS_UNAVAILABLE: { message: 'Video chưa có phụ đề phù hợp' },
+  VIDEO_CAPTIONS_BLOCKED: { status: 503, message: 'YouTube đang chặn truy cập phụ đề. Vui lòng thử lại sau.' },
+  VIDEO_CAPTIONS_TIMEOUT: { status: 504, retryable: true, message: 'Lấy phụ đề video đã quá thời gian chờ.' },
+  VIDEO_NOT_RECIPE: { message: 'Không tìm thấy đủ hướng dẫn nấu ăn trong phụ đề video.' },
+});
 
 function normalizedFailure(error, signal) {
   if (signal?.aborted && signal.reason?.errorCode) return signal.reason;
@@ -27,23 +32,23 @@ function retryDelay(header) {
 }
 
 function streamFailure(data) {
-  if (SOURCE_ERRORS[data.errorCode]) return videoRecipeSummaryError({ code: data.errorCode, message: SOURCE_ERRORS[data.errorCode] });
+  if (Object.hasOwn(SOURCE_ERRORS, data.errorCode)) return videoRecipeSummaryError({ code: data.errorCode, ...SOURCE_ERRORS[data.errorCode] });
   if (data.errorCode !== 'VIDEO_AI_RATE_LIMITED') return unavailable();
   const retryAfterMs = data.retryAfterMs ?? 0;
   if (!Number.isSafeInteger(retryAfterMs) || retryAfterMs < 0 || retryAfterMs > 2_147_483_647) throw invalidOutput();
   return videoRecipeSummaryError({ status: 429, code: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs,
-    message: 'Dịch vụ nhận dạng đang hết hạn mức. Hệ thống sẽ thử lại sau.' });
+    message: 'Dịch vụ AI đang hết hạn mức. Hệ thống sẽ thử lại sau.' });
 }
 
 function responseFailure(response) {
   if (response.status === 429) return videoRecipeSummaryError({ status: 429, code: 'VIDEO_AI_RATE_LIMITED',
-    message: 'Dịch vụ nhận dạng đang hết hạn mức. Hệ thống sẽ thử lại sau.', retryable: true, retryAfterMs: retryDelay(response.headers.get('retry-after')) });
+    message: 'Dịch vụ AI đang hết hạn mức. Hệ thống sẽ thử lại sau.', retryable: true, retryAfterMs: retryDelay(response.headers.get('retry-after')) });
   if ([401, 403].includes(response.status)) return videoRecipeSummaryError({ status: 503,
     code: 'AI_INTERNAL_AUTH_FAILED', message: 'Dịch vụ xử lý video chưa xác thực được kết nối nội bộ.' });
   if (response.status === 404) return videoRecipeSummaryError({ status: 503,
     code: 'VIDEO_AI_NOT_READY', message: 'Chức năng xử lý video của AI Service chưa sẵn sàng.' });
   if (response.status >= 500) return unavailable();
-  return videoRecipeSummaryError({ code: 'VIDEO_AI_REJECTED', message: 'Dịch vụ AI không xử lý được âm thanh hoặc nội dung video này.' });
+  return videoRecipeSummaryError({ code: 'VIDEO_AI_REJECTED', message: 'Dịch vụ AI không xử lý được phụ đề hoặc nội dung video này.' });
 }
 
 async function consumeBody({ response, signal, onChunk }) {
@@ -84,7 +89,7 @@ async function transcriptionResult({ response, signal, onStage }) {
       await onStage(data.stage);
       return;
     }
-    if (name !== 'done' || data.success !== true || stageIndex !== 1) throw invalidOutput();
+    if (name !== 'done' || data.success !== true || stageIndex !== TRANSCRIPTION_STAGES.length - 1) throw invalidOutput();
     const parsed = transcriptSchema.safeParse(data.data?.transcript);
     if (!parsed.success) throw invalidOutput();
     transcript = parsed.data;
@@ -118,10 +123,10 @@ export function createVideoRecipeSummaryAiService({ fetchImpl = globalThis.fetch
     } catch (error) { throw normalizedFailure(error, activeSignal); }
   }
   return {
-    async transcribe({ job, onStage, signal }) {
+    async transcribe({ job, metadata, onStage, signal }) {
       const context = await request({ path: '/api/video-recipe-transcriptions/stream', signal, accept: 'text/event-stream',
         payload: { jobId: job.id, videoId: job.videoId, videoUrl: job.videoUrl,
-          maxDurationSeconds: MAX_VIDEO_DURATION_SECONDS, model: 'whisper-large-v3', language: 'vi' } });
+          maxDurationSeconds: MAX_VIDEO_DURATION_SECONDS, durationSeconds: metadata.durationSeconds, language: 'vi' } });
       try { return await transcriptionResult({ ...context, onStage }); }
       catch (error) { throw normalizedFailure(error, context.signal); }
     },

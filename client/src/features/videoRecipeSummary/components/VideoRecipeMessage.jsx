@@ -3,13 +3,13 @@ import { Alert, Button, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
 import '../styles/videoRecipeSummary.css';
 
-const STAGE_LABELS = { VALIDATING_VIDEO: 'Đang kiểm tra video và thời lượng…', FETCHING_AUDIO: 'Đang lấy âm thanh…',
+const STAGE_LABELS = { VALIDATING_VIDEO: 'Đang kiểm tra video và thời lượng…', FETCHING_CAPTIONS: 'Đang lấy phụ đề tiếng Việt…', FETCHING_AUDIO: 'Đang lấy âm thanh…',
   TRANSCRIBING: 'Đang chuyển giọng nói thành văn bản…', SUMMARIZING: 'Đang tạo công thức…', SAVING_RESULT: 'Đang hoàn tất công thức…' };
 
 function statusLabel(message) {
   if (message.preparing) return 'Đang gửi yêu cầu xử lý video…';
   if (message.job?.status === 'PENDING') return message.job.errorCode === 'VIDEO_AI_RATE_LIMITED'
-    ? 'Đang chờ hạn mức nhận dạng để thử lại…' : 'Video đang chờ xử lý…';
+    ? 'Đang chờ hạn mức AI để thử lại…' : 'Video đang chờ xử lý…';
   if (message.job?.status === 'COMPLETED') return 'Đang tải công thức đã tạo…';
   return STAGE_LABELS[message.job?.stage] || 'Đang theo dõi xử lý video…';
 }
@@ -23,7 +23,7 @@ function RecipeContent({ recipe }) {
     </li>)}</ul> : <p>Video chưa nêu rõ danh sách nguyên liệu.</p>}
     <h4 className="cx-video-recipe-label">Cách làm</h4>
     <ol>{recipe.steps.map((step, index) => <li key={index}>{step.instruction}</li>)}</ol>
-    <p className="cx-video-recipe-note">Hướng dẫn được trích từ lời nói trong video. Hãy đối chiếu video khi có thông tin chưa rõ.</p>
+    <p className="cx-video-recipe-note">Hướng dẫn được trích từ nội dung video. Hãy đối chiếu video khi có thông tin chưa rõ.</p>
   </>;
 }
 
