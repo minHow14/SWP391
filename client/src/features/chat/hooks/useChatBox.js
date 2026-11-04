@@ -7,6 +7,7 @@ import { useVideoRecipeSummary } from '../../videoRecipeSummary/hooks/useVideoRe
 import { useChatRequest } from './useChatRequest.js';
 import { getSession } from '../../../utils/session.js';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
+import { bmiCategory, calcBmi, formatBmi } from '../../../utils/aiHelpers.js';
 import { useChatPhoto } from './useChatPhoto.js';
 
 export function useChatBox({ dietTypeId }) {
@@ -165,6 +166,14 @@ export function useChatBox({ dietTypeId }) {
     input.current?.focus();
   }
 
+  function showBmi() {
+    if (busy || video.busy || (controller.current && !controller.current.signal.aborted)) return;
+    if (!hasBodyMeasurements(user?.health_profile)) { setError('Vui lòng đăng nhập và bổ sung chiều cao, cân nặng trong hồ sơ để xem BMI.'); return; }
+    const { height, weight } = user.health_profile;
+    const bmi = calcBmi(height, weight);
+    addExchange('Xem BMI từ số đo hồ sơ', { kind: 'bmi', text: `Theo hồ sơ: chiều cao ${height} cm, cân nặng ${weight} kg. BMI: ${formatBmi(bmi)} (${bmiCategory(bmi)}).` });
+  }
+
   const visibleMessages = messages.filter((message) => (message.kind === 'welcome' || message.ownerId === userId) && (!message.scanContext || message.scanContext === photo.contextKey));
-  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto: photo.attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
+  return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, showBmi, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto: photo.attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
 }

@@ -18,7 +18,7 @@ const suggestions = [
     icon: 'capsule',
     text: 'Tôi muốn hỏi về vitamin B12',
   },
-  { label: 'Chỉ số BMI', icon: 'bar-chart', text: 'Tôi muốn tính chỉ số BMI', requiresProfile: true },
+  { label: 'Chỉ số BMI', icon: 'bar-chart', requiresProfile: true },
 ];
 
 export default function ChatBox({ dietTypeId }) {
@@ -97,16 +97,16 @@ export default function ChatBox({ dietTypeId }) {
             ))}
           </div>
           <div className="cx-chat-suggestions" aria-label="Chủ đề gợi ý">
-            {suggestions.map((suggestion) => suggestion.requiresProfile && needsProfile ? (
-              <Link key={suggestion.label} to="/ho-so" className="cx-chat-suggestion-link">
-                <i className="bi bi-person-lines-fill" aria-hidden="true" /> Bổ sung hồ sơ để xem BMI
+            {suggestions.map((suggestion) => suggestion.requiresProfile && (!user || needsProfile) ? (
+              <Link key={suggestion.label} to={user ? '/ho-so' : '/dang-nhap'} className="cx-chat-suggestion-link">
+                <i className="bi bi-person-lines-fill" aria-hidden="true" /> {user ? 'Bổ sung hồ sơ để xem BMI' : 'Đăng nhập để xem BMI'}
               </Link>
             ) : (
               <button
                 type="button"
                 key={suggestion.label}
                 disabled={busy}
-                onClick={() => sendMessage(suggestion.text, 'chat')}
+                onClick={() => suggestion.requiresProfile ? chat.showBmi() : sendMessage(suggestion.text, 'chat')}
               >
                 <i className={`bi bi-${suggestion.icon}`} aria-hidden="true" />{' '}
                 {suggestion.label}
