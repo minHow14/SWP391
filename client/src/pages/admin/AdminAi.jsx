@@ -1,5 +1,4 @@
 // D:/SWP391/SWP391/client/src/pages/admin/AdminAi.jsx
-// client/src/pages/admin/AdminAi.jsx
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';
@@ -9,6 +8,7 @@ import {
 import { friendlyAiError } from '../../utils/aiHelpers.js';
 
 const ADMIN_ROLE = 1;
+const GUEST_ID_PATTERN = /^guest:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FEATURES = [['', 'Tất cả chức năng'], ['chatbot', 'Chatbot'], ['mealPlanner', 'Thực đơn'], ['other', 'Khác']];
 const FEATURE_LABEL = { chatbot: 'Chatbot', mealPlanner: 'Thực đơn', other: 'Khác' };
 const LOG_STATUS = {
@@ -191,17 +191,19 @@ function InterventionTab() {
     }
   }, []);
   const id = guestId.trim();
+  const validId = GUEST_ID_PATTERN.test(id);
+  const inspectedId = quota?.guestId === id ? quota.guestId : '';
   return (
     <section aria-label="Can thiệp thủ công" className="cx-admin-intervene">
       <div>
         <h3>Hạn mức của khách</h3>
-        <p>Khách có 3 lượt mỗi ngày (dùng chung cho hỏi đáp và tạo thực đơn). Khách không gửi mã sẽ có mã dạng <code>ip:địa-chỉ</code>.</p>
+        <p>Sao chép guestId từ phản hồi /ai/chat/usage trong phiên của khách cần hỗ trợ. Mã có dạng guest:&lt;UUID&gt;, được cấp từ cookie có chữ ký.</p>
         <div className="cx-admin-filters">
-          <input value={guestId} onChange={(event) => setGuestId(event.target.value)} maxLength={100} placeholder="Mã khách (X-Guest-Id)" aria-label="Mã khách" />
-          <button type="button" disabled={!id || busy} onClick={async () => { const result = await run(() => adminGetGuestQuota(id), () => ''); if (result) setQuota(result); }}>Xem hạn mức</button>
-          <button type="button" className="is-danger" disabled={!id || busy} onClick={async () => {
+          <input value={guestId} disabled={busy} onChange={(event) => { setGuestId(event.target.value); setQuota(null); }} maxLength={100} placeholder="guest:<UUID>" aria-label="Mã khách" />
+          <button type="button" disabled={!validId || busy} onClick={async () => { const result = await run(() => adminGetGuestQuota(id), () => ''); if (result) setQuota(result); }}>Xem hạn mức</button>
+          <button type="button" className="is-danger" disabled={!validId || !inspectedId || busy} onClick={async () => {
             if (!window.confirm(`Đặt lại hạn mức hôm nay của "${id}" về 0?`)) return;
-            const result = await run(() => adminResetGuestQuota(id), (value) => `Đã đặt lại hạn mức (trước đó đã dùng ${value.usedBefore} lượt).`);
+            const result = await run(() => adminResetGuestQuota(inspectedId), (value) => `Đã đặt lại hạn mức (trước đó đã dùng ${value.usedBefore} lượt).`);
             if (result) setQuota(result);
           }}>Đặt lại hạn mức</button>
         </div>
