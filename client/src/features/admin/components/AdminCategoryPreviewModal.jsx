@@ -1,6 +1,7 @@
-// client/src/features/admin/components/AdminCategoryPreviewModal.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminCategoryPreviewModal.jsx
 import { Modal, Button, Badge } from 'react-bootstrap';
 import { Link } from 'react-router';
+import RecipeInstructions from '../../../components/common/RecipeInstructions.jsx';
 
 export default function AdminCategoryPreviewModal({ show, onHide, item, itemType }) {
   if (!item) return null;
@@ -62,8 +63,8 @@ export default function AdminCategoryPreviewModal({ show, onHide, item, itemType
             {item.instructions && (
               <div>
                 <div className="fw-semibold small text-muted text-uppercase mb-1">Cách chế biến chi tiết:</div>
-                <div className="small text-dark p-3 border rounded-3 bg-white" style={{ whiteSpace: 'pre-line' }}>
-                  {item.instructions}
+                <div className="small text-dark p-3 border rounded-3 bg-white">
+                  <RecipeInstructions instructions={item.instructions} />
                 </div>
               </div>
             )}
