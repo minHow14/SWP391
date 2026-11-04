@@ -12,6 +12,7 @@ import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
 import { resolveRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
+import { compareRestaurantPrices } from '../features/restaurants/utils/restaurantSort.js';
 
 const typeName = (type) =>
   type === 'external'
@@ -48,7 +49,7 @@ export default function Restaurants() {
       sort === 'name'
         ? a.name.localeCompare(b.name, 'vi')
         : sort === 'price'
-          ? a.price.length - b.price.length
+          ? compareRestaurantPrices(a, b)
           : b.rating - a.rating
     );
   // Quán vừa chọn trên bản đồ được đưa lên đầu danh sách để người dùng thấy ngay.
@@ -156,7 +157,7 @@ export default function Restaurants() {
             <span className="visually-hidden">Sắp xếp quán</span>
             <select value={sort} onChange={(event) => setSort(event.target.value)}>
               <option value="rating">⭐ Đánh Giá Cao Nhất</option>
-              <option value="price">💵 Giá Thấp Trước</option>
+              <option value="price">💵 Giá món thấp nhất trước</option>
               <option value="name">🔤 Tên Quán A – Z</option>
             </select>
           </label>
