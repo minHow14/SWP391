@@ -20,6 +20,7 @@ import { videoRecipeSummaryJobRoutes, videoRecipeSummaryRoutes } from './videoRe
 import notificationRoutes from './notification.route.js';
 import { contentModerationRoutes } from './contentModerationRoutes.js';
 import { ingredientLookupRoutes } from './ingredientLookupRoutes.js';
+import passwordResetRoutes from './passwordResetRoutes.js';
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ const router = express.Router();
 const v1Router = express.Router();
 
 v1Router.use('/auth', authRoutes);
+v1Router.use('/auth', passwordResetRoutes);
 v1Router.use('/blogs', blogRoutes);
 v1Router.use('/videos', videoRoutes);
 v1Router.use('/comments', commentRoutes);
@@ -57,6 +59,7 @@ router.use('/v1', v1Router);
 // 2. TƯƠNG THÍCH NGƯỢC (BACKWARD COMPATIBILITY)
 // ==========================================
 router.use('/auth', authRoutes);
+router.use('/auth', passwordResetRoutes);
 router.use('/blogs', blogRoutes);
 router.use('/videos', videoRoutes);
 router.use('/comments', commentRoutes);

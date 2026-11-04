@@ -60,7 +60,7 @@ export const userRepository = {
   findAuthIdentityById(userId, db = prisma) {
     return db.user.findUnique({
       where: { user_id: userId },
-      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true },
+      select: { user_id: true, email: true, full_name: true, role: true, status: true, deleted_at: true, tokenVersion: true },
     });
   },
 
@@ -77,6 +77,7 @@ export const userRepository = {
       select: {
         ...DEFAULT_USER_SAFE_SELECT,
         password_hash: true,
+        tokenVersion: true,
       },
     });
   },
@@ -162,8 +163,8 @@ export const userRepository = {
   async updatePassword(userId, password_hash, db = prisma) {
     return db.user.update({
       where: { user_id: Number(userId) },
-      data: { password_hash },
-      select: DEFAULT_USER_SAFE_SELECT,
+      data: { password_hash, tokenVersion: { increment: 1 } },
+      select: { ...DEFAULT_USER_SAFE_SELECT, tokenVersion: true },
     });
   },
 

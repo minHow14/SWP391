@@ -65,6 +65,7 @@ export const updateMe = asyncHandler(async (req, res) => {
 
 export const changePassword = asyncHandler(async (req, res) => {
   const result = await authService.changePassword(req.user.user_id, req.body);
+  setRefreshTokenCookie(res, result.refreshToken);
   return sendSuccess(res, result);
 });
 

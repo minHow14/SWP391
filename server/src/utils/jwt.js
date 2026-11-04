@@ -9,7 +9,7 @@ import config from '../config/index.js';
  * @returns {string} token
  */
 export const generateToken = (payload) => {
-  return jwt.sign(payload, config.jwt.secret, {
+  return jwt.sign({ tokenVersion: 0, ...payload }, config.jwt.secret, {
     expiresIn: config.jwt.expiresIn,
   });
 };
@@ -21,7 +21,7 @@ export const generateToken = (payload) => {
  */
 export const generateRefreshToken = (payload) => {
   const refreshSecret = process.env.REFRESH_TOKEN_SECRET || `${config.jwt.secret}_refresh`;
-  return jwt.sign(payload, refreshSecret, {
+  return jwt.sign({ tokenVersion: 0, ...payload }, refreshSecret, {
     expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',
   });
 };
