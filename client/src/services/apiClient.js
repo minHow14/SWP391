@@ -1,65 +1,73 @@
 // D:/SWP391/SWP391/client/src/services/apiClient.js
 import axios from 'axios';
-import { getSession, setSession } from '../utils/session.js';
-
+import { getSession, getSessionSnapshot, setSession } from '../utils/session.js';
 const apiClient = axios.create({
-  baseURL: '/api',
-  timeout: 15000,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  baseURL: '/api', timeout: 15000, withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
 });
-
-// Request Interceptor: Tự động đính kèm JWT Bearer Token
-apiClient.interceptors.request.use(
-  (config) => {
-    const session = getSession();
-    if (session?.token) {
-      config.headers.Authorization = `Bearer ${session.token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-// Response Interceptor: Chuẩn hóa dữ liệu trả về và xử lý mã lỗi
-apiClient.interceptors.response.use(
-  (response) => {
-    return response.data;
-  },
-  (error) => {
-    const status = error.response?.status;
-    const responseData = error.response?.data;
-
-    if (axios.isCancel(error)) return Promise.reject(error);
-    if (status === 401) {
-      const session = getSession();
-      const authorization = error.config?.headers?.Authorization;
-      if (session?.token && authorization === `Bearer ${session.token}`) {
-        setSession(null);
-      }
-    }
-
-    const firstDetail =
-      Array.isArray(responseData?.errors) && responseData.errors[0]?.message
-        ? responseData.errors[0].message
-        : null;
-
-    const message =
-      firstDetail ||
-      responseData?.message ||
-      responseData?.error ||
-      error.message ||
-      'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.';
-
-    const normalized = Object.assign(new Error(message, { cause: error }), {
-      status, code: responseData?.errorCode || error.code || 'NETWORK_ERROR',
-      errorCode: responseData?.errorCode, requestId: responseData?.meta?.requestId,
-      details: responseData?.errors,
-    });
-    return Promise.reject(normalized);
+const isAuthHandshake = (url = '') => /(?:^|\/)auth\/(login|register|refresh|logout)\/?$/.test(url);
+let refreshFlight = null;
+let lastRefresh = null;
+function normalizeApiError(error) {
+  const data = error.response?.data;
+  const firstDetail = Array.isArray(data?.errors) ? data.errors[0]?.message : null;
+  const message = firstDetail || data?.message || data?.error?.message ||
+    (typeof data?.error === 'string' ? data.error : null) || error.message ||
+    'Không thể kết nối đến máy chủ. Vui lòng thử lại sau.';
+  return Object.assign(new Error(message, { cause: error }), {
+    status: error.response?.status, code: data?.errorCode || error.code || 'NETWORK_ERROR',
+    errorCode: data?.errorCode, requestId: data?.meta?.requestId, details: data?.errors,
+  });
+}
+async function performRefresh(snapshot) {
+  try {
+    const result = await apiClient.post('/auth/refresh', undefined, { skipAuthRefresh: true });
+    if (getSessionSnapshot().revision !== snapshot.revision) return null;
+    const token = result?.data?.token || result?.data?.accessToken || result?.token || result?.accessToken;
+    if (!result?.success || !token) throw new Error('Phản hồi làm mới phiên đăng nhập không hợp lệ.');
+    setSession({ ...getSession(), token });
+    const refreshed = getSessionSnapshot();
+    lastRefresh = { source: snapshot.revision, target: refreshed.revision };
+    return refreshed;
+  } catch (error) {
+    if ([401, 403].includes(error.status) && getSessionSnapshot().revision === snapshot.revision) setSession(null);
+    throw error;
   }
-);
-
+}
+export function refreshSession(snapshot = getSessionSnapshot()) {
+  const current = getSessionSnapshot();
+  if (!snapshot.token) return Promise.resolve(null);
+  if (current.revision !== snapshot.revision) {
+    const knownRefresh = lastRefresh?.source === snapshot.revision && lastRefresh.target === current.revision;
+    return Promise.resolve(knownRefresh ? current : null);
+  }
+  if (refreshFlight?.revision === snapshot.revision) return refreshFlight.promise;
+  const flight = { revision: snapshot.revision, promise: null };
+  flight.promise = performRefresh(snapshot).finally(() => {
+    if (refreshFlight === flight) refreshFlight = null;
+  });
+  refreshFlight = flight;
+  return flight.promise;
+}
+apiClient.interceptors.request.use((config) => {
+  const snapshot = getSessionSnapshot();
+  config.sessionSnapshot = snapshot;
+  if (snapshot.token) config.headers.Authorization = 'Bearer ' + snapshot.token;
+  else delete config.headers.Authorization;
+  return config;
+});
+apiClient.interceptors.response.use((response) => response.data, async (error) => {
+  if (axios.isCancel(error)) throw error;
+  const config = error.config;
+  const snapshot = config?.sessionSnapshot;
+  const protectedFailure = error.response?.status === 401 && snapshot?.token && !isAuthHandshake(config.url);
+  if (protectedFailure && !config.skipAuthRefresh && !config.authRetried) {
+    const refreshed = await refreshSession(snapshot);
+    if (refreshed && refreshed.revision === getSessionSnapshot().revision) {
+      return apiClient.request({ ...config, authRetried: true });
+    }
+  }
+  if (protectedFailure && config.authRetried && snapshot.revision === getSessionSnapshot().revision) setSession(null);
+  throw normalizeApiError(error);
+});
 export default apiClient;
