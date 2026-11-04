@@ -179,7 +179,7 @@ Video cần `GROQ_API_KEY` và DeepSeek key trong AI Service. Dependencies đã 
 ### Bước 3: Khởi chạy Backend Server (Port 5000)
 ```bash
 cd server
-npm ci
+npm ci --include=optional
 # Tạo file .env và điền các thông số theo bảng ở Mục 8
 npm run prisma:generate
 npx prisma migrate deploy
@@ -196,7 +196,7 @@ Với DB đang có dữ liệu/lịch sử migration cũ, xem [hướng dẫn ba
 ### Bước 4: Khởi chạy Frontend Web App (Port 5173)
 ```bash
 cd client
-npm ci
+npm ci --include=optional
 npm run dev
 ```
 > Truy cập ứng dụng tại: `http://localhost:5173`
@@ -426,6 +426,17 @@ Test tự động không chứng minh email đã tới hộp thư hoặc chất 
 13. **Khôi phục tài khoản có cảnh báo nội dung:** Tài khoản đã phục hồi nhưng bài/bình luận cũ thiếu trạng thái trước xóa sẽ tiếp tục DELETED. Không đoán trạng thái gốc; xem số lượng trong `data.restoration` và `data.warning`.
 14. **ESLint có hai cảnh báo ở RestaurantMap.jsx:** Effect khởi tạo bản đồ đọc `userLocation` nhưng dependency là `[]`; effect vẽ marker/bán kính đọc cả object `userLocation`/`searchCenter` trong khi dependency liệt kê các trường tọa độ. Đây là `react-hooks/exhaustive-deps`, không phải lỗi biên dịch hoặc bằng chứng API bản đồ chưa nối. Xem giải thích và giới hạn trong báo cáo Phase 3; không thêm object vào effect khởi tạo một cách máy móc vì có thể tạo lại bản đồ mỗi lần vị trí đổi.
 15. **Build cảnh báo chunk lớn:** Bundle chính trên 500 kB trước gzip; build vẫn thành công. Đây là cảnh báo kích thước tải JS, độc lập với hai cảnh báo dependency bản đồ.
+16. **Cài npm báo tarball corrupted, cache `ENOENT`, hoặc Rolldown không nạp được native binding trên Windows:**
+    - Dừng Vite/nodemon bằng `Ctrl+C` trong terminal đang chạy trước khi cài lại để tránh file bị giữ (`EPERM`). Giữ nguyên `package-lock.json`; sau khi clone dùng `npm ci --include=optional` để cài đúng phiên bản đã khóa và các gói native phù hợp máy.
+    - Chạy `npm cache verify`. Nếu lỗi cache vẫn lặp lại nhưng cài bằng cache mới thành công, đặt một cache mới cố định cho tài khoản (lệnh dưới đây thay đổi cache cho tất cả dự án npm của tài khoản), rồi cài lại lần lượt trong `server/` và `client/`:
+
+      ```powershell
+      npm config set cache "$env:LOCALAPPDATA\npm-cache-repaired" --location=user
+      npm ci --include=optional --prefer-online
+      ```
+
+    - Trong `server/`, chạy thêm `npm run prisma:generate`. npm 12 yêu cầu cho phép script cài đặt; `server/package.json` đã cho phép đúng `@prisma/client`, `@prisma/engines`, `prisma` phiên bản `6.19.3`. Khi chủ động nâng Prisma, kiểm tra script rồi chạy `npm install-scripts approve @prisma/client @prisma/engines prisma`, commit thay đổi cùng lockfile. Xem [npm ci](https://docs.npmjs.com/cli/v12/commands/npm-ci/), [cache](https://docs.npmjs.com/cli/v12/commands/npm-cache/), [quyền chạy script](https://docs.npmjs.com/cli/v12/commands/npm-install-scripts/).
+    - Cảnh báo `npm audit` là vấn đề dependency riêng; xem báo cáo trước khi cập nhật, không dùng `npm audit fix --force` để sửa lỗi cache. Nếu cache mới cũng tiếp tục mất/hỏng file, kiểm tra lịch sử cách ly của antivirus, phần mềm dọn cache và ổ đĩa; chưa thể kết luận nguyên nhân chỉ từ log npm.
 
 ---
 
