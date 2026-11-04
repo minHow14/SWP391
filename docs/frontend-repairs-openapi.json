@@ -48,7 +48,7 @@
       "post": {
         "operationId": "refreshAccessToken",
         "summary": "Refresh an access token and return its account identity",
-        "description": "Uses the refreshToken cookie, or refreshToken in the JSON body for legacy callers. Cookie takes precedence. No bearer token is required. Checks persisted account state and tokenVersion. Does not rotate the refresh cookie. Client must compare data.userId with the original session user before storing the token or retrying; a shared browser cookie can belong to another tab's account.",
+        "description": "Accepts a refreshToken cookie or a legacy JSON refreshToken field. In the current app, JSON body takes precedence over the raw Cookie header when both are present; a pre-parsed req.cookies value would take priority if supplied by middleware. Browser clients send only the HttpOnly cookie. No bearer token is required. Checks persisted account state and tokenVersion. Does not rotate the refresh cookie. Client must compare data.userId with the original session user before storing the token or retrying; a shared browser cookie can belong to another tab's account.",
         "security": [{ "refreshCookie": [] }, {}],
         "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "properties": { "refreshToken": { "type": "string", "minLength": 1 } } } } } },
         "responses": {
