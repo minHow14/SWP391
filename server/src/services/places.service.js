@@ -67,6 +67,7 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
     latitude: lat,
     longitude: lng,
     phone: restaurant.phone ?? null,
+    isIngredientShop: restaurant.isIngredientShop ?? false,
     diet_type_id: restaurant.diet_type_id ?? null,
     diet_type: restaurant.diet_type?.name ?? null,
     rating: restaurant.rating != null ? Number(restaurant.rating) : null,

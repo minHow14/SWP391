@@ -2,6 +2,7 @@
 import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { workspaceRepository } from '../repositories/workspace.repository.js';
+import { placeRepository } from '../repositories/place.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { weekRangeOf } from '../utils/weekRange.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
@@ -11,6 +12,21 @@ export const ingredientImageUrl = (ingredientId) =>
   `/api/workspace/ingredients/${ingredientId}/image`;
 
 const PER_100_GRAMS = 100;
+
+function restaurantProposalData(data) {
+  return {
+    name: data.name,
+    address: data.address,
+    image_url: placePhotoUrl(data.image_url),
+    diet_type_id: data.diet_type_id,
+    isIngredientShop: data.isIngredientShop ?? false,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    source: 'proposal',
+    status: 'APPROVED',
+    rating: null,
+  };
+}
 
 /** Chuyển một món trong kế hoạch tuần (công thức hoặc món AI gợi ý) thành dữ liệu nhật ký ăn uống. */
 function diaryFromPlanDetail(detail) {
@@ -127,7 +143,7 @@ export const workspaceService = {
         id: p.restaurant_id,
         latitude: p.latitude === null ? null : Number(p.latitude),
         longitude: p.longitude === null ? null : Number(p.longitude),
-        type: p.diet_type_id === 5 ? 'buddhist' : p.diet_type_id === 1 ? 'vegan' : 'separate',
+        type: p.isIngredientShop ? 'shop' : p.diet_type_id === 5 ? 'buddhist' : p.diet_type_id === 1 ? 'vegan' : 'separate',
         city: d?.city || 'Chưa cập nhật',
         hours: d?.hours || 'Chưa cập nhật',
         price_range: d?.price_range || 'Chưa cập nhật',
@@ -501,24 +517,12 @@ export const workspaceService = {
    */
   async suggestRestaurant(data) {
     return prisma.$transaction(async (tx) => {
-      const dietExists = await workspaceRepository.findDietTypeById(data.diet_type_id, tx);
-      if (!dietExists) {
-        throw ApiError.badRequest('Chế độ ăn không hợp lệ');
+      if (!data.isIngredientShop) {
+        const dietExists = await workspaceRepository.findDietTypeById(data.diet_type_id, tx);
+        if (!dietExists) throw ApiError.badRequest('Chế độ ăn không hợp lệ');
       }
 
-      const place = await tx.restaurant.create({
-        data: {
-          name: data.name,
-          address: data.address,
-          image_url: placePhotoUrl(data.image_url),
-          diet_type_id: data.diet_type_id,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          source: 'proposal',
-          status: 'APPROVED',
-          rating: null,
-        },
-      });
+      const place = await placeRepository.create(restaurantProposalData(data), tx);
 
       await workspaceRepository.insertRestaurantDetails(place.restaurant_id, data.city, tx);
       return {

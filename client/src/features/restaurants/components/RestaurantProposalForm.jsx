@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/restaurants/components/RestaurantProposalForm.jsx
+// D:/SWP391/SWP391/client/src/features/restaurants/components/RestaurantProposalForm.jsx
 import { useState } from 'react';
 import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useForm, useWatch } from 'react-hook-form';
@@ -31,10 +31,12 @@ export default function RestaurantProposalForm({ onSubmit }) {
 
   async function submit(proposal) {
     setError('');
+    const isIngredientShop = proposal.type === 'shop';
     try {
       await onSubmit({
         name: proposal.name, address: fullAddress(proposal), city: proposal.city,
-        diet_type_id: proposal.type === 'buddhist' ? 5 : proposal.type === 'separate' ? 4 : 1,
+        isIngredientShop,
+        diet_type_id: isIngredientShop ? null : proposal.type === 'buddhist' ? 5 : proposal.type === 'separate' ? 4 : 1,
         // The existing API requires nullable coordinates; address entry does not supply them.
         latitude: null, longitude: null,
       });
