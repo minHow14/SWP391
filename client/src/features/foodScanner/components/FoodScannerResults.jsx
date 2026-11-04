@@ -29,6 +29,10 @@ export default function FoodScannerResults({ result, textResult, onSave }) {
         <h3 className="h6">Câu hỏi nhanh khi dùng bữa ngoài quán</h3>
         <ul className="mb-0">{result.restaurantChecklist.map((question) => <li key={question}>{question}</li>)}</ul>
       </Card>}
+      {result.swapSuggestions?.length > 0 && <Card body className="mb-3">
+          <h3 className="h6">Gợi ý thay thế từ lần quét này</h3>
+          <ul className="mb-0">{result.swapSuggestions.map((suggestion, index) => <li key={index}>{suggestion}</li>)}</ul>
+      </Card>}
       {result.nutritionEstimate ? <>
         <h3 className="h6">Dinh dưỡng ước tính — cần xác nhận theo khẩu phần thực tế</h3>
         <Row className="g-2 mb-3">{Object.entries(NUTRIENTS).map(([key, [label, unit]]) => <Col xs={6} md={3} key={key}>
@@ -37,13 +41,15 @@ export default function FoodScannerResults({ result, textResult, onSave }) {
       </> : <p>AI chưa cung cấp được số liệu dinh dưỡng. Bạn có thể nhập thông tin đã biết khi lưu nhật ký.</p>}
       <div className="d-flex flex-wrap gap-2 border-top pt-3">
         {result.status === 'clear' && <Button variant="success" onClick={onSave}>Lưu vào Nhật ký ăn uống</Button>}
-        {result.status === 'warning' && <Button as={Link} variant="warning" to="/doi-mon-chay">Tìm món chay thay thế</Button>}
+        {result.status === 'warning' && <Button as={Link} variant="warning" to="/doi-mon-chay" state={{ scanContext: {
+          dishName: result.dishName, ingredient: result.findings?.[0]?.ingredient || '', suggestions: result.swapSuggestions || [],
+        } }}>Tìm món chay thay thế</Button>}
         <Button as={Link} variant="outline-secondary" to="/quan-chay">Tìm quán chay lân cận</Button>
       </div>
     </Alert>}
     {textResult && <Alert variant="info" className="mt-4" aria-label="Kết quả kiểm tra văn bản">
       <h2 className="h5">Kết quả đối chiếu từ khóa</h2>
-      {textResult.findings.length ? <ul>{textResult.findings.map((item, index) => <li key={`${item.ingredient}-${index}`}>
+      {textResult.status === 'unknown' ? <p className="mb-0">Đối chiếu từ khóa chưa hỗ trợ kiểm tra Keto hoặc Eat Clean. Chưa thể kết luận phù hợp với chế độ đã chọn.</p> : textResult.findings.length ? <ul>{textResult.findings.map((item, index) => <li key={`${item.ingredient}-${index}`}>
         <strong>{item.ingredient}:</strong> {item.reason} <Badge bg="secondary">{LAYER_LABELS[item.layer]}</Badge>
       </li>)}</ul> : <p className="mb-0">Chưa phát hiện từ khóa thành phần không phù hợp trong danh sách bạn nhập.</p>}
     </Alert>}

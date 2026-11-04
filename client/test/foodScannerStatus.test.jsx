@@ -32,3 +32,15 @@ it('names the finding category in words instead of an internal layer number', ()
   expect(screen.getByText('Ngũ vị tân')).toBeTruthy();
   expect(screen.queryByText(/Lớp/)).toBeNull();
 });
+
+it('does not present an unsupported text check as a clear verdict', () => {
+  render(<MemoryRouter><FoodScannerResults textResult={{ status: 'unknown', findings: [] }} /></MemoryRouter>);
+  expect(screen.getByText(/chưa hỗ trợ kiểm tra.*Keto.*Eat Clean/i)).toBeTruthy();
+  expect(screen.queryByText(/Chưa phát hiện từ khóa/)).toBeNull();
+});
+
+it('renders actual AI swap suggestions', () => {
+  render(<MemoryRouter><FoodScannerResults result={{ status: 'warning', dishName: 'Canh',
+    swapSuggestions: ['Thay nước mắm cá bằng nước tương.'] }} /></MemoryRouter>);
+  expect(screen.getByText('Thay nước mắm cá bằng nước tương.')).toBeTruthy();
+});

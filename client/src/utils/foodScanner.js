@@ -1,4 +1,10 @@
-﻿// client/src/utils/foodScanner.js
+// D:/SWP391/SWP391/client/src/utils/foodScanner.js
+export function resolveScannerAllergies(user, ingredients = []) {
+  const catalog = new Map(ingredients.map((item) => [item.ingredient_id, item.name]));
+  const names = (user?.allergies || []).map((item) => item.ingredient?.name || item.name || catalog.get(item.ingredient_id));
+  return { names: [...new Set(names.filter(Boolean))], incomplete: names.some((name) => !name) };
+}
+
 const normalize = (text) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
 const rules = [
   { pattern: /\bnuoc mam ca com\b/, reason: 'Chiết xuất từ cá biển.', layer: 1 },
