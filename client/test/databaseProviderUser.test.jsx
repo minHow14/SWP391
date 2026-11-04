@@ -7,7 +7,7 @@ import { DatabaseContext } from '../src/context/databaseContext.js';
 import { authService } from '../src/services/authService.js';
 import { workspaceService } from '../src/services/workspaceService.js';
 import { emitSyncEvent } from '../src/utils/syncEvents.js';
-import { setSession } from '../src/utils/session.js';
+import { getSession, setSession } from '../src/utils/session.js';
 
 const stale = { user_id: 10, health_profile: { height: null, weight: null } };
 const fresh = { user_id: 10, health_profile: { height: 163, weight: 63 } };
@@ -38,4 +38,26 @@ it('keeps the current profile when refreshing fails', async () => {
   const { result } = mount();
   await act(async () => { await result.current.refreshUser(); });
   expect(result.current.user).toEqual(stale);
+});
+
+it('applies a refreshed profile without restoring the expired access token', async () => {
+  authService.getMe.mockImplementation(async () => {
+    setSession({ ...getSession(), token: 'refreshed-access' });
+    return { data: { user: fresh } };
+  });
+  const { result } = mount();
+  await waitFor(() => expect(result.current.user.health_profile.weight).toBe(63));
+  expect(getSession().token).toBe('refreshed-access');
+});
+
+it('ignores a late profile after explicit login to the same account', async () => {
+  let complete;
+  authService.getMe.mockImplementation(() => new Promise((resolve) => { complete = resolve; }));
+  const { result } = mount();
+  await act(async () => {
+    setSession({ token: 'new-login', user: stale }, { remember: false });
+    complete({ data: { user: fresh } });
+  });
+  expect(result.current.user).toEqual(stale);
+  expect(getSession().token).toBe('new-login');
 });

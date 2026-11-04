@@ -64,7 +64,7 @@ it.each([11, 10])('does not apply or broadcast a completed save after switching 
   await waitFor(() => expect(workspaceService.updateProfile).toHaveBeenCalledOnce());
   const changed = vi.fn();
   const unsubscribe = subscribeSyncEvent('USER_CHANGED', changed);
-  await act(async () => { setSession({ token: 'new-session', user: { user_id: userId, health_profile: { weight: 80 } } }); });
+  await act(async () => { setSession({ token: 'new-session', user: { user_id: userId, health_profile: { weight: 80 } } }, { remember: false }); });
   const readsBeforeCompletion = workspaceService.getJournal.mock.calls.length;
   await act(async () => { resolveSave(); });
   expect(getSession().user.user_id).toBe(userId);
@@ -89,4 +89,18 @@ it('blocks duplicate profile saves while pending and allows retry after failure'
   workspaceService.updateProfile.mockResolvedValue();
   fireEvent.click(save);
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu Hồ Sơ' })).toBeNull());
+});
+
+it('finishes a profile save when the access token rotates during the request', async () => {
+  vi.spyOn(workspaceService, 'updateProfile').mockImplementation(async () => {
+    setSession({ ...getSession(), token: 'refreshed-access' });
+    authService.getMe.mockResolvedValue({ data: { user: updatedUser } });
+    workspaceService.getJournal.mockResolvedValue(journal(65));
+  });
+  mount();
+  await editProfile();
+  fireEvent.click(screen.getByRole('button', { name: 'Lưu Hồ Sơ' }));
+  await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu Hồ Sơ' })).toBeNull());
+  expect(getSession().token).toBe('refreshed-access');
+  expect(getSession().user.health_profile.weight).toBe(65);
 });

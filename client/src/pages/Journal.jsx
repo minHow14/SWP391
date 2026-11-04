@@ -7,7 +7,7 @@ import AiSuggestedMeal from '../features/journal/components/AiSuggestedMeal.jsx'
 import { emitSyncEvent, subscribeSyncEvent } from '../utils/syncEvents.js';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { workspaceService } from '../services/workspaceService.js';
-import { getSession } from '../utils/session.js';
+import { getSession, getSessionSnapshot } from '../utils/session.js';
 import { Link } from 'react-router';
 import HealthProfileNotice from '../features/profile/components/HealthProfileNotice.jsx';
 import { hasBodyMeasurements } from '../features/profile/utils/healthProfile.js';
@@ -185,7 +185,8 @@ export default function Journal() {
     event.preventDefault();
     const session = getSession();
     if (profileSaveLock.current || session?.user?.user_id !== user.user_id) return;
-    const isCurrentSession = () => getSession()?.token === session.token && getSession()?.user?.user_id === user.user_id;
+    const snapshot = getSessionSnapshot();
+    const isCurrentSession = () => getSessionSnapshot().identityRevision === snapshot.identityRevision && getSession()?.user?.user_id === user.user_id;
     profileSaveLock.current = true;
     setProfileSaving(true);
     const form = new FormData(event.currentTarget);
