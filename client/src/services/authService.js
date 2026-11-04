@@ -57,6 +57,10 @@ export const authService = {
 
   logout,
 
+  forgotPassword: ({ email }) => apiClient.post('/v1/auth/forgot-password', { email }),
+
+  resetPassword: ({ token, newPassword }) => apiClient.post('/v1/auth/reset-password', { token, newPassword }),
+
   // Lấy thông tin tài khoản và hồ sơ người dùng hiện tại
   getMe: (config = {}) => apiClient.get('/auth/me', config),
 
