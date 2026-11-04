@@ -41,6 +41,20 @@ model User {
   @@map("users")
 }
 
+model LegalDocument {
+  id          String    @id @default(uuid()) @db.Uuid
+  slug        String    @unique(map: "uq_legal_documents_slug") @db.VarChar(40)
+  title       String    @db.VarChar(200)
+  content     String    @db.Text
+  version     Int       @default(1)
+  published   Boolean   @default(false)
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("legal_documents")
+}
+
 model PasswordResetToken {
   id           String    @id @default(uuid()) @db.Uuid
   userId       Int       @map("user_id")

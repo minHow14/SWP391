@@ -20,6 +20,7 @@ import { videoRecipeSummaryJobRoutes, videoRecipeSummaryRoutes } from './videoRe
 import notificationRoutes from './notification.route.js';
 import { contentModerationRoutes } from './contentModerationRoutes.js';
 import { ingredientLookupRoutes } from './ingredientLookupRoutes.js';
+import legalDocumentRoutes from './legalDocumentRoutes.js';
 import passwordResetRoutes from './passwordResetRoutes.js';
 
 const router = express.Router();
@@ -28,6 +29,7 @@ const router = express.Router();
 // 1. CHUẨN RESTful API V1 (/api/v1/...)
 // ==========================================
 const v1Router = express.Router();
+v1Router.use(legalDocumentRoutes);
 
 v1Router.use('/auth', authRoutes);
 v1Router.use('/auth', passwordResetRoutes);
