@@ -11,6 +11,19 @@ const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStor
 const success = (config, data) => ({ config, data: { success: true, data }, status: 200, statusText: 'OK', headers: {} });
 const unauthorized = (config) => new axios.AxiosError('Expired', 'ERR_BAD_REQUEST', config, undefined,
   { status: 401, data: { success: false, message: 'Phiên hết hạn', errorCode: 'UNAUTHORIZED' }, headers: {}, config });
+
+test('rejects a refresh cookie belonging to a different tab account without retrying the write', async () => {
+  const calls = [];
+  apiClient.defaults.adapter = async (config) => {
+    calls.push(config.url);
+    if (config.url === '/auth/refresh') return success(config, { token: 'other-account-token', userId: 8 });
+    if (config.headers.Authorization === 'Bearer expired') throw unauthorized(config);
+    return success(config, { saved: true });
+  };
+  await assert.rejects(apiClient.patch('/auth/me', { full_name: 'Account A profile' }), (error) => error.status === 401);
+  assert.deepEqual(calls, ['/auth/me', '/auth/refresh']);
+  assert.equal(getSession(), null);
+});
 beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { dispatchEvent() {} } });
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: () => null, setItem() {}, removeItem() {} } });
@@ -27,7 +40,7 @@ test('refreshes an expired token and retries the original request with its body 
   const calls = [];
   apiClient.defaults.adapter = async (config) => {
     calls.push(config);
-    if (config.url === '/auth/refresh') return success(config, { token: 'fresh' });
+    if (config.url === '/auth/refresh') return success(config, { token: 'fresh', userId: 7 });
     if (config.headers.Authorization === 'Bearer expired') throw unauthorized(config);
     return success(config, { saved: true });
   };
@@ -47,7 +60,7 @@ test('coalesces simultaneous unauthorized requests into one refresh', async () =
   apiClient.defaults.adapter = async (config) => {
     if (config.url === '/auth/refresh') {
       refreshCount += 1; started('refresh');
-      return new Promise((resolve) => { release = () => resolve(success(config, { accessToken: 'fresh' })); });
+      return new Promise((resolve) => { release = () => resolve(success(config, { accessToken: 'fresh', userId: 7 })); });
     }
     if (config.headers.Authorization === 'Bearer expired') throw unauthorized(config);
     return success(config, { url: config.url });
@@ -129,7 +142,7 @@ test('retries a protected request only once when the refreshed token is also rej
   const calls = [];
   apiClient.defaults.adapter = async (config) => {
     calls.push(config.url);
-    if (config.url === '/auth/refresh') return success(config, { token: 'also-rejected' });
+    if (config.url === '/auth/refresh') return success(config, { token: 'also-rejected', userId: 7 });
     throw unauthorized(config);
   };
   await assert.rejects(apiClient.get('/auth/me'), (error) => error.status === 401);

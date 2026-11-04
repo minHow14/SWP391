@@ -15,7 +15,7 @@ beforeEach(() => {
   for (const key of ['sessionStorage', 'localStorage']) Object.defineProperty(globalThis, key,
     { configurable: true, value: { getItem: () => null, setItem() {}, removeItem() {} } });
   setSession({ token: 'expired', user: { user_id: 7 } });
-  apiClient.defaults.adapter = async (config) => ({ config, status: 200, statusText: 'OK', headers: {}, data: { success: true, data: { token: 'fresh' } } });
+  apiClient.defaults.adapter = async (config) => ({ config, status: 200, statusText: 'OK', headers: {}, data: { success: true, data: { token: 'fresh', userId: 7 } } });
 });
 afterEach(() => {
   apiClient.defaults.adapter = originalAdapter;

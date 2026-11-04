@@ -205,6 +205,7 @@ export const authService = {
     return {
       accessToken,
       token: accessToken,
+      userId: user.user_id,
     };
   },
 

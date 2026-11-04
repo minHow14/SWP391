@@ -137,7 +137,7 @@ test('a password change still rotates its token after a same-session profile upd
 test('a password change replaces the refreshed token that the backend just revoked', async () => {
   setSession({ token: 'expired', user: { user_id: 7 } }, { remember: true });
   apiClient.defaults.adapter = async (config) => {
-    if (config.url === '/auth/refresh') return success(config, { token: 'refreshed' });
+    if (config.url === '/auth/refresh') return success(config, { token: 'refreshed', userId: 7 });
     if (config.headers.Authorization === 'Bearer expired') throw new axios.AxiosError('Expired', 'ERR_BAD_REQUEST', config, undefined,
       { status: 401, data: { success: false, message: 'Phiên hết hạn' }, headers: {}, config });
     return success(config, { token: 'password-rotated' });

@@ -20,7 +20,8 @@ export function getSession() {
 }
 
 export function getSessionSnapshot() {
-  return { token: getSession()?.token || null, revision, identityRevision };
+  const session = getSession();
+  return { token: session?.token || null, userId: session?.user?.user_id || null, revision, identityRevision };
 }
 
 function writeStorage(storageName, value) {

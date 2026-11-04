@@ -55,6 +55,7 @@ describe('revoking credentials after password changes', () => {
     expect((await request(app).get('/api/auth/me').set(header(login.body.data.token))).status).toBe(200);
     const refresh = await request(app).post('/api/auth/refresh').send({ refreshToken: login.body.data.refreshToken });
     expect(refresh.status).toBe(200);
+    expect(refresh.body.data.userId).toBe(user.user_id);
     expect(verifyToken(refresh.body.data.token).tokenVersion).toBe(2);
   });
 

@@ -25,6 +25,10 @@ async function performRefresh(snapshot) {
     if (getSessionSnapshot().revision !== snapshot.revision) return null;
     const token = result?.data?.token || result?.data?.accessToken || result?.token || result?.accessToken;
     if (!result?.success || !token) throw new Error('Phản hồi làm mới phiên đăng nhập không hợp lệ.');
+    if (!snapshot.userId || result.data?.userId !== snapshot.userId) {
+      setSession(null);
+      throw Object.assign(new Error('Tài khoản đăng nhập đã thay đổi ở tab khác. Vui lòng đăng nhập lại.'), { status: 401, code: 'SESSION_IDENTITY_CHANGED' });
+    }
     setSession({ ...getSession(), token });
     const refreshed = getSessionSnapshot();
     lastRefresh = { source: snapshot.revision, target: refreshed.revision };
