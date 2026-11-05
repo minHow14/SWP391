@@ -1,4 +1,4 @@
-/* client/src/features/admin/styles/admin.css */
+/* D:/SWP391/SWP391/client/src/features/admin/styles/admin.css */
 /* Giao diện Quản trị viên ChayXanh - Đồng bộ Tone màu với Trang chủ */
 
 .admin-portal-shell {
@@ -727,13 +727,19 @@
   flex-shrink: 0;
 }
 
-.cx-pulse-dot.is-online {
+.cx-pulse-dot.is-up {
   background-color: #16a34a;
   box-shadow: 0 0 0 2px rgba(22, 163, 74, 0.25);
-  animation: pulseDot 2s infinite ease-in-out;
 }
 
-.cx-pulse-dot.is-active {
-  background-color: #0284c7;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+.cx-pulse-dot.is-down {
+  background-color: #b91c1c;
+}
+
+.cx-pulse-dot.is-unknown {
+  background-color: #64748b;
+}
+
+.cx-health-banner .btn {
+  min-height: 44px;
 }

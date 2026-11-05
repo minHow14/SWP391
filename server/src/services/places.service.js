@@ -1,14 +1,18 @@
-// d:\Projects\FPT\SWP391\server\src\services\places.service.js
+// D:/SWP391/SWP391/server/src/services/places.service.js
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
 import { placeRepository } from '../repositories/place.repository.js';
+import { placePhotoUrl } from '../utils/placePhoto.js';
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
+const ZIOMAP_PHOTOS_URL = 'https://ziomap-api.socibi.com/api/place/photos';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
 const FIELD_MASK =
   'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.photos';
 const PROVIDER_TIMEOUT_MS = 8000;
+const PHOTO_RESOLUTION_BUDGET_MS = 3000;
+const PHOTO_CONCURRENCY = 2;
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export class PlacesProviderError extends Error {}
@@ -31,26 +35,6 @@ export const mapsUrl = ({ latitude, longitude, place_id }) =>
   (place_id ? `&query_place_id=${encodeURIComponent(place_id)}` : '');
 
 const GENERIC_QUERY_WORDS = new Set(['chay', 'quan', 'nha', 'hang', 'mon', 'an', 'vegan', 'vegetarian']);
-
-export const VEGETARIAN_COVER_PHOTOS = [
-  'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=800&q=80',
-];
-
-export const defaultPlacePhoto = (key = '') => {
-  const str = String(key ?? '');
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) | 0;
-  }
-  return VEGETARIAN_COVER_PHOTOS[Math.abs(hash) % VEGETARIAN_COVER_PHOTOS.length];
-};
 
 const distanceMeters = (from, to) =>
   from && to?.latitude != null && to?.longitude != null
@@ -86,9 +70,7 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
     diet_type_id: restaurant.diet_type_id ?? null,
     diet_type: restaurant.diet_type?.name ?? null,
     rating: restaurant.rating != null ? Number(restaurant.rating) : null,
-    image_url:
-      restaurant.image_url ||
-      defaultPlacePhoto(restaurant.name || restaurant.restaurant_id),
+    image_url: placePhotoUrl(restaurant.image_url),
     place_id: restaurant.place_id ?? null,
     distance_m: origin && location ? distanceMeters(origin, location) : null,
     user_distance_m: userOrigin && location ? distanceMeters(userOrigin, location) : null,
@@ -165,7 +147,9 @@ export async function searchLocal({ query, lat, lng }) {
 async function fetchZiomap(url, init) {
   let response;
   try {
-    response = await fetch(url, { ...init, signal: AbortSignal.timeout(PROVIDER_TIMEOUT_MS) });
+    const timeout = AbortSignal.timeout(PROVIDER_TIMEOUT_MS);
+    const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+    response = await fetch(url, { ...init, signal });
   } catch (error) {
     throw new PlacesProviderError(`Không gọi được ZIOMAP: ${error.name}`);
   }
@@ -180,6 +164,36 @@ async function fetchZiomap(url, init) {
 }
 
 const isCoordinate = (value, limit) => Number.isFinite(value) && Math.abs(value) <= limit;
+
+export async function resolvePlacePhoto({ placeId, photo, signal }) {
+  const direct = placePhotoUrl(photo?.photoUri);
+  if (direct) return direct;
+  const name = photo?.name;
+  if (signal?.aborted || !process.env.ZIOMAP_API_KEY || !name?.startsWith(`places/${placeId}/photos/`)) return null;
+  try {
+    const params = new URLSearchParams({ name, maxWidthPx: '800', skipHttpRedirect: 'true' });
+    const result = await fetchZiomap(`${ZIOMAP_PHOTOS_URL}?${params}`, {
+      headers: { 'x-api-key': process.env.ZIOMAP_API_KEY }, redirect: 'error', signal,
+    });
+    return placePhotoUrl(result.photoUri);
+  } catch {
+    return null;
+  }
+}
+
+async function resolveSearchPhotos(places) {
+  const signal = AbortSignal.timeout(PHOTO_RESOLUTION_BUDGET_MS);
+  const resolved = [];
+  // Photos share one budget so a slow photo provider cannot block valid search results.
+  for (let offset = 0; offset < places.length; offset += PHOTO_CONCURRENCY) {
+    const batch = places.slice(offset, offset + PHOTO_CONCURRENCY);
+    resolved.push(...await Promise.all(batch.map(async (place) => ({ ...place,
+      photoUrl: placePhotoUrl(place.photoUri || place.image_url)
+        || await resolvePlacePhoto({ placeId: place.id, photo: place.photos?.[0], signal }),
+    }))));
+  }
+  return resolved;
+}
 
 // Chỉ xin đúng số quán còn thiếu cho gọn dữ liệu. Key (Base64 JSON) gửi qua header, không qua URL.
 function requestZiomap({ query, lat, lng, radiusKm, limit }) {
@@ -229,7 +243,8 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
   const valid = raw.filter(
     (p) => p?.id && isCoordinate(p.location?.latitude, 90) && isCoordinate(p.location?.longitude, 180)
   );
-  const places = valid.map((p) => {
+  const resolved = await resolveSearchPhotos(valid);
+  const places = resolved.map((p) => {
     const location = { latitude: p.location.latitude, longitude: p.location.longitude };
     return {
       id: `ziomap_${p.id}`,
@@ -241,12 +256,7 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
       phone: null,
       diet_type_id: null,
       rating: p.rating ?? null,
-      image_url:
-        p.photos?.[0]?.photoUri ||
-        p.photos?.[0]?.name ||
-        p.photoUri ||
-        p.image_url ||
-        defaultPlacePhoto(p.displayName?.text || p.id),
+      image_url: p.photoUrl,
       place_id: p.id,
       distance_m: distanceMeters(origin, location),
       user_distance_m: userOrigin ? distanceMeters(userOrigin, location) : null,

@@ -1,4 +1,4 @@
-// client/src/features/restaurants/utils/nearbyHelpers.js
+// D:/SWP391/SWP391/client/src/features/restaurants/utils/nearbyHelpers.js
 
 export const CITY_HUBS = [
   {
@@ -55,45 +55,18 @@ export const DIET_OPTIONS = [
   { id: 4, label: 'Chay Trứng Sữa / Bếp Riêng' },
 ];
 
-export const SAMPLE_RESTAURANT_PHOTOS = [
-  'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=800&q=80',
-  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-];
-
-/**
- * Lấy ảnh mẫu quán chay chất lượng cao theo seed (tên hoặc ID quán)
- * @param {string|number} seed
- * @returns {string} URL ảnh mẫu
- */
-export function getSampleRestaurantPhoto(seed = '') {
-  const str = String(seed ?? '');
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash * 31 + str.charCodeAt(i)) | 0;
-  }
-  return SAMPLE_RESTAURANT_PHOTOS[Math.abs(hash) % SAMPLE_RESTAURANT_PHOTOS.length];
-}
-
-/**
- * Lấy ảnh của quán chay: nếu quán có ảnh thì lấy ảnh thật của quán, nếu không có ảnh thì lấy ảnh mẫu
- * @param {object} place
- * @returns {string} URL ảnh của quán hoặc ảnh mẫu
- */
 export function resolveRestaurantPhoto(place) {
-  if (!place) return SAMPLE_RESTAURANT_PHOTOS[0];
-  const direct = place.image || place.image_url;
-  if (typeof direct === 'string' && direct.trim().length > 0) {
-    return direct.trim();
+  const direct = place?.image || place?.image_url;
+  if (typeof direct !== 'string' || !direct.trim()) return null;
+  const value = direct.trim();
+  if (value.startsWith('/uploads/') && !value.includes('..')) return value;
+  try {
+    const url = new URL(value);
+    if (!['http:', 'https:'].includes(url.protocol) || url.hostname === 'images.unsplash.com') return null;
+    return url.href;
+  } catch {
+    return null;
   }
-  return getSampleRestaurantPhoto(place.name || place.id || place.restaurant_id);
 }
 
 /**

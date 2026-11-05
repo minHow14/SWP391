@@ -289,12 +289,12 @@ test('nearby hỗ trợ lọc theo chế độ ăn diet_type_id', async () => {
   assert.ok(res.body.data.places.every((p) => p.diet_type_id === 1));
 });
 
-test('nearby trả về image_url hợp lệ cho tất cả địa điểm quán chay', async () => {
+test('nearby giữ ảnh trống khi quán chưa có ảnh thực tế', async () => {
   const res = await request(app)
     .get('/api/places/nearby')
     .query({ ...DISTRICT_1, radius_km: 5, limit: 5 });
   assert.equal(res.status, 200);
   const places = res.body.data.places;
   assert.ok(places.length > 0);
-  assert.ok(places.every((p) => typeof p.image_url === 'string' && p.image_url.startsWith('http')));
+  assert.ok(places.every((p) => p.image_url === null));
 });

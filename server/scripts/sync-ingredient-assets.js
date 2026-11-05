@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\scripts\sync-ingredient-assets.js
+// D:/SWP391/SWP391/server/scripts/sync-ingredient-assets.js
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { ingredientCatalog } from './ingredient-catalog.js';
 
@@ -55,7 +55,7 @@ const plain = (value) =>
 const credits = [
   '# Ingredient image attribution',
   '',
-  'Unmodified Wikimedia Commons photos stored locally. The table below credits each creator and links to the original image and its license. Preserve these credits when redistributing. sweet-corn.svg is an original project illustration.',
+  'Unmodified Wikimedia Commons photos stored locally. The table below credits each creator and links to the original image and its license. Preserve these credits when redistributing.',
   '',
   '| Asset | Original image | Creator | License |',
   '| --- | --- | --- | --- |',

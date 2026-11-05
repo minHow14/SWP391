@@ -4,6 +4,7 @@ import apiClient from './apiClient.js';
 export const adminService = {
   // FE-10: Dashboard tổng quan
   getDashboardStats: () => apiClient.get('/admin/dashboard/stats'),
+  getSystemHealth: (signal) => apiClient.get('/admin/system-health', { signal }),
 
   // FE-01: Quản lý thành viên
   getUsers: (params = {}) => apiClient.get('/admin/users', { params }),

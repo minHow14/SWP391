@@ -8,8 +8,6 @@ import {
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
-  SAMPLE_RESTAURANT_PHOTOS,
-  getSampleRestaurantPhoto,
   resolveRestaurantPhoto,
 } from '../src/features/restaurants/utils/nearbyHelpers.js';
 import { placeService } from '../src/services/placeService.js';
@@ -132,23 +130,13 @@ test('getPosition rejects when geolocation is unsupported', async () => {
   );
 });
 
-test('SAMPLE_RESTAURANT_PHOTOS has high quality vegetarian photos and resolveRestaurantPhoto resolves real vs sample photos', () => {
-  assert.ok(Array.isArray(SAMPLE_RESTAURANT_PHOTOS));
-  assert.ok(SAMPLE_RESTAURANT_PHOTOS.length >= 8);
-  for (const url of SAMPLE_RESTAURANT_PHOTOS) {
-    assert.ok(url.startsWith('https://images.unsplash.com/'));
-  }
-
-  // Quán có ảnh thật -> lấy đúng ảnh thật
+test('resolveRestaurantPhoto preserves real photos and never substitutes unrelated stock photos', () => {
   const placeWithRealPhoto = { name: 'Quán Chay An Lạc', image_url: 'https://my-real-restaurant.com/photo.jpg' };
   assert.equal(resolveRestaurantPhoto(placeWithRealPhoto), 'https://my-real-restaurant.com/photo.jpg');
-
-  // Quán không có ảnh -> lấy ảnh mẫu từ danh sách mẫu
-  const placeWithoutPhoto = { name: 'Quán Chay Sen Vàng', image_url: null };
-  const fallback = resolveRestaurantPhoto(placeWithoutPhoto);
-  assert.ok(SAMPLE_RESTAURANT_PHOTOS.includes(fallback));
-
-  // Hai quán khác tên không có ảnh nhận ảnh mẫu xác định theo seed
-  const fallback2 = resolveRestaurantPhoto({ name: 'Quán Chay Bồ Đề', image: '' });
-  assert.ok(SAMPLE_RESTAURANT_PHOTOS.includes(fallback2));
+  assert.equal(resolveRestaurantPhoto({ image: '/uploads/restaurants/verified.jpg' }), '/uploads/restaurants/verified.jpg');
+  for (const image of [null, '', 'places/place/photos/photo', 'javascript:alert(1)',
+    'https://images.unsplash.com/photo-1540420773420-3366772f4999', '/demo-assets/image.jpg']) {
+    assert.equal(resolveRestaurantPhoto({ name: 'Quán kiểm thử', image }), null);
+  }
+  assert.equal(resolveRestaurantPhoto(null), null);
 });

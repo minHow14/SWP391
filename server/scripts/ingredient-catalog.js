@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\scripts\ingredient-catalog.js
+// D:/SWP391/SWP391/server/scripts/ingredient-catalog.js
 // Seed content and photo sources. The cache path is used only when importing photos into PostgreSQL.
 const rows = [
   ['Đậu hũ non', 'protein', 'Thực vật', 'silken-tofu', 'Japanese SilkyTofu (Kinugoshi Tofu).JPG', 'Đậu hũ mềm làm từ đậu nành, có vị thanh và kết cấu mịn.', 'Dùng trong canh, hấp hoặc sốt; cho vào cuối quá trình nấu để hạn chế vỡ.', 'tofu silken tofu đậu phụ'],
@@ -33,5 +33,5 @@ const rows = [
 
 export const ingredientCatalog = rows.map(([name, category, origin, slug, photoFile, description, cooking, aliases]) => ({
   name, category, origin, plant: origin !== 'Động vật', slug, photoFile, description, cooking, aliases,
-  image_url: `/ingredient-assets/${slug}.${slug === 'sweet-corn' ? 'svg' : photoFile.split('.').at(-1).toLowerCase()}`,
+  image_url: `/ingredient-assets/${slug}.${photoFile.split('.').at(-1).toLowerCase()}`,
 }));

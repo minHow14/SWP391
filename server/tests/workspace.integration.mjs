@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\tests/workspace.integration.mjs
+// D:/SWP391/SWP391/server/tests/workspace.integration.mjs
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -9,6 +9,7 @@ const db=new PrismaClient({log:[]});
 const suffix=randomUUID();
 const emails=[`integration-${suffix}@chayxanh.local`,`other-${suffix}@chayxanh.local`];
 const password='Integration@12345';
+const proposedRestaurantNames = [];
 try{
   const catalog=await request(app).get('/api/workspace/catalog');assert.equal(catalog.status,200);
   const expectedRecipes=await db.recipe.count({where:{OR:[{post_id:null},{post:{status:'PUBLISHED'}}]}});
@@ -75,20 +76,32 @@ try{
     try{assert.equal((await auth(request(app).post(`/api/workspace/restaurants/${place.id}/reviews`)).send({stars:4,text:`Integration review ${suffix}`})).status,200);const again=await request(app).get('/api/workspace/catalog');assert.ok(again.body.data.restaurants.find(p=>p.id===place.id).reviews.some(r=>r.text===`Integration review ${suffix}`));}finally{await db.$executeRaw`DELETE FROM restaurant_reviews WHERE content=${`Integration review ${suffix}`}`;await db.restaurant.update({where:{restaurant_id:place.id},data:priorRating});}
   }
   assert.equal((await auth(request(app).post('/api/workspace/diary')).send({date:'2026-02-31',group:'SNACK',name:'Invalid',serving:'1',calories:-1,protein:0,carbs:0,fat:0,fiber:0})).status,400);
-  const proposedRes = await auth(request(app).post('/api/workspace/restaurants')).send({
-    name: `Quán Chay Đề Xuất ${suffix}`,
-    address: '100 Nguyễn Huệ, Q.1, TP.HCM',
-    city: 'Hồ Chí Minh',
-    diet_type_id: dietId,
-    latitude: 10.7745,
-    longitude: 106.7020,
-    image_url: 'https://images.unsplash.com/photo-1540420773420-3366772f4999',
-  });
-  assert.equal(proposedRes.status, 200);
-  assert.equal(proposedRes.body.data.name, `Quán Chay Đề Xuất ${suffix}`);
-  assert.equal(proposedRes.body.data.image, 'https://images.unsplash.com/photo-1540420773420-3366772f4999');
-  const proposedId = proposedRes.body.data.restaurant_id || proposedRes.body.data.id;
-  await db.restaurantDetails.deleteMany({ where: { restaurant_id: proposedId } });
-  await db.restaurant.deleteMany({ where: { restaurant_id: proposedId } });
+  const photoCases = [
+    { label: 'missing', input: undefined, expected: null },
+    { label: 'stock', input: 'https://images.unsplash.com/photo-1540420773420-3366772f4999', expected: null },
+    { label: 'local', input: '/uploads/restaurants/integration-photo.jpg', expected: '/uploads/restaurants/integration-photo.jpg' },
+  ];
+  for (const photoCase of photoCases) {
+    const name = `Quán Chay Đề Xuất ${suffix} ${photoCase.label}`;
+    proposedRestaurantNames.push(name);
+    const proposedRes = await auth(request(app).post('/api/workspace/restaurants')).send({
+      name, address: '100 Nguyễn Huệ, Q.1, TP.HCM', city: 'Hồ Chí Minh',
+      diet_type_id: dietId, latitude: 10.7745, longitude: 106.7020, image_url: photoCase.input,
+    });
+    assert.equal(proposedRes.status, 200);
+    const proposedId = proposedRes.body.data.restaurant_id || proposedRes.body.data.id;
+    assert.ok(Number.isInteger(proposedId) && proposedId > 0);
+    assert.equal(proposedRes.body.data.name, name);
+    assert.equal(proposedRes.body.data.image, photoCase.expected);
+    const stored = await db.restaurant.findUnique({ where: { restaurant_id: proposedId }, select: { image_url: true } });
+    assert.equal(stored.image_url, photoCase.expected);
+  }
   console.log('PASS: database catalog, authentication, community CRUD/comments/votes, private journals, persisted nutrition, ownership, weekly plans, review persistence and input validation.');
-}finally{await db.user.deleteMany({where:{email:{in:emails}}});await db.$disconnect();}
+} finally {
+  try {
+    await db.$transaction([
+      db.restaurant.deleteMany({ where: { name: { in: proposedRestaurantNames } } }),
+      db.user.deleteMany({ where: { email: { in: emails } } }),
+    ]);
+  } finally { await db.$disconnect(); }
+}
