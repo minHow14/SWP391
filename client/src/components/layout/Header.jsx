@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/components/layout/Header.jsx
+// client/src/components/layout/Header.jsx
 import { useState } from 'react';
 import { Alert, Button, Container, Nav, Navbar, Spinner } from 'react-bootstrap';
 import { Link, NavLink } from 'react-router';
@@ -66,7 +66,7 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
               <div className="account-buttons">
                 {user ? <>
                   <NotificationBell />
-                  <Button as={Link} to={user.role === 1 ? '/admin' : '/ho-so'} variant={user.role === 1 ? 'success' : 'light'} className="cx-account-profile" onClick={closeMenu}>
+                  <Button as={Link} to={user.role === 1 ? '/admin' : '/ho-so'} variant={user.role === 1 ? 'success' : 'light'} className={`cx-account-profile ${user.role === 1 ? 'text-white' : ''}`} onClick={closeMenu}>
                     <i className={`bi ${user.role === 1 ? 'bi-shield-shaded' : 'bi-person-circle'}`} aria-hidden="true" />
                     <span className="text-truncate">{user.role === 1 ? 'Quản trị' : user.full_name}</span>
                   </Button>
