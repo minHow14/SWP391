@@ -7,7 +7,7 @@ import { getSession } from '../../../utils/session.js';
 
 export function useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId }) {
   async function ask(question, { retry = false } = {}) {
-    controller.current?.abort();
+    if (controller.current && !controller.current.signal.aborted) return;
     const current = new AbortController();
     controller.current = current;
     const owned = () => controller.current === current && (getSession()?.user?.user_id || null) === userId;
@@ -84,7 +84,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
         if (isQuotaError(failure)) getChatUsage(current.signal).then((result) => { if (active()) setUsage(result); }).catch(() => {});
       }
     } finally {
-      if (controller.current === current) setBusy(false);
+      if (controller.current === current) { controller.current = null; setBusy(false); }
     }
   }
 

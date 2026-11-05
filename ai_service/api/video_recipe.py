@@ -9,7 +9,6 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from core.security import verify_internal_api_key
-from core.video_recipe_config import video_recipe_settings
 from core.video_recipe_errors import VideoRecipeError
 from schemas.video_recipe import (
     VideoSummaryRequest,
@@ -46,7 +45,7 @@ def _done_event(transcript: VideoTranscript) -> dict:
         "done",
         {
             "success": True,
-            "message": "Đã nhận dạng toàn bộ video.",
+            "message": "Đã lấy phụ đề video.",
             "data": {"transcript": transcript.model_dump(mode="json", by_alias=True)},
         },
     )
@@ -70,7 +69,7 @@ async def _produce(body: VideoTranscriptionRequest, queue: asyncio.Queue) -> Non
                 "error",
                 VideoRecipeError(
                     "VIDEO_AI_UNAVAILABLE",
-                    "Không thể hoàn tất nhận dạng video.",
+                    "Không thể lấy phụ đề video.",
                     status=503,
                 ).envelope(),
             )
@@ -96,10 +95,6 @@ async def transcribe_recipe_video(
     body: VideoTranscriptionRequest,
 ) -> EventSourceResponse:
     """Expose real progress and sanitized completion/error events to the worker."""
-    if not video_recipe_settings.groq_api_key:
-        raise VideoRecipeError(
-            "VIDEO_AI_NOT_READY", "Chưa cấu hình khóa nhận dạng giọng nói.", status=503
-        )
     return EventSourceResponse(_transcription_events(body), ping=15)
 
 

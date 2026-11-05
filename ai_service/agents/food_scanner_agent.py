@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from core.config import settings
+from core.dietary import DIET_TYPE_BY_ID, dietary_guidance
 from core.llm import get_llm_json
 from schemas.food_scanner import FoodScanRequest, FoodScanResult
 
@@ -28,6 +29,8 @@ def _unavailable_error() -> HTTPException:
 
 def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessage]:
     context = request.model_dump(by_alias=True, exclude={"image_base64", "mime_type"})
+    dietary_type = DIET_TYPE_BY_ID.get(request.diet_type_id)
+    rules = dietary_guidance(dietary_type) if dietary_type else 'Chưa hỗ trợ chế độ này; không kết luận phù hợp.'
     user_prompt = (
         "Phân tích ảnh theo thông tin người dùng dưới đây. Tên món chỉ là gợi ý, "
         "không phải bằng chứng về nguyên liệu. Không suy diễn thịt gà/cá từ tên "
@@ -35,6 +38,8 @@ def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessag
         "trong ảnh; nếu ảnh không đủ rõ, vẫn đưa ra kết luận clear hoặc warning dựa trên những gì thấy được và nêu rõ giới hạn trong summary. "
         "Không bịa dinh dưỡng. Nếu chưa xác định đủ cả bốn giá trị, trả nutritionEstimate=null. "
         "Trả duy nhất một JSON object đúng schema, không dùng markdown.\n"
+        f"Quy tắc chế độ đã chọn: {rules}\n"
+        "Ảnh đơn lẻ không xác minh được tổng carb thuần cả ngày. Với Keto, trả warning và nêu rõ giới hạn; không khẳng định đã xác minh dưới 50 g/ngày.\n"
         f"Thông tin: {json.dumps(context, ensure_ascii=False)}\n"
         f"Schema: {json.dumps(FoodScanResult.model_json_schema(by_alias=True), ensure_ascii=False)}"
     )
@@ -65,11 +70,16 @@ def _apply_diet_rules(result: FoodScanResult, diet_type_id: int) -> FoodScanResu
         for item in result.findings
         if item.layer != ALLIUM_LAYER or diet_type_id == BUDDHIST_DIET_TYPE_ID
     ]
-    if len(findings) == len(result.findings):
-        return result
     has_violation = any(item.severity == "violation" for item in findings)
-    status = "warning" if has_violation else "clear"
-    return result.model_copy(update={"findings": findings, "status": status})
+    status = result.status
+    if len(findings) != len(result.findings):
+        status = 'warning' if has_violation else 'clear'
+    summary = result.summary
+    # A single image has neither complete fiber data nor the user's full daily intake.
+    if DIET_TYPE_BY_ID.get(diet_type_id) == 'keto':
+        status = 'warning'
+        summary = 'Keto: chưa thể xác minh carb thuần dưới 50 g/ngày từ một ảnh; cần khẩu phần, chất xơ và toàn bộ bữa ăn trong ngày. ' + summary
+    return result.model_copy(update={"findings": findings, "status": status, "summary": summary})
 
 
 class FoodScannerAgent:

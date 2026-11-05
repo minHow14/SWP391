@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\services\auth.service.js
+// D:/SWP391/SWP391/server/src/services/auth.service.js
 import { z } from 'zod';
 import prisma from '../config/prisma.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -13,11 +13,15 @@ import {
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
+import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
 const MAX_USER_ID = 2_147_483_647;
-const tokenClaimsSchema = z.object({ user_id: z.number().int().positive().max(MAX_USER_ID) });
+const tokenClaimsSchema = z.object({
+  user_id: z.number().int().positive().max(MAX_USER_ID),
+  tokenVersion: z.number().int().nonnegative().default(0),
+});
 
-function verifiedUserId(authorization) {
+function verifiedUserIdentity(authorization) {
   const match = typeof authorization === 'string' && /^Bearer\s+(\S+)$/i.exec(authorization);
   if (!match) throw ApiError.unauthorized('Token xác thực không hợp lệ');
   let decoded;
@@ -29,7 +33,7 @@ function verifiedUserId(authorization) {
   }
   const result = tokenClaimsSchema.safeParse(decoded);
   if (!result.success) throw ApiError.unauthorized('Token xác thực không hợp lệ');
-  return result.data.user_id;
+  return result.data;
 }
 
 export function normalizeGender(val) {
@@ -42,30 +46,12 @@ export function normalizeGender(val) {
   throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
 }
 
-async function syncHealthProfileWeightHistory(userId, profile, tx) {
-  if (profile.weight == null) return;
-  const numericWeight = Number(profile.weight);
-  if (numericWeight < 20 || numericWeight > 350) return;
-
-  const latestHistories = await userRepository.getHealthHistories(userId, tx);
-  const latest = latestHistories[0];
-  if (latest && Number(latest.weight) === numericWeight) return;
-
-  let calculatedBmi = null;
-  const currentHeight = profile.height != null
-    ? Number(profile.height)
-    : (await userRepository.findHealthProfile(userId, tx))?.height;
-
-  if (currentHeight && currentHeight > 0) {
-    const heightMeters = currentHeight / 100;
-    calculatedBmi = Number((numericWeight / (heightMeters * heightMeters)).toFixed(1));
-  }
-
-  await userRepository.addHealthHistory(
-    userId,
-    { weight: numericWeight, bmi: calculatedBmi, recorded_date: new Date() },
-    tx
-  );
+async function replaceUnchangedPassword(user, passwordHash) {
+  return prisma.$transaction(async (tx) => {
+    const updated = await userRepository.updatePassword(user.user_id, { expectedHash: user.password_hash, passwordHash }, tx);
+    if (updated.count !== 1) throw ApiError.conflict('Tài khoản hoặc mật khẩu vừa thay đổi. Vui lòng đăng nhập lại.');
+    return userRepository.findAuthIdentityById(user.user_id, tx);
+  });
 }
 
 export const authService = {
@@ -166,11 +152,13 @@ export const authService = {
       user_id: user.user_id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
     });
     const refreshToken = generateRefreshToken({
       user_id: user.user_id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
     });
 
     return {
@@ -201,18 +189,23 @@ export const authService = {
     } catch {
       throw ApiError.unauthorized('Phiên đăng nhập không hợp lệ hoặc đã hết hạn');
     }
-    const user = await userRepository.findAuthIdentityById(decoded.user_id);
+    const claims = tokenClaimsSchema.safeParse(decoded);
+    if (!claims.success) throw ApiError.unauthorized('Phiên đăng nhập không hợp lệ.');
+    const user = await userRepository.findAuthIdentityById(claims.data.user_id);
     if (!user || user.status !== USER_STATUS.ACTIVE || user.deleted_at) {
       throw ApiError.unauthorized('Tài khoản không hợp lệ hoặc đã bị khóa');
     }
+    if (claims.data.tokenVersion !== user.tokenVersion) throw ApiError.unauthorized('Phiên đăng nhập đã bị thu hồi.');
     const accessToken = generateToken({
       user_id: user.user_id,
       email: user.email,
       role: user.role,
+      tokenVersion: user.tokenVersion,
     });
     return {
       accessToken,
       token: accessToken,
+      userId: user.user_id,
     };
   },
 
@@ -278,13 +271,13 @@ export const authService = {
         if (profile.gender !== undefined) {
           profile.gender = normalizeGender(profile.gender);
         }
-        await userRepository.upsertHealthProfile(user_id, profile, tx);
+        const savedProfile = await userRepository.upsertHealthProfile(user_id, profile, tx);
 
         if (profile.health_goal !== undefined) {
           await userRepository.upsertProfilePreference(user_id, profile.health_goal, tx);
         }
 
-        await syncHealthProfileWeightHistory(user_id, profile, tx);
+        if (profile.weight !== undefined) await syncHealthProfileWeightHistory(user_id, savedProfile, tx);
       }
 
       if (allergy_ids !== undefined) {
@@ -300,8 +293,10 @@ export const authService = {
    */
   async authenticate(authorization) {
     if (!authorization) throw ApiError.unauthorized('Vui lòng đăng nhập để thực hiện chức năng này');
-    const user = await userRepository.findAuthIdentityById(verifiedUserId(authorization));
+    const claims = verifiedUserIdentity(authorization);
+    const user = await userRepository.findAuthIdentityById(claims.user_id);
     if (!user) throw ApiError.unauthorized('Tài khoản không tồn tại trên hệ thống');
+    if (claims.tokenVersion !== user.tokenVersion) throw ApiError.unauthorized('Phiên đăng nhập đã bị thu hồi.');
     if (user.status !== USER_STATUS.ACTIVE || user.deleted_at) {
       throw ApiError.forbidden('Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động');
     }
@@ -346,9 +341,9 @@ export const authService = {
     }
 
     const newHash = await hashPassword(newPass);
-    await userRepository.updatePassword(user_id, newHash);
-
-    return { message: 'Đổi mật khẩu thành công' };
+    const updated = await replaceUnchangedPassword(user, newHash);
+    const claims = { user_id, email: updated.email, role: updated.role, tokenVersion: updated.tokenVersion };
+    return { message: 'Đổi mật khẩu thành công', token: generateToken(claims), refreshToken: generateRefreshToken(claims) };
   },
 
   /**

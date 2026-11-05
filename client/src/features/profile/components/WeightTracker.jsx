@@ -1,24 +1,23 @@
-// client/src/features/profile/components/WeightTracker.jsx
+// D:/SWP391/SWP391/client/src/features/profile/components/WeightTracker.jsx
 import { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Alert, Spinner, Badge, Card, Row, Col } from 'react-bootstrap';
 import { authService } from '../../../services/authService.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 import { formatRecordedDateTime } from '../../../utils/formatters.js';
+import { bmiCategory } from '../../../utils/aiHelpers.js';
+
+const BMI_BADGE_VARIANTS = {
+  'Thiếu cân': 'info', 'Bình thường': 'success', 'Thừa cân': 'warning', 'Béo phì': 'danger',
+};
 
 function getBmiBadge(bmi) {
-  if (!bmi || bmi <= 0) {
+  const value = Number(bmi);
+  if (!Number.isFinite(value) || value <= 0) {
     return <Badge bg="secondary">Chưa đủ dữ liệu</Badge>;
   }
-  if (bmi < 18.5) {
-    return <Badge bg="info">Thiếu cân</Badge>;
-  }
-  if (bmi < 24.9) {
-    return <Badge bg="success">Bình thường</Badge>;
-  }
-  if (bmi < 29.9) {
-    return <Badge bg="warning" text="dark">Tiền béo phì</Badge>;
-  }
-  return <Badge bg="danger">Béo phì</Badge>;
+  const label = bmiCategory(value);
+  const variant = BMI_BADGE_VARIANTS[label];
+  return <Badge bg={variant} text={variant === 'warning' ? 'dark' : undefined}>{label}</Badge>;
 }
 
 export default function WeightTracker({ height, currentWeight, onWeightRecorded }) {

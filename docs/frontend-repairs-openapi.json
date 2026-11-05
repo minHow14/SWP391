@@ -1,0 +1,279 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Chay Xanh — Frontend integration contracts",
+    "version": "1.1.0",
+    "description": "Authentication, profile, restaurant classification, legal documents and account restoration. Auth, admin and workspace routes also have legacy /api aliases. Legal-document routes exist only under /api/v1. Responses may include extra legacy root fields; clients should use data/message/meta. Bind refresh to the original user before retrying, then apply completed profile changes only to the initiating login identity while retaining its current refreshed token."
+  },
+  "servers": [{ "url": "http://localhost:5000" }],
+  "paths": {
+    "/api/v1/auth/me": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "operationId": "getCurrentProfile", "summary": "Read the authenticated account, health profile and allergies",
+        "responses": { "200": { "$ref": "#/components/responses/Profile" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      },
+      "patch": {
+        "security": [{ "bearerAuth": [] }],
+        "operationId": "updateCurrentProfile", "summary": "Save profile fields and allergy selection",
+        "description": "Updates only provided fields. Explicit null clears a nullable health field; allergy_ids replaces the allergy list. Account, health and allergy updates are transactional. A successful 401-refresh-retry must update frontend account/form/session and emit USER_CHANGED. Compare login identity revision and user ID, not access-token equality; never apply a response from a logged-out or replaced login.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileUpdate" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/Profile" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/v1/auth/me/weight": {
+      "post": {
+        "operationId": "recordCurrentWeight", "summary": "Record a weight measurement and its UTC timestamp",
+        "security": [{ "bearerAuth": [] }],
+        "description": "The frontend emits recordedDate. Legacy recordedAt/recorded_date service arguments are normalized to that one wire field; recordedAt is not a backend field. Without a date, backend uses the current time. The backend still accepts recorded_date for compatibility. Existing limitations: timestamp validation only checks string type, and recording a historical measurement also updates current profile weight; those backend behaviors are not changed by this frontend repair.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["weight"], "properties": {
+          "weight": { "type": "number", "minimum": 20, "maximum": 350 },
+          "recordedDate": { "type": "string", "description": "Send an ISO 8601 UTC timestamp. Exact valid timestamps are retained; invalid strings are not yet rejected at the validator boundary." }
+        } } } } },
+        "responses": {
+          "201": { "description": "Persisted measurement in data.record; recorded_date is an ISO 8601 UTC timestamp.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["record"], "properties": { "record": { "$ref": "#/components/schemas/WeightRecord" } } }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/workspace/restaurants": {
+      "post": {
+        "operationId": "proposeRestaurant", "summary": "Save a restaurant or an ingredient shop",
+        "security": [{ "bearerAuth": [] }],
+        "description": "isIngredientShop=true requires diet_type_id=null. Ordinary restaurants require a valid diet ID; an omitted flag defaults to false for old callers. Both the classification flag and restaurant details persist in one transaction. Migration 20261104121231_add_ingredient_shop_classification adds is_ingredient_shop with default false; it does not guess which historical proposals were shops. Coordinates may be null for address-only entry. No change to proposal approval policy or nearby geographic filtering.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RestaurantProposal" } } } },
+        "responses": {
+          "200": { "description": "Saved record in data; existing endpoint uses HTTP 200.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/Restaurant" }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/workspace/catalog": {
+      "get": {
+        "operationId": "getWorkspaceCatalog", "summary": "Read the existing public combined catalog",
+        "description": "Current endpoint returns the unpaginated catalog, including restaurants. Persisted shops have isIngredientShop=true and derived type=shop; ordinary types retain the existing vegan/buddhist/separate mapping. Nearby/local search also includes the persisted flag. The frontend shop filter uses this derived type; it must not infer shop identity from diet ID.",
+        "responses": { "200": { "description": "Combined catalog in data, with other existing catalog fields alongside restaurants.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+          "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["restaurants"], "properties": { "restaurants": { "type": "array", "items": { "allOf": [
+            { "$ref": "#/components/schemas/Restaurant" }, { "type": "object", "required": ["type"], "properties": { "type": { "type": "string", "enum": ["vegan", "buddhist", "separate", "shop"] } } }
+          ] } } } }
+        } } } } } }
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "requestPasswordReset",
+        "summary": "Request a single-use password reset email",
+        "description": "Checks real SMTP configuration and connectivity before account lookup. Known, unknown, locked and deleted addresses receive the same accepted message. Delivery failure after SMTP verification revokes the newly issued link while retaining that generic response. This does not guarantee delivery or equal response timing. Raw token is emailed only in /dat-lai-mat-khau#token=<64 lowercase hex characters>; API responses never return it. Auth rate limiting applies.",
+        "requestBody": { "$ref": "#/components/requestBodies/ForgotPassword" },
+        "responses": {
+          "200": { "$ref": "#/components/responses/RecoveryAccepted" },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "429": { "$ref": "#/components/responses/RateLimited" },
+          "503": {
+            "description": "SMTP configuration or connectivity is unavailable for every address; errorCode PASSWORD_RESET_UNAVAILABLE.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "operationId": "resetPassword",
+        "summary": "Consume a password reset link once",
+        "description": "Browser reads the token from the URL fragment and sends it in this JSON body. Password is 8–128 characters and at most 72 UTF-8 bytes. The user must still be active, not deleted and on the token's original tokenVersion. Consumption, password hash replacement, tokenVersion increment and invalidation of all other links occur in one transaction. Old access and refresh tokens are rejected. The response clears the refresh cookie; sign in again with the new password.",
+        "requestBody": { "$ref": "#/components/requestBodies/ResetPassword" },
+        "responses": {
+          "200": {
+            "description": "Password reset. Cache-Control: no-store. Clears refreshToken at Path=/api with HttpOnly and SameSite=Strict; Secure in production.",
+            "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Set-Cookie": { "schema": { "type": "string" } } },
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } }
+          },
+          "400": {
+            "description": "Validation failure or PASSWORD_RESET_TOKEN_INVALID for unknown, expired, consumed, revoked or ineligible-account links. No password/token mutation on failure.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "refreshAccessToken",
+        "summary": "Refresh an access token and return its account identity",
+        "description": "Accepts a refreshToken cookie or a legacy JSON refreshToken field. In the current app, JSON body takes precedence over the raw Cookie header when both are present; a pre-parsed req.cookies value would take priority if supplied by middleware. Browser clients send only the HttpOnly cookie. No bearer token is required. Checks persisted account state and tokenVersion. Does not rotate the refresh cookie. Client must compare data.userId with the original session user before storing the token or retrying; a shared browser cookie can belong to another tab's account.",
+        "security": [{ "refreshCookie": [] }, {}],
+        "requestBody": { "required": false, "content": { "application/json": { "schema": { "type": "object", "properties": { "refreshToken": { "type": "string", "minLength": 1 } } } } } },
+        "responses": {
+          "200": {
+            "description": "Fresh access token for data.userId.",
+            "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+              "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["token", "accessToken", "userId"], "properties": {
+                "token": { "type": "string" }, "accessToken": { "type": "string" }, "userId": { "type": "integer", "minimum": 1 }
+              } }
+            } } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "429": { "$ref": "#/components/responses/RateLimited" }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "logout",
+        "summary": "Clear the browser refresh cookie",
+        "description": "No bearer token required. Clears refreshToken with the same Path=/api, HttpOnly, SameSite=Strict and production Secure attributes used at login. Does not revoke an already issued access token. Frontend clears local/tab session immediately and orders pending password-change/logout cookie responses before another login.",
+        "responses": { "200": { "description": "Cookie cleared.", "headers": { "Set-Cookie": { "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } } } }
+      }
+    },
+    "/api/v1/auth/change-password": {
+      "post": {
+        "operationId": "changePassword",
+        "summary": "Change the authenticated user's password and replace current credentials",
+        "security": [{ "bearerAuth": [] }],
+        "description": "Current-password verification and conditional write reject a concurrent password replacement, account lock or deletion. Successful writes increment tokenVersion, invalidate older access/refresh tokens and return a replacement access token while setting a replacement refresh cookie. The frontend retains the token only if the initiating login identity is still current. Historical snake_case/oldPassword aliases remain accepted; canonical client fields are documented here. The 72-byte recovery limit is specific to reset-password; this existing endpoint validates 8–128 characters.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["currentPassword", "newPassword"], "properties": {
+          "currentPassword": { "type": "string", "minLength": 1, "maxLength": 128 }, "newPassword": { "type": "string", "minLength": 8, "maxLength": 128 }
+        } } } } },
+        "responses": {
+          "200": { "description": "Replacement token in data.token and replacement refresh cookie. Legacy data.refreshToken is also returned; do not log it.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["token", "refreshToken"], "properties": { "token": { "type": "string" }, "refreshToken": { "type": "string" } } }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "description": "Password or account changed concurrently; sign in again.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/v1/legal-documents/{slug}": {
+      "parameters": [{ "$ref": "#/components/parameters/LegalSlug" }],
+      "get": {
+        "operationId": "getPublishedLegalDocument",
+        "summary": "Read published administrator-authored content",
+        "description": "Public; no seeded or placeholder legal text. Returns 404 for both absent and draft content. UI routes: /dieu-khoan and /chinh-sach-bao-mat. Content is Markdown; the frontend disables raw HTML and unsafe URLs.",
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      }
+    },
+    "/api/v1/admin/legal-documents/{slug}": {
+      "parameters": [{ "$ref": "#/components/parameters/LegalSlug" }],
+      "get": {
+        "operationId": "getAdminLegalDocument", "summary": "Read a draft or published document", "security": [{ "bearerAuth": [] }],
+        "description": "Requires active ADMIN role 1 from the database. A missing document returns 404; admin UI opens an empty authoring form.",
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" } }
+      },
+      "put": {
+        "operationId": "saveLegalDocument", "summary": "Save and optionally publish a legal document", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN. Upserts the two supported documents. First version is 1; every update increments version, including draft saves. published=true sets publishedAt to the current UTC time; false clears it and hides content from public GET.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LegalDocumentInput" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/LegalDocument" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" } }
+      }
+    },
+    "/api/v1/admin/users/{id}/status": {
+      "parameters": [{ "$ref": "#/components/parameters/AccountId" }],
+      "patch": {
+        "operationId": "updateAccountStatus", "summary": "Activate, lock or soft-delete an account", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN. DELETED performs the same soft-delete cascade as DELETE /admin/users/{id}, capturing original post/comment states. Repeated deletion preserves its timestamp. ACTIVE/LOCKED on an already DELETED account returns 409 ACCOUNT_RESTORE_REQUIRED; use explicit restore. Self/admin protection still applies.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["status"], "additionalProperties": false, "properties": { "status": { "type": "string", "enum": ["ACTIVE", "LOCKED", "DELETED"] } } } } } },
+        "responses": { "200": { "description": "Updated account in data.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AccountSuccess" } } } }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }, "409": { "description": "ACCOUNT_RESTORE_REQUIRED", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } } }
+      }
+    },
+    "/api/v1/admin/users/{id}/restore": {
+      "parameters": [{ "$ref": "#/components/parameters/AccountId" }],
+      "post": {
+        "operationId": "restoreAccount", "summary": "Restore an account and its recorded original content states", "security": [{ "bearerAuth": [] }],
+        "description": "Requires ADMIN and an account currently DELETED. Locks the account row and restores only account-deleted content at the same deletion timestamp with known statusBeforeAccountDeletion. Clears restored metadata. Content deleted separately or legacy content missing its original state stays DELETED. Missing account deletion timestamp also leaves content untouched and returns a warning. Never promotes hidden/draft/pending content to public by guessing.",
+        "responses": {
+          "200": { "description": "Account becomes ACTIVE; data.restoration reports counts and data.warning is present when original deletion metadata is missing.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RestoredAccountSuccess" } } } },
+          "400": { "description": "Invalid ID or account not DELETED.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }, "403": { "$ref": "#/components/responses/Forbidden" }, "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": { "type": "http", "scheme": "bearer", "bearerFormat": "JWT" },
+      "refreshCookie": { "type": "apiKey", "in": "cookie", "name": "refreshToken" }
+    },
+    "parameters": {
+      "LegalSlug": { "name": "slug", "in": "path", "required": true, "schema": { "type": "string", "enum": ["terms-of-service", "privacy-policy"] } },
+      "AccountId": { "name": "id", "in": "path", "required": true, "schema": { "type": "integer", "minimum": 1, "maximum": 2147483647 } }
+    },
+    "requestBodies": {
+      "ForgotPassword": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["email"], "additionalProperties": false, "properties": { "email": { "type": "string", "format": "email", "maxLength": 255, "description": "Trimmed and looked up case-insensitively via normalized lowercase email." } } } } } },
+      "ResetPassword": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["token", "newPassword"], "additionalProperties": false, "properties": {
+        "token": { "type": "string", "pattern": "^[a-f0-9]{64}$", "writeOnly": true },
+        "newPassword": { "type": "string", "minLength": 8, "maxLength": 128, "writeOnly": true, "description": "Also at most 72 UTF-8 bytes; backend rejects excess instead of bcrypt truncation." }
+      } } } } }
+    },
+    "responses": {
+      "Profile": { "description": "Authenticated user in data.user with current health profile and allergy relations; no password hash.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+        "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["user"], "properties": { "user": { "allOf": [
+          { "$ref": "#/components/schemas/Account" }, { "type": "object", "properties": { "health_profile": { "type": ["object", "null"] }, "allergies": { "type": "array", "items": { "type": "object" } } } }
+        ] } } }
+      } } } } },
+      "RecoveryAccepted": { "description": "Generic accepted message, data is empty. No account existence or delivery guarantee. Cache-Control: no-store.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } } },
+      "ValidationError": { "description": "Invalid input; errors contains field/message entries.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Unauthorized": { "description": "Missing, invalid, expired or revoked credentials.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "Forbidden": { "description": "Inactive account or insufficient role.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "NotFound": { "description": "Resource absent, or public legal document not published.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "RateLimited": { "description": "Authentication request limit exceeded.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
+      "LegalDocument": { "description": "Saved document in data, timestamps in ISO 8601 UTC.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/LegalDocument" } } } } } }
+    },
+    "schemas": {
+      "ProfileUpdate": { "type": "object", "minProperties": 1, "additionalProperties": false, "properties": {
+        "full_name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "health_profile": { "type": "object", "additionalProperties": false, "properties": {
+          "height": { "type": ["number", "null"], "minimum": 50, "maximum": 250 }, "weight": { "type": ["number", "null"], "minimum": 10, "maximum": 400 },
+          "dob": { "type": ["string", "null"], "format": "date", "description": "A real birth date not in the future." },
+          "gender": { "type": ["string", "null"], "minLength": 1, "maxLength": 20 }, "health_goal": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
+          "diet_type_id": { "type": ["integer", "null"], "minimum": 1 }
+        } },
+        "allergy_ids": { "type": "array", "maxItems": 200, "uniqueItems": true, "items": { "type": "integer", "minimum": 1 } }
+      } },
+      "WeightRecord": { "type": "object", "required": ["history_id", "user_id", "weight", "bmi", "recorded_date"], "properties": {
+        "history_id": { "type": "integer" }, "user_id": { "type": "integer" }, "weight": { "type": "number" }, "bmi": { "type": ["number", "null"] },
+        "recorded_date": { "type": "string", "format": "date-time" }
+      } },
+      "RestaurantProposal": { "type": "object", "additionalProperties": false, "required": ["name", "address", "city", "diet_type_id", "latitude", "longitude"], "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 }, "address": { "type": "string", "minLength": 1, "maxLength": 255 }, "city": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "isIngredientShop": { "type": "boolean", "default": false }, "diet_type_id": { "type": ["integer", "null"], "minimum": 1 },
+        "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 }, "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+        "image_url": { "type": ["string", "null"], "maxLength": 500 }
+      }, "oneOf": [
+        { "required": ["isIngredientShop"], "properties": { "isIngredientShop": { "const": true }, "diet_type_id": { "type": "null" } } },
+        { "properties": { "isIngredientShop": { "const": false }, "diet_type_id": { "type": "integer", "minimum": 1 } } }
+      ] },
+      "Restaurant": { "type": "object", "required": ["restaurant_id", "name", "address", "isIngredientShop", "diet_type_id"], "description": "Legacy restaurant fields retain snake_case. The new boolean is camelCase in Prisma/API and mapped to is_ingredient_shop only at the database boundary.", "properties": {
+        "restaurant_id": { "type": "integer", "minimum": 1 }, "name": { "type": "string" }, "address": { "type": "string" }, "isIngredientShop": { "type": "boolean" }, "diet_type_id": { "type": ["integer", "null"] }
+      } },
+      "Error": { "type": "object", "required": ["success", "message", "errorCode", "errors"], "properties": {
+        "success": { "const": false }, "message": { "type": "string" }, "errorCode": { "type": "string" },
+        "errors": { "type": "array", "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } } }
+      } },
+      "MessageSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object" } } },
+      "LegalDocumentInput": { "type": "object", "required": ["title", "content"], "additionalProperties": false, "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 }, "content": { "type": "string", "minLength": 1, "maxLength": 100000 }, "published": { "type": "boolean", "default": false }
+      } },
+      "LegalDocument": { "type": "object", "required": ["id", "slug", "title", "content", "version", "published", "publishedAt", "createdAt", "updatedAt"], "properties": {
+        "id": { "type": "string", "format": "uuid" }, "slug": { "type": "string", "enum": ["terms-of-service", "privacy-policy"] },
+        "title": { "type": "string" }, "content": { "type": "string" }, "version": { "type": "integer", "minimum": 1 }, "published": { "type": "boolean" },
+        "publishedAt": { "type": ["string", "null"], "format": "date-time" }, "createdAt": { "type": "string", "format": "date-time" }, "updatedAt": { "type": "string", "format": "date-time" }
+      } },
+      "AccountSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/Account" } } },
+      "Account": { "type": "object", "required": ["user_id", "email", "full_name", "role", "status", "deleted_at"], "description": "Existing account API retains these legacy snake_case fields; no global rename was made by the repairs.", "properties": {
+        "user_id": { "type": "integer" }, "email": { "type": "string", "format": "email" }, "full_name": { "type": "string" }, "role": { "type": "integer" },
+        "status": { "type": "string", "enum": ["ACTIVE", "LOCKED", "DELETED"] }, "deleted_at": { "type": ["string", "null"], "format": "date-time" }
+      } },
+      "RestoredAccountSuccess": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": {
+        "allOf": [{ "$ref": "#/components/schemas/Account" }, { "type": "object", "required": ["restoration"], "properties": { "warning": { "type": "string" }, "restoration": { "type": "object", "required": ["restoredPosts", "restoredComments", "skippedPosts", "skippedComments"], "properties": {
+          "restoredPosts": { "type": "integer", "minimum": 0 }, "restoredComments": { "type": "integer", "minimum": 0 }, "skippedPosts": { "type": "integer", "minimum": 0 }, "skippedComments": { "type": "integer", "minimum": 0 }
+        } } } }]
+      } } }
+    }
+  }
+}

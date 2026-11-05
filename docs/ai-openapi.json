@@ -461,7 +461,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Vietnamese cooking video <=660 seconds; one active job per member. Worker starts with API. No provider work in the HTTP request.",
+        "description": "One accessible Vietnamese cooking video <=660 seconds with native Vietnamese captions. Manual captions are preferred, then generated captions. No audio/STT or translation. Missing captions produce a FAILED job with VIDEO_CAPTIONS_UNAVAILABLE and message Video chưa có phụ đề phù hợp. One active job per member; worker starts with API; no provider work in the create request.",
         "requestBody": {
           "required": true,
           "content": {
@@ -910,7 +910,10 @@
               "vegan",
               "lacto",
               "ovo",
-              "lacto_ovo"
+              "lacto_ovo",
+              "buddhist",
+              "keto",
+              "eat_clean"
             ]
           },
           "menuContext": {
@@ -919,8 +922,7 @@
           }
         },
         "required": [
-          "message",
-          "history"
+          "message"
         ],
         "additionalProperties": false
       },
@@ -981,7 +983,10 @@
               "vegan",
               "lacto",
               "ovo",
-              "lacto_ovo"
+              "lacto_ovo",
+              "buddhist",
+              "keto",
+              "eat_clean"
             ]
           },
           "allergies": {
@@ -1012,7 +1017,8 @@
           "heightCm",
           "weightKg"
         ],
-        "additionalProperties": false
+        "additionalProperties": false,
+        "description": "Seven dietary identities are preserved. Keto output requires fiberG for every meal/snack, 0 <= fiberG <= carbsG, and daily net carbohydrates strictly below 50 g. Buddhist excludes animal products and alliums. Eat Clean follows existing minimal-processing requirements without an invented numeric macro limit."
       },
       "FoodScanRequest": {
         "type": "object",
@@ -1036,7 +1042,7 @@
           "dietTypeId": {
             "type": "integer",
             "minimum": 1,
-            "description": "ID chế độ ăn chay"
+            "description": "Positive catalog diet ID; current mappings 1 vegan, 2 lacto, 3 ovo, 4 lacto_ovo, 5 buddhist, 6 keto, 7 eat_clean. Does not remap an unsupported identity to another diet."
           },
           "scanType": {
             "type": "string",
@@ -1201,7 +1207,7 @@
               "restaurantChecklist",
               "swapSuggestions"
             ],
-            "description": "clear cannot contain violation findings. Unknown nutrition is null/omitted, never invented zeros."
+            "description": "clear cannot contain violation findings. Unknown nutrition is null/omitted, never invented zeros. Keto image results remain warning: one photo cannot verify daily net carbohydrates. Saved allergies must be passed by the client; they are not automatically injected by the gateway."
           },
           "meta": {
             "type": "object",
@@ -1257,11 +1263,13 @@
             "type": "string",
             "enum": [
               "VALIDATING_VIDEO",
+              "FETCHING_CAPTIONS",
               "FETCHING_AUDIO",
               "TRANSCRIBING",
               "SUMMARIZING",
               "SAVING_RESULT"
-            ]
+            ],
+            "description": "New jobs use FETCHING_CAPTIONS; audio stages are retained only for existing history."
           },
           "summaryId": {
             "type": [
@@ -1274,7 +1282,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Caption source failures include VIDEO_CAPTIONS_UNAVAILABLE, VIDEO_CAPTIONS_BLOCKED and VIDEO_CAPTIONS_TIMEOUT. Missing captions are terminal; use the owned /retries endpoint to retry a failed source."
           },
           "errorMessage": {
             "type": [

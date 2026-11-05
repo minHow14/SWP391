@@ -6,6 +6,7 @@ from typing import Any
 from cachetools import TTLCache
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
+from core.dietary import dietary_guidance
 from core.llm import get_llm_text
 
 PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "chatbot.md"
@@ -48,6 +49,7 @@ class ChatbotAgent:
                 f"(Ví dụ: nếu là thuần chay / vegan thì không dùng trứng, sữa động vật, phô mai, mật ong; "
                 f"nếu là lacto thì được dùng sữa nhưng không dùng trứng; "
                 f"nếu là ovo thì được dùng trứng nhưng không dùng sữa)."
+                f"\nQuy tắc của chế độ đã chọn: {dietary_guidance(diet_clean)}"
             )
         if menu_context and menu_context.strip():
             prompt += (

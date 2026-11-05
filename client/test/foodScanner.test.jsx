@@ -39,6 +39,22 @@ it('follows global diet changes until the member explicitly overrides the scanne
   expect(screen.getByLabelText('Chế độ ăn chay áp dụng').value).toBe('1');
 });
 
+it('resolves saved nested member allergy names before sending the scan', async () => {
+  context.user = { user_id: 7, allergies: [{ ingredient_id: 91, ingredient: { name: 'Đậu phộng' } }] };
+  render(draw());
+  await scan();
+  expect(analyzeFoodImage.mock.calls[0][0].allergies).toEqual(['Đậu phộng']);
+});
+
+it('blocks analysis when a saved allergy cannot be resolved instead of omitting it', async () => {
+  context.user = { user_id: 7, allergies: [{ ingredient_id: 999 }] };
+  render(draw());
+  fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [new File(['x'], 'meal.png', { type: 'image/png' })] } });
+  await screen.findByText(/Không thể xác định đầy đủ dị ứng/);
+  expect(analyzeFoodImage).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }).disabled).toBe(true);
+});
+
 async function scan() {
   const fileInput = document.querySelector('input[type="file"]');
   fireEvent.change(fileInput, { target: { files: [new File(['real-image'], 'meal.png', { type: 'image/png' })] } });
@@ -102,6 +118,18 @@ it('requires missing nutrition to be entered rather than silently inventing zero
   fireEvent.click(screen.getByRole('button', { name: 'Xác nhận lưu' }));
   await screen.findAllByText('Vui lòng nhập số hợp lệ.');
   expect(workspaceService.addDiaryEntry).not.toHaveBeenCalled();
+});
+
+it('closes the old diary draft when the diet changes and requires a new save action', async () => {
+  render(draw()); await scan();
+  fireEvent.click(screen.getByRole('button', { name: /Lưu vào Nhật ký ăn uống/ }));
+  await screen.findByRole('dialog');
+  fireEvent.change(screen.getByLabelText('Chế độ ăn chay áp dụng'), { target: { value: '4' } });
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  analyzeFoodImage.mockResolvedValueOnce({ success: true, data: { ...result, dishName: 'Canh mới' } });
+  fireEvent.click(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }));
+  await screen.findByText('Canh mới');
+  expect(screen.queryByRole('dialog')).toBeNull();
 });
 
 it('clears private scan results on account change and ignores late analysis responses', async () => {

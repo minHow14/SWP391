@@ -1,36 +1,24 @@
-// client/src/features/admin/components/AdminMembersTab.jsx
+// D:/SWP391/SWP391/client/src/features/admin/components/AdminMembersTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import AdminMemberContentModal from './AdminMemberContentModal.jsx';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
+import AdminPagination from './AdminPagination.jsx';
+import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
 export default function AdminMembersTab() {
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [selectedUserContent, setSelectedUserContent] = useState(null);
   const [contentLoading, setContentLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState('');
+  const [actionWarning, setActionWarning] = useState('');
+  const [pendingUserId, setPendingUserId] = useState(null);
 
-  const fetchUsers = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await adminService.getUsers({ search, status: statusFilter, limit: 50 });
-      setUsers(res.data);
-    } catch (err) {
-      setError(err.message || 'Không thể tải danh sách thành viên');
-    } finally {
-      setLoading(false);
-    }
-  }, [search, statusFilter]);
-
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  const fetchPage = useCallback((pagination) => adminService.getUsers({ search, status: statusFilter, ...pagination }), [search, statusFilter]);
+  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([search, statusFilter]), limit: 50, errorMessage: 'Không thể tải danh sách thành viên' });
+  const { data: users, loading, error, setError, refresh: fetchUsers } = pagination;
 
   // Tự động cập nhật danh sách khi có sự kiện thay đổi người dùng
   useEffect(() => {
@@ -45,30 +33,43 @@ export default function AdminMembersTab() {
     fetchUsers();
   };
 
-  const handleToggleStatus = async (user) => {
-    const nextStatus = user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
+  const runAccountAction = async ({ operation, userId, message, syncContent = false }) => {
+    setPendingUserId(userId);
+    setActionMessage('');
+    setActionWarning('');
     try {
-      await adminService.updateUserStatus(user.user_id, nextStatus);
-      setActionMessage(`Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${user.full_name}`);
-      emitSyncEvent('USER_CHANGED', { userId: user.user_id, status: nextStatus });
-      fetchUsers();
+      const result = await operation();
+      setActionMessage(message);
+      setActionWarning(result?.data?.warning || '');
+      emitSyncEvent('USER_CHANGED', { userId });
+      if (syncContent) {
+        emitSyncEvent('POST_CHANGED');
+        emitSyncEvent('COMMENT_CHANGED');
+      }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Không thể cập nhật tài khoản');
+    } finally {
+      setPendingUserId(null);
     }
+  };
+
+  const handleToggleStatus = (user) => {
+    if (!['ACTIVE', 'LOCKED'].includes(user.status)) return;
+    const nextStatus = user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
+    return runAccountAction({ userId: user.user_id, operation: () => adminService.updateUserStatus(user.user_id, nextStatus),
+      message: `Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${user.full_name}` });
   };
 
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Bạn có chắc chắn muốn chuyển tài khoản này sang trạng thái Đã xóa?')) return;
-    try {
-      await adminService.deleteUser(userId);
-      setActionMessage('Đã chuyển tài khoản sang trạng thái Đã xóa');
-      emitSyncEvent('USER_CHANGED', { userId });
-      emitSyncEvent('POST_CHANGED');
-      emitSyncEvent('COMMENT_CHANGED');
-      fetchUsers();
-    } catch (err) {
-      setError(err.message);
-    }
+    await runAccountAction({ userId, operation: () => adminService.deleteUser(userId),
+      message: 'Đã chuyển tài khoản sang trạng thái Đã xóa', syncContent: true });
+  };
+
+  const handleRestoreUser = async (user) => {
+    if (!window.confirm('Khôi phục tài khoản và nội dung về đúng trạng thái trước khi xóa? Nội dung thiếu trạng thái gốc vẫn được giữ ở trạng thái Đã xóa.')) return;
+    await runAccountAction({ userId: user.user_id, operation: () => adminService.restoreUser(user.user_id),
+      message: `Đã khôi phục tài khoản của ${user.full_name}`, syncContent: true });
   };
 
   const handleViewContent = async (userId) => {
@@ -88,7 +89,7 @@ export default function AdminMembersTab() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
           <h4 className="fw-bold mb-1 text-dark">Quản Lý Thành Viên Cộng Đồng</h4>
-          <p className="text-muted small mb-0">Theo dõi thông tin, xem nội dung đăng tải, khóa/mở khóa hoặc xóa tài khoản thành viên</p>
+          <p className="text-muted small mb-0">Theo dõi thông tin, xem nội dung đăng tải, khóa/mở khóa, xóa hoặc khôi phục tài khoản thành viên</p>
         </div>
       </div>
 
@@ -97,6 +98,7 @@ export default function AdminMembersTab() {
           <i className="bi bi-check-circle-fill me-2" />{actionMessage}
         </Alert>
       )}
+      {actionWarning && <Alert variant="warning" dismissible onClose={() => setActionWarning('')}>{actionWarning}</Alert>}
 
       {/* Bộ lọc và Tìm kiếm */}
       <div className="admin-card mb-3 p-3">
@@ -106,13 +108,13 @@ export default function AdminMembersTab() {
               <Form.Control
                 size="sm"
                 className="rounded-3"
-                placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
+                aria-label="Tìm kiếm theo họ tên hoặc địa chỉ email..." placeholder="Tìm kiếm theo họ tên hoặc địa chỉ email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </Col>
             <Col xs={6} md={3}>
-              <Form.Select size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+              <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
                 <option value="">Tất cả trạng thái</option>
                 <option value="ACTIVE">Đang hoạt động</option>
                 <option value="LOCKED">Bị tạm khóa</option>
@@ -161,7 +163,7 @@ export default function AdminMembersTab() {
             <tbody>
               {users.map((u, index) => (
                 <tr key={u.user_id}>
-                  <td className="stt-col">{index + 1}</td>
+                  <td className="stt-col">{(pagination.page - 1) * pagination.limit + index + 1}</td>
                   <td>
                     <div className="fw-semibold text-dark">{u.full_name}</div>
                     <div className="text-muted small">{u.email}</div>
@@ -190,17 +192,19 @@ export default function AdminMembersTab() {
                       variant={u.status === 'ACTIVE' ? 'outline-warning' : 'outline-success'}
                       size="sm"
                       className="me-1 rounded-3"
-                      onClick={() => handleToggleStatus(u)}
-                      title={u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                      onClick={() => u.status === 'DELETED' ? handleRestoreUser(u) : handleToggleStatus(u)}
+                      disabled={pendingUserId !== null}
+                      title={u.status === 'DELETED' ? 'Khôi phục tài khoản' : u.status === 'ACTIVE' ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                     >
-                      <i className={`bi bi-${u.status === 'ACTIVE' ? 'lock' : 'unlock'}`} />
+                      {pendingUserId === u.user_id ? <Spinner size="sm" animation="border" aria-label="Đang cập nhật tài khoản" /> :
+                        <i className={`bi bi-${u.status === 'DELETED' ? 'arrow-counterclockwise' : u.status === 'ACTIVE' ? 'lock' : 'unlock'}`} />}
                     </Button>
                     <Button
                       variant="outline-danger"
                       size="sm"
                       className="rounded-3"
                       onClick={() => handleDeleteUser(u.user_id)}
-                      disabled={u.status === 'DELETED'}
+                      disabled={u.status === 'DELETED' || pendingUserId !== null}
                       title="Xóa tài khoản"
                     >
                       <i className="bi bi-trash" />
@@ -215,6 +219,7 @@ export default function AdminMembersTab() {
 
       {/* Modal xem nội dung của User */}
       <AdminMemberContentModal content={selectedUserContent} loading={contentLoading} onHide={() => setSelectedUserContent(null)} />
+      <AdminPagination {...pagination} />
     </div>
   );
 }

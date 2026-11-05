@@ -1,5 +1,5 @@
-// client/src/components/layout/NotificationBell.jsx
-import { useState, useEffect, useCallback } from 'react';
+// D:/SWP391/SWP391/client/src/components/layout/NotificationBell.jsx
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dropdown, Badge, Button, Spinner, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { notificationService } from '../../services/notificationService.js';
@@ -24,6 +24,7 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [markingAll, setMarkingAll] = useState(false);
+  const pendingReads = useRef(new Set());
   const navigate = useNavigate();
 
   const loadNotifications = useCallback(async () => {
@@ -80,7 +81,9 @@ export default function NotificationBell() {
   };
 
   const handleItemClick = async (item) => {
+    if (pendingReads.current.has(item.notification_id)) return;
     if (!item.is_read) {
+      pendingReads.current.add(item.notification_id);
       try {
         await notificationService.markAsRead(item.notification_id);
         setNotifications((prev) =>
@@ -93,6 +96,8 @@ export default function NotificationBell() {
         setUnreadCount((prev) => Math.max(0, prev - 1));
       } catch {
         // Tiếp tục điều hướng nếu có link
+      } finally {
+        pendingReads.current.delete(item.notification_id);
       }
     }
     if (item.link) {

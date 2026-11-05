@@ -3,14 +3,31 @@ import { ingredientService } from './ingredient.service.js';
 import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { workspaceRepository } from '../repositories/workspace.repository.js';
+import { placeRepository } from '../repositories/place.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { weekRangeOf } from '../utils/weekRange.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
+import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
 export const ingredientImageUrl = (ingredientId) =>
     `/api/workspace/ingredients/${ingredientId}/image`;
 
 const PER_100_GRAMS = 100;
+
+function restaurantProposalData(data) {
+  return {
+    name: data.name,
+    address: data.address,
+    image_url: placePhotoUrl(data.image_url),
+    diet_type_id: data.diet_type_id,
+    isIngredientShop: data.isIngredientShop ?? false,
+    latitude: data.latitude,
+    longitude: data.longitude,
+    source: 'proposal',
+    status: 'APPROVED',
+    rating: null,
+  };
+}
 
 /** Chuyển một món trong kế hoạch tuần (công thức hoặc món AI gợi ý) thành dữ liệu nhật ký ăn uống. */
 function diaryFromPlanDetail(detail) {
@@ -134,43 +151,43 @@ export const workspaceService = {
                 })),
             }));
 
-        const mappedRestaurants = restaurants.map((p) => {
-            const d = placeDetails.find((item) => item.restaurant_id === p.restaurant_id);
-            return {
-                ...p,
-                id: p.restaurant_id,
-                latitude: p.latitude === null ? null : Number(p.latitude),
-                longitude: p.longitude === null ? null : Number(p.longitude),
-                type: p.diet_type_id === 5 ? 'buddhist' : p.diet_type_id === 1 ? 'vegan' : 'separate',
-                city: d?.city || 'Chưa cập nhật',
-                hours: d?.hours || 'Chưa cập nhật',
-                price_range: d?.price_range || 'Chưa cập nhật',
-                price: d?.price_range || '',
-                separate: d?.separate_kitchen ?? null,
-                image: placePhotoUrl(p.image_url),
-                image_url: placePhotoUrl(p.image_url),
-                dishes: p.restaurant_recipes.map((link) => link.recipe.recipe_name).join(', '),
-                menu: p.restaurant_recipes.map((link) => ({
-                    name: link.recipe.recipe_name,
-                    recipe_id: link.recipe_id,
-                    price:
-                        prices.find(
-                            (price) =>
-                                price.restaurant_id === p.restaurant_id && price.recipe_id === link.recipe_id
-                        )?.price ?? null,
-                })),
-                reviews: reviews
-                    .filter((r) => r.restaurant_id === p.restaurant_id)
-                    .map((r) => ({
-                        id: r.review_id,
-                        name: r.full_name,
-                        stars: r.stars,
-                        text: r.content,
-                        date: r.created_at,
-                    })),
-                rating: p.rating,
-            };
-        });
+    const mappedRestaurants = restaurants.map((p) => {
+      const d = placeDetails.find((item) => item.restaurant_id === p.restaurant_id);
+      return {
+        ...p,
+        id: p.restaurant_id,
+        latitude: p.latitude === null ? null : Number(p.latitude),
+        longitude: p.longitude === null ? null : Number(p.longitude),
+        type: p.isIngredientShop ? 'shop' : p.diet_type_id === 5 ? 'buddhist' : p.diet_type_id === 1 ? 'vegan' : 'separate',
+        city: d?.city || 'Chưa cập nhật',
+        hours: d?.hours || 'Chưa cập nhật',
+        price_range: d?.price_range || 'Chưa cập nhật',
+        price: d?.price_range || '',
+        separate: d?.separate_kitchen ?? null,
+        image: placePhotoUrl(p.image_url),
+        image_url: placePhotoUrl(p.image_url),
+        dishes: p.restaurant_recipes.map((link) => link.recipe.recipe_name).join(', '),
+        menu: p.restaurant_recipes.map((link) => ({
+          name: link.recipe.recipe_name,
+          recipe_id: link.recipe_id,
+          price:
+            prices.find(
+              (price) =>
+                price.restaurant_id === p.restaurant_id && price.recipe_id === link.recipe_id
+            )?.price ?? null,
+        })),
+        reviews: reviews
+          .filter((r) => r.restaurant_id === p.restaurant_id)
+          .map((r) => ({
+            id: r.review_id,
+            name: r.full_name,
+            stars: r.stars,
+            text: r.content,
+            date: r.created_at,
+          })),
+        rating: p.rating,
+      };
+    });
 
         const liquidIngredientDensities = await ingredientService.getLiquidIngredientDensities();
 
@@ -367,14 +384,15 @@ export const workspaceService = {
         };
     },
 
-    /**
-     * Cập nhật thông tin chiều cao, cân nặng, mục tiêu calo
-     */
-    async updateProfile(userId, { height, weight, calorieGoal, goal }) {
-        await prisma.$transaction(async (tx) => {
-            await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
-            await workspaceRepository.upsertProfilePreferences(userId, calorieGoal, goal, tx);
-        });
+  /**
+   * Cập nhật thông tin chiều cao, cân nặng, mục tiêu calo
+   */
+  async updateProfile(userId, { height, weight, calorieGoal, goal }) {
+    await prisma.$transaction(async (tx) => {
+      const savedProfile = await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
+      await workspaceRepository.upsertProfilePreferences(userId, calorieGoal, goal, tx);
+      await syncHealthProfileWeightHistory(userId, savedProfile, tx);
+    });
 
         return { saved: true };
     },
@@ -512,29 +530,17 @@ export const workspaceService = {
         });
     },
 
-    /**
-     * Đề xuất một địa điểm quán ăn chay mới
-     */
-    async suggestRestaurant(data) {
-        return prisma.$transaction(async (tx) => {
-            const dietExists = await workspaceRepository.findDietTypeById(data.diet_type_id, tx);
-            if (!dietExists) {
-                throw ApiError.badRequest('Chế độ ăn không hợp lệ');
-            }
+  /**
+   * Đề xuất một địa điểm quán ăn chay mới
+   */
+  async suggestRestaurant(data) {
+    return prisma.$transaction(async (tx) => {
+      if (!data.isIngredientShop) {
+        const dietExists = await workspaceRepository.findDietTypeById(data.diet_type_id, tx);
+        if (!dietExists) throw ApiError.badRequest('Chế độ ăn không hợp lệ');
+      }
 
-            const place = await tx.restaurant.create({
-                data: {
-                    name: data.name,
-                    address: data.address,
-                    image_url: placePhotoUrl(data.image_url),
-                    diet_type_id: data.diet_type_id,
-                    latitude: data.latitude,
-                    longitude: data.longitude,
-                    source: 'proposal',
-                    status: 'APPROVED',
-                    rating: null,
-                },
-            });
+      const place = await placeRepository.create(restaurantProposalData(data), tx);
 
             await workspaceRepository.insertRestaurantDetails(place.restaurant_id, data.city, tx);
             return {

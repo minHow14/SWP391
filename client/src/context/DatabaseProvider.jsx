@@ -1,8 +1,8 @@
-// client/src/context/DatabaseProvider.jsx
+// D:/SWP391/SWP391/client/src/context/DatabaseProvider.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { workspaceService } from '../services/workspaceService.js';
 import { authService } from '../services/authService.js';
-import { getSession, setSession } from '../utils/session.js';
+import { getSession, getSessionSnapshot, setSession } from '../utils/session.js';
 import { DatabaseContext } from './databaseContext.js';
 import { subscribeSyncEvent } from '../utils/syncEvents.js';
 
@@ -41,10 +41,14 @@ export function DatabaseProvider({ children }) {
   const refreshUser = useCallback(async () => {
     const session = getSession();
     if (!session?.token) return;
+    const snapshot = getSessionSnapshot();
     try {
       const result = await authService.getMe();
       const fetchedUser = result?.user || result?.data?.user;
-      if (fetchedUser && getSession()?.token === session.token) setSession({ ...session, user: fetchedUser });
+      const current = getSession();
+      if (fetchedUser?.user_id === current?.user?.user_id && getSessionSnapshot().identityRevision === snapshot.identityRevision) {
+        setSession({ ...current, user: fetchedUser });
+      }
     } catch {
       // Giữ nguyên hồ sơ hiện có nếu không tải lại được.
     }

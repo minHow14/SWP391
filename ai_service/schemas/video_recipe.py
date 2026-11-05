@@ -23,7 +23,7 @@ class VideoTranscriptionRequest(CamelModel):
     video_id: VideoId
     video_url: str = Field(max_length=255)
     max_duration_seconds: Literal[660] = 660
-    model: Literal["whisper-large-v3"] = "whisper-large-v3"
+    duration_seconds: Seconds = Field(gt=0)
     language: Literal["vi"] = "vi"
 
     @model_validator(mode="after")

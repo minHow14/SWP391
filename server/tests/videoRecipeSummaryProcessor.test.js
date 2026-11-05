@@ -23,6 +23,9 @@ describe('video recipe job processor', () => {
     });
     expect(await processVideoRecipeSummaryJob(JOB, deps)).toMatchObject({ status: 'COMPLETED', summaryId: 'summary-fixture' });
     expect(deps.inspect.mock.invocationCallOrder[0]).toBeLessThan(deps.ai.transcribe.mock.invocationCallOrder[0]);
+    expect(deps.ai.transcribe).toHaveBeenCalledWith({ job: JOB, metadata: METADATA, onStage: expect.any(Function), signal: deps.signal });
+    expect(deps.repository.updateLeased).toHaveBeenCalledWith({ id: JOB.id, leaseToken: JOB.leaseToken,
+      data: { metadata: METADATA, stage: 'FETCHING_CAPTIONS' } });
     expect(deps.repository.complete).toHaveBeenCalledWith({ job: JOB, recipe: RECIPE });
     expect(deps.repository.fail).not.toHaveBeenCalled();
   });
@@ -33,7 +36,7 @@ describe('video recipe job processor', () => {
     expect(deps.ai.transcribe).not.toHaveBeenCalled();
     expect(deps.ai.summarize).not.toHaveBeenCalled();
   });
-  it('resumes from a complete transcript without calling Groq again', async () => {
+  it('resumes from a complete transcript without fetching captions again', async () => {
     const deps = dependencies();
     expect(await processVideoRecipeSummaryJob({ ...JOB, transcript: TRANSCRIPT, metadata: METADATA }, deps)).toHaveProperty('status', 'COMPLETED');
     expect(deps.inspect).not.toHaveBeenCalled();
@@ -49,7 +52,7 @@ describe('video recipe job processor', () => {
       expect(deps.repository.complete).not.toHaveBeenCalled();
     }
   });
-  it('rejects truncated audio before saving a complete transcript checkpoint', async () => {
+  it('rejects a transcript reporting the last caption time instead of the full video duration', async () => {
     const deps = dependencies();
     deps.inspect.mockResolvedValue({ ...METADATA, durationSeconds: 600 });
     deps.ai.transcribe.mockResolvedValue({ ...TRANSCRIPT, durationSeconds: 5, segments: [{ startSeconds: 0, endSeconds: 5, text: 'Một đoạn bị cắt.' }] });
@@ -71,11 +74,20 @@ describe('video recipe job processor', () => {
     deps.ai.transcribe.mockResolvedValue({ ...TRANSCRIPT, durationSeconds: 58, segments: [{ ...TRANSCRIPT.segments[0], endSeconds: 30 }] });
     expect(await processVideoRecipeSummaryJob(JOB, deps)).toHaveProperty('status', 'COMPLETED');
   });
-  it('persists actual transcription stage updates with the lease token', async () => {
+  it('persists actual caption stage updates with the lease token', async () => {
     const deps = dependencies();
-    deps.ai.transcribe.mockImplementation(async ({ onStage }) => { await onStage('TRANSCRIBING'); return TRANSCRIPT; });
+    deps.ai.transcribe.mockImplementation(async ({ onStage }) => { await onStage('FETCHING_CAPTIONS'); return TRANSCRIPT; });
     await processVideoRecipeSummaryJob(JOB, deps);
-    expect(deps.repository.updateLeased).toHaveBeenCalledWith({ id: JOB.id, leaseToken: JOB.leaseToken, data: { stage: 'TRANSCRIBING' } });
+    expect(deps.repository.updateLeased).toHaveBeenCalledWith({ id: JOB.id, leaseToken: JOB.leaseToken, data: { stage: 'FETCHING_CAPTIONS' } });
+  });
+  it('fails without summarizing or saving a recipe when Vietnamese captions are missing', async () => {
+    const deps = dependencies();
+    const error = Object.assign(new Error('Video chưa có phụ đề phù hợp'), { errorCode: 'VIDEO_CAPTIONS_UNAVAILABLE', retryable: false });
+    deps.ai.transcribe.mockRejectedValue(error);
+    expect(await processVideoRecipeSummaryJob(JOB, deps)).toMatchObject({ status: 'FAILED', errorCode: 'VIDEO_CAPTIONS_UNAVAILABLE' });
+    expect(deps.repository.fail).toHaveBeenCalledWith({ job: JOB, error, config: deps.config });
+    expect(deps.ai.summarize).not.toHaveBeenCalled();
+    expect(deps.repository.complete).not.toHaveBeenCalled();
   });
   it('rejects recipes referring to absent source segments', async () => {
     const deps = dependencies();

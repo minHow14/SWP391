@@ -5,6 +5,7 @@ import { useDatabase } from '../hooks/useDatabase.js';
 import { filterRecipes } from '../utils/recipeFilters.js';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import RecipeImage from '../components/common/RecipeImage.jsx';
+import RecipeInstructions from '../components/common/RecipeInstructions.jsx';
 
 /**
  * Calculate calories for a recipe ingredient based on unit and quantity
@@ -248,6 +249,7 @@ export default function Recipes() {
                     </div>
                 )}
             </div>
+
             {selectedRecipe && (
                 <ContentDialog
                     title={selectedRecipe.recipe_name}
@@ -285,15 +287,10 @@ export default function Recipes() {
                         )}
 
                     <h3 className="h6 fw-bold mt-4">Cách chế biến</h3>
-                    <ol className="cx-recipe-steps">
-                        {(selectedRecipe.instructions || 'Chưa cập nhật hướng dẫn.')
-                            .split('\n')
-                            .map((step) => (
-                                <li key={step}>{step}</li>
-                            ))}
-                    </ol>
+                    <RecipeInstructions instructions={selectedRecipe.instructions} />
                 </ContentDialog>
             )}
         </main>
     );
+
 }

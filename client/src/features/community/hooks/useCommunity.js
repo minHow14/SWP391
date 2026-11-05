@@ -11,7 +11,7 @@ import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js'
 import { useContentModeration } from './useContentModeration.js';
 
 function normalizePost(blog, user) {
-  const post = { ...blog, ...blog.post };
+  const post = { ...blog.post, ...blog };
   return {
     ...post,
     author_full_name: post.author?.full_name || user?.full_name,

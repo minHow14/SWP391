@@ -11,6 +11,7 @@ export const adminService = {
   getUserContent: (userId) => apiClient.get(`/admin/users/${userId}/content`),
   updateUserStatus: (userId, status) => apiClient.patch(`/admin/users/${userId}/status`, { status }),
   deleteUser: (userId) => apiClient.delete(`/admin/users/${userId}`),
+  restoreUser: (userId) => apiClient.post(`/admin/users/${userId}/restore`),
 
   // FE-02: Quản lý bài viết & video
   getPosts: (params = {}) => apiClient.get('/admin/posts', { params }),

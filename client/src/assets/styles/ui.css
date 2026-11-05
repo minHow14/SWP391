@@ -1,5 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/ui.css */
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/Ui.css */
+/* client/src/assets/styles/ui.css */
 :root {
   --cx-ui-green: #176b48;
   --cx-ui-green-dark: #105236;
@@ -55,7 +54,43 @@ body {
 .home-page .account-menu { gap: 10px; }
 .home-page .account-buttons { gap: 6px; align-items: center; }
 .home-page .account-buttons .btn { min-height: 40px; padding: 9px 12px; }
-.home-page .cx-account-profile { display: inline-flex; align-items: center; gap: 7px; max-width: 160px; text-decoration: none; }
+.home-page .cx-account-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 160px;
+  text-decoration: none;
+  font-weight: 600;
+}
+.home-page .cx-account-profile.btn-success,
+.home-page .cx-account-profile.btn-success:hover,
+.home-page .cx-account-profile.btn-success:focus-visible,
+.home-page .cx-account-profile.btn-success:active {
+  color: #fff !important;
+  background-color: #176b48;
+  border-color: #176b48;
+  text-decoration: none;
+}
+.home-page .cx-account-profile.btn-success:hover {
+  background-color: #105236;
+  border-color: #105236;
+}
+.home-page .cx-account-profile.btn-success i,
+.home-page .cx-account-profile.btn-success span {
+  color: #fff !important;
+}
+.home-page .cx-account-profile.btn-light {
+  color: #176b48;
+  background-color: #edf5ed;
+  border-color: #dbe8dd;
+}
+.home-page .cx-account-profile.btn-light:hover,
+.home-page .cx-account-profile.btn-light:focus-visible {
+  color: #105236;
+  background-color: #dceada;
+  border-color: #c7dcc9;
+  text-decoration: none;
+}
 .home-page .account-buttons .cx-signout-button { width: 40px; padding: 8px; border-color: #dbe4de; border-radius: 12px; }
 .cx-skip-link { position: fixed; top: -80px; left: 16px; padding: 12px 20px; border-radius: 12px; color: #fff; background: #176b48; z-index: 1080; text-decoration: none; }
 .cx-skip-link:focus { top: 12px; color: #fff; }
@@ -66,14 +101,19 @@ body {
 }
 .home-page .btn, .cx-auth-page .btn { font-weight: 600; border-radius: 12px; }
 .home-page .btn-success, .cx-auth-page .btn-success {
+  --bs-btn-color: #fff;
   --bs-btn-bg: #176b48;
   --bs-btn-border-color: #176b48;
+  --bs-btn-hover-color: #fff;
   --bs-btn-hover-bg: #105236;
   --bs-btn-hover-border-color: #105236;
+  --bs-btn-active-color: #fff;
   --bs-btn-active-bg: #105236;
   --bs-btn-active-border-color: #105236;
+  --bs-btn-disabled-color: #fff;
   --bs-btn-disabled-bg: #176b48;
   --bs-btn-disabled-border-color: #176b48;
+  color: #fff;
 }
 .home-page .btn-outline-success {
   --bs-btn-color: #176b48;

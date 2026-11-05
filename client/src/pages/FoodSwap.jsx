@@ -1,12 +1,16 @@
-﻿// client/src/pages/FoodSwap.jsx
+// D:/SWP391/SWP391/client/src/pages/FoodSwap.jsx
 import { useRef, useState } from 'react';
+import { Alert } from 'react-bootstrap';
+import { useLocation } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
 
 export default function FoodSwap() {
   const {data}=useDatabase();
   const foodSwaps=data.swaps;
-  const [query, setQuery] = useState('');
+  const { state } = useLocation();
+  const scanContext = state?.scanContext;
+  const [query, setQuery] = useState(scanContext?.ingredient || '');
   const [category, setCategory] = useState(null);
   const input = useRef(null);
   const words = normalizeSearch(query.trim()).split(/\s+/).filter(Boolean);
@@ -28,6 +32,10 @@ export default function FoodSwap() {
         <div className="cx-swap-badge"><i className="bi bi-magic" aria-hidden="true" /> Chuyển Đổi Món Thông Thường</div>
         <h1 id="swap-title">Bộ Chuyển Đổi Món Thường Thành Món Chay</h1>
         <p className="cx-swap-intro">Thay thế thịt, cá, trứng, sữa, nước mắm, gelatin bằng nguyên liệu thực vật cùng giải thích tác dụng khi nấu ăn.</p>
+        {scanContext && <Alert variant="info">
+          <h2 className="h6">Gợi ý cho món đã quét: {scanContext.dishName}</h2>
+          {scanContext.suggestions?.length > 0 && <ul className="mb-0">{scanContext.suggestions.map((suggestion, index) => <li key={index}>{suggestion}</li>)}</ul>}
+        </Alert>}
 
         <div className="cx-swap-controls">
           <div className="cx-swap-search">
