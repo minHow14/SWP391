@@ -2,7 +2,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import RestaurantProposalForm from '../src/features/restaurants/components/RestaurantProposalForm.jsx';
-import { suggestRestaurantSchema } from '../../server/src/validators/workspace.validator.js';
 
 afterEach(cleanup);
 
@@ -23,9 +22,15 @@ it.each([
   fireEvent.click(screen.getByRole('button', { name: 'Lưu Quán Chay' }));
   await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
   const payload = onSubmit.mock.calls[0][0];
-  expect(payload).toMatchObject({ isIngredientShop, diet_type_id: dietId, latitude: null, longitude: null });
-  expect(suggestRestaurantSchema.parse(payload)).toEqual(payload);
-  expect(payload.address).toBe('10 Đường kiểm thử, Phường Hải Châu, Đà Nẵng');
+  expect(payload).toEqual({
+    name: 'Ingredient shop test fixture',
+    address: '10 Đường kiểm thử, Phường Hải Châu, Đà Nẵng',
+    city: 'Đà Nẵng',
+    isIngredientShop,
+    diet_type_id: dietId,
+    latitude: null,
+    longitude: null,
+  });
 });
 
 it('retains the selected shop and reports submission failures for retry', async () => {

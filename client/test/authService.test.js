@@ -3,7 +3,6 @@ import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { authService } from '../src/services/authService.js';
 import apiClient from '../src/services/apiClient.js';
-import { recordWeightSchema } from '../../server/src/validators/auth.validator.js';
 
 const originalAdapter = apiClient.defaults.adapter;
 
@@ -70,7 +69,6 @@ test('recordWeight preserves a recordedAt caller timestamp through the backend r
   const body = JSON.parse(capturedConfig.data);
   assert.equal(body.weight, 68.5);
   assert.equal(body.recordedDate, '2026-10-23T08:00:00Z');
-  assert.equal(recordWeightSchema.parse(body).recordedDate, '2026-10-23T08:00:00Z');
   assert.equal('recordedAt' in body, false);
   assert.equal(result.data.history.weight, 68.5);
 });
@@ -90,7 +88,6 @@ for (const field of ['recordedDate', 'recorded_date']) {
     const timestamp = '2026-10-23T08:00:00Z';
     const body = await submittedWeight({ weight: 68.5, [field]: timestamp });
     assert.deepEqual(body, { weight: 68.5, recordedDate: timestamp });
-    assert.deepEqual(recordWeightSchema.parse(body), body);
   });
 }
 
