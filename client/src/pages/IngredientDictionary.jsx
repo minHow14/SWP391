@@ -164,6 +164,43 @@ export default function IngredientDictionary() {
               <strong>Nguồn gốc:</strong> {detail.origin}
             </p>
             <p>{detail.description}</p>
+
+                      {/* Nutritional Information Section */}
+                      {(detail.calories_per_100g || detail.protein || detail.fat || detail.carbs) && (
+                          <div className="cx-ingredient-nutrition">
+                              <h3>💪 Thông Tin Dinh Dưỡng</h3>
+                              <div className="cx-nutrition-grid">
+                                  {detail.calories_per_100g !== null && detail.calories_per_100g !== undefined && (
+                                      <div className="cx-nutrition-item">
+                                          <strong>Calo</strong>
+                                          <span>{detail.calories_per_100g.toFixed(1)} kcal</span>
+                                      </div>
+                                  )}
+                                  {detail.protein !== null && detail.protein !== undefined && (
+                                      <div className="cx-nutrition-item">
+                                          <strong>Protein</strong>
+                                          <span>{detail.protein.toFixed(1)}g</span>
+                                      </div>
+                                  )}
+                                  {detail.fat !== null && detail.fat !== undefined && (
+                                      <div className="cx-nutrition-item">
+                                          <strong>Chất Béo</strong>
+                                          <span>{detail.fat.toFixed(1)}g</span>
+                                      </div>
+                                  )}
+                                  {detail.carbs !== null && detail.carbs !== undefined && (
+                                      <div className="cx-nutrition-item">
+                                          <strong>Carbohydrate</strong>
+                                          <span>{detail.carbs.toFixed(1)}g</span>
+                                      </div>
+                                  )}
+                              </div>
+                              <p className="cx-nutrition-disclaimer">
+                                  ℹ️ <em>Các thống kê dinh dưỡng là giá trị trung bình trên 100 gram. Giá trị thực tế có thể khác tùy thuộc vào nguồn gốc và chất lượng của nguyên liệu.</em>
+                              </p>
+                          </div>
+                      )}
+
             <h3>Gợi ý sử dụng</h3>
             <p>{detail.cooking}</p>
           </div>

@@ -328,10 +328,20 @@ model IngredientLookupJob {
   @@map("ingredient_lookup_jobs")
 }
 
+model LiquidIngredientDensity {
+  density_id    Int      @id @default(autoincrement())
+  ingredient_id Int      @unique
+  density       Float    @db.Real
+  ingredient    Ingredient @relation(fields: [ingredient_id], references: [ingredient_id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("liquid_ingredient_densities")
+}
+
 model Ingredient {
   lookupJobs IngredientLookupJob[]
   details IngredientDetails?
   image IngredientImage?
+  liquidDensity LiquidIngredientDensity?
   ingredient_id      Int                @id @default(autoincrement())
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
@@ -340,7 +350,6 @@ model Ingredient {
   carbs              Float?             @default(0) @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
-  recognizedItems RecognizedIngredientItem[]
 
   @@map("ingredients")
 }

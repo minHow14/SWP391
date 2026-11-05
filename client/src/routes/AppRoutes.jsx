@@ -12,7 +12,7 @@ const Community = lazy(() => import('../pages/Community.jsx'));
 const FoodScanner = lazy(() => import('../pages/FoodScanner.jsx'));
 const FoodSwap = lazy(() => import('../pages/FoodSwap.jsx'));
 const IngredientDictionary = lazy(() => import('../pages/IngredientDictionary.jsx'));
-const IngredientRecognition = lazy(() => import('../pages/IngredientRecognition.jsx'));
+// const IngredientRecognition = lazy(() => import('../pages/IngredientRecognition.jsx'));
 const Restaurants = lazy(() => import('../pages/Restaurants.jsx'));
 const Journal = lazy(() => import('../pages/Journal.jsx'));
 const Profile = lazy(() => import('../pages/Profile.jsx'));
@@ -26,7 +26,7 @@ export default function AppRoutes() {
         <Route element={<SiteLayout />}>
           <Route path="/" element={<Home />} />
           <Route path="/kiem-tra-mon" element={<FoodScanner />} />
-          <Route path="/nhan-dien-nguyen-lieu" element={<IngredientRecognition />} />
+          {/* <Route path="/nhan-dien-nguyen-lieu" element={<IngredientRecognition />} /> */}
           <Route path="/doi-mon-chay" element={<FoodSwap />} />
           <Route path="/tu-dien-chay" element={<IngredientDictionary />} />
           <Route path="/quan-chay" element={<Restaurants />} />
