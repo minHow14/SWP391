@@ -7,193 +7,290 @@ import ContentDialog from '../components/common/ContentDialog.jsx';
 import RecipeImage from '../components/common/RecipeImage.jsx';
 import RecipeInstructions from '../components/common/RecipeInstructions.jsx';
 
-export default function Recipes() {
-  const {data}=useDatabase();
-  const recipes=data.recipes;
-  const recipeCategories=[{category_id:null,name:'Tất Cả Món',icon:'grid'},...data.categories.filter(c=>data.recipes.some(r=>r.category_id===c.category_id)).map(c=>({...c,icon:'leaf'}))];
-  const recipeDietLabels=data.diets.map(d=>({...d,icon:'leaf',tone:'green'}));
-  const { diet } = useOutletContext();
-  const [query, setQuery] = useState('');
-  const [category, setCategory] = useState(null);
-  const [matchDiet, setMatchDiet] = useState(false);
-  const [selectedRecipe, setSelectedRecipe] = useState(null);
-  const filtered = filterRecipes(recipes, {
-    query,
-    category_id: category,
-    matchDiet,
-    diet_type_id: diet.diet_type_id,
-  });
+/**
+ * Calculate calories for a recipe ingredient based on unit and quantity
+ */
+function calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities) {
+    if (!ingredient || ingredient.calories_per_100g === null || ingredient.calories_per_100g === undefined) {
+        return null;
+    }
 
-  return (
-    <main
-      className="cx-explore-page flex-grow-1"
-      aria-label="Kho công thức chay"
-    >
-      <div className="container-fluid cx-explore-shell">
-        <section className="cx-page-toolbar" aria-labelledby="recipes-title">
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
-            <div>
-              <h1 id="recipes-title">
-                <span className="cx-heading-icon">
-                  <i className="bi bi-book-half" aria-hidden="true" />
-                </span>
-                Kho Công Thức Chay Phân Loại Theo Chế Độ
-              </h1>
-              <p>
-                Mỗi món ăn chỉ gắn các nhãn phù hợp với nguyên liệu trong công
-                thức.
-              </p>
-            </div>
-            <div className="cx-auto-filter">
-              <span>
-                <i className="bi bi-funnel-fill" aria-hidden="true" /> Khớp chế
-                độ của tôi:
-              </span>
-              <button
-                type="button"
-                className="btn btn-sm"
-                aria-pressed={matchDiet}
-                onClick={() => setMatchDiet(!matchDiet)}
-              >
-                {matchDiet ? 'Tắt lọc tự động' : 'Bật lọc tự động'}
-              </button>
-            </div>
-          </div>
-          <div className="cx-recipe-controls">
-            <div className="cx-search-field">
-              <i className="bi bi-search" aria-hidden="true" />
-              <label htmlFor="recipe-search" className="visually-hidden">
-                Tìm công thức theo tên món hoặc nguyên liệu
-              </label>
-              <input
-                id="recipe-search"
-                type="search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Tìm theo tên món, nguyên liệu (đậu hũ, nấm...)"
-              />
-            </div>
-            <div className="cx-category-filters" aria-label="Lọc loại món ăn">
-              {recipeCategories.map((item) => (
-                <button
-                  type="button"
-                  key={item.category_id ?? 'all'}
-                  className={category === item.category_id ? 'is-active' : ''}
-                  aria-pressed={category === item.category_id}
-                  onClick={() => setCategory(item.category_id)}
-                >
-                  <i className={`bi bi-${item.icon}`} aria-hidden="true" />
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-        <p className="cx-sample-note">
-          Tìm thấy{' '}
-          {filtered.length} món.
-        </p>
-        <div className="row g-4">
-          {filtered.map((recipe) => (
-            <div className="col-12 col-md-6 col-xl-4" key={recipe.recipe_id}>
-              <article className="cx-recipe-card h-100">
-                <div className="position-relative">
-                  <RecipeImage
-                    src={recipe.image}
-                    alt={recipe.recipe_name}
-                    className="cx-recipe-image"
-                  />
-                  <span className="cx-recipe-meta">
-                    <i className="bi bi-stopwatch" aria-hidden="true" />{' '}
-                    {recipe.prep_time} phút <span>·</span>{' '}
-                    <i className="bi bi-fire" aria-hidden="true" />{' '}
-                    {recipe.total_calories} kcal
-                  </span>
-                </div>
-                <div className="cx-recipe-body">
-                  <h2>{recipe.recipe_name}</h2>
-                  <p>{recipe.description}</p>
-                  <div className="cx-diet-tags">
-                    <span className="cx-diet-tags-label">
-                      CÁC CHẾ ĐỘ PHÙ HỢP:
-                    </span>
-                    <div className="d-flex flex-wrap gap-1">
-                      {recipeDietLabels
-                        .filter((label) =>
-                          recipe.compatible_diet_type_ids.includes(
-                            label.diet_type_id
-                          )
-                        )
-                        .map((label) => (
-                          <span
-                            key={label.diet_type_id}
-                            className={`cx-diet-tag ${label.tone} ${diet.diet_type_id === label.diet_type_id ? 'is-matched' : ''}`}
-                          >
-                            <i
-                              className={`bi bi-${label.icon}`}
-                              aria-hidden="true"
-                            />{' '}
-                            {label.name}
-                            {diet.diet_type_id === label.diet_type_id && (
-                              <i
-                                className="bi bi-star-fill ms-1"
-                                aria-label="Phù hợp với chế độ của bạn"
-                              />
-                            )}
-                          </span>
-                        ))}
+    const { unit, quantity } = recipeIngredient;
+    const caloriesPer100g = ingredient.calories_per_100g;
+
+    if (unit === 'gram' || unit === 'g') {
+        // Direct calculation: (quantity * calories_per_100g) / 100
+        return (quantity * caloriesPer100g) / 100;
+    }
+
+    if (unit === 'milliliter' || unit === 'ml') {
+        // Convert ml to grams using density from database
+        const densityRecord = liquidDensities.find(
+            (ld) => ld.ingredient_id === ingredient.ingredient_id
+        );
+
+        if (densityRecord) {
+            const gramsFromMl = quantity * densityRecord.density;
+            return (gramsFromMl * caloriesPer100g) / 100;
+        }
+        // If density not found in database, return null
+        return null;
+    }
+
+    // For other units (piece, fruit, seed, etc.), return calories per 100g with disclaimer
+    return caloriesPer100g;
+}
+
+/**
+ * Format ingredient display with unit normalization
+ */
+function formatIngredientDisplay(recipeIngredient, ingredient, liquidDensities) {
+    if (!ingredient) {
+        return recipeIngredient.name || 'Unknown ingredient';
+    }
+
+    const { unit, quantity } = recipeIngredient;
+    const calories = calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities);
+    let displayText = `${quantity} ${unit} ${ingredient.name}`;
+
+    // Add calorie information
+    if (calories !== null) {
+        if (unit === 'gram' || unit === 'g' || unit === 'milliliter' || unit === 'ml') {
+            displayText += ` (${calories.toFixed(1)} kcal)`;
+        } else {
+            // For other units, add disclaimer
+            displayText += ` (~${calories.toFixed(1)} kcal per 100g*)`;
+        }
+    }
+
+    return displayText;
+}
+
+export default function Recipes() {
+    const { data } = useDatabase();
+    const recipes = data.recipes || [];
+    const liquidDensities = data.liquidIngredientDensities || [];
+
+    const recipeCategories = [
+        { category_id: null, name: 'Tất Cả Món', icon: 'grid' },
+        ...data.categories
+            .filter((c) => data.recipes.some((r) => r.category_id === c.category_id))
+            .map((c) => ({ ...c, icon: 'leaf' })),
+    ];
+    const recipeDietLabels = data.diets.map((d) => ({ ...d, icon: 'leaf', tone: 'green' }));
+    const { diet } = useOutletContext();
+    const [query, setQuery] = useState('');
+    const [category, setCategory] = useState(null);
+    const [matchDiet, setMatchDiet] = useState(false);
+    const [selectedRecipe, setSelectedRecipe] = useState(null);
+    const filtered = filterRecipes(recipes, {
+        query,
+        category_id: category,
+        matchDiet,
+        diet_type_id: diet.diet_type_id,
+    });
+
+    /**
+     * Calculate total calories for a recipe
+     */
+    function calculateTotalCalories(recipeWithIngredients) {
+        if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
+            return recipeWithIngredients.total_calories || 0;
+        }
+
+        return recipeWithIngredients.recipeIngredients.reduce((total, recipeIng) => {
+            const ingredient = recipeIng.ingredient;
+            const calories = calculateIngredientCalories(recipeIng, ingredient, liquidDensities);
+            return total + (calories !== null ? calories : 0);
+        }, 0);
+    }
+
+    return (
+        <main className="cx-explore-page flex-grow-1" aria-label="Kho công thức chay">
+            <div className="container-fluid cx-explore-shell">
+                <section className="cx-page-toolbar" aria-labelledby="recipes-title">
+                    <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+                        <div>
+                            <h1 id="recipes-title">
+                                <span className="cx-heading-icon">
+                                    <i className="bi bi-book-half" aria-hidden="true" />
+                                </span>
+                                Kho Công Thức Chay Phân Loại Theo Chế Độ
+                            </h1>
+                            <p>
+                                Mỗi món ăn chỉ gắn các nhãn phù hợp với nguyên liệu trong công
+                                thức.
+                            </p>
+                        </div>
+                        <div className="cx-auto-filter">
+                            <span>
+                                <i className="bi bi-funnel-fill" aria-hidden="true" /> Khớp chế
+                                độ của tôi:
+                            </span>
+                            <button
+                                type="button"
+                                className="btn btn-sm"
+                                aria-pressed={matchDiet}
+                                onClick={() => setMatchDiet(!matchDiet)}
+                            >
+                                {matchDiet ? 'Tắt lộc tự động' : 'Bật lộc tự động'}
+                            </button>
+                        </div>
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn cx-recipe-detail"
-                    onClick={() => setSelectedRecipe(recipe)}
-                  >
-                    Xem Cách Chế Biến Chi Tiết{' '}
-                    <i className="bi bi-chevron-right" aria-hidden="true" />
-                  </button>
+                    <div className="cx-recipe-controls">
+                        <div className="cx-search-field">
+                            <i className="bi bi-search" aria-hidden="true" />
+                            <label htmlFor="recipe-search" className="visually-hidden">
+                                Tìm công thức theo tên món hoặc nguyên liệu
+                            </label>
+                            <input
+                                id="recipe-search"
+                                type="search"
+                                value={query}
+                                onChange={(event) => setQuery(event.target.value)}
+                                placeholder="Tìm theo tên món, nguyên liệu (đậu hủ, nấm...)"
+                            />
+                        </div>
+                        <div className="cx-category-filters" aria-label="Lọc loại món ăn">
+                            {recipeCategories.map((item) => (
+                                <button
+                                    type="button"
+                                    key={item.category_id ?? 'all'}
+                                    className={category === item.category_id ? 'is-active' : ''}
+                                    aria-pressed={category === item.category_id}
+                                    onClick={() => setCategory(item.category_id)}
+                                >
+                                    <i className={`bi bi-${item.icon}`} aria-hidden="true" />
+                                    {item.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+                <p className="cx-sample-note">Tìm thấy {filtered.length} món.</p>
+                <div className="row g-4">
+                    {filtered.map((recipe) => {
+                        const totalCalories = calculateTotalCalories(recipe);
+                        return (
+                            <div className="col-12 col-md-6 col-xl-4" key={recipe.recipe_id}>
+                                <article className="cx-recipe-card h-100">
+                                    <div className="position-relative">
+                                        <RecipeImage
+                                            src={recipe.image}
+                                            alt={recipe.recipe_name}
+                                            className="cx-recipe-image"
+                                        />
+                                        <span className="cx-recipe-meta">
+                                            <i className="bi bi-stopwatch" aria-hidden="true" /> {recipe.prep_time} phút{' '}
+                                            <span>·</span> <i className="bi bi-fire" aria-hidden="true" />{' '}
+                                            {totalCalories.toFixed(0)} kcal
+                                        </span>
+                                    </div>
+                                    <div className="cx-recipe-body">
+                                        <h2>{recipe.recipe_name}</h2>
+                                        <p>{recipe.description}</p>
+                                        <div className="cx-diet-tags">
+                                            <span className="cx-diet-tags-label">CÁC CHẾ ĐỘ PHÙ HỢP:</span>
+                                            <div className="d-flex flex-wrap gap-1">
+                                                {recipeDietLabels
+                                                    .filter((label) =>
+                                                        recipe.compatible_diet_type_ids.includes(label.diet_type_id)
+                                                    )
+                                                    .map((label) => (
+                                                        <span
+                                                            key={label.diet_type_id}
+                                                            className={`cx-diet-tag ${label.tone} ${diet.diet_type_id === label.diet_type_id ? 'is-matched' : ''
+                                                                }`}
+                                                        >
+                                                            <i
+                                                                className={`bi bi-${label.icon}`}
+                                                                aria-hidden="true"
+                                                            /> {label.name}
+                                                            {diet.diet_type_id === label.diet_type_id && (
+                                                                <i
+                                                                    className="bi bi-star-fill ms-1"
+                                                                    aria-label="Phù hợp với chế độ của bạn"
+                                                                />
+                                                            )}
+                                                        </span>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="btn cx-recipe-detail"
+                                            onClick={() => setSelectedRecipe(recipe)}
+                                        >
+                                            Xem Cách Chế Biến Chi Tiết{' '}
+                                            <i className="bi bi-chevron-right" aria-hidden="true" />
+                                        </button>
+                                    </div>
+                                </article>
+                            </div>
+                        );
+                    })}
                 </div>
-              </article>
+                {!filtered.length && (
+                    <div className="cx-empty-state">
+                        <i className="bi bi-search" aria-hidden="true" />
+                        <h2>Chưa tìm thấy món phù hợp</h2>
+                        <p>Thử đổi từ khóa, loại món hoặc bộ lộc chế độ ăn.</p>
+                        <button
+                            type="button"
+                            className="btn btn-success"
+                            onClick={() => {
+                                setQuery('');
+                                setCategory(null);
+                                setMatchDiet(false);
+                            }}
+                        >
+                            Xóa bộ lộc
+                        </button>
+                    </div>
+                )}
             </div>
-          ))}
-        </div>
-        {!filtered.length && (
-          <div className="cx-empty-state">
-            <i className="bi bi-search" aria-hidden="true" />
-            <h2>Chưa tìm thấy món phù hợp</h2>
-            <p>Thử đổi từ khóa, loại món hoặc bộ lọc chế độ ăn.</p>
-            <button
-              type="button"
-              className="btn btn-success"
-              onClick={() => {
-                setQuery('');
-                setCategory(null);
-                setMatchDiet(false);
-              }}
-            >
-              Xóa bộ lọc
-            </button>
-          </div>
-        )}
-      </div>
-      {selectedRecipe && (
-        <ContentDialog
-          title={selectedRecipe.recipe_name}
-          onClose={() => setSelectedRecipe(null)}
-        >
-          <p className="text-secondary small">
-            {selectedRecipe.prep_time} phút · công thức tham khảo
-          </p>
-          <h3 className="h6 fw-bold">Nguyên liệu</h3>
-          <ul>
-            {selectedRecipe.ingredients.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-          <h3 className="h6 fw-bold mt-4">Cách chế biến</h3>
-          <RecipeInstructions instructions={selectedRecipe.instructions} />
-        </ContentDialog>
-      )}
-    </main>
-  );
+
+            {selectedRecipe && (
+                <ContentDialog
+                    title={selectedRecipe.recipe_name}
+                    onClose={() => setSelectedRecipe(null)}
+                >
+                    <p className="text-secondary small">
+                        {selectedRecipe.prep_time} phút · công thức tham khảo
+                    </p>
+                    <h3 className="h6 fw-bold">Nguyên liệu</h3>
+                    <ul>
+                        {selectedRecipe.recipeIngredients && selectedRecipe.recipeIngredients.length > 0 ? (
+                            selectedRecipe.recipeIngredients.map((recipeIng, index) => {
+                                const ingredient = recipeIng.ingredient;
+                                const displayText = formatIngredientDisplay(recipeIng, ingredient, liquidDensities);
+                                return <li key={index}>{displayText}</li>;
+                            })
+                        ) : selectedRecipe.ingredients ? (
+                            selectedRecipe.ingredients.map((item) => <li key={item}>{item}</li>)
+                        ) : (
+                            <li>Chưa cập nhật nguyên liệu</li>
+                        )}
+                    </ul>
+
+                    {selectedRecipe.recipeIngredients &&
+                        selectedRecipe.recipeIngredients.some(
+                            (ing) =>
+                                !['gram', 'g', 'milliliter', 'ml'].includes(ing.unit)
+                        ) && (
+                            <p className="text-muted small mt-2">
+                                <em>
+                                    * Các giá trị được đánh dấu là giá trị trung bình per 100g của nguyên liệu.
+                                    Giá trị thực tế có thể khác tùy vào kích thước và chất lượng của từng sản phẩm.
+                                </em>
+                            </p>
+                        )}
+
+                    <h3 className="h6 fw-bold mt-4">Cách chế biến</h3>
+                    <RecipeInstructions instructions={selectedRecipe.instructions} />
+                </ContentDialog>
+            )}
+        </main>
+    );
+
 }

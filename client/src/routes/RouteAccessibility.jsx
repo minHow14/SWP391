@@ -3,12 +3,14 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 
 const PAGE_TITLES = {
+
   '/': 'Trang chủ', '/kiem-tra-mon': 'Kiểm tra món', '/doi-mon-chay': 'Đổi món chay',
   '/tu-dien-chay': 'Từ điển chay', '/cong-thuc': 'Công thức', '/cong-dong': 'Cộng đồng',
   '/quan-chay': 'Quán chay', '/nhat-ky': 'Nhật ký', '/ho-so': 'Hồ sơ',
   '/dang-nhap': 'Đăng nhập', '/dang-ky': 'Đăng ký', '/admin': 'Quản trị', '/admin/ai': 'Quản trị AI',
   '/quen-mat-khau': 'Quên mật khẩu', '/dat-lai-mat-khau': 'Đặt lại mật khẩu',
   '/dieu-khoan': 'Điều khoản sử dụng', '/chinh-sach-bao-mat': 'Chính sách bảo mật',
+
 };
 
 export default function RouteAccessibility() {

@@ -9,6 +9,7 @@ import NotificationBell from './NotificationBell.jsx';
 
 const MENU_ITEMS = [
   { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check', path: '/kiem-tra-mon' },
+  { name: 'Quét Tủ Lạnh', icon: 'bi-camera-fill', path: '/nhan-dien-nguyen-lieu' },
   { name: 'Đổi Món Chay', icon: 'bi-magic', path: '/doi-mon-chay' },
   { name: 'Từ Điển Chay', icon: 'bi-book-fill', path: '/tu-dien-chay' },
   { name: 'Công Thức', icon: 'bi-book-half', path: '/cong-thuc' },

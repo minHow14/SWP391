@@ -43,7 +43,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 app = FastAPI(
     title="Chay Xanh - AI Microservice",
-    description="FastAPI AI Microservice cung cấp Chatbot tư vấn dinh dưỡng chay và Lập thực đơn cá nhân hóa.",
+    description="FastAPI AI Microservice cung cấp Chatbot tư vấn dinh dưỡng chay, Lập thực đơn cá nhân hóa và Thị giác máy tính nhận diện nguyên liệu.",
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",

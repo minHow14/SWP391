@@ -20,8 +20,13 @@ import { videoRecipeSummaryJobRoutes, videoRecipeSummaryRoutes } from './videoRe
 import notificationRoutes from './notification.route.js';
 import { contentModerationRoutes } from './contentModerationRoutes.js';
 import { ingredientLookupRoutes } from './ingredientLookupRoutes.js';
+
+import ingredientRoutes from './ingredient.route.js';
+
+
 import legalDocumentRoutes from './legalDocumentRoutes.js';
 import passwordResetRoutes from './passwordResetRoutes.js';
+
 
 const router = express.Router();
 
@@ -53,6 +58,7 @@ v1Router.use('/video-recipe-summaries', videoRecipeSummaryRoutes);
 v1Router.use('/notifications', notificationRoutes);
 v1Router.use('/content-moderation-jobs', contentModerationRoutes);
 v1Router.use('/ingredient-lookup-jobs', ingredientLookupRoutes);
+v1Router.use('/ingredients', ingredientRoutes);
 
 // Gắn chuẩn v1
 router.use('/v1', v1Router);
@@ -74,6 +80,12 @@ router.use('/admin', adminRoutes);
 router.use('/upload', uploadRoutes);
 router.use('/reports', reportRoutes);
 router.use('/ai', aiRoutes);
+router.use('/ingredients', ingredientRoutes);
+
+router.use('/v1/ai-generations', aiGenerationRoutes);
+// router.use('/v1/ingredient-recognition', ingredientRecognitionRoutes);
+
 router.use('/notifications', notificationRoutes);
+
 
 export default router;
