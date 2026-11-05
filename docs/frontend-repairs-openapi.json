@@ -1,12 +1,68 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Chay Xanh — Authentication, legal documents and account restoration",
-    "version": "1.0.0",
-    "description": "Contracts implemented in the frontend repair phases. Authentication and admin routes also have legacy /api/auth and /api/admin aliases. Legal-document routes exist only under /api/v1. Responses may include extra legacy root fields; clients should use data/message/meta. Refresh identity binding is required before retrying a protected request."
+    "title": "Chay Xanh — Frontend integration contracts",
+    "version": "1.1.0",
+    "description": "Authentication, profile, restaurant classification, legal documents and account restoration. Auth, admin and workspace routes also have legacy /api aliases. Legal-document routes exist only under /api/v1. Responses may include extra legacy root fields; clients should use data/message/meta. Bind refresh to the original user before retrying, then apply completed profile changes only to the initiating login identity while retaining its current refreshed token."
   },
   "servers": [{ "url": "http://localhost:5000" }],
   "paths": {
+    "/api/v1/auth/me": {
+      "get": {
+        "security": [{ "bearerAuth": [] }],
+        "operationId": "getCurrentProfile", "summary": "Read the authenticated account, health profile and allergies",
+        "responses": { "200": { "$ref": "#/components/responses/Profile" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      },
+      "patch": {
+        "security": [{ "bearerAuth": [] }],
+        "operationId": "updateCurrentProfile", "summary": "Save profile fields and allergy selection",
+        "description": "Updates only provided fields. Explicit null clears a nullable health field; allergy_ids replaces the allergy list. Account, health and allergy updates are transactional. A successful 401-refresh-retry must update frontend account/form/session and emit USER_CHANGED. Compare login identity revision and user ID, not access-token equality; never apply a response from a logged-out or replaced login.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProfileUpdate" } } } },
+        "responses": { "200": { "$ref": "#/components/responses/Profile" }, "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" } }
+      }
+    },
+    "/api/v1/auth/me/weight": {
+      "post": {
+        "operationId": "recordCurrentWeight", "summary": "Record a weight measurement and its UTC timestamp",
+        "security": [{ "bearerAuth": [] }],
+        "description": "The frontend emits recordedDate. Legacy recordedAt/recorded_date service arguments are normalized to that one wire field; recordedAt is not a backend field. Without a date, backend uses the current time. The backend still accepts recorded_date for compatibility. Existing limitations: timestamp validation only checks string type, and recording a historical measurement also updates current profile weight; those backend behaviors are not changed by this frontend repair.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "type": "object", "required": ["weight"], "properties": {
+          "weight": { "type": "number", "minimum": 20, "maximum": 350 },
+          "recordedDate": { "type": "string", "description": "Send an ISO 8601 UTC timestamp. Exact valid timestamps are retained; invalid strings are not yet rejected at the validator boundary." }
+        } } } } },
+        "responses": {
+          "201": { "description": "Persisted measurement in data.record; recorded_date is an ISO 8601 UTC timestamp.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["record"], "properties": { "record": { "$ref": "#/components/schemas/WeightRecord" } } }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/workspace/restaurants": {
+      "post": {
+        "operationId": "proposeRestaurant", "summary": "Save a restaurant or an ingredient shop",
+        "security": [{ "bearerAuth": [] }],
+        "description": "isIngredientShop=true requires diet_type_id=null. Ordinary restaurants require a valid diet ID; an omitted flag defaults to false for old callers. Both the classification flag and restaurant details persist in one transaction. Migration 20261104121231_add_ingredient_shop_classification adds is_ingredient_shop with default false; it does not guess which historical proposals were shops. Coordinates may be null for address-only entry. No change to proposal approval policy or nearby geographic filtering.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RestaurantProposal" } } } },
+        "responses": {
+          "200": { "description": "Saved record in data; existing endpoint uses HTTP 200.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+            "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/Restaurant" }
+          } } } } },
+          "400": { "$ref": "#/components/responses/ValidationError" }, "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/v1/workspace/catalog": {
+      "get": {
+        "operationId": "getWorkspaceCatalog", "summary": "Read the existing public combined catalog",
+        "description": "Current endpoint returns the unpaginated catalog, including restaurants. Persisted shops have isIngredientShop=true and derived type=shop; ordinary types retain the existing vegan/buddhist/separate mapping. Nearby/local search also includes the persisted flag. The frontend shop filter uses this derived type; it must not infer shop identity from diet ID.",
+        "responses": { "200": { "description": "Combined catalog in data, with other existing catalog fields alongside restaurants.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+          "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["restaurants"], "properties": { "restaurants": { "type": "array", "items": { "allOf": [
+            { "$ref": "#/components/schemas/Restaurant" }, { "type": "object", "required": ["type"], "properties": { "type": { "type": "string", "enum": ["vegan", "buddhist", "separate", "shop"] } } }
+          ] } } } }
+        } } } } } }
+      }
+    },
     "/api/v1/auth/forgot-password": {
       "post": {
         "operationId": "requestPasswordReset",
@@ -155,6 +211,11 @@
       } } } } }
     },
     "responses": {
+      "Profile": { "description": "Authenticated user in data.user with current health profile and allergy relations; no password hash.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": {
+        "success": { "const": true }, "message": { "type": "string" }, "data": { "type": "object", "required": ["user"], "properties": { "user": { "allOf": [
+          { "$ref": "#/components/schemas/Account" }, { "type": "object", "properties": { "health_profile": { "type": ["object", "null"] }, "allergies": { "type": "array", "items": { "type": "object" } } } }
+        ] } } }
+      } } } } },
       "RecoveryAccepted": { "description": "Generic accepted message, data is empty. No account existence or delivery guarantee. Cache-Control: no-store.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MessageSuccess" } } } },
       "ValidationError": { "description": "Invalid input; errors contains field/message entries.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
       "Unauthorized": { "description": "Missing, invalid, expired or revoked credentials.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } },
@@ -164,6 +225,32 @@
       "LegalDocument": { "description": "Saved document in data, timestamps in ISO 8601 UTC.", "content": { "application/json": { "schema": { "type": "object", "required": ["success", "message", "data"], "properties": { "success": { "const": true }, "message": { "type": "string" }, "data": { "$ref": "#/components/schemas/LegalDocument" } } } } } }
     },
     "schemas": {
+      "ProfileUpdate": { "type": "object", "minProperties": 1, "additionalProperties": false, "properties": {
+        "full_name": { "type": "string", "minLength": 1, "maxLength": 255 },
+        "health_profile": { "type": "object", "additionalProperties": false, "properties": {
+          "height": { "type": ["number", "null"], "minimum": 50, "maximum": 250 }, "weight": { "type": ["number", "null"], "minimum": 10, "maximum": 400 },
+          "dob": { "type": ["string", "null"], "format": "date", "description": "A real birth date not in the future." },
+          "gender": { "type": ["string", "null"], "minLength": 1, "maxLength": 20 }, "health_goal": { "type": ["string", "null"], "minLength": 1, "maxLength": 255 },
+          "diet_type_id": { "type": ["integer", "null"], "minimum": 1 }
+        } },
+        "allergy_ids": { "type": "array", "maxItems": 200, "uniqueItems": true, "items": { "type": "integer", "minimum": 1 } }
+      } },
+      "WeightRecord": { "type": "object", "required": ["history_id", "user_id", "weight", "bmi", "recorded_date"], "properties": {
+        "history_id": { "type": "integer" }, "user_id": { "type": "integer" }, "weight": { "type": "number" }, "bmi": { "type": ["number", "null"] },
+        "recorded_date": { "type": "string", "format": "date-time" }
+      } },
+      "RestaurantProposal": { "type": "object", "additionalProperties": false, "required": ["name", "address", "city", "diet_type_id", "latitude", "longitude"], "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 255 }, "address": { "type": "string", "minLength": 1, "maxLength": 255 }, "city": { "type": "string", "minLength": 1, "maxLength": 100 },
+        "isIngredientShop": { "type": "boolean", "default": false }, "diet_type_id": { "type": ["integer", "null"], "minimum": 1 },
+        "latitude": { "type": ["number", "null"], "minimum": -90, "maximum": 90 }, "longitude": { "type": ["number", "null"], "minimum": -180, "maximum": 180 },
+        "image_url": { "type": ["string", "null"], "maxLength": 500 }
+      }, "oneOf": [
+        { "required": ["isIngredientShop"], "properties": { "isIngredientShop": { "const": true }, "diet_type_id": { "type": "null" } } },
+        { "properties": { "isIngredientShop": { "const": false }, "diet_type_id": { "type": "integer", "minimum": 1 } } }
+      ] },
+      "Restaurant": { "type": "object", "required": ["restaurant_id", "name", "address", "isIngredientShop", "diet_type_id"], "description": "Legacy restaurant fields retain snake_case. The new boolean is camelCase in Prisma/API and mapped to is_ingredient_shop only at the database boundary.", "properties": {
+        "restaurant_id": { "type": "integer", "minimum": 1 }, "name": { "type": "string" }, "address": { "type": "string" }, "isIngredientShop": { "type": "boolean" }, "diet_type_id": { "type": ["integer", "null"] }
+      } },
       "Error": { "type": "object", "required": ["success", "message", "errorCode", "errors"], "properties": {
         "success": { "const": false }, "message": { "type": "string" }, "errorCode": { "type": "string" },
         "errors": { "type": "array", "items": { "type": "object", "properties": { "field": { "type": "string" }, "message": { "type": "string" } } } }

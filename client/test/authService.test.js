@@ -1,8 +1,9 @@
-// client/test/authService.test.js
+// D:/SWP391/SWP391/client/test/authService.test.js
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { authService } from '../src/services/authService.js';
 import apiClient from '../src/services/apiClient.js';
+import { recordWeightSchema } from '../../server/src/validators/auth.validator.js';
 
 const originalAdapter = apiClient.defaults.adapter;
 
@@ -43,7 +44,7 @@ test('changePassword dispatches POST to /v1/auth/change-password with correct pa
   assert.equal(result.message, 'Đổi mật khẩu thành công.');
 });
 
-test('recordWeight dispatches POST to /v1/auth/me/weight with numeric weight and optional recordedAt', async () => {
+test('recordWeight preserves a recordedAt caller timestamp through the backend recordedDate contract', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {
     capturedConfig = config;
@@ -68,8 +69,39 @@ test('recordWeight dispatches POST to /v1/auth/me/weight with numeric weight and
   assert.equal(capturedConfig.url, '/v1/auth/me/weight');
   const body = JSON.parse(capturedConfig.data);
   assert.equal(body.weight, 68.5);
-  assert.equal(body.recordedAt, '2026-10-23T08:00:00Z');
+  assert.equal(body.recordedDate, '2026-10-23T08:00:00Z');
+  assert.equal(recordWeightSchema.parse(body).recordedDate, '2026-10-23T08:00:00Z');
+  assert.equal('recordedAt' in body, false);
   assert.equal(result.data.history.weight, 68.5);
+});
+
+async function submittedWeight(values) {
+  let body;
+  apiClient.defaults.adapter = async (config) => {
+    body = JSON.parse(config.data);
+    return { config, status: 200, headers: {}, data: { success: true, data: {} } };
+  };
+  await authService.recordWeight(values);
+  return body;
+}
+
+for (const field of ['recordedDate', 'recorded_date']) {
+  test(`recordWeight sends ${field} input as canonical recordedDate without losing it in BE validation`, async () => {
+    const timestamp = '2026-10-23T08:00:00Z';
+    const body = await submittedWeight({ weight: 68.5, [field]: timestamp });
+    assert.deepEqual(body, { weight: 68.5, recordedDate: timestamp });
+    assert.deepEqual(recordWeightSchema.parse(body), body);
+  });
+}
+
+test('recordWeight prefers canonical recordedDate over legacy timestamp aliases', async () => {
+  const body = await submittedWeight({ weight: 68.5, recordedDate: '2026-11-03T08:00:00Z',
+    recordedAt: '2026-10-23T08:00:00Z', recorded_date: '2026-10-22T08:00:00Z' });
+  assert.deepEqual(body, { weight: 68.5, recordedDate: '2026-11-03T08:00:00Z' });
+});
+
+test('recordWeight omits the timestamp when the caller records today', async () => {
+  assert.deepEqual(await submittedWeight({ weight: 68.5 }), { weight: 68.5 });
 });
 
 test('getHealthHistory dispatches GET to /v1/auth/me/health-history with params', async () => {

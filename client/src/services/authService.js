@@ -71,12 +71,10 @@ export const authService = {
   changePassword,
 
   // Ghi nhận cân nặng mới và tự động tính toán lại BMI
-  recordWeight: ({ weight, recordedAt, recorded_date }) =>
-    apiClient.post('/v1/auth/me/weight', {
-      weight,
-      ...(recordedAt ? { recordedAt } : {}),
-      ...(recorded_date ? { recorded_date } : {}),
-    }),
+  recordWeight: ({ weight, recordedDate, recordedAt, recorded_date }) => {
+    const timestamp = recordedDate || recordedAt || recorded_date;
+    return apiClient.post('/v1/auth/me/weight', { weight, ...(timestamp ? { recordedDate: timestamp } : {}) });
+  },
 
   // Lấy lịch sử biến thiên cân nặng và chỉ số BMI
   getHealthHistory: (params = {}) =>

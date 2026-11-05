@@ -1,4 +1,4 @@
-// d:\Projects\FPT\SWP391\server\src\validators\workspace.validator.js
+// D:/SWP391/SWP391/server/src/validators/workspace.validator.js
 import { z } from 'zod';
 import { idSchema, textSchema } from './common.validator.js';
 
@@ -48,11 +48,15 @@ export const suggestRestaurantSchema = z.object({
   name: textSchema(255),
   address: textSchema(255),
   city: textSchema(100),
-  diet_type_id: idSchema,
+  diet_type_id: idSchema.nullable(),
+  isIngredientShop: z.boolean().default(false),
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
   image_url: z.string().trim().max(500).optional().nullable(),
-}).strict();
+}).strict().refine(
+  ({ isIngredientShop, diet_type_id }) => isIngredientShop ? diet_type_id === null : diet_type_id !== null,
+  { path: ['diet_type_id'], message: 'Phân loại địa điểm không khớp chế độ ăn đã chọn.' }
+);
 
 export const restaurantReviewSchema = z.object({
   stars: z.number().int().min(1).max(5),

@@ -1,5 +1,4 @@
 // D:/SWP391/SWP391/client/src/features/mealPlan/components/MealPlanDialog.jsx
-// client/src/features/mealPlan/components/MealPlanDialog.jsx
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import TagField from './TagField.jsx';
@@ -26,7 +25,8 @@ const GENDERS = [['', 'Chưa chọn'], ['male', 'Nam'], ['female', 'Nữ'], ['ot
 const ALLERGY_HINTS = ['Đậu phộng', 'Đậu nành', 'Gluten', 'Sữa', 'Trứng', 'Nấm', 'Mè', 'Hạt cây'];
 export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan, onClose, onDone, onAsk }) {
   const defaults = useMemo(() => mealPlanDefaults({ user, ingredients: catalog?.ingredients, dietTypeId }), [user, catalog, dietTypeId]);
-  const [values, setValues] = useState(defaults);
+  const [overrides, setOverrides] = useState({});
+  const values = { ...defaults, ...overrides };
   const [errors, setErrors] = useState({});
   const [phase, setPhase] = useState(initialPlan ? 'result' : 'form');
   const [steps, setSteps] = useState([]);
@@ -37,8 +37,8 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
   const needsProfile = Boolean(user) && !hasBodyMeasurements(user.health_profile);
 
   const bmi = calcBmi(values.heightCm, values.weightKg);
-  const set = (name) => (event) => setValues((previous) => ({ ...previous, [name]: event.target.value }));
-  const setList = (name) => (list) => setValues((previous) => ({ ...previous, [name]: list }));
+  const set = (name) => (event) => setOverrides((previous) => ({ ...previous, [name]: event.target.value }));
+  const setList = (name) => (list) => setOverrides((previous) => ({ ...previous, [name]: list }));
 
   async function submit(event) {
     event.preventDefault();

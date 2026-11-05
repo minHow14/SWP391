@@ -476,6 +476,7 @@ model Restaurant {
   latitude           Decimal?           @db.Decimal(10, 7)
   longitude          Decimal?           @db.Decimal(10, 7)
   diet_type_id       Int?               @db.SmallInt
+  isIngredientShop   Boolean            @default(false) @map("is_ingredient_shop")
   source             String             @default("local") @db.VarChar(20)
   status             String             @default("APPROVED") @db.VarChar(20)
   place_id           String?            @unique(map: "uq_restaurants_place_id") @db.VarChar(100)
