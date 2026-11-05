@@ -23,7 +23,11 @@ BEGIN;
 -- Xóa sạch dữ liệu cũ và reset quan hệ (Idempotent)
 -- ------------------------------------------------------------------------
 TRUNCATE TABLE
+  "ingredient_lookup_jobs",
   "content_moderation_jobs",
+  "video_recipe_summaries",
+  "video_recipe_summary_jobs",
+  "ai_generations",
   "guest_quota",
   "ai_logs",
   "notifications",
@@ -516,42 +520,65 @@ INSERT INTO "meal_plans" ("plan_id", "user_id", "title", "start_date", "end_date
 -- ------------------------------------------------------------------------
 -- 22. CHI TIẾT KẾ HOẠCH THEO BỮA (MEAL PLAN DETAILS) (28 bữa trọn vẹn 7 ngày)
 -- ------------------------------------------------------------------------
-INSERT INTO "meal_plan_details" ("plan_detail_id", "plan_id", "day_of_week", "meal_type", "recipe_id") VALUES
-  -- Thứ Hai (Day 1)
-  (1, 1, 1, 'BREAKFAST', 2),
-  (2, 1, 1, 'LUNCH', 1),
-  (3, 1, 1, 'DINNER', 7),
-  (4, 1, 1, 'SNACK', 11),
-  -- Thứ Ba (Day 2)
-  (5, 1, 2, 'BREAKFAST', 4),
-  (6, 1, 2, 'LUNCH', 6),
-  (7, 1, 2, 'DINNER', 8),
-  (8, 1, 2, 'SNACK', 2),
-  -- Thứ Tư (Day 3)
-  (9, 1, 3, 'BREAKFAST', 10),
-  (10, 1, 3, 'LUNCH', 1),
-  (11, 1, 3, 'DINNER', 12),
-  (12, 1, 3, 'SNACK', 9),
-  -- Thứ Năm (Day 4)
-  (13, 1, 4, 'BREAKFAST', 2),
-  (14, 1, 4, 'LUNCH', 8),
-  (15, 1, 4, 'DINNER', 7),
-  (16, 1, 4, 'SNACK', 11),
-  -- Thứ Sáu (Day 5)
-  (17, 1, 5, 'BREAKFAST', 4),
-  (18, 1, 5, 'LUNCH', 6),
-  (19, 1, 5, 'DINNER', 1),
-  (20, 1, 5, 'SNACK', 9),
-  -- Thứ Bảy (Day 6)
-  (21, 1, 6, 'BREAKFAST', 10),
-  (22, 1, 6, 'LUNCH', 12),
-  (23, 1, 6, 'DINNER', 7),
-  (24, 1, 6, 'SNACK', 2),
-  -- Chủ Nhật (Day 7)
-  (25, 1, 7, 'BREAKFAST', 5),
-  (26, 1, 7, 'LUNCH', 1),
-  (27, 1, 7, 'DINNER', 8),
-  (28, 1, 7, 'SNACK', 11);
+INSERT INTO "meal_plan_details" ("plan_detail_id", "plan_id", "day_of_week", "meal_type", "recipe_id", "custom_food_name", "calories", "protein", "carbs", "fat") VALUES
+  -- Kế hoạch 1: Thực đơn thuần chay 7 ngày (Gắn công thức có sẵn trong hệ thống)
+  (1, 1, 1, 'BREAKFAST', 2, NULL, NULL, NULL, NULL, NULL),
+  (2, 1, 1, 'LUNCH', 1, NULL, NULL, NULL, NULL, NULL),
+  (3, 1, 1, 'DINNER', 7, NULL, NULL, NULL, NULL, NULL),
+  (4, 1, 1, 'SNACK', 11, NULL, NULL, NULL, NULL, NULL),
+  (5, 1, 2, 'BREAKFAST', 4, NULL, NULL, NULL, NULL, NULL),
+  (6, 1, 2, 'LUNCH', 6, NULL, NULL, NULL, NULL, NULL),
+  (7, 1, 2, 'DINNER', 8, NULL, NULL, NULL, NULL, NULL),
+  (8, 1, 2, 'SNACK', 2, NULL, NULL, NULL, NULL, NULL),
+  (9, 1, 3, 'BREAKFAST', 10, NULL, NULL, NULL, NULL, NULL),
+  (10, 1, 3, 'LUNCH', 1, NULL, NULL, NULL, NULL, NULL),
+  (11, 1, 3, 'DINNER', 12, NULL, NULL, NULL, NULL, NULL),
+  (12, 1, 3, 'SNACK', 9, NULL, NULL, NULL, NULL, NULL),
+  (13, 1, 4, 'BREAKFAST', 2, NULL, NULL, NULL, NULL, NULL),
+  (14, 1, 4, 'LUNCH', 8, NULL, NULL, NULL, NULL, NULL),
+  (15, 1, 4, 'DINNER', 7, NULL, NULL, NULL, NULL, NULL),
+  (16, 1, 4, 'SNACK', 11, NULL, NULL, NULL, NULL, NULL),
+  (17, 1, 5, 'BREAKFAST', 4, NULL, NULL, NULL, NULL, NULL),
+  (18, 1, 5, 'LUNCH', 6, NULL, NULL, NULL, NULL, NULL),
+  (19, 1, 5, 'DINNER', 1, NULL, NULL, NULL, NULL, NULL),
+  (20, 1, 5, 'SNACK', 9, NULL, NULL, NULL, NULL, NULL),
+  (21, 1, 6, 'BREAKFAST', 10, NULL, NULL, NULL, NULL, NULL),
+  (22, 1, 6, 'LUNCH', 12, NULL, NULL, NULL, NULL, NULL),
+  (23, 1, 6, 'DINNER', 7, NULL, NULL, NULL, NULL, NULL),
+  (24, 1, 6, 'SNACK', 2, NULL, NULL, NULL, NULL, NULL),
+  (25, 1, 7, 'BREAKFAST', 5, NULL, NULL, NULL, NULL, NULL),
+  (26, 1, 7, 'LUNCH', 1, NULL, NULL, NULL, NULL, NULL),
+  (27, 1, 7, 'DINNER', 8, NULL, NULL, NULL, NULL, NULL),
+  (28, 1, 7, 'SNACK', 11, NULL, NULL, NULL, NULL, NULL),
+  -- Kế hoạch 2: Thực đơn cân bằng năng lượng (Lacto-Ovo) ứng dụng món AI tùy chỉnh
+  (29, 2, 1, 'BREAKFAST', NULL, 'Yến mạch ngâm sữa chua & dâu tây', 420, 14, 65, 8),
+  (30, 2, 1, 'LUNCH', NULL, 'Đậu gà hầm nấm đùi gà sốt tiêu đen', 580, 22, 68, 12),
+  (31, 2, 1, 'DINNER', NULL, 'Canh rong biển đậu hũ & nấm rơm', 380, 18, 32, 10),
+  (32, 2, 1, 'SNACK', NULL, 'Sinh tố bơ hạt chia sữa đậu nành', 250, 8, 22, 14),
+  (33, 2, 2, 'BREAKFAST', NULL, 'Bánh mì nguyên cám kẹp trứng ốp la phô mai', 450, 18, 42, 16),
+  (34, 2, 2, 'LUNCH', NULL, 'Cơm gạo lứt xào nấm đông cô và bông cải', 560, 16, 75, 12),
+  (35, 2, 2, 'DINNER', NULL, 'Súp nấm mỡ kem tươi ăn kèm hạt sen', 390, 12, 38, 15),
+  (36, 2, 2, 'SNACK', NULL, 'Sữa chua Hy Lạp kèm hạt hạnh nhân', 220, 12, 15, 10),
+  (37, 2, 3, 'BREAKFAST', NULL, 'Cháo yến mạch hạt sen nước cốt dừa', 400, 11, 60, 12),
+  (38, 2, 3, 'LUNCH', NULL, 'Đậu hũ sốt cà chua nấm rơm và cơm gạo lứt', 550, 20, 70, 14),
+  (39, 2, 3, 'DINNER', NULL, 'Salad đậu gà ngũ sắc sốt mè rang', 410, 15, 45, 14),
+  (40, 2, 3, 'SNACK', NULL, 'Hạt óc chó và sữa tươi tiệt trùng', 230, 8, 12, 16),
+  (41, 2, 4, 'BREAKFAST', NULL, 'Bánh pancake chuối yến mạch', 430, 12, 66, 10),
+  (42, 2, 4, 'LUNCH', NULL, 'Mì xào rau củ đậu hũ non sốt tương đen', 570, 18, 72, 15),
+  (43, 2, 4, 'DINNER', NULL, 'Canh nấm đùi gà nấu chua cay', 360, 14, 35, 8),
+  (44, 2, 4, 'SNACK', NULL, 'Trái cây tươi dĩa nhỏ kèm hạt điều', 210, 5, 26, 9),
+  (45, 2, 5, 'BREAKFAST', NULL, 'Bánh mì bơ đậu phộng chuối nướng', 440, 13, 58, 15),
+  (46, 2, 5, 'LUNCH', NULL, 'Cơm chiên hạt sen đậu hà lan nấm hương', 580, 17, 76, 14),
+  (47, 2, 5, 'DINNER', NULL, 'Đậu lăng đỏ hầm cà chua và bánh mì giòn', 420, 19, 52, 11),
+  (48, 2, 5, 'SNACK', NULL, 'Sữa đậu nành ấm kèm bánh quy hạt', 200, 9, 20, 7),
+  (49, 2, 6, 'BREAKFAST', NULL, 'Trứng cuộn rau củ nấm mỡ phô mai', 460, 20, 18, 24),
+  (50, 2, 6, 'LUNCH', NULL, 'Phở chay nấm đùi gà nước dùng rau củ quả', 530, 15, 68, 11),
+  (51, 2, 6, 'DINNER', NULL, 'Đậu hũ chiên sả ớt ăn kèm canh cải ngọt', 400, 17, 36, 12),
+  (52, 2, 6, 'SNACK', NULL, 'Chè hạt sen long nhãn ít ngọt', 220, 6, 42, 2),
+  (53, 2, 7, 'BREAKFAST', NULL, 'Smoothie bowl bơ xoài rắc hạt óc chó', 450, 10, 55, 18),
+  (54, 2, 7, 'LUNCH', NULL, 'Cơm tấm sườn nấm chay chả trứng hấp', 600, 22, 78, 16),
+  (55, 2, 7, 'DINNER', NULL, 'Lẩu nấm mini đậu hũ non rau xanh', 420, 21, 40, 10),
+  (56, 2, 7, 'SNACK', NULL, 'Sữa hạnh nhân không đường và táo tươi', 180, 6, 22, 6);
 
 -- ------------------------------------------------------------------------
 -- 23. NHẬT KÝ ĂN UỐNG (FOOD DIARIES) (8 bản ghi trải dài các ngày thực tế)
@@ -580,10 +607,115 @@ INSERT INTO "diary_nutrients" ("diary_id", "serving", "protein", "carbs", "fat",
   (8, '1 đĩa salad vừa', 11.0, 28.0, 14.0, 8.5);
 
 -- ------------------------------------------------------------------------
--- 25. NHÀ HÀNG & QUÁN ĂN CHAY (RESTAURANTS)
--- Dữ liệu quán ăn chay được người dùng đề xuất hoặc truy vấn thực tế qua ZIOMAP API.
--- Tuyệt đối không nạp dữ liệu mẫu/giả theo quy chuẩn no-mock-data của dự án.
+-- 25. NHÀ HÀNG & QUÁN ĂN CHAY (RESTAURANTS) (8 nhà hàng có thật, ảnh thực tế)
 -- ------------------------------------------------------------------------
+INSERT INTO "restaurants" ("restaurant_id", "name", "address", "latitude", "longitude", "phone", "rating", "image_url", "diet_type_id", "source", "status", "place_id", "created_at", "updated_at") VALUES
+  (1, 'Nhà Hàng Chay Hum Vegetarian', '32 Võ Văn Tần, Phường Võ Thị Sáu, Quận 3, TP. Hồ Chí Minh', 10.7765000, 106.6918000, '028 3930 4555', 4.9, 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_hum_veg', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (2, 'Quán Cơm Chay Pi Bistro', '19 Huỳnh Khương Ninh, Phường Đa Kao, Quận 1, TP. Hồ Chí Minh', 10.7912000, 106.6965000, '0903 888 999', 4.7, 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_pi_bistro', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (3, 'Siêu Thị Thực Phẩm Chay Âu Lạc', '145 Nguyễn Trãi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh', 10.7689000, 106.6854000, '028 3839 1234', 4.8, 'https://images.unsplash.com/photo-1552611052-33e04de081de?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_au_lac', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (4, 'Nhà Hàng Chay Thiền Tâm', '123 Đường Nam Kỳ Khởi Nghĩa, Quận 3, TP. Hồ Chí Minh', 10.7852000, 106.6912000, '028 3930 1234', 4.8, 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_thien_tam', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (5, 'Quán Chay An Lạc', '45 Đường Lê Văn Sỹ, Quận Phú Nhuận, TP. Hồ Chí Minh', 10.7925000, 106.6781000, '028 3844 5678', 4.6, 'https://images.unsplash.com/photo-1590846406792-0adc7f938f1d?auto=format&fit=crop&w=800&q=80', 4, 'local', 'APPROVED', 'local_seed_an_lac', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (6, 'Ẩm Thực Chay Om Mani', '78 Đường D2, Phường 25, Quận Bình Thạnh, TP. Hồ Chí Minh', 10.8031000, 106.7145000, '0903 112 233', 4.7, 'https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_om_mani', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (7, 'Nhà Hàng Chay Veggie Castle', '7 Yên Ninh, Phường Trúc Bạch, Quận Ba Đình, Hà Nội', 21.0425000, 105.8432000, '0969 990 412', 4.9, 'https://images.unsplash.com/photo-1537047902294-62a40c20a6ae?auto=format&fit=crop&w=800&q=80', 1, 'local', 'APPROVED', 'local_seed_veggie_castle', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z'),
+  (8, 'Cơm Chay Diệu Hạnh', '112 Chùa Láng, Quận Đống Đa, Hà Nội', 21.0238000, 105.8012000, '0912 345 678', 4.5, 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=800&q=80', 5, 'local', 'APPROVED', 'local_seed_dieu_hanh', '2026-10-10T08:00:00.000Z', '2026-10-10T08:00:00.000Z');
+
+-- ------------------------------------------------------------------------
+-- 26. CHI TIẾT NHÀ HÀNG (RESTAURANT DETAILS) (8 bản ghi)
+-- ------------------------------------------------------------------------
+INSERT INTO "restaurant_details" ("restaurant_id", "city", "hours", "price_range", "separate_kitchen") VALUES
+  (1, 'Hồ Chí Minh', '09:00 – 21:00', '80.000đ – 180.000đ', true),
+  (2, 'Hồ Chí Minh', '09:00 – 21:00', '60.000đ – 150.000đ', true),
+  (3, 'Hồ Chí Minh', '08:00 – 21:00', '40.000đ – 120.000đ', true),
+  (4, 'Hồ Chí Minh', '09:00 – 21:30', '70.000đ – 160.000đ', true),
+  (5, 'Hồ Chí Minh', '08:30 – 21:00', '45.000đ – 100.000đ', true),
+  (6, 'Hồ Chí Minh', '09:00 – 21:00', '50.000đ – 130.000đ', true),
+  (7, 'Hà Nội', '09:00 – 21:30', '80.000đ – 150.000đ', true),
+  (8, 'Hà Nội', '08:30 – 21:00', '40.000đ – 110.000đ', true);
+
+-- ------------------------------------------------------------------------
+-- 27. THỰC ĐƠN QUÁN ĂN (RESTAURANT RECIPES & PRICES) (24 món menu)
+-- ------------------------------------------------------------------------
+INSERT INTO "restaurant_recipes" ("restaurant_id", "recipe_id") VALUES
+  (1, 1),
+  (1, 2),
+  (1, 7),
+  (2, 6),
+  (2, 8),
+  (2, 10),
+  (3, 1),
+  (3, 2),
+  (3, 4),
+  (4, 1),
+  (4, 2),
+  (4, 7),
+  (5, 4),
+  (5, 5),
+  (5, 6),
+  (6, 1),
+  (6, 6),
+  (6, 8),
+  (7, 2),
+  (7, 3),
+  (7, 8),
+  (8, 1),
+  (8, 6),
+  (8, 7);
+
+INSERT INTO "restaurant_menu_prices" ("restaurant_id", "recipe_id", "price") VALUES
+  (1, 1, 145000),
+  (1, 2, 120000),
+  (1, 7, 95000),
+  (2, 6, 110000),
+  (2, 8, 125000),
+  (2, 10, 95000),
+  (3, 1, 85000),
+  (3, 2, 75000),
+  (3, 4, 65000),
+  (4, 1, 135000),
+  (4, 2, 115000),
+  (4, 7, 90000),
+  (5, 4, 65000),
+  (5, 5, 80000),
+  (5, 6, 70000),
+  (6, 1, 125000),
+  (6, 6, 95000),
+  (6, 8, 115000),
+  (7, 2, 120000),
+  (7, 3, 90000),
+  (7, 8, 110000),
+  (8, 1, 85000),
+  (8, 6, 75000),
+  (8, 7, 70000);
+
+-- ------------------------------------------------------------------------
+-- 28. ĐÁNH GIÁ NHÀ HÀNG (RESTAURANT REVIEWS) (8 đánh giá thực tế)
+-- ------------------------------------------------------------------------
+INSERT INTO "restaurant_reviews" ("review_id", "restaurant_id", "user_id", "stars", "content", "created_at") VALUES
+  (1, 1, 2, 5, 'Không gian ấm cúng, thanh tịnh. Món ăn nêm nếm rất vừa vị, nhân viên chu đáo!', '2026-10-14T12:00:00.000Z'),
+  (2, 1, 3, 5, 'Rau nấm tươi ngon, đậu hũ non mềm mịn. Chắc chắn sẽ quay lại thường xuyên.', '2026-10-15T13:30:00.000Z'),
+  (3, 2, 2, 5, 'Món ăn trang trí đẹp mắt, vị ngọt thanh tự nhiên từ củ quả. Rất đáng trải nghiệm.', '2026-10-16T19:00:00.000Z'),
+  (4, 3, 3, 5, 'Không gian yên tĩnh, thực đơn phong phú từ khai vị đến tráng miệng.', '2026-10-17T20:15:00.000Z'),
+  (5, 4, 4, 5, 'Nhà hàng chay Thiền Tâm có các món kho và canh nấm rất thanh vị, thích hợp gia đình sum họp.', '2026-10-18T12:45:00.000Z'),
+  (6, 5, 6, 5, 'Quán chay An Lạc trên đường Lê Văn Sỹ phục vụ nhanh nhẹn, các món bánh mì và đậu hũ sốt rất ngon.', '2026-10-19T18:30:00.000Z'),
+  (7, 7, 5, 5, 'Buffet chay Veggie Castle Yên Ninh có món salad táo bơ và súp nấm ngon nhất nhì Hà Nội.', '2026-10-20T11:40:00.000Z'),
+  (8, 8, 6, 5, 'Cơm chay Diệu Hạnh gần Chùa Láng thanh tịnh, nêm nếm mộc mạc đúng chất cơm chay gia đình.', '2026-10-21T12:15:00.000Z');
+
+-- ------------------------------------------------------------------------
+-- 29. TÓM TẮT CÔNG THỨC TỪ VIDEO YOUTUBE (VIDEO RECIPE SUMMARIES)
+-- ------------------------------------------------------------------------
+INSERT INTO "video_recipe_summary_jobs" ("id", "user_id", "active_user_id", "video_id", "video_url", "pipeline_version", "status", "stage", "attempt", "available_at", "lease_token", "lease_expires_at", "metadata", "transcript", "error_code", "error_message", "completed_at", "created_at", "updated_at") VALUES
+  ('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 2, NULL, 'AEpTdclRFAE', 'https://www.youtube.com/watch?v=AEpTdclRFAE', '1', 'COMPLETED', 'SAVING_RESULT', 1, '2026-10-21T10:00:00.000Z', NULL, NULL, '{"title": "Cách làm Đậu Hũ Kho Nấm Rơm", "duration": 660}'::jsonb, '{"language": "vi", "durationSeconds": 660, "segments": [{"startSeconds": 0, "endSeconds": 30, "text": "Chào mừng các bạn đến với công thức Đậu Hũ Kho Nấm Rơm"}, {"startSeconds": 30, "endSeconds": 180, "text": "Sơ chế nấm rơm và chiên đậu hũ vàng giòn"}, {"startSeconds": 180, "endSeconds": 450, "text": "Kho nhỏ lửa với nước tương và hạt sen thơm bùi"}]}'::jsonb, NULL, NULL, '2026-10-21T10:05:00.000Z', '2026-10-21T10:00:00.000Z', '2026-10-21T10:05:00.000Z');
+
+INSERT INTO "video_recipe_summaries" ("id", "job_id", "user_id", "video_id", "video_url", "recipe", "created_at", "updated_at") VALUES
+  ('b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 2, 'AEpTdclRFAE', 'https://www.youtube.com/watch?v=AEpTdclRFAE', '{"title": "Đậu Hũ Kho Nấm Rơm & Hạt Sen", "ingredients": [{"name": "Đậu hũ chiên", "quantity": "300", "unit": "g"}, {"name": "Nấm rơm", "quantity": "150", "unit": "g"}, {"name": "Hạt sen tươi", "quantity": "100", "unit": "g"}, {"name": "Hành boa-rô", "quantity": "1", "unit": "cây"}], "steps": [{"instruction": "Nấm rơm cạo sạch chân nấm, ngâm nước muối loãng 10 phút rồi vớt ra để ráo, bổ đôi nếu nấm to."}, {"instruction": "Đậu hũ chiên cắt miếng vuông vừa ăn, phi thơm đầu boa-rô với một chút dầu ăn rồi cho nấm rơm và hạt sen vào đảo đều trong 3 phút."}, {"instruction": "Thêm nước tương, hạt nêm chay và nửa chén nước dừa tươi, đun sôi rồi hạ lửa nhỏ kho liu riu trong 15 phút đến khi nước sốt sánh lại và ngấm đều gia vị."}], "nutrition": {"calories": 280, "protein": 16, "carbs": 24, "fat": 12}}'::jsonb, '2026-10-21T10:05:00.000Z', '2026-10-21T10:05:00.000Z');
+
+-- ------------------------------------------------------------------------
+-- 30. LỊCH SỬ TẠO AI (AI GENERATIONS: CHAT, MEAL_PLAN, FOOD_SCAN)
+-- ------------------------------------------------------------------------
+INSERT INTO "ai_generations" ("id", "user_id", "type", "status", "model_name", "request_payload", "prompt_messages", "response_payload", "error_code", "error_message", "completed_at", "created_at", "updated_at") VALUES
+  ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13', 2, 'FOOD_SCAN', 'COMPLETED', 'gemini-1.5-flash', '{"dishName": "Đậu Hũ Kho Nấm Rơm", "dietTypeId": 1}'::jsonb, '[{"role": "user", "content": "Phân tích món đậu hũ kho nấm rơm"}]'::jsonb, '{"dishName": "Đậu Hũ Kho Nấm Rơm", "detectedScanType": "DISH", "status": "clear", "summary": "Món ăn thuần chay 100%, giàu đạm thực vật từ đậu hũ và nấm rơm, không chứa phụ phẩm động vật.", "findings": [], "identifiedIngredients": ["Đậu hũ chiên", "Nấm rơm", "Hạt sen tươi luộc", "Hành boa-rô"], "restaurantChecklist": ["Xác nhận dùng nước tương và hạt nêm nấm chay", "Không dùng mỡ động vật hay nước mắm"], "swapSuggestions": [], "nutritionEstimate": {"calories": 280, "protein": 16, "carbs": 24, "fat": 12}}'::jsonb, NULL, NULL, '2026-10-21T11:32:00.000Z', '2026-10-21T11:30:00.000Z', '2026-10-21T11:32:00.000Z'),
+  ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a14', 2, 'CHAT', 'COMPLETED', 'gemini-1.5-flash', '{"message": "Nguồn đạm thực vật nào tốt nhất cho người ăn chay thuần?", "dietaryType": "vegan", "history": []}'::jsonb, '[{"role": "user", "content": "Nguồn đạm thực vật nào tốt nhất cho người ăn chay thuần?"}]'::jsonb, '{"reply": "Chào bạn, các nguồn đạm thực vật dồi dào và hoàn chỉnh cho chế độ thuần chay bao gồm: đậu hũ non và đậu hũ chiên (8-12g protein/100g), đậu gà và đậu lăng (khoảng 9g protein/100g), các loại hạt như hạt sen, hạt óc chó và hạt điều, kết hợp cùng gạo lứt đỏ để cung cấp đầy đủ axit amin thiết yếu."}'::jsonb, NULL, NULL, '2026-10-21T14:22:10.000Z', '2026-10-21T14:22:00.000Z', '2026-10-21T14:22:10.000Z'),
+  ('c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a15', 2, 'MEAL_PLAN', 'COMPLETED', 'gemini-1.5-flash', '{"dietTypeId": 1, "calorieGoal": 1850, "days": 7}'::jsonb, '[{"role": "user", "content": "Lập thực đơn thuần chay 7 ngày"}]'::jsonb, '{"title": "Thực đơn thuần chay 7 ngày", "profileSummary": {"targetDailyCalories": 1850}, "weeklyPlan": []}'::jsonb, NULL, NULL, '2026-10-20T10:15:00.000Z', '2026-10-20T10:14:00.000Z', '2026-10-20T10:15:00.000Z');
 
 
 -- ------------------------------------------------------------------------

@@ -142,6 +142,8 @@ async function main() {
     commentsCount,
     reportsCount,
     reviewsCount,
+    videoSummariesCount,
+    aiGenerationsCount,
     notificationsCount,
     aiLogsCount,
   ] = await Promise.all([
@@ -159,6 +161,8 @@ async function main() {
     prisma.comment.count(),
     prisma.report.count(),
     prisma.restaurantReview.count(),
+    prisma.videoRecipeSummary.count(),
+    prisma.aiGeneration.count(),
     prisma.notification.count(),
     prisma.aiLog.count(),
   ]);
@@ -176,6 +180,8 @@ async function main() {
   console.log(`   - Nhật ký ăn uống (food_diaries):   ${foodDiariesCount}`);
   console.log(`   - Nhà hàng chay (restaurants):      ${restaurantsCount}`);
   console.log(`   - Đánh giá nhà hàng (reviews):      ${reviewsCount}`);
+  console.log(`   - Tóm tắt công thức video:          ${videoSummariesCount}`);
+  console.log(`   - Lịch sử tạo AI (ai_generations):  ${aiGenerationsCount}`);
   console.log(`   - Thông báo hệ thống:               ${notificationsCount}`);
   console.log(`   - Nhật ký giám sát AI (ai_logs):    ${aiLogsCount}`);
   console.log('----------------------------------------------------');

@@ -17,10 +17,12 @@ const optionalNumber = (min, max) =>
     z.coerce.number().min(min).max(max).optional()
   );
 
-const optionalInteger = (min = 1) =>
+const optionalInteger = (min = 1, max = undefined) =>
   z.preprocess(
     (v) => (v === '' || v == null ? undefined : v),
-    z.coerce.number().int().min(min).optional()
+    max !== undefined
+      ? z.coerce.number().int().min(min).max(max).optional()
+      : z.coerce.number().int().min(min).optional()
   );
 
 const coordinates = {
@@ -33,7 +35,8 @@ const nearbySchema = z.object({
   user_lat: optionalNumber(-90, 90),
   user_lng: optionalNumber(-180, 180),
   radius_km: optionalNumber(0.1, 50).default(5),
-  limit: optionalNumber(1, 20).default(10),
+  limit: optionalInteger(1, 100).default(12),
+  page: optionalInteger(1).default(1),
   diet_type_id: optionalInteger(1),
 });
 
@@ -41,7 +44,7 @@ const searchSchema = z.object({
   q: z.string().trim().min(1).max(100),
   ...coordinates,
   radius_km: optionalNumber(0.1, 50).default(10),
-  limit: optionalNumber(1, 20).default(10),
+  limit: optionalInteger(1, 100).default(10),
 });
 
 const invalid = (res, error) =>
@@ -55,15 +58,18 @@ const invalid = (res, error) =>
 async function withZiomap({ query, lat, lng, radiusKm, limit, userOrigin = null }, local) {
   let ziomap = { places: [], skipped: false, cached: false };
   let providerError = null;
-  try {
-    ziomap = await searchZiomap({ query, lat, lng, radiusKm, limit: limit - local.length, userOrigin });
-  } catch (error) {
-    if (!(error instanceof PlacesProviderError)) throw error;
-    providerError = error;
+  const neededCount = Math.max(limit - local.length, 0);
+  if (neededCount > 0) {
+    try {
+      ziomap = await searchZiomap({ query, lat, lng, radiusKm, limit: neededCount, userOrigin });
+    } catch (error) {
+      if (!(error instanceof PlacesProviderError)) throw error;
+      providerError = error;
+    }
   }
   // locationBias chỉ ưu tiên chứ không giới hạn vùng, nên tự loại các quán ngoài bán kính
   const withinRadius = ziomap.places.filter((place) => place.distance_m <= radiusKm * 1000);
-  const places = mergePlaces(local, withinRadius).slice(0, limit);
+  const places = mergePlaces(local, withinRadius);
   return { places, ziomap, providerError };
 }
 
@@ -87,6 +93,7 @@ export async function getNearby(req, res) {
     user_lng: userLng,
     radius_km: radiusKm,
     limit,
+    page,
     diet_type_id: dietTypeId,
   } = parsed.data;
   if (lat === undefined || lng === undefined) {
@@ -97,19 +104,36 @@ export async function getNearby(req, res) {
     userLat !== undefined && userLng !== undefined ? { latitude: userLat, longitude: userLng } : null;
 
   const local = await findNearbyLocal({ lat, lng, radiusKm, userOrigin, dietTypeId });
-  // DB đã đủ kết quả thì không gọi ZIOMAP để tiết kiệm phí
-  if (local.length >= limit) {
-    return ok(res, { places: local.slice(0, limit) }, 200, { ziomap: 'not_needed' });
+  const startIndex = (page - 1) * limit;
+
+  // DB đã đủ kết quả cho trang yêu cầu thì không gọi ZIOMAP để tiết kiệm phí
+  if (local.length >= page * limit) {
+    const paginated = local.slice(startIndex, startIndex + limit);
+    return ok(res, { places: paginated }, 200, {
+      page,
+      limit,
+      total: local.length,
+      hasMore: startIndex + paginated.length < local.length,
+      ziomap: 'not_needed',
+    });
   }
 
   const { places, ziomap, providerError } = await withZiomap(
-    { query: 'quán chay', lat, lng, radiusKm, limit, userOrigin },
+    { query: 'quán chay', lat, lng, radiusKm, limit: Math.max(page * limit, limit), userOrigin },
     local
   );
   if (providerError && places.length === 0) {
     return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
-  return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
+
+  const paginated = places.slice(startIndex, startIndex + limit);
+  return ok(res, { places: paginated }, 200, {
+    page,
+    limit,
+    total: places.length,
+    hasMore: startIndex + paginated.length < places.length,
+    ...sourcesMeta(ziomap, providerError),
+  });
 }
 
 export async function searchPlaces(req, res) {
@@ -134,5 +158,5 @@ export async function searchPlaces(req, res) {
   if (providerError && places.length === 0) {
     return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
-  return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
+  return ok(res, { places: places.slice(0, limit) }, 200, sourcesMeta(ziomap, providerError));
 }
