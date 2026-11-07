@@ -1,7 +1,7 @@
 // D:/SWP391/SWP391/client/test/authRecoveryValidation.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { getPasswordResetToken, passwordResetSchema } from '../src/features/auth/utils/authValidation.js';
+import { getPasswordResetToken, passwordResetSchema, passwordResetOtpSchema } from '../src/features/auth/utils/authValidation.js';
 
 test('reset token comes only from one valid64hex token in the URL fragment', () => {
   const token = 'a'.repeat(64);
@@ -20,4 +20,11 @@ test('password reset validates confirmation and the actual bcrypt72UTF8byte boun
   const mismatch = passwordResetSchema.safeParse({ newPassword: 'new-password', confirmNewPassword: 'different-password' });
   assert.equal(mismatch.success, false);
   assert.equal(mismatch.error.issues[0].path[0], 'confirmNewPassword');
+});
+
+test('OTP preserves leading zeroes and accepts pasted spacing, but rejects incomplete or non-digit codes', () => {
+  assert.deepEqual(passwordResetOtpSchema.parse({ otp: ' 012 345 ' }), { otp: '012345' });
+  for (const otp of ['', '12345', '1234567', '12a345', 123456]) {
+    assert.equal(passwordResetOtpSchema.safeParse({ otp }).success, false);
+  }
 });

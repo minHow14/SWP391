@@ -12,6 +12,7 @@ from urllib3.response import HTTPResponse
 
 from core.video_recipe_errors import VideoRecipeError
 from schemas.video_recipe import VideoTranscriptionRequest
+from services.video_captions import CaptionSession
 from services.video_transcription import transcribe_video
 from tests.test_video_recipe_schemas import request_payload
 
@@ -313,9 +314,23 @@ async def test_rejects_caption_urls_outside_youtube_before_sending(
     assert all(urlsplit(call[0].url).hostname == "www.youtube.com" for call in calls)
 
 
+@pytest.fixture
+def caption_sessions(monkeypatch: pytest.MonkeyPatch) -> list[CaptionSession]:
+    sessions: list[CaptionSession] = []
+    initialize = CaptionSession.__init__
+
+    def capture(session: CaptionSession, cancelled: threading.Event) -> None:
+        initialize(session, cancelled)
+        sessions.append(session)
+
+    monkeypatch.setattr(CaptionSession, "__init__", capture)
+    return sessions
+
+
 @pytest.mark.asyncio
 async def test_cancellation_closes_owned_requests_and_stops_before_next_request(
     monkeypatch: pytest.MonkeyPatch,
+    caption_sessions: list[CaptionSession],
 ) -> None:
     entered, release = threading.Event(), threading.Event()
     responses = []
@@ -331,9 +346,16 @@ async def test_cancellation_closes_owned_requests_and_stops_before_next_request(
     task = asyncio.create_task(retrieve())
     reached_request = await asyncio.to_thread(entered.wait, 2)
     task.cancel()
-    release.set()
+    try:
+        # Task.cancel() schedules cancellation; wait until the HTTP worker sees it.
+        cancellation_delivered = await asyncio.to_thread(
+            caption_sessions[0].cancelled.wait, 2
+        )
+    finally:
+        release.set()
     with pytest.raises(asyncio.CancelledError):
         await task
     assert reached_request
+    assert cancellation_delivered
     assert len(responses) == 1
     assert responses[0].raw.closed

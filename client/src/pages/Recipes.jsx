@@ -6,65 +6,17 @@ import { filterRecipes } from '../utils/recipeFilters.js';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import RecipeImage from '../components/common/RecipeImage.jsx';
 import RecipeInstructions from '../components/common/RecipeInstructions.jsx';
+import { formatIngredientDisplay, calculateTotalCalories } from '../utils/recipeCalculator.js';
 
 /**
  * Calculate calories for a recipe ingredient based on unit and quantity
  */
-function calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities) {
-    if (!ingredient || ingredient.calories_per_100g === null || ingredient.calories_per_100g === undefined) {
-        return null;
-    }
 
-    const { unit, quantity } = recipeIngredient;
-    const caloriesPer100g = ingredient.calories_per_100g;
-
-    if (unit === 'gram' || unit === 'g') {
-        // Direct calculation: (quantity * calories_per_100g) / 100
-        return (quantity * caloriesPer100g) / 100;
-    }
-
-    if (unit === 'milliliter' || unit === 'ml') {
-        // Convert ml to grams using density from database
-        const densityRecord = liquidDensities.find(
-            (ld) => ld.ingredient_id === ingredient.ingredient_id
-        );
-
-        if (densityRecord) {
-            const gramsFromMl = quantity * densityRecord.density;
-            return (gramsFromMl * caloriesPer100g) / 100;
-        }
-        // If density not found in database, return null
-        return null;
-    }
-
-    // For other units (piece, fruit, seed, etc.), return calories per 100g with disclaimer
-    return caloriesPer100g;
-}
 
 /**
  * Format ingredient display with unit normalization
  */
-function formatIngredientDisplay(recipeIngredient, ingredient, liquidDensities) {
-    if (!ingredient) {
-        return recipeIngredient.name || 'Unknown ingredient';
-    }
 
-    const { unit, quantity } = recipeIngredient;
-    const calories = calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities);
-    let displayText = `${quantity} ${unit} ${ingredient.name}`;
-
-    // Add calorie information
-    if (calories !== null) {
-        if (unit === 'gram' || unit === 'g' || unit === 'milliliter' || unit === 'ml') {
-            displayText += ` (${calories.toFixed(1)} kcal)`;
-        } else {
-            // For other units, add disclaimer
-            displayText += ` (~${calories.toFixed(1)} kcal per 100g*)`;
-        }
-    }
-
-    return displayText;
-}
 
 export default function Recipes() {
     const { data } = useDatabase();
@@ -93,17 +45,6 @@ export default function Recipes() {
     /**
      * Calculate total calories for a recipe
      */
-    function calculateTotalCalories(recipeWithIngredients) {
-        if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
-            return recipeWithIngredients.total_calories || 0;
-        }
-
-        return recipeWithIngredients.recipeIngredients.reduce((total, recipeIng) => {
-            const ingredient = recipeIng.ingredient;
-            const calories = calculateIngredientCalories(recipeIng, ingredient, liquidDensities);
-            return total + (calories !== null ? calories : 0);
-        }, 0);
-    }
 
     return (
         <main className="cx-explore-page flex-grow-1" aria-label="Kho công thức chay">
@@ -170,7 +111,7 @@ export default function Recipes() {
                 <p className="cx-sample-note">Tìm thấy {filtered.length} món.</p>
                 <div className="row g-4">
                     {filtered.map((recipe) => {
-                        const totalCalories = calculateTotalCalories(recipe);
+                        const totalCalories = calculateTotalCalories(recipe, liquidDensities);
                         return (
                             <div className="col-12 col-md-6 col-xl-4" key={recipe.recipe_id}>
                                 <article className="cx-recipe-card h-100">

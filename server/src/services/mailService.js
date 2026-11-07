@@ -2,6 +2,7 @@
 import nodemailer from 'nodemailer';
 import { getPasswordResetConfig } from '../config/passwordResetConfig.js';
 import { ApiError } from '../utils/apiError.js';
+import { createPasswordResetEmail } from '../templates/passwordResetEmail.js';
 
 const SMTP_TIMEOUT_MS = 10000;
 
@@ -29,10 +30,10 @@ export const mailService = {
     }
   },
 
-  async sendPasswordReset({ delivery, to, resetUrl }) {
+  async sendPasswordReset({ delivery, to, otp }) {
     const result = await delivery.transport.sendMail({
-      from: delivery.from, to, subject: 'Đặt lại mật khẩu ChayXanh',
-      text: `Bạn đã yêu cầu đặt lại mật khẩu ChayXanh.\n\nMở liên kết sau để chọn mật khẩu mới:\n${resetUrl}\n\nLiên kết có hiệu lực trong ${delivery.ttlMinutes} phút và chỉ dùng được một lần. Nếu bạn không yêu cầu, hãy bỏ qua email này.`,
+      from: { name: 'ChayXanh', address: delivery.from }, to,
+      ...createPasswordResetEmail({ otp }),
     });
     if (!result.accepted?.some((address) => String(address).toLowerCase() === to.toLowerCase())) throw unavailable();
   },
