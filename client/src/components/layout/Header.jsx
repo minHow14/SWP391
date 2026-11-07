@@ -16,14 +16,12 @@ const MENU_ITEMS = [
   { name: 'Quán Chay', icon: 'bi-geo-alt-fill', path: '/quan-chay' },
   { name: 'Nhật Ký', icon: 'bi-pie-chart-fill', path: '/nhat-ky' },
 ];
-const ADMIN_ITEM = { name: 'Quản Trị AI', icon: 'bi-speedometer2', path: '/admin/ai' };
 
 export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDiet }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutState, setLogoutState] = useState({ pending: false, error: '' });
   const { user } = useDatabase();
   const closeMenu = () => setMenuOpen(false);
-  const menuItems = user?.role === 1 ? [...MENU_ITEMS, ADMIN_ITEM] : MENU_ITEMS;
 
   async function signOut() {
     if (logoutState.pending) return;
@@ -51,7 +49,7 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
           <Navbar.Toggle aria-controls="navbar-menu" label="Mở hoặc đóng menu" />
           <Navbar.Collapse id="navbar-menu">
             <Nav as="ul" className="main-menu">
-              {menuItems.map(item => (
+              {MENU_ITEMS.map(item => (
                 <Nav.Item as="li" key={item.path}>
                   <NavLink to={item.path} onClick={closeMenu} className={({ isActive }) => `nav-link ${isActive ? 'cx-nav-active' : ''}`}>
                     <i className={`bi ${item.icon}`} aria-hidden="true" /><span>{item.name}</span>
