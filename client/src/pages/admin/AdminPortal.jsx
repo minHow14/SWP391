@@ -27,7 +27,6 @@ const VALID_TABS = [
   'ai-management',
   'reports',
 ];
-const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'ai-management', 'reports'];
 
 export default function AdminPortal() {
   const { user } = useDatabase();
