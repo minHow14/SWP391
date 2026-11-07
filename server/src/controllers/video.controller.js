@@ -43,4 +43,3 @@ export const deleteVideo = asyncHandler(async (req, res) => {
   const result = await videoService.deleteVideo(req.params.id, req.user);
   return sendSuccess(res, result);
 });
-

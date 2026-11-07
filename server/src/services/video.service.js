@@ -7,7 +7,7 @@ import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { categoryRepository } from '../repositories/category.repository.js';
 import { notificationService } from './notification.service.js';
-import { contentModerationService } from './contentModerationService.js';
+import { contentModerationService, haveSameModerationImages } from './contentModerationService.js';
 
 export const videoService = {
   /**
@@ -81,6 +81,7 @@ export const videoService = {
           post: newPost,
           title: newVideo.title,
           content: newVideo.transcript || newVideo.title,
+          imageUrls: [newVideo.thumbnail_url],
         },
         tx
       );
@@ -306,6 +307,8 @@ export const videoService = {
     const textChanged = ['title', 'transcript'].some(
       (field) => updateData[field] !== undefined && updateData[field] !== existingVideo[field]
     );
+    const thumbnailChanged = updateData.thumbnail_url !== undefined
+      && !haveSameModerationImages([existingVideo.thumbnail_url], [updateData.thumbnail_url]);
 
     return await prisma.$transaction(async (tx) => {
       const updatedVideo = await tx.video.update({
@@ -340,12 +343,13 @@ export const videoService = {
       });
 
       const { post, ...videoData } = updatedVideo;
-      const moderation = textChanged
+      const moderation = textChanged || thumbnailChanged
         ? await contentModerationService.queuePost(
             {
               post,
               title: updatedVideo.title,
               content: updatedVideo.transcript || updatedVideo.title,
+              imageUrls: [updatedVideo.thumbnail_url],
             },
             tx
           )

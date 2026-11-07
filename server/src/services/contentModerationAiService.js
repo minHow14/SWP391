@@ -1,9 +1,9 @@
 // D:/SWP391/SWP391/server/src/services/contentModerationAiService.js
 import { aiConfig } from '../config/aiConfig.js';
 import { contentModerationConfig } from '../config/contentModerationConfig.js';
-import { MODERATION_AI_PATH, MODERATION_MAX_RESPONSE_BYTES } from '../constants/contentModeration.js';
+import { MODERATION_AI_PATH, MODERATION_IMAGE_AI_PATH, MODERATION_MAX_RESPONSE_BYTES } from '../constants/contentModeration.js';
 import { ApiError } from '../utils/apiError.js';
-import { validateContentModerationResult } from '../validators/contentModerationValidator.js';
+import { validateContentModerationResult, validateImageModerationResult } from '../validators/contentModerationValidator.js';
 
 export function contentModerationError({ code, retryable = false }) {
   return Object.assign(new ApiError(503, 'Chưa thể hoàn tất kiểm duyệt tự động. Nội dung đang chờ xử lý.'),
@@ -11,7 +11,7 @@ export function contentModerationError({ code, retryable = false }) {
 }
 const invalidOutput = () => contentModerationError({ code: 'MODERATION_AI_INVALID_OUTPUT', retryable: true });
 
-async function readResult(response, job) {
+async function readResult(response, parse) {
   if (!response.headers.get('content-type')?.includes('application/json')) {
     await response.body?.cancel();
     throw invalidOutput();
@@ -30,7 +30,7 @@ async function readResult(response, job) {
     }
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     if (body.success !== true) throw invalidOutput();
-    return validateContentModerationResult(body.data, job);
+    return parse(body.data);
   } finally { await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
@@ -42,28 +42,40 @@ async function checkResponse(response) {
     retryable: response.status === 429 || response.status >= 500 });
 }
 
+const jobContext = (job) => ({ jobId: job.id, contentType: job.postId ? 'POST' : 'COMMENT',
+  contentVersion: job.contentVersion, title: job.title || undefined, content: job.content });
+
 export function createContentModerationAiService({ fetchImpl = globalThis.fetch, config = aiConfig,
   timeoutMs = contentModerationConfig.timeoutMs } = {}) {
+  async function postForVerdict({ path, job, body, parse, signal }) {
+    if (!config.internalApiKey) throw contentModerationError({ code: 'AI_NOT_CONFIGURED' });
+    const deadline = AbortSignal.timeout(timeoutMs);
+    const activeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    try {
+      activeSignal.throwIfAborted();
+      const response = await fetchImpl(`${config.url}${path}`, { method: 'POST', redirect: 'error', signal: activeSignal,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Internal-Api-Key': config.internalApiKey,
+          'X-Request-Id': job.id },
+        body: JSON.stringify(body) });
+      await checkResponse(response);
+      return await readResult(response, parse).catch((error) => { if (activeSignal.aborted) throw error; throw invalidOutput(); });
+    } catch (error) {
+      if (signal?.aborted) throw contentModerationError({ code: 'MODERATION_INTERRUPTED', retryable: true });
+      if (deadline.aborted) throw contentModerationError({ code: 'MODERATION_AI_TIMEOUT', retryable: true });
+      if (error.errorCode) throw error;
+      throw contentModerationError({ code: 'MODERATION_AI_UNAVAILABLE', retryable: true });
+    }
+  }
+
   return {
-    async moderate({ job, signal }) {
-      if (!config.internalApiKey) throw contentModerationError({ code: 'AI_NOT_CONFIGURED' });
-      const deadline = AbortSignal.timeout(timeoutMs);
-      const activeSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
-      try {
-        activeSignal.throwIfAborted();
-        const response = await fetchImpl(`${config.url}${MODERATION_AI_PATH}`, { method: 'POST', redirect: 'error', signal: activeSignal,
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Internal-Api-Key': config.internalApiKey,
-            'X-Request-Id': job.id },
-          body: JSON.stringify({ jobId: job.id, contentType: job.postId ? 'POST' : 'COMMENT', contentVersion: job.contentVersion,
-            title: job.title || undefined, content: job.content }) });
-        await checkResponse(response);
-        return await readResult(response, job).catch((error) => { if (activeSignal.aborted) throw error; throw invalidOutput(); });
-      } catch (error) {
-        if (signal?.aborted) throw contentModerationError({ code: 'MODERATION_INTERRUPTED', retryable: true });
-        if (deadline.aborted) throw contentModerationError({ code: 'MODERATION_AI_TIMEOUT', retryable: true });
-        if (error.errorCode) throw error;
-        throw contentModerationError({ code: 'MODERATION_AI_UNAVAILABLE', retryable: true });
-      }
+    moderate({ job, signal }) {
+      return postForVerdict({ path: MODERATION_AI_PATH, job, body: jobContext(job), signal,
+        parse: (data) => validateContentModerationResult(data, job) });
+    },
+    // The post text travels with each image so a captioned vegetarian dish is not mistaken for meat.
+    moderateImage({ job, imageIndex, image, signal }) {
+      return postForVerdict({ path: MODERATION_IMAGE_AI_PATH, job, signal, parse: validateImageModerationResult,
+        body: { ...jobContext(job), imageIndex, mimeType: image.mimeType, imageBase64: image.imageBase64 } });
     },
   };
 }

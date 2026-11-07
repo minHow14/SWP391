@@ -10,6 +10,8 @@ import { ingredientLookupRepository as jobs } from '../src/repositories/ingredie
 import { ingredientLookupService as lookup } from '../src/services/ingredientLookupService.js';
 import { processIngredientLookupJob } from '../src/services/ingredientLookupProcessor.js';
 import { runIngredientLookupWorker } from '../src/workers/ingredientLookupWorker.js';
+import { backfillIngredientNutrition } from '../src/services/ingredientNutritionBackfill.js';
+import { isEnergyConsistent } from '../src/validators/ingredientLookupValidator.js';
 
 let owner, token;
 const names = [];
@@ -198,5 +200,101 @@ describe('ingredient lookup jobs', () => {
     };
     await runIngredientLookupWorker({ signal: controller.signal, processJob });
     expect((await actor.get(`/api/v1/ingredient-lookup-jobs/${job.jobId}`)).body.data.status).toBe('COMPLETED');
+  });
+});
+
+describe('AI nutrition per 100 g', () => {
+  const nutrition = { calories: 20, protein: 1.5, fat: 0.2, carbs: 3.1 };
+  const withNutrition = (value) => ({ isIngredient: true, ingredient: { ...information, nutritionPer100g: value } });
+  const columns = (row) => ({ calories: row.calories_per_100g, protein: row.protein, fat: row.fat, carbs: row.carbs });
+
+  it('saves generated per-100 g nutrition so the dictionary and lookup show it', async () => {
+    const job = await queue();
+    provider(withNutrition(nutrition));
+    expect((await processIngredientLookupJob(await jobs.claim(60_000))).status).toBe('COMPLETED');
+    expect(columns(await prisma.ingredient.findUnique({ where: { name: job.ingredientName } }))).toEqual(nutrition);
+    const poll = await actor.get(`/api/v1/ingredient-lookup-jobs/${job.jobId}`);
+    expect(poll.body.data.ingredient.nutritionPer100g).toEqual(nutrition);
+    const catalog = await request(app).get('/api/workspace/catalog');
+    expect(catalog.body.data.ingredients.find((item) => item.name === job.ingredientName))
+      .toMatchObject({ calories_per_100g: 20, protein: 1.5, fat: 0.2, carbs: 3.1 });
+  });
+
+  it('keeps nutrition empty and the lookup successful when the provider has no estimate', async () => {
+    const job = await queue();
+    provider(withNutrition(null));
+    expect((await processIngredientLookupJob(await jobs.claim(60_000))).status).toBe('COMPLETED');
+    const poll = await actor.get(`/api/v1/ingredient-lookup-jobs/${job.jobId}`);
+    expect(poll.body.data.ingredient.nutritionPer100g).toBeNull();
+  });
+
+  it('fills only empty columns of an existing entry without overwriting recorded figures', async () => {
+    const job = await queue();
+    await prisma.ingredient.create({ data: { name: job.ingredientName, calories_per_100g: 76, protein: null, fat: 4.8, carbs: null } });
+    provider(withNutrition(nutrition));
+    expect((await processIngredientLookupJob(await jobs.claim(60_000))).status).toBe('COMPLETED');
+    expect(columns(await prisma.ingredient.findUnique({ where: { name: job.ingredientName } })))
+      .toEqual({ calories: 76, protein: 1.5, fat: 4.8, carbs: 3.1 });
+  });
+
+  it.each([
+    ['energy that contradicts the macronutrients', { calories: 400, protein: 1, fat: 0.1, carbs: 2 }],
+    ['macronutrients above 100 g', { calories: 450, protein: 60, fat: 10, carbs: 40 }],
+    ['negative grams', { ...nutrition, fat: -1 }],
+    ['calories above pure fat', { calories: 950, protein: 0, fat: 100, carbs: 0 }],
+    ['extra fields', { ...nutrition, fiber: 2 }],
+  ])('rejects %s without creating a dictionary entry', async (_label, value) => {
+    const job = await queue();
+    provider(withNutrition(value));
+    expect(await processIngredientLookupJob(await jobs.claim(60_000)))
+      .toMatchObject({ status: 'FAILED', errorCode: 'INGREDIENT_LOOKUP_INVALID_OUTPUT' });
+    expect(await prisma.ingredient.count({ where: { name: job.ingredientName } })).toBe(0);
+  });
+
+  it('accepts real-world profiles where fibre makes energy differ from the Atwater estimate', () => {
+    expect(isEnergyConsistent({ calories: 579, protein: 21.2, fat: 49.9, carbs: 21.6 })).toBe(true);
+    expect(isEnergyConsistent({ calories: 76, protein: 8.1, fat: 4.8, carbs: 1.9 })).toBe(true);
+    expect(isEnergyConsistent({ calories: 0, protein: 0, fat: 0, carbs: 0 })).toBe(true);
+  });
+});
+
+describe('backfilling nutrition for earlier AI entries', () => {
+  const estimate = { calories: 16, protein: 1.3, fat: 0.2, carbs: 3 };
+  let repository;
+
+  async function entry(name, data = {}) {
+    names.push(name);
+    return prisma.ingredient.create({ data: { name, calories_per_100g: null, protein: null, fat: null, carbs: null, ...data,
+      details: { create: { category: 'vegetable', origin: 'Thực vật', plant: true, description: 'Mô tả', cooking: 'Cách nấu', aliases: '' } } } });
+  }
+
+  beforeEach(() => {
+    // Limit the scan to this suite's rows; the shared test database may hold other entries.
+    repository = { ...jobs, findMissingNutrition: async () => (await jobs.findMissingNutrition()).filter((row) => names.includes(row.name)) };
+  });
+
+  it('previews without writing, then fills only empty columns and keeps going after a failure', async () => {
+    const empty = await entry(`Rau bổ sung ${randomUUID()}`);
+    const partial = await entry(`Rau một phần ${randomUUID()}`, { calories_per_100g: 15 });
+    const unknown = await entry(`Rau lạ ${randomUUID()}`);
+    const broken = await entry(`Rau lỗi ${randomUUID()}`);
+    const generate = vi.fn(async ({ job }) => {
+      if (job.ingredientName === broken.name) throw Object.assign(new Error('down'), { errorCode: 'AI_UNAVAILABLE' });
+      return { ...information, nutritionPer100g: job.ingredientName === unknown.name ? null : estimate };
+    });
+    const preview = await backfillIngredientNutrition({ dryRun: true, generate, repository });
+    expect(preview.find((row) => row.name === empty.name)).toMatchObject({ status: 'PREVIEW', nutrition: estimate });
+    expect((await prisma.ingredient.findUnique({ where: { ingredient_id: empty.ingredient_id } })).calories_per_100g).toBeNull();
+
+    const report = await backfillIngredientNutrition({ generate, repository });
+    const status = Object.fromEntries(report.map((row) => [row.name, row.status]));
+    expect(status).toEqual({ [empty.name]: 'UPDATED', [partial.name]: 'UPDATED', [unknown.name]: 'NO_ESTIMATE', [broken.name]: 'FAILED' });
+    expect(report.find((row) => row.name === broken.name).errorCode).toBe('AI_UNAVAILABLE');
+    expect(await prisma.ingredient.findUnique({ where: { ingredient_id: partial.ingredient_id } }))
+      .toMatchObject({ calories_per_100g: 15, protein: 1.3, fat: 0.2, carbs: 3 });
+    expect(await prisma.ingredient.findUnique({ where: { ingredient_id: empty.ingredient_id } }))
+      .toMatchObject({ calories_per_100g: 16, protein: 1.3, fat: 0.2, carbs: 3 });
+    expect((await backfillIngredientNutrition({ generate, repository })).map((row) => row.name).sort())
+      .toEqual([broken.name, unknown.name].sort());
   });
 });

@@ -18,7 +18,6 @@ const IngredientDictionary = lazy(() => import('../pages/IngredientDictionary.js
 const Restaurants = lazy(() => import('../pages/Restaurants.jsx'));
 const Journal = lazy(() => import('../pages/Journal.jsx'));
 const Profile = lazy(() => import('../pages/Profile.jsx'));
-const AdminAi = lazy(() => import('../pages/admin/AdminAi.jsx'));
 const LegalDocument = lazy(() => import('../pages/LegalDocument.jsx'));
 const AdminPortal = lazy(() => import('../pages/admin/AdminPortal.jsx'));
 
@@ -35,13 +34,13 @@ export default function AppRoutes() {
                     <Route path="/quan-chay" element={<Restaurants />} />
                     <Route path="/nhat-ky" element={<Journal />} />
                     <Route path="/ho-so" element={<Profile />} />
-                    <Route path="/admin/ai" element={<AdminAi />} />
                     <Route path="/cong-thuc" element={<Recipes />} />
                     <Route path="/cong-dong" element={<Community />} />
                 </Route>
                 <Route path="/dieu-khoan" element={<LegalDocument slug="terms-of-service" />} />
                 <Route path="/chinh-sach-bao-mat" element={<LegalDocument slug="privacy-policy" />} />
                 <Route path="/admin" element={<AdminPortal />} />
+                <Route path="/admin/ai" element={<Navigate to="/admin?tab=ai-management" replace />} />
                 <Route path="/dang-nhap" element={<Login />} />
                 <Route path="/dang-ky" element={<Register />} />
                 <Route path="/quen-mat-khau" element={<ForgotPassword />} />

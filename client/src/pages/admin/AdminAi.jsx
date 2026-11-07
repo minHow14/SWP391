@@ -232,14 +232,12 @@ export default function AdminAi() {
   if (user.role !== ADMIN_ROLE) return <main className="cx-admin-page"><div className="cx-admin-shell text-center"><h1>Quản trị AI</h1><p role="alert">Tài khoản của bạn không có quyền truy cập trang này.</p></div></main>;
   const Active = TABS.find(([key]) => key === tab)[2];
   return (
-    <main className="cx-admin-page flex-grow-1">
-      <div className="cx-admin-shell">
+    <section className="cx-admin-shell border-0 rounded-0 p-0 m-0 mw-100" aria-label="Quản trị AI">
         <header><h1><i className="bi bi-speedometer2" aria-hidden="true" /> Quản trị AI</h1><p>Theo dõi nhật ký, tỷ lệ thành công và can thiệp khi cần.</p></header>
         <div className="cx-admin-tabs" role="tablist">
           {TABS.map(([key, label]) => <button key={key} type="button" role="tab" aria-selected={tab === key} className={tab === key ? 'is-active' : ''} onClick={() => setTab(key)}>{label}</button>)}
         </div>
         <Active />
-      </div>
-    </main>
+    </section>
   );
 }

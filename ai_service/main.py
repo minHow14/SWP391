@@ -17,6 +17,7 @@ from api.admin_actions import router as admin_actions_router
 from api.chat import router as chat_router
 from api.content_moderation import router as content_moderation_router
 from api.food_scanner import router as food_scanner_router
+from api.image_moderation import router as image_moderation_router
 from api.ingredient_lookup import router as ingredient_lookup_router
 from api.meal_planner import router as meal_planner_router
 from api.video_recipe import router as video_recipe_router
@@ -26,6 +27,7 @@ from core.ratelimit import limiter
 from core.security import verify_internal_api_key
 from core.video_recipe_errors import VideoRecipeError
 from services.content_moderation import initialize_content_moderation
+from services.image_moderation import initialize_image_moderation
 from services.ingredient_lookup import initialize_ingredient_lookup
 
 logger = logging.getLogger(__name__)
@@ -35,6 +37,7 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Dịch vụ AI chạy ở chế độ Stateless (không kết nối PostgreSQL)
     initialize_content_moderation()
+    initialize_image_moderation()
     initialize_ingredient_lookup()
     logger.info("AI Service started successfully.")
     yield
@@ -174,6 +177,7 @@ app.include_router(admin_actions_router, prefix="/api")
 app.include_router(food_scanner_router, prefix="/api")
 app.include_router(video_recipe_router, prefix="/api")
 app.include_router(content_moderation_router, prefix="/api")
+app.include_router(image_moderation_router, prefix="/api")
 app.include_router(ingredient_lookup_router, prefix="/api")
 
 

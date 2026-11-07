@@ -52,14 +52,14 @@ it('blocks analysis when a saved allergy cannot be resolved instead of omitting 
   fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [new File(['x'], 'meal.png', { type: 'image/png' })] } });
   await screen.findByText(/Không thể xác định đầy đủ dị ứng/);
   expect(analyzeFoodImage).not.toHaveBeenCalled();
-  expect(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }).disabled).toBe(true);
+  expect(screen.getByRole('button', { name: 'Phân tích' }).disabled).toBe(true);
 });
 
 async function scan() {
   const fileInput = document.querySelector('input[type="file"]');
   fireEvent.change(fileInput, { target: { files: [new File(['real-image'], 'meal.png', { type: 'image/png' })] } });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }).disabled).toBe(false));
-  fireEvent.click(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Phân tích' }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Phân tích' }));
   await screen.findByRole('button', { name: /Lưu vào Nhật ký ăn uống/ });
 }
 
@@ -86,7 +86,7 @@ it('sends the uploaded image, removes fake demo scans, and saves only after expl
     name: 'Sườn chay', serving: '1 đĩa 150 g', group: 'LUNCH', calories: 180, protein: 12, carbs: 18, fat: 6, fiber: 4,
   }));
   analyzeFoodImage.mockResolvedValueOnce({ success: true, data: { ...result, dishName: 'Canh nấm' } });
-  fireEvent.click(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Phân tích' }));
   await screen.findByText('Canh nấm');
   expect(screen.queryByText(/Đã lưu món ăn vào nhật ký/)).toBeNull();
 });
@@ -127,7 +127,7 @@ it('closes the old diary draft when the diet changes and requires a new save act
   fireEvent.change(screen.getByLabelText('Chế độ ăn chay áp dụng'), { target: { value: '4' } });
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   analyzeFoodImage.mockResolvedValueOnce({ success: true, data: { ...result, dishName: 'Canh mới' } });
-  fireEvent.click(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }));
+  fireEvent.click(screen.getByRole('button', { name: 'Phân tích' }));
   await screen.findByText('Canh mới');
   expect(screen.queryByRole('dialog')).toBeNull();
 });
@@ -137,8 +137,8 @@ it('clears private scan results on account change and ignores late analysis resp
   analyzeFoodImage.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));
   const view = render(draw());
   fireEvent.change(document.querySelector('input[type="file"]'), { target: { files: [new File(['x'], 'meal.png', { type: 'image/png' })] } });
-  await waitFor(() => expect(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }).disabled).toBe(false));
-  fireEvent.click(screen.getByRole('button', { name: /Phân tích bằng AI Vision/ }));
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Phân tích' }).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Phân tích' }));
   context.user = { user_id: 8 }; view.rerender(draw());
   await act(async () => resolve({ success: true, data: result }));
   expect(screen.queryByText('Nhận diện từ ảnh tải lên.')).toBeNull();

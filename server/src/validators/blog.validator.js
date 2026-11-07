@@ -1,6 +1,7 @@
 // d:\Projects\FPT\SWP391\server\src\validators\blog.validator.js
 import { z } from 'zod';
 import { idSchema, textSchema } from './common.validator.js';
+import { POST_MEDIA_URL_MESSAGE, POST_MEDIA_URL_PATTERN } from '../constants/postMedia.js';
 
 export const attachmentItemSchema = z.object({
   url: z
@@ -8,7 +9,7 @@ export const attachmentItemSchema = z.object({
     .trim()
     .min(1, 'Đường dẫn tệp không được để trống')
     .max(500)
-    .refine((val) => !val.includes('..') && !val.includes('\\'), 'Đường dẫn không hợp lệ hoặc chứa ký tự chuyển hướng'),
+    .regex(POST_MEDIA_URL_PATTERN, POST_MEDIA_URL_MESSAGE),
   type: z.enum(['image', 'video']).default('image'),
   name: z.string().trim().max(255).optional(),
 });

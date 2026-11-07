@@ -5,8 +5,10 @@ import { userRepository } from '../repositories/user.repository.js';
 import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
 import { ApiError } from '../utils/index.js';
-import { contentModerationService } from './contentModerationService.js';
+import { contentModerationService, haveSameModerationImages } from './contentModerationService.js';
 import { notificationService } from './notification.service.js';
+
+const attachmentUrls = (attachments = []) => attachments.map((attachment) => attachment.file_url);
 
 export const blogService = {
   /**
@@ -96,7 +98,8 @@ export const blogService = {
         name: a.file_name,
       }));
 
-      const moderation = await contentModerationService.queuePost({ post: newPost, title: newBlog.title, content: newBlog.content }, tx);
+      const moderation = await contentModerationService.queuePost({ post: newPost, title: newBlog.title, content: newBlog.content,
+        imageUrls: attachmentUrls(savedAttachments) }, tx);
 
       return {
         ...newPost,
@@ -393,7 +396,8 @@ export const blogService = {
         await postRepository.setPostCategory(postId, numericCategoryId, tx);
       }
 
-      let currentAttachments = updatedBlog.post?.attachments || [];
+      const previousAttachments = updatedBlog.post?.attachments || [];
+      let currentAttachments = previousAttachments;
       if (Array.isArray(attachments)) {
         const saved = await postRepository.setPostAttachments(postId, attachments, tx);
         currentAttachments = saved;
@@ -407,8 +411,11 @@ export const blogService = {
       }));
 
       const { post, ...blogData } = updatedBlog;
-      const moderation = textChanged ? await contentModerationService.queuePost({
-        post, title: updatedBlog.title, content: updatedBlog.content,
+      const imageUrls = attachmentUrls(currentAttachments);
+      // Swapping only the pictures must not keep an approval granted to the old ones.
+      const imagesChanged = !haveSameModerationImages(attachmentUrls(previousAttachments), imageUrls);
+      const moderation = textChanged || imagesChanged ? await contentModerationService.queuePost({
+        post, title: updatedBlog.title, content: updatedBlog.content, imageUrls,
       }, tx) : {};
       return {
         ...post,

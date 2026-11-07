@@ -1,6 +1,9 @@
 // D:/SWP391/SWP391/server/src/validators/ingredientLookupValidator.js
 import { z } from 'zod';
 import { MAX_FOOD_SCAN_BASE64_LENGTH, MAX_FOOD_SCAN_IMAGE_BYTES } from '../constants/foodScanner.js';
+import {
+  NUTRITION_ATWATER, NUTRITION_ENERGY_TOLERANCE, NUTRITION_MAX_CALORIES_PER_100G, NUTRITION_MAX_GRAMS_PER_100G,
+} from '../constants/ingredientLookup.js';
 
 export const normalizeIngredientName = (name) => name.normalize('NFKC').trim().replace(/\s+/gu, ' ');
 const text = (limit) => z.string().trim().min(1).max(limit);
@@ -24,10 +27,28 @@ export const ingredientLookupSchema = z.object({
   photo: photoSchema.optional(),
 }).strict();
 export const ingredientLookupParamsSchema = z.object({ id: z.uuid() }).strict();
+const grams = z.number().finite().min(0).max(NUTRITION_MAX_GRAMS_PER_100G);
+
+export function isEnergyConsistent({ calories, protein, fat, carbs }) {
+  const estimated = protein * NUTRITION_ATWATER.protein + carbs * NUTRITION_ATWATER.carbs + fat * NUTRITION_ATWATER.fat;
+  const allowed = Math.max(NUTRITION_ENERGY_TOLERANCE.kcal, NUTRITION_ENERGY_TOLERANCE.ratio * Math.max(calories, estimated));
+  return Math.abs(calories - estimated) <= allowed;
+}
+
+export const nutritionPer100gSchema = z.object({
+  calories: z.number().finite().min(0).max(NUTRITION_MAX_CALORIES_PER_100G),
+  protein: grams, fat: grams, carbs: grams,
+}).strict()
+  .refine(({ protein, fat, carbs }) => protein + fat + carbs <= NUTRITION_MAX_GRAMS_PER_100G,
+    'Tổng protein, chất béo và carbohydrate không thể vượt 100 g trên 100 g.')
+  .refine(isEnergyConsistent, 'Năng lượng không khớp với protein, chất béo và carbohydrate.');
+
 export const generatedIngredientSchema = z.object({
   category: z.enum(['protein', 'mushroom', 'vegetable', 'additive', 'other']),
   origin: text(500), plant: z.boolean().nullable(), description: text(2_000), cooking: text(2_000),
   aliases: z.string().trim().max(1_000),
+  // Null when the provider cannot give a typical value; absent from older AI versions.
+  nutritionPer100g: nutritionPer100gSchema.nullable().default(null),
 }).strict();
 export const ingredientLookupResultSchema = z.discriminatedUnion('isIngredient', [
   z.object({ isIngredient: z.literal(true), ingredient: generatedIngredientSchema }).strict(),

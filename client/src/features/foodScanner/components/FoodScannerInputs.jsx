@@ -41,15 +41,16 @@ export default function FoodScannerInputs({ scanner, dietOptions, diet }) {
             onChange={(event) => { scanner.selectFile(event.target.files[0]); event.target.value = ''; }} />
           <Button variant="success" onClick={() => input.current?.click()}>Chọn từ máy</Button>
           <p className="small text-muted mt-2">Hoặc kéo thả ảnh vào khung này.</p>
-          {scanner.photo && <figure className="cx-scan-preview mt-3 mb-0">
-            <Image src={scanner.photo.dataUrl} alt="Ảnh đã tải lên" fluid rounded style={{ maxHeight: 280 }} />
-            <figcaption className="small text-muted text-break mt-2">{scanner.photo.name}</figcaption>
-            <Button variant="link" className="text-danger" onClick={scanner.removePhoto}>Xóa ảnh</Button>
-          </figure>}
+          {scanner.photo && <div className="mt-3">
+            <figure className="cx-scan-preview mb-0">
+              <Image src={scanner.photo.dataUrl} alt="Ảnh đã tải lên" fluid rounded />
+            </figure>
+            <Button type="button" variant="outline-danger" className="mt-3" onClick={scanner.removePhoto}>Xóa ảnh</Button>
+          </div>}
         </div>
       </fieldset>
       <Button variant="success" size="lg" className="w-100" type="submit" disabled={scanner.loading || scanner.blocked || !scanner.photo?.base64}>
-        {scanner.loading ? <><Spinner size="sm" animation="border" /> Đang phân tích hình ảnh…</> : 'Phân tích bằng AI Vision'}
+        {scanner.loading ? <><Spinner size="sm" animation="border" /> Đang phân tích hình ảnh…</> : 'Phân tích'}
       </Button>
     </Form> : <Form onSubmit={scanner.analyzeText}>
       <Form.Group controlId="scan-ingredients" className="mb-3">

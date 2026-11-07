@@ -22,3 +22,7 @@ export function normalizeYoutubeVideoUrl(input) {
   if (!videoId || !VIDEO_ID_PATTERN.test(videoId)) throw invalidUrl();
   return { videoId, videoUrl: `https://www.youtube.com/watch?v=${videoId}` };
 }
+
+export function tryNormalizeYoutubeVideoUrl(input) {
+  try { return normalizeYoutubeVideoUrl(input); } catch { return null; }
+}
