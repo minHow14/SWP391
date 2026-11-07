@@ -50,9 +50,15 @@ const COMPOSER_SCHEMA = z
   });
 
 export function usePostComposer({ post = {}, onSaved }) {
-  const initialPostType = post.post_type === 'VIDEO' || post.video_url ? 'VIDEO' : 'BLOG';
+  const initialPostType = post.post_type === 'VIDEO' || post.video_url || post.video ? 'VIDEO' : 'BLOG';
   const [postType, setPostType] = useState(initialPostType);
-  const [attachments, setAttachments] = useState(post.attachments || []);
+  const initialAttachments = (post.attachments || []).map((a) => ({
+    id: a.attachment_id || a.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
+    url: a.file_url || a.url,
+    type: a.file_type || a.type || 'image',
+    name: a.file_name || a.name || '',
+  }));
+  const [attachments, setAttachments] = useState(initialAttachments);
   const [error, setError] = useState('');
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -62,12 +68,12 @@ export function usePostComposer({ post = {}, onSaved }) {
     resolver: zodResolver(COMPOSER_SCHEMA),
     defaultValues: {
       postType: initialPostType,
-      title: post.title || '',
-      content: post.content || '',
-      videoUrl: post.video_url || '',
-      thumbnailUrl: post.thumbnail_url || post.image || '',
-      transcript: post.transcript || post.content || '',
-      categoryId: post.category_id || post.categoryId || '',
+      title: post.title || post.blog?.title || post.video?.title || '',
+      content: post.content || post.blog?.content || '',
+      videoUrl: post.videoUrl || post.video_url || post.video?.video_url || '',
+      thumbnailUrl: post.thumbnailUrl || post.thumbnail_url || post.video?.thumbnail_url || post.image || '',
+      transcript: post.transcript || post.video?.transcript || (initialPostType === 'VIDEO' ? '' : post.content) || '',
+      categoryId: post.categoryId || post.category_id || post.post_categories?.[0]?.category_id || '',
     },
   });
 

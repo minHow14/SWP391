@@ -8,15 +8,23 @@ export const updateUserStatusSchema = z.object({
 }).strict();
 
 export const updatePostStatusSchema = z.object({
-  status: z.enum(['PUBLISHED', 'HIDDEN', 'DELETED', 'HIDDEN_BY_AI', 'DRAFT']),
+  status: z.enum(['PUBLISHED', 'HIDDEN', 'DELETED', 'HIDDEN_BY_AI', 'PENDING_MODERATION', 'DRAFT']),
 }).strict();
 
 export const updatePostSchema = z.object({
   title: textSchema(255).optional(),
   content: z.string().trim().min(1).optional(),
+  categoryId: z.coerce.number().int().positive().nullable().optional(),
+  category_id: z.coerce.number().int().positive().nullable().optional(),
+  video_url: z.string().trim().max(500).optional(),
+  videoUrl: z.string().trim().max(500).optional(),
+  thumbnail_url: z.string().trim().max(500).nullable().optional(),
+  thumbnailUrl: z.string().trim().max(500).nullable().optional(),
+  transcript: z.string().trim().optional(),
+  attachments: z.array(z.any()).optional(),
 }).strict().refine(
-  (data) => data.title !== undefined || data.content !== undefined,
-  { message: 'Cần ít nhất một trường title hoặc content để cập nhật' }
+  (data) => Object.keys(data).length > 0,
+  { message: 'Cần ít nhất một trường để cập nhật' }
 );
 
 export const updateCommentStatusSchema = z.object({

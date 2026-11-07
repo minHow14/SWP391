@@ -83,8 +83,8 @@ export const updatePostStatus = asyncHandler(async (req, res) => {
 export const updatePost = asyncHandler(async (req, res) => {
   const updatedPost = await adminService.updatePost({
     postId: req.params.id,
-    title: req.body.title,
-    content: req.body.content,
+    ...req.body,
+
     currentUser: req.user,
   });
   return sendSuccess(res, {

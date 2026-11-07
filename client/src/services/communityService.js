@@ -44,7 +44,9 @@ export async function savePost({ postId, values, attachments = [], postType }) {
       timeout: UPLOAD_TIMEOUT_MS,
     });
 
-    return response?.data?.video || response?.video || response?.data || response;
+    const body = response?.data || response;
+    const video = body?.video || response?.video || body;
+    return { ...video, ...(body?.jobId && { jobId: body.jobId, moderationStatus: body.moderationStatus }) };
   }
 
   const payload = {

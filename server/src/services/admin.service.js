@@ -17,6 +17,7 @@ import { guestQuotaService } from './guestQuotaService.js';
 import { guestQuotaAdminService } from './guestQuotaAdminService.js';
 import { notificationService } from './notification.service.js';
 import { blogService } from './blog.service.js';
+import { videoService } from './video.service.js';
 import { contentModerationRepository } from '../repositories/contentModerationRepository.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -195,6 +196,7 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
         blog: true,
         video: true,
         post_categories: { include: { category: true } },
+        attachments: { orderBy: { attachment_id: 'asc' } },
         _count: { select: { comments: true, reports: true } },
       },
     }),
@@ -220,7 +222,20 @@ export const updatePostStatus = async ({ postId, status }) => {
   });
 };
 
-export const updatePost = async ({ postId, title, content, currentUser }) => {
+export const updatePost = async ({
+  postId,
+  title,
+  content,
+  categoryId,
+  category_id,
+  attachments,
+  video_url,
+  videoUrl,
+  thumbnail_url,
+  thumbnailUrl,
+  transcript,
+  currentUser,
+}) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({
     where: { post_id: id },
@@ -228,21 +243,44 @@ export const updatePost = async ({ postId, title, content, currentUser }) => {
   });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
+  const resolvedCategoryId = categoryId !== undefined ? categoryId : category_id;
+  const resolvedVideoUrl = videoUrl !== undefined ? videoUrl : video_url;
+  const resolvedThumbnailUrl = thumbnailUrl !== undefined ? thumbnailUrl : thumbnail_url;
+
   if (post.post_type === 'BLOG' && post.blog) {
-    await blogService.updateBlog(id, { title, content }, currentUser);
-  } else if (post.post_type === 'VIDEO' && post.video) {
-    await prisma.video.update({
-      where: { post_id: id },
-      data: {
-        title: title || post.video.title,
-        transcript: content !== undefined ? content : post.video.transcript,
+    await blogService.updateBlog(
+      id,
+      {
+        title,
+        content,
+        categoryId: resolvedCategoryId,
+        attachments,
       },
-    });
+      currentUser
+    );
+  } else if (post.post_type === 'VIDEO' && post.video) {
+    await videoService.updateVideo(
+      id,
+      {
+        title,
+        video_url: resolvedVideoUrl,
+        thumbnail_url: resolvedThumbnailUrl,
+        transcript: transcript !== undefined ? transcript : content,
+        categoryId: resolvedCategoryId,
+      },
+      currentUser
+    );
   }
 
   return prisma.post.findUnique({
     where: { post_id: id },
-    include: { blog: true, video: true, author: { select: { full_name: true } } },
+    include: {
+      blog: true,
+      video: true,
+      attachments: true,
+      post_categories: { include: { category: true } },
+      author: { select: { full_name: true } },
+    },
   });
 };
 

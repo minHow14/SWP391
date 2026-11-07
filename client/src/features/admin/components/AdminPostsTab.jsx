@@ -1,28 +1,58 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminPostsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
-import { Table, Button, Form, Row, Col, Spinner, Alert, Modal } from 'react-bootstrap';
+import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import AdminPagination from './AdminPagination.jsx';
 import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
+import { useDatabase } from '../../../hooks/useDatabase.js';
+import PostComposer from '../../community/components/PostComposer.jsx';
 
 export default function AdminPostsTab() {
+  const { user } = useDatabase();
+  const [categories, setCategories] = useState([]);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [editingPost, setEditingPost] = useState(null);
-  const [editForm, setEditForm] = useState({ title: '', content: '' });
   const [actionMsg, setActionMsg] = useState('');
 
-  const fetchPage = useCallback((pagination) => adminService.getPosts({ postType: typeFilter, status: statusFilter, search, ...pagination }), [typeFilter, statusFilter, search]);
-  const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([typeFilter, statusFilter, search]), limit: 50, errorMessage: 'Không thể tải danh sách bài viết' });
+  const fetchPage = useCallback(
+    (pagination) =>
+      adminService.getPosts({
+        postType: typeFilter,
+        status: statusFilter,
+        search,
+        ...pagination,
+      }),
+    [typeFilter, statusFilter, search]
+  );
+
+  const pagination = useAdminPagination({
+    fetchPage,
+    filterKey: JSON.stringify([typeFilter, statusFilter, search]),
+    limit: 50,
+    errorMessage: 'Không thể tải danh sách bài viết',
+  });
+
   const { data: posts, loading, error, setError, refresh: fetchPosts } = pagination;
+
+  // Tự động nạp danh mục bài viết khi vào trang
+  useEffect(() => {
+    adminService
+      .getCategories()
+      .then((res) => setCategories(res.data || []))
+      .catch(() => {});
+  }, []);
 
   // Tự động cập nhật danh sách bài viết khi có tác động từ các tab/trang khác
   useEffect(() => {
-    const unsubscribe = subscribeSyncEvent(['POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'CATEGORY_CHANGED', 'USER_CHANGED'], () => {
-      fetchPosts();
-    });
+    const unsubscribe = subscribeSyncEvent(
+      ['POST_CHANGED', 'MODERATION_CHANGED', 'REPORT_CHANGED', 'CATEGORY_CHANGED', 'USER_CHANGED'],
+      () => {
+        fetchPosts();
+      }
+    );
     return unsubscribe;
   }, [fetchPosts]);
 
@@ -59,22 +89,6 @@ export default function AdminPostsTab() {
 
   const handleStartEdit = (post) => {
     setEditingPost(post);
-    setEditForm({
-      title: post.blog?.title || post.video?.title || '',
-      content: post.blog?.content || post.video?.transcript || '',
-    });
-  };
-
-  const handleSaveEdit = async () => {
-    try {
-      await adminService.updatePost(editingPost.post_id, editForm);
-      setActionMsg('Đã chỉnh sửa nội dung bài viết vi phạm thành công');
-      emitSyncEvent('POST_CHANGED', { postId: editingPost.post_id });
-      setEditingPost(null);
-      fetchPosts();
-    } catch (err) {
-      setError(err.message);
-    }
   };
 
   return (
@@ -99,7 +113,8 @@ export default function AdminPostsTab() {
             <Form.Control
               size="sm"
               className="rounded-3"
-              aria-label="Tìm theo tiêu đề hoặc tác giả..." placeholder="Tìm theo tiêu đề hoặc tác giả..."
+              aria-label="Tìm theo tiêu đề hoặc tác giả..."
+              placeholder="Tìm theo tiêu đề hoặc tác giả..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && fetchPosts()}
@@ -115,9 +130,9 @@ export default function AdminPostsTab() {
           <Col xs={6} md={3}>
             <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">Tất cả trạng thái</option>
-              <option value="PUBLISHED">Đã phê duyệt</option>
-              <option value="PENDING">Chờ phê duyệt</option>
-              <option value="HIDDEN_BY_AI">Đã ẩn</option>
+              <option value="PUBLISHED">Đã phê duyệt / Xuất bản</option>
+              <option value="PENDING_MODERATION">Chờ kiểm duyệt AI</option>
+              <option value="HIDDEN_BY_AI">AI gắn cờ vi phạm (Chờ Admin duyệt)</option>
               <option value="DELETED">Đã xóa</option>
             </Form.Select>
           </Col>
@@ -174,9 +189,13 @@ export default function AdminPostsTab() {
                     <td>
                       <span className={`cx-badge ${
                         p.status === 'PUBLISHED' ? 'cx-badge-active' :
-                        p.status === 'HIDDEN_BY_AI' ? 'cx-badge-locked' : 'cx-badge-neutral'
+                        p.status === 'HIDDEN_BY_AI' ? 'cx-badge-locked' :
+                        p.status === 'PENDING_MODERATION' ? 'cx-badge-info' : 'cx-badge-neutral'
                       }`}>
-                        {p.status === 'PUBLISHED' ? 'Đã phê duyệt' : p.status === 'HIDDEN_BY_AI' ? 'Đã ẩn' : p.status === 'DELETED' ? 'Đã xóa' : 'Chờ duyệt'}
+                        {p.status === 'PUBLISHED' ? 'Đã phê duyệt' :
+                         p.status === 'HIDDEN_BY_AI' ? 'AI gắn cờ' :
+                         p.status === 'PENDING_MODERATION' ? 'Chờ kiểm duyệt AI' :
+                         p.status === 'DELETED' ? 'Đã xóa' : p.status}
                       </span>
                     </td>
                     <td className="small text-muted">{p._count.comments} bình luận · {p._count.reports} báo cáo</td>
@@ -201,36 +220,22 @@ export default function AdminPostsTab() {
         </div>
       )}
 
-      {/* Modal Chỉnh sửa bài viết vi phạm */}
-      <Modal show={!!editingPost} onHide={() => setEditingPost(null)} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className="fs-5 fw-bold">Chỉnh sửa nội dung vi phạm tiêu chuẩn</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3" controlId="editPostTitle">
-            <Form.Label className="small fw-semibold">Tiêu đề bài viết / video</Form.Label>
-            <Form.Control
-              className="rounded-3"
-              value={editForm.title}
-              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-            />
-          </Form.Group>
-          <Form.Group className="mb-3" controlId="editPostContent">
-            <Form.Label className="small fw-semibold">Nội dung chi tiết / Lời thuyết minh</Form.Label>
-            <Form.Control
-              as="textarea"
-              rows={5}
-              className="rounded-3"
-              value={editForm.content}
-              onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-            />
-          </Form.Group>
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" size="sm" className="rounded-3" onClick={() => setEditingPost(null)}>Đóng</Button>
-          <Button variant="success" size="sm" className="rounded-3" onClick={handleSaveEdit}>Lưu cập nhật</Button>
-        </Modal.Footer>
-      </Modal>
+      {/* Modal Chỉnh sửa bài viết / video đồng bộ với người dùng */}
+      {editingPost && (
+        <PostComposer
+          post={editingPost}
+          user={user}
+          categories={categories}
+          onClose={() => setEditingPost(null)}
+          onSaved={() => {
+            setActionMsg(`Đã chỉnh sửa nội dung ${editingPost.post_type === 'BLOG' ? 'bài viết' : 'video'} thành công`);
+            emitSyncEvent('POST_CHANGED', { postId: editingPost.post_id });
+            setEditingPost(null);
+            fetchPosts();
+          }}
+        />
+      )}
+
       <AdminPagination {...pagination} />
     </div>
   );

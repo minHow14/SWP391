@@ -1,15 +1,20 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\video.controller.js
 import { videoService } from '../services/video.service.js';
-import { sendSuccess, sendCreated } from '../utils/apiResponse.js';
+import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
+import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 export const createVideo = asyncHandler(async (req, res) => {
   const payload = {
     ...req.body,
     author_id: req.user.user_id,
   };
-  const newVideo = await videoService.createVideo(payload);
-  return sendCreated(res, { video: newVideo });
+  const { jobId, moderationStatus, ...video } = await videoService.createVideo(payload);
+  return sendSuccess(
+    res,
+    { video, ...(jobId && { jobId, moderationStatus }) },
+    jobId ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.CREATED
+  );
 });
 
 export const getAllVideos = asyncHandler(async (req, res) => {
@@ -26,11 +31,16 @@ export const getVideoById = asyncHandler(async (req, res) => {
 });
 
 export const updateVideo = asyncHandler(async (req, res) => {
-  const updated = await videoService.updateVideo(req.params.id, req.body, req.user);
-  return sendSuccess(res, { video: updated });
+  const { jobId, moderationStatus, ...video } = await videoService.updateVideo(req.params.id, req.body, req.user);
+  return sendSuccess(
+    res,
+    { video, ...(jobId && { jobId, moderationStatus }) },
+    jobId ? HTTP_STATUS.ACCEPTED : HTTP_STATUS.OK
+  );
 });
 
 export const deleteVideo = asyncHandler(async (req, res) => {
   const result = await videoService.deleteVideo(req.params.id, req.user);
   return sendSuccess(res, result);
 });
+

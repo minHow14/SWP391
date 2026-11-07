@@ -4,6 +4,7 @@ import { usePostComposer } from '../hooks/usePostComposer.js';
 import { POST_MEDIA_ACCEPT, MAX_POST_ATTACHMENTS } from '../../../utils/postAttachments.js';
 import PostMedia from './PostMedia.jsx';
 import PostVideoFields from './PostVideoFields.jsx';
+import '../styles/community.css';
 
 export default function PostComposer({ post, user, categories = [], onClose, onSaved }) {
   const composer = usePostComposer({ post, onSaved });
@@ -30,19 +31,21 @@ export default function PostComposer({ post, user, categories = [], onClose, onS
     >
       <Modal.Header closeButton={!composer.busy}>
         <Modal.Title className="fs-6 fw-bold">
-          {post?.post_id ? 'Chỉnh sửa nội dung' : 'Tạo bài đăng cộng đồng'}
+          {post?.post_id ? (isVideo ? 'Chỉnh sửa video nấu ăn' : 'Chỉnh sửa bài viết Blog') : 'Tạo bài đăng cộng đồng'}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <div className="cx-post-author-row mb-3">
           <span className="cx-post-avatar" aria-hidden="true">
-            {user?.full_name?.slice(0, 1) || <i className="bi bi-person" />}
+            {(post?.author?.full_name || user?.full_name)?.slice(0, 1) || <i className="bi bi-person" />}
           </span>
           <div>
-            <strong>{user?.full_name}</strong>
+            <strong>{post?.author?.full_name || user?.full_name}</strong>
             <span className="cx-post-metadata">
               <i className="bi bi-globe2 me-1" aria-hidden="true" />
-              Chia sẻ với cộng đồng ChayXanh
+              {post?.author && user && post.author.user_id !== user.user_id
+                ? 'Tác giả bài đăng · Chỉnh sửa bởi Quản trị viên'
+                : 'Chia sẻ với cộng đồng ChayXanh'}
             </span>
           </div>
         </div>
