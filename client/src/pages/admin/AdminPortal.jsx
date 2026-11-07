@@ -1,9 +1,11 @@
-// D:/SWP391/SWP391/client/src/pages/admin/AdminPortal.jsx
+// D:/Projects/FPT/SWP391/client/src/pages/admin/AdminPortal.jsx
 import { useState, useEffect } from 'react';
-import { Container, Row, Col, Nav } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';
 
+import AdminHeader from '../../features/admin/components/AdminHeader.jsx';
+import AdminSidebar from '../../features/admin/components/AdminSidebar.jsx';
 import AdminDashboardTab from '../../features/admin/components/AdminDashboardTab.jsx';
 import AdminMembersTab from '../../features/admin/components/AdminMembersTab.jsx';
 import AdminPostsTab from '../../features/admin/components/AdminPostsTab.jsx';
@@ -12,14 +14,24 @@ import AdminCategoriesTab from '../../features/admin/components/AdminCategoriesT
 import AdminAiModerationTab from '../../features/admin/components/AdminAiModerationTab.jsx';
 import AdminAiMonitorTab from '../../features/admin/components/AdminAiMonitorTab.jsx';
 import AdminAi from './AdminAi.jsx';
-import AdminLegalDocumentsTab from '../../features/admin/components/AdminLegalDocumentsTab.jsx';
 import AdminReportsTab from '../../features/admin/components/AdminReportsTab.jsx';
 
-const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'ai-management', 'reports', 'legal-documents'];
+const VALID_TABS = [
+  'dashboard',
+  'members',
+  'posts',
+  'comments',
+  'categories',
+  'ai-moderation',
+  'ai-monitor',
+  'ai-management',
+  'reports',
+];
 
 export default function AdminPortal() {
   const { user } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   // Khởi tạo tab hiện tại: ưu tiên query param (?tab=...), sau đó đến sessionStorage, mặc định là 'dashboard'
   const [activeTab, setActiveTab] = useState(() => {
@@ -68,18 +80,18 @@ export default function AdminPortal() {
         <Row className="justify-content-center">
           <Col xs={12} md={8} lg={6}>
             <div className="admin-card text-center p-4">
-              <div className="text-danger display-3 mb-3">
-                <i className="bi bi-shield-lock-fill" />
+              <div className="text-danger display-4 mb-3">
+                <i className="bi bi-shield-lock" />
               </div>
               <h4 className="fw-bold text-danger">Khu vực Giới hạn Quyền Hạn</h4>
               <p className="text-muted small">
                 Bạn cần đăng nhập bằng tài khoản có quyền <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông tin này.
               </p>
               <div className="d-flex justify-content-center gap-2">
-                <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-3">
+                <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-2">
                   <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng nhập
                 </Link>
-                <Link to="/" className="btn btn-outline-secondary btn-sm rounded-3">
+                <Link to="/" className="btn btn-outline-secondary btn-sm rounded-2">
                   Quay về Trang chủ
                 </Link>
               </div>
@@ -90,70 +102,46 @@ export default function AdminPortal() {
     );
   }
 
-  const navItems = [
-    { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
-    { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
-    { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
-    { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
-    { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
-    { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
-    { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
-    { key: 'ai-management', label: 'Quản trị AI', icon: 'bi-speedometer2' },
-    { key: 'legal-documents', label: 'Điều khoản & bảo mật', icon: 'bi-file-earmark-text' },
-    { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
-  ];
-
   return (
-    <div className="admin-portal-shell py-3">
-      <Container fluid className="px-lg-4">
-        {/* Thanh tiêu đề Admin Portal */}
-        <div className="admin-card mb-3 p-3">
-          <div className="d-flex flex-wrap justify-content-between align-items-center gap-3">
-            <div className="d-flex align-items-center">
-              <div className="admin-header-brand me-3">
-                <i className="bi bi-leaf-fill fs-4" />
-              </div>
-              <div>
-                <h5 className="fw-bold mb-0 text-success">Trung Tâm Quản Trị ChayXanh</h5>
-                <small className="text-muted">Hệ thống điều hành cộng đồng dinh dưỡng và kiểm duyệt nội dung</small>
-              </div>
-            </div>
-            <div className="d-flex align-items-center gap-3">
-              <div className="text-end d-none d-sm-block">
-                <div className="fw-semibold small">{user.full_name}</div>
-                <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1" style={{ fontSize: '0.72rem' }}>
-                  Quản trị viên cấp cao
-                </span>
-              </div>
-              <Link to="/" className="btn btn-outline-success btn-sm rounded-3">
-                <i className="bi bi-arrow-left me-1" /> Trang người dùng
-              </Link>
-            </div>
-          </div>
-        </div>
+    <div className="admin-portal-shell py-2.5">
+      <Container fluid className="px-lg-4 admin-container-shell">
+        {/* Top Header điều hướng toàn trang */}
+        <AdminHeader
+          activeTab={activeTab}
+          onSelectTab={handleSelectTab}
+          onToggleMobile={() => setIsMobileSidebarOpen((prev) => !prev)}
+        />
 
-        {/* Nội dung chính: Sidebar điều hướng rộng rãi hiển thị 1 dòng + Tab view */}
-        <Row className="g-3">
+        {/* Backdrop cho mobile sidebar */}
+        {isMobileSidebarOpen && (
+          <div
+            className="admin-sidebar-backdrop d-lg-none"
+            onClick={() => setIsMobileSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Nội dung chính: Cột Sidebar chuyên nghiệp + Khu vực Tab Content */}
+        <Row className="g-2.5">
           <Col xs={12} lg={4} xl={3}>
-            <div className="admin-card p-2 sticky-top" style={{ top: '1rem' }}>
-              <div className="text-muted small fw-bold px-3 py-2 text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '0.04em' }}>
-                Danh mục chức năng
-              </div>
-              <Nav variant="pills" className="flex-column admin-sidebar-nav" activeKey={activeTab} onSelect={handleSelectTab}>
-                {navItems.map((item) => (
-                  <Nav.Item key={item.key}>
-                    <Nav.Link eventKey={item.key} className="d-flex align-items-center py-2 px-3 small" title={item.label}>
-                      <i className={`bi ${item.icon} me-2 fs-6`} />
-                      <span className="text-truncate">{item.label}</span>
-                    </Nav.Link>
-                  </Nav.Item>
-                ))}
-              </Nav>
-            </div>
+            <AdminSidebar
+              activeTab={activeTab}
+              onSelectTab={handleSelectTab}
+              user={user}
+              isMobileOpen={isMobileSidebarOpen}
+              onCloseMobile={() => setIsMobileSidebarOpen(false)}
+            />
           </Col>
 
           <Col xs={12} lg={8} xl={9}>
-            <div className={activeTab === 'dashboard' ? 'admin-dashboard-wrapper' : 'admin-card p-3 p-md-4 min-vh-75'}>
+            <main
+              key={activeTab}
+              className={
+                activeTab === 'dashboard'
+                  ? 'admin-dashboard-wrapper admin-tab-content-fade'
+                  : 'admin-card p-3 p-lg-3.5 min-vh-75 admin-content-canvas admin-tab-content-fade'
+              }
+            >
               {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={handleSelectTab} />}
               {activeTab === 'members' && <AdminMembersTab />}
               {activeTab === 'posts' && <AdminPostsTab />}
@@ -162,9 +150,8 @@ export default function AdminPortal() {
               {activeTab === 'ai-moderation' && <AdminAiModerationTab />}
               {activeTab === 'ai-monitor' && <AdminAiMonitorTab />}
               {activeTab === 'ai-management' && <AdminAi />}
-              {activeTab === 'legal-documents' && <AdminLegalDocumentsTab />}
               {activeTab === 'reports' && <AdminReportsTab />}
-            </div>
+            </main>
           </Col>
         </Row>
       </Container>
