@@ -59,6 +59,8 @@ export const authService = {
 
   forgotPassword: ({ email }) => apiClient.post('/v1/auth/forgot-password', { email }),
 
+  verifyPasswordResetOtp: ({ email, otp }) => apiClient.post('/v1/auth/verify-password-reset-otp', { email, otp }),
+
   resetPassword: ({ token, newPassword }) => apiClient.post('/v1/auth/reset-password', { token, newPassword }),
 
   // Lấy thông tin tài khoản và hồ sơ người dùng hiện tại

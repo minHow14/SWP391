@@ -13,9 +13,11 @@ test('password recovery wrappers send real gateway contracts without confirmatio
     return { config, status: 200, headers: {}, data: { success: true, message: 'Yêu cầu đã được xử lý.', data: null } };
   };
   await authService.forgotPassword({ email: 'member@example.invalid' });
+  await authService.verifyPasswordResetOtp({ email: 'member@example.invalid', otp: '012345' });
   await authService.resetPassword({ token: 'a'.repeat(64), newPassword: 'new-password' });
   assert.deepEqual(calls, [
     { url: '/v1/auth/forgot-password', data: { email: 'member@example.invalid' } },
+    { url: '/v1/auth/verify-password-reset-otp', data: { email: 'member@example.invalid', otp: '012345' } },
     { url: '/v1/auth/reset-password', data: { token: 'a'.repeat(64), newPassword: 'new-password' } },
   ]);
 });

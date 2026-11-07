@@ -21,7 +21,7 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllEnvs());
 
-it('uses authenticated SMTP with verified TLS and bounded timeouts, then sends a real plain-text reset link', async () => {
+it('uses authenticated SMTP with verified TLS and bounded timeouts, then sends branded HTML and text OTP mail', async () => {
   const delivery = await mailService.ensureAvailable();
   expect(nodemailer.createTransport).toHaveBeenCalledWith(expect.objectContaining({
     host: 'smtp.provider.invalid', port: 587, secure: false, requireTLS: true,
@@ -29,8 +29,11 @@ it('uses authenticated SMTP with verified TLS and bounded timeouts, then sends a
     disableFileAccess: true, disableUrlAccess: true,
   }));
   expect(transport.verify).toHaveBeenCalledOnce();
-  await mailService.sendPasswordReset({ delivery, to: 'member@example.invalid', resetUrl: 'http://localhost:5173/dat-lai-mat-khau#token=private' });
-  expect(transport.sendMail).toHaveBeenCalledWith(expect.objectContaining({ from: 'support@example.invalid', to: 'member@example.invalid', text: expect.stringContaining('#token=private') }));
+  await mailService.sendPasswordReset({ delivery, to: 'member@example.invalid', otp: '012345' });
+  expect(transport.sendMail).toHaveBeenCalledWith(expect.objectContaining({
+    from: { name: 'ChayXanh', address: 'support@example.invalid' }, to: 'member@example.invalid',
+    text: expect.stringContaining('Mã xác minh: 012345'), html: expect.stringContaining('012345'),
+  }));
 });
 it('allows implicit TLS for SMTP port 465', async () => {
   vi.stubEnv('SMTP_SECURE', 'true'); vi.stubEnv('SMTP_PORT', '465');
@@ -48,5 +51,11 @@ it.each(['missing', 'invalid port', 'invalid sender', 'bad client URL', 'SMTP un
 it('rejects an SMTP result that accepted no recipient', async () => {
   const delivery = await mailService.ensureAvailable();
   transport.sendMail.mockResolvedValue({ accepted: [], rejected: ['member@example.invalid'] });
-  await expect(mailService.sendPasswordReset({ delivery, to: 'member@example.invalid', resetUrl: 'http://localhost:5173/#token=private' })).rejects.toBeTruthy();
+  await expect(mailService.sendPasswordReset({ delivery, to: 'member@example.invalid', otp: '012345' })).rejects.toBeTruthy();
+});
+
+it('refuses malformed OTP content before submitting an email to SMTP', async () => {
+  const delivery = await mailService.ensureAvailable();
+  await expect(mailService.sendPasswordReset({ delivery, to: 'member@example.invalid', otp: '<script>private</script>' })).rejects.toBeInstanceOf(TypeError);
+  expect(transport.sendMail).not.toHaveBeenCalled();
 });
