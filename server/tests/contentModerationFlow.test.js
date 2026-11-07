@@ -2,9 +2,7 @@
 import http from 'node:http';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import request from 'supertest';
-import { z } from 'zod';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.hoisted(() => { process.env.CONTENT_MODERATION_ENABLED = 'true'; });
 import app from '../src/app.js';
@@ -14,6 +12,7 @@ import { createContentModerationAiService } from '../src/services/contentModerat
 import { processContentModerationJob } from '../src/services/contentModerationProcessor.js';
 import { runContentModerationWorker } from '../src/workers/contentModerationWorker.js';
 import { createBlogSchema, updateBlogSchema } from '../src/validators/blog.validator.js';
+import { moderationContract } from './helpers/openApiContract.js';
 
 const INTERNAL_KEY = 'moderation-flow-test-key-32-characters';
 const config = { enabled: true, leaseMs: 60_000, maxAttempts: 2, retryMs: 1, pollMs: 1 };
@@ -21,16 +20,7 @@ const allowed = { decision: 'ALLOW', reason: 'Nguyên liệu được mô tả l
   evidence: [], modelName: 'integration-test-provider', policyVersion: 'integration-test-policy' };
 let owner, admin, ownerToken, adminToken, parent, endpoint, ai, upstream, received;
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
-const apiDocument = JSON.parse(readFileSync(new URL('../../docs/content-moderation-openapi.json', import.meta.url), 'utf8'));
-
-function resolveSchema(schema) {
-  if (Array.isArray(schema)) return schema.map(resolveSchema);
-  if (!schema || typeof schema !== 'object') return schema;
-  if (schema.$ref) return resolveSchema(schema.$ref.split('/').slice(1).reduce((value, key) => value[key], apiDocument));
-  // JSON Schema defaults are annotations; wire validation must not fill missing required fields.
-  return Object.fromEntries(Object.entries(schema).filter(([key]) => key !== 'default').map(([key, value]) => [key, resolveSchema(value)]));
-}
-const contract = (name) => z.fromJSONSchema(resolveSchema(apiDocument.components.schemas[name]));
+const contract = moderationContract;
 
 async function respondToWorker(req, res) {
   let content = '';
@@ -91,7 +81,7 @@ const ownerJob = (id) => request(app).get(`/api/v1/content-moderation-jobs/${id}
 
 describe('moderation through APIs, database, worker and real internal HTTP transport', () => {
   it('documents the attachment type default accepted by both create and edit validators', () => {
-    const body = { title: 'Sườn chay', content: 'Món chay từ nấm.', attachments: [{ url: '/uploads/attachment-contract.webp' }] };
+    const body = { title: 'Sườn chay', content: 'Món chay từ nấm.', attachments: [{ url: '/uploads/posts/attachment-contract.webp' }] };
     expect(createBlogSchema.parse(body).attachments[0].type).toBe('image');
     contract('BlogCreate').parse(body);
     expect(updateBlogSchema.parse(body).attachments[0].type).toBe('image');

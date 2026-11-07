@@ -1,10 +1,23 @@
 // D:/SWP391/SWP391/server/src/services/contentModerationService.js
 import { contentModerationConfig } from '../config/contentModerationConfig.js';
-import { MODERATION_PENDING_STATUS, MODERATION_RELEASED_LEASE } from '../constants/contentModeration.js';
+import { MODERATION_MAX_IMAGES, MODERATION_PENDING_STATUS, MODERATION_RELEASED_LEASE } from '../constants/contentModeration.js';
+import { POST_IMAGE_URL_PATTERN } from '../constants/postMedia.js';
 import { contentModerationRepository as jobs } from '../repositories/contentModerationRepository.js';
 import { aiLogRepository } from '../repositories/aiLogRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
+
+/** Keeps only server-uploaded images, deduplicated in display order; videos and YouTube thumbnails are out of scope. */
+export function moderationImageUrls(urls = []) {
+  const images = urls.filter((url) => typeof url === 'string' && POST_IMAGE_URL_PATTERN.test(url));
+  return [...new Set(images)].slice(0, MODERATION_MAX_IMAGES);
+}
+
+export function haveSameModerationImages(previousUrls, nextUrls) {
+  const previous = moderationImageUrls(previousUrls);
+  const next = moderationImageUrls(nextUrls);
+  return previous.length === next.length && previous.every((url, index) => url === next[index]);
+}
 
 const receipt = (job, version) => ({ jobId: job.id, moderationStatus: 'PENDING',
   status: MODERATION_PENDING_STATUS, moderationVersion: version });
@@ -22,13 +35,13 @@ export const contentModerationService = {
       jobs.countOwned({ userId }), jobs.countOwned({ userId, pending: true })]);
     return { items: rows.map(jobView), meta: { page, limit, total, pending } };
   },
-  async queuePost({ post, title, content }, db) {
+  async queuePost({ post, title, content, imageUrls = [] }, db) {
     if (!contentModerationConfig.enabled || !['PUBLISHED', MODERATION_PENDING_STATUS].includes(post.status)) {
       return post.moderationVersion > 0 ? jobs.invalidatePost(post.post_id, db) : {};
     }
     const staged = await jobs.stagePost(post.post_id, db);
     const job = await jobs.create({ userId: staged.author_id, postId: staged.post_id,
-      contentVersion: staged.moderationVersion, title, content }, db);
+      contentVersion: staged.moderationVersion, title, content, imageUrls: moderationImageUrls(imageUrls) }, db);
     return receipt(job, staged.moderationVersion);
   },
   async queueComment({ comment }, db) {
