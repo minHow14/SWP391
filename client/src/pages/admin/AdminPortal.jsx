@@ -12,10 +12,9 @@ import AdminCategoriesTab from '../../features/admin/components/AdminCategoriesT
 import AdminAiModerationTab from '../../features/admin/components/AdminAiModerationTab.jsx';
 import AdminAiMonitorTab from '../../features/admin/components/AdminAiMonitorTab.jsx';
 import AdminAi from './AdminAi.jsx';
-import AdminLegalDocumentsTab from '../../features/admin/components/AdminLegalDocumentsTab.jsx';
 import AdminReportsTab from '../../features/admin/components/AdminReportsTab.jsx';
 
-const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'ai-management', 'reports', 'legal-documents'];
+const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'ai-management', 'reports'];
 
 export default function AdminPortal() {
   const { user } = useDatabase();
@@ -99,7 +98,6 @@ export default function AdminPortal() {
     { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
     { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
     { key: 'ai-management', label: 'Quản trị AI', icon: 'bi-speedometer2' },
-    { key: 'legal-documents', label: 'Điều khoản & bảo mật', icon: 'bi-file-earmark-text' },
     { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
   ];
 
@@ -162,7 +160,6 @@ export default function AdminPortal() {
               {activeTab === 'ai-moderation' && <AdminAiModerationTab />}
               {activeTab === 'ai-monitor' && <AdminAiMonitorTab />}
               {activeTab === 'ai-management' && <AdminAi />}
-              {activeTab === 'legal-documents' && <AdminLegalDocumentsTab />}
               {activeTab === 'reports' && <AdminReportsTab />}
             </div>
           </Col>

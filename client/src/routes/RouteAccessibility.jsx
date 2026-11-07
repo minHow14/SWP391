@@ -9,7 +9,7 @@ const PAGE_TITLES = {
   '/quan-chay': 'Quán chay', '/nhat-ky': 'Nhật ký', '/ho-so': 'Hồ sơ',
   '/dang-nhap': 'Đăng nhập', '/dang-ky': 'Đăng ký', '/admin': 'Quản trị', '/admin/ai': 'Quản trị AI',
   '/quen-mat-khau': 'Quên mật khẩu', '/dat-lai-mat-khau': 'Đặt lại mật khẩu',
-  '/dieu-khoan': 'Điều khoản sử dụng', '/chinh-sach-bao-mat': 'Chính sách bảo mật',
+  '/chinh-sach-bao-mat': 'Chính sách bảo mật',
 
 };
 
