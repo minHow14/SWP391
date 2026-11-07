@@ -743,3 +743,11 @@
 .cx-health-banner .btn {
   min-height: 44px;
 }
+
+/* Căn giữa nút Close theo trục dọc trong các Alert dismissible */
+.admin-portal-shell .alert-dismissible .btn-close,
+.alert-dismissible .btn-close {
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.5rem 0.85rem;
+}

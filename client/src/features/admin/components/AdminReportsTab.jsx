@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/admin/components/AdminReportsTab.jsx
+// client/src/features/admin/components/AdminReportsTab.jsx
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -31,9 +31,9 @@ export default function AdminReportsTab() {
       const actionText =
         resolutionAction === 'HIDE_CONTENT'
           ? isCommentReport
-            ? 'Đã gỡ bỏ bình luận vi phạm thành công (Bài viết gốc vẫn được giữ nguyên)'
-            : 'Đã gỡ bỏ bài viết vi phạm thành công'
-          : 'Đã duyệt báo cáo thành công';
+            ? 'Đã ẩn bình luận bị báo cáo thành công (Bài viết gốc vẫn được giữ nguyên)'
+            : 'Đã ẩn bài viết bị báo cáo thành công'
+          : 'Đã giải quyết báo cáo thành công';
       setActionMsg(actionText);
       emitSyncEvent('REPORT_CHANGED', { reportId });
       if (resolutionAction === 'HIDE_CONTENT') {
@@ -53,7 +53,7 @@ export default function AdminReportsTab() {
   const handleDismiss = async (reportId) => {
     try {
       await adminService.updateReportStatus(reportId, { status: 'DISMISSED' });
-      setActionMsg('Đã bác bỏ báo cáo vi phạm');
+      setActionMsg('Đã bỏ qua báo cáo');
       emitSyncEvent('REPORT_CHANGED', { reportId });
       fetchReports();
     } catch (err) {
@@ -65,7 +65,7 @@ export default function AdminReportsTab() {
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div>
-          <h4 className="fw-bold mb-1 text-dark">Quản Lý Báo Cáo Vi Phạm Từ Người Dùng</h4>
+          <h4 className="fw-bold mb-1 text-dark">Quản Lý Báo Cáo Vi Phạm</h4>
           <p className="text-muted small mb-0">Tiếp nhận báo cáo vi phạm bài viết hoặc bình luận, xem xét và xử lý bảo vệ cộng đồng</p>
         </div>
         <Button variant="outline-success" size="sm" className="rounded-3" onClick={fetchReports}>
@@ -74,8 +74,9 @@ export default function AdminReportsTab() {
       </div>
 
       {actionMsg && (
-        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3">
-          <i className="bi bi-check-circle-fill me-2" />{actionMsg}
+        <Alert variant="success" dismissible onClose={() => setActionMsg('')} className="py-2 small rounded-3 d-flex align-items-center">
+          <i className="bi bi-check-circle-fill me-2 flex-shrink-0" />
+          <span>{actionMsg}</span>
         </Alert>
       )}
 
@@ -84,10 +85,10 @@ export default function AdminReportsTab() {
         <Row className="g-2 align-items-center">
           <Col xs={12} sm={4}>
             <Form.Select aria-label="Trạng thái" size="sm" className="rounded-3" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-              <option value="">Tất cả trạng thái báo cáo</option>
+              <option value="">Tất cả trạng thái</option>
               <option value="PENDING">Chờ xử lý</option>
               <option value="RESOLVED">Đã giải quyết</option>
-              <option value="DISMISSED">Đã bác bỏ</option>
+              <option value="DISMISSED">Đã bỏ qua</option>
             </Form.Select>
           </Col>
         </Row>
@@ -114,12 +115,12 @@ export default function AdminReportsTab() {
           <Table responsive hover className="mb-0 align-middle admin-table">
             <thead>
               <tr>
-                <th style={{ width: '70px' }}>Mã</th>
-                <th>Người gửi báo cáo</th>
-                <th>Đối tượng bị phản ánh</th>
-                <th>Lý do vi phạm</th>
-                <th>Trạng thái</th>
-                <th className="text-end">Hành động xử lý</th>
+                <th style={{ width: '60px' }}>Mã</th>
+                <th style={{ minWidth: '160px' }}>Người báo cáo</th>
+                <th style={{ minWidth: '220px' }}>Nội dung bị báo cáo</th>
+                <th style={{ minWidth: '160px' }}>Lý do báo cáo</th>
+                <th style={{ width: '120px' }}>Trạng thái</th>
+                <th className="text-end text-nowrap" style={{ width: '190px' }}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -141,11 +142,11 @@ export default function AdminReportsTab() {
                           <span className="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle me-1">
                             Bình luận
                           </span>
-                          <span className="small fw-semibold text-dark text-truncate d-inline-block" style={{ maxWidth: 220 }} title={commentText}>
+                          <span className="small fw-semibold text-dark text-truncate d-inline-block align-middle" style={{ maxWidth: 220 }} title={commentText}>
                             "{commentText}"
                           </span>
                           {postTitle && (
-                            <div className="text-muted" style={{ fontSize: '0.75rem' }}>
+                            <div className="text-muted mt-1" style={{ fontSize: '0.75rem' }}>
                               Thuộc bài viết: <span className="text-secondary">{postTitle}</span>
                             </div>
                           )}
@@ -155,14 +156,14 @@ export default function AdminReportsTab() {
                           <span className="badge bg-info-subtle text-info-emphasis border border-info-subtle me-1">
                             Bài viết
                           </span>
-                          <span className="small fw-semibold text-dark text-truncate d-inline-block" style={{ maxWidth: 220 }} title={postTitle}>
+                          <span className="small fw-semibold text-dark text-truncate d-inline-block align-middle" style={{ maxWidth: 220 }} title={postTitle}>
                             {postTitle || 'Bài viết'}
                           </span>
                         </div>
                       )}
                     </td>
                     <td>
-                      <div className="small text-danger text-wrap" style={{ maxWidth: 220 }}>
+                      <div className="small text-danger fw-medium text-wrap" style={{ maxWidth: 220 }}>
                         {rep.reason}
                       </div>
                     </td>
@@ -171,32 +172,32 @@ export default function AdminReportsTab() {
                         rep.status === 'PENDING' ? 'cx-badge-locked' :
                         rep.status === 'RESOLVED' ? 'cx-badge-active' : 'cx-badge-neutral'
                       }`}>
-                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã bác bỏ'}
+                        {rep.status === 'PENDING' ? 'Chờ xử lý' : rep.status === 'RESOLVED' ? 'Đã giải quyết' : 'Đã bỏ qua'}
                       </span>
                     </td>
-                    <td className="text-end">
+                    <td className="text-end text-nowrap">
                       {rep.status === 'PENDING' ? (
-                        <>
+                        <div className="d-flex align-items-center justify-content-end gap-2">
                           <Button
                             variant="outline-danger"
                             size="sm"
-                            className="me-1 rounded-3"
+                            className="rounded-3 d-inline-flex align-items-center"
                             onClick={() => handleResolve(rep.report_id, 'HIDE_CONTENT', isCommentReport)}
-                            title={isCommentReport ? 'Gỡ bỏ bình luận này (Giữ nguyên bài viết)' : 'Gỡ bỏ bài viết này'}
+                            title={isCommentReport ? 'Ẩn bình luận này (Giữ nguyên bài viết)' : 'Ẩn bài viết này'}
                           >
-                            <i className="bi bi-shield-x me-1" />
-                            {isCommentReport ? 'Gỡ bình luận' : 'Gỡ bài viết'}
+                            <i className="bi bi-eye-slash me-1" />
+                            {isCommentReport ? 'Ẩn bình luận' : 'Ẩn bài viết'}
                           </Button>
                           <Button
                             variant="outline-secondary"
                             size="sm"
-                            className="rounded-3"
+                            className="rounded-3 d-inline-flex align-items-center"
                             onClick={() => handleDismiss(rep.report_id)}
-                            title="Bác bỏ báo cáo này"
+                            title="Bỏ qua báo cáo này"
                           >
-                            Bác bỏ
+                            Bỏ qua
                           </Button>
-                        </>
+                        </div>
                       ) : (
                         <span className="text-muted small">Đã hoàn tất</span>
                       )}
