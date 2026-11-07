@@ -135,4 +135,19 @@ describe('Blog API & Post Creation Workflow', () => {
     // Dọn dẹp dữ liệu bài viết sau test
     await postRepository.hardDeletePost(createdPostId);
   });
+
+  it('rejects blog creation with path traversal in attachment URL', async () => {
+    const res = await request(app)
+      .post('/api/blogs')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({
+        title: 'Thử nghiệm Path Traversal',
+        content: 'Nội dung kiểm tra an ninh tệp đính kèm',
+        attachments: [
+          { url: '/uploads/../../etc/passwd', type: 'image' },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
 });

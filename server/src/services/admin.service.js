@@ -278,16 +278,19 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
     });
 
     // 3. Dọn dẹp các tệp tĩnh trên đĩa nếu được lưu cục bộ trong /uploads/
+    const uploadsDir = path.resolve(__dirname, '../../uploads');
     for (const fileUrl of filesToCleanup) {
       if (typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
-        const relativeFilePath = fileUrl.replace(/^\//, '');
-        const filePath = path.resolve(__dirname, '../../', relativeFilePath);
-        try {
-          if (fs.existsSync(filePath)) {
-            fs.unlinkSync(filePath);
+        const relativeFilePath = fileUrl.replace(/^\/uploads\/?/, '');
+        const filePath = path.resolve(uploadsDir, relativeFilePath);
+        if (filePath.startsWith(uploadsDir + path.sep)) {
+          try {
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+            }
+          } catch {
+            // Bỏ qua nếu tệp đã không còn trên đĩa
           }
-        } catch {
-          // Bỏ qua nếu tệp đã không còn trên đĩa
         }
       }
     }
@@ -322,10 +325,14 @@ export const restorePost = async (postId) => {
   const postDeletedAt = post.deleted_at;
 
   return prisma.$transaction(async (tx) => {
-    // Chỉ khôi phục các bình luận bị ẩn cùng lúc với bài đăng (không khôi phục các bình luận vi phạm hay đã bị xóa từ trước)
+    // Chỉ khôi phục các bình luận bị ẩn/xóa cùng lúc với bài đăng (không khôi phục các bình luận vi phạm hay đã bị xóa từ trước)
     if (postDeletedAt) {
       await tx.comment.updateMany({
-        where: { post_id: id, status: COMMENT_STATUS.HIDDEN, deleted_at: postDeletedAt },
+        where: {
+          post_id: id,
+          status: { in: [COMMENT_STATUS.HIDDEN, COMMENT_STATUS.DELETED] },
+          deleted_at: postDeletedAt,
+        },
         data: { status: COMMENT_STATUS.ACTIVE, deleted_at: null },
       });
     }
@@ -836,31 +843,38 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
   const report = await reportRepository.findById(id, { post: true, comment: true });
   if (!report) throw ApiError.notFound('Không tìm thấy báo cáo');
 
-  if (resolutionAction === 'HIDE_CONTENT') {
-    const now = new Date();
-    // ĐÚNG NGHIỆP VỤ:
-    // 1. Nếu là báo cáo về BÌNH LUẬN (comment_id có giá trị):
-    // -> CHỈ gỡ bỏ bình luận đó, TUYỆT ĐỐI KHÔNG gỡ bỏ bài viết!
-    if (report.comment_id) {
-      await commentRepository.update(report.comment_id, {
-        status: COMMENT_STATUS.DELETED,
-        deleted_at: now,
-      });
-    } else if (report.post_id) {
-      // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
-      // -> Gỡ bỏ bài viết đó và các bình luận thuộc bài viết đó
-      await prisma.$transaction(async (tx) => {
+  const updatedReport = await prisma.$transaction(async (tx) => {
+    if (resolutionAction === 'HIDE_CONTENT') {
+      const now = new Date();
+      // ĐÚNG NGHIỆP VỤ:
+      // 1. Nếu là báo cáo về BÌNH LUẬN (comment_id có giá trị):
+      // -> CHỈ gỡ bỏ bình luận đó, TUYỆT ĐỐI KHÔNG gỡ bỏ bài viết!
+      if (report.comment_id) {
+        await commentRepository.update(
+          report.comment_id,
+          {
+            status: COMMENT_STATUS.DELETED,
+            deleted_at: now,
+          },
+          null,
+          tx
+        );
+      } else if (report.post_id) {
+        // 2. Chỉ khi là báo cáo về BÀI VIẾT (comment_id là null):
+        // -> Gỡ bỏ bài viết đó và các bình luận thuộc bài viết đó
         await tx.comment.updateMany({
           where: { post_id: report.post_id },
           data: { status: COMMENT_STATUS.DELETED, deleted_at: now },
         });
         await postRepository.updatePost(report.post_id, { status: POST_STATUS.DELETED, deleted_at: now }, null, tx);
-        if (report.post.status !== POST_STATUS.DELETED) {
+        if (report.post && report.post.status !== POST_STATUS.DELETED) {
           await notificationService.notifyPostRemoval({ userId: report.post.author_id, postId: report.post_id }, tx);
         }
-      });
+      }
     }
-  }
+
+    return reportRepository.update(id, { status }, { reporter: { select: { full_name: true } } }, tx);
+  });
 
   if (report.reporter_id) {
     const statusText = status === REPORT_STATUS.RESOLVED ? 'Đã giải quyết' : status === REPORT_STATUS.DISMISSED ? 'Đã bác bỏ' : status;
@@ -870,7 +884,7 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     }).catch(() => {});
   }
 
-  return reportRepository.update(id, { status }, { reporter: { select: { full_name: true } } });
+  return updatedReport;
 };
 
 /**

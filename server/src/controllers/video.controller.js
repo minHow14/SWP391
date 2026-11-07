@@ -21,7 +21,7 @@ export const getAllVideos = asyncHandler(async (req, res) => {
 });
 
 export const getVideoById = asyncHandler(async (req, res) => {
-  const video = await videoService.getVideoById(req.params.id);
+  const video = await videoService.getVideoById(req.params.id, req.user);
   return sendSuccess(res, { video });
 });
 

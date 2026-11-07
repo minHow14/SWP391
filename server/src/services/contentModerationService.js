@@ -2,6 +2,7 @@
 import { contentModerationConfig } from '../config/contentModerationConfig.js';
 import { MODERATION_PENDING_STATUS, MODERATION_RELEASED_LEASE } from '../constants/contentModeration.js';
 import { contentModerationRepository as jobs } from '../repositories/contentModerationRepository.js';
+import { aiLogRepository } from '../repositories/aiLogRepository.js';
 import { ApiError } from '../utils/apiError.js';
 import { ROLES } from '../constants/roles.js';
 
@@ -51,6 +52,18 @@ export const contentModerationService = {
       const updated = await repository.applyResult({ job, result }, tx);
       const applied = updated.count === 1;
       await repository.markApplied({ id: job.id, applied }, tx);
+      try {
+        await aiLogRepository.create({
+          modelName: result?.modelName || 'deepseek-chat',
+          action: 'SPAM_DETECTION',
+          status: 'SUCCESS',
+          errorFeedback: result?.decision !== 'ALLOW'
+            ? `Nội dung bị gắn cờ: ${result?.categories?.join(', ') || result?.reason || 'Cần xem xét'}`
+            : null,
+        }, tx);
+      } catch {
+        // Không làm gián đoạn tiến trình kiểm duyệt nếu ghi log thất bại
+      }
       return { status: 'COMPLETED', applied };
     });
   },
@@ -60,6 +73,18 @@ export const contentModerationService = {
       availableAt: new Date(Date.now() + config.retryMs), completedAt: retry ? null : new Date(),
       errorCode: error.errorCode || 'MODERATION_JOB_FAILED',
       errorMessage: 'Kiểm duyệt tự động chưa hoàn tất. Nội dung đang chờ quản trị viên xem xét.' } });
+    if (!retry) {
+      try {
+        await aiLogRepository.create({
+          modelName: 'deepseek-chat',
+          action: 'SPAM_DETECTION',
+          status: 'ERROR',
+          errorFeedback: error.errorCode || 'MODERATION_JOB_FAILED',
+        });
+      } catch {
+        // Không làm gián đoạn tiến trình kiểm duyệt nếu ghi log thất bại
+      }
+    }
     return { status: retry ? 'RETRY_SCHEDULED' : 'FAILED', errorCode: error.errorCode };
   },
 };

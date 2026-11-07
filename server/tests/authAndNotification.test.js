@@ -139,6 +139,37 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.data.record.weight).toBe(68.5);
   });
 
+  test('rejects recording weight with invalid date format', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/me/weight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        weight: 70,
+        recorded_date: 'invalid-date-string',
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  test('does not overwrite current health profile weight when logging past weight', async () => {
+    // Log cân nặng trong quá khứ (năm 2020)
+    const pastRes = await request(app)
+      .post('/api/v1/auth/me/weight')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        weight: 55,
+        recorded_date: '2020-01-01T00:00:00Z',
+      });
+    expect(pastRes.status).toBe(201);
+
+    // Profile hiện tại vẫn phải giữ 68.5kg (bản ghi mới nhất), không bị 55kg đè lên
+    const profileRes = await request(app)
+      .get('/api/v1/auth/me/health-history')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(profileRes.status).toBe(200);
+    expect(profileRes.body.data.currentProfile.weight).toBe(68.5);
+  });
+
   test('retrieves health history and current profile', async () => {
     const res = await request(app)
       .get('/api/v1/auth/me/health-history')
@@ -213,5 +244,19 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
       .set('Authorization', `Bearer ${userToken}`);
     expect(readAllRes.status).toBe(200);
     expect(readAllRes.body.success).toBe(true);
+
+    // Xóa thông báo đã tạo
+    const deleteRes = await request(app)
+      .delete(`/api/v1/notifications/${firstNotif.notification_id}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(deleteRes.status).toBe(200);
+    expect(deleteRes.body.success).toBe(true);
+    expect(deleteRes.body.data.notification_id).toBe(firstNotif.notification_id);
+
+    // Không thể xóa lại thông báo đã bị xóa
+    const deleteAgainRes = await request(app)
+      .delete(`/api/v1/notifications/${firstNotif.notification_id}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(deleteAgainRes.status).toBe(404);
   });
 });

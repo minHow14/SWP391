@@ -285,7 +285,7 @@ export const workspaceRepository = {
       skip,
       take,
       include: include || {
-        category: true,
+        categories: true,
         diet_type: true,
         recipe_ingredients: { include: { ingredient: true } },
       },

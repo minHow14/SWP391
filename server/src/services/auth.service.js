@@ -374,8 +374,15 @@ export const authService = {
         tx
       );
 
-      // 3. Cập nhật cân nặng mới nhất vào bảng health_profiles qua repository
-      await userRepository.upsertHealthProfile(user_id, { weight: numericWeight }, tx);
+      // 3. Chỉ cập nhật cân nặng vào health_profiles nếu bản ghi này là mới nhất theo thời gian
+      const latestHistory = await tx.healthHistory.findFirst({
+        where: { user_id },
+        orderBy: [{ recorded_date: 'desc' }, { history_id: 'desc' }],
+        select: { history_id: true },
+      });
+      if (!latestHistory || latestHistory.history_id === record.history_id) {
+        await userRepository.upsertHealthProfile(user_id, { weight: numericWeight }, tx);
+      }
 
       return {
         ...record,

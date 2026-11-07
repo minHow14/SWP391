@@ -17,8 +17,11 @@ const LAST_DAY_OF_WEEK = 7;
 const MAX_NAME_LENGTH = 255;
 
 function dayOfWeekOf(day, index) {
-  const dayNumber = Number(day.dayNumber);
-  return Number.isInteger(dayNumber) ? dayNumber : index + 1;
+  const dayNumber = Number(day?.dayNumber);
+  if (Number.isInteger(dayNumber) && dayNumber >= FIRST_DAY_OF_WEEK && dayNumber <= LAST_DAY_OF_WEEK) {
+    return dayNumber;
+  }
+  return ((index % 7) + 1);
 }
 
 function detailRow({ planId, dayOfWeek, mealType, meal }) {
@@ -36,13 +39,18 @@ function detailRow({ planId, dayOfWeek, mealType, meal }) {
 
 /** Thực đơn AI bắt đầu từ Thứ Hai: `dayNumber` 1..7 ứng với Thứ Hai..Chủ Nhật của tuần được chọn. */
 export function buildPlanDetails(planId, weeklyPlan) {
-  return weeklyPlan.flatMap((day, index) => {
+  const details = (weeklyPlan || []).flatMap((day, index) => {
     const dayOfWeek = dayOfWeekOf(day, index);
-    if (dayOfWeek < FIRST_DAY_OF_WEEK || dayOfWeek > LAST_DAY_OF_WEEK) return [];
     return Object.entries(AI_MEAL_FIELDS)
       .filter(([field]) => typeof day[field]?.name === 'string' && day[field].name.trim())
       .map(([field, mealType]) => detailRow({ planId, dayOfWeek, mealType, meal: day[field] }));
   });
+
+  if (details.length === 0 && Array.isArray(weeklyPlan) && weeklyPlan.length > 0) {
+    throw ApiError.badRequest('Thực đơn AI không có bữa ăn hợp lệ để áp dụng.');
+  }
+
+  return details;
 }
 
 async function findCompletedMealPlan({ generationId, userId }) {

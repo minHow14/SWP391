@@ -1,497 +1,486 @@
-[![CI Pipeline](https://github.com/minHow14/SWP391/actions/workflows/ci.yml/badge.svg)](https://github.com/minHow14/SWP391/actions/workflows/ci.yml)
-
 # 🌱 Chay Xanh - Nền Tảng Hỗ Trợ Ăn Chay & Sống Khỏe Toàn Diện
 
 > **Dự án SWP391 - FPT University | Software Development Project**  
-> Hệ thống tích hợp toàn diện gồm ứng dụng Web SPA (React-Bootstrap), Backend REST API phân tầng (Express + Prisma + PostgreSQL) và AI Microservice tư vấn dinh dưỡng thông minh (FastAPI + LangChain).
+> Hệ thống tích hợp toàn diện gồm ứng dụng Web SPA (React 19 + Vite + React-Bootstrap), Backend REST API phân tầng (Node.js / Express 5 + Prisma 6 + PostgreSQL 15+) và AI Microservice tư vấn dinh dưỡng thông minh (Python 3.11+ / FastAPI + LangChain + DeepSeek LLM).
 
 ---
 
-## 1. 📖 Tên dự án & Bài toán giải quyết
+## 📑 Mục lục tài liệu (Table of Contents)
+
+1. [Giới thiệu & Tổng quan dự án (Project Overview)](#1-giới-thiệu--tổng-quan-dự-án-project-overview)
+2. [Tính năng chính & Trạng thái triển khai (Key Features)](#2-tính-năng-chính--trạng-thái-triển-khai-key-features)
+3. [Ngăn xếp công nghệ thực tế (Technology Stack)](#3-ngăn-xếp-công-nghệ-thực-tế-technology-stack)
+4. [Kiến trúc hệ thống & Luồng giao tiếp (System Architecture)](#4-kiến-trúc-hệ-thống--luồng-giao-tiếp-system-architecture)
+5. [Cấu trúc thư mục Monorepo (Project Structure)](#5-cấu-trúc-thư-mục-monorepo-project-structure)
+6. [Điều hướng tài liệu kỹ thuật chi tiết (Documentation Navigation)](#6-điều-hướng-tài-liệu-kỹ-thuật-chi-tiết-documentation-navigation)
+7. [Yêu cầu hệ thống môi trường local (Prerequisites)](#7-yêu-cầu-hệ-thống-môi-trường-local-prerequisites)
+8. [Hướng dẫn cài đặt & Khởi động từng bước (Installation & Setup)](#8-hướng-dẫn-cài-đặt--khởi-động-từng-bước-installation--setup)
+9. [Tổng quan biến môi trường (Environment Variables Overview)](#9-tổng-quan-biến-môi-trường-environment-variables-overview)
+10. [Tổng quan cơ sở dữ liệu (Database Overview)](#10-tổng-quan-cơ-sở-dữ-liệu-database-overview)
+11. [Tổng quan xác thực & Phân quyền (Authentication & Authorization)](#11-tổng-quan-xác-thực--phân-quyền-authentication--authorization)
+12. [Vận hành toàn bộ hệ thống (Running the Entire Project)](#12-vận-hành-toàn-bộ-hệ-thống-running-the-entire-project)
+13. [Danh mục Scripts thực tế](#13-danh-mục-scripts-thực-tế)
+14. [Tổng hợp chiến lược kiểm thử (Testing Overview)](#14-tổng-hợp-chiến-lược-kiểm-thử-testing-overview)
+15. [Quy chuẩn mã nguồn & Quy ước Git](#15-quy-chuẩn-mã-nguồn--quy-ước-git)
+16. [Xử lý sự cố thường gặp (Troubleshooting)](#16-xử-lý-sự-cố-thường-gặp-troubleshooting)
+17. [Thành viên phát triển & Bản quyền (Contributors & License)](#17-thành-viên-phát-triển--bản-quyền-contributors--license)
+
+---
+
+## 1. Giới thiệu & Tổng quan dự án (Project Overview)
 
 **Chay Xanh** ra đời nhằm hỗ trợ cộng đồng tiếp cận lối sống ăn chay khoa học, lành mạnh và bền vững. Nền tảng kết hợp giữa mạng xã hội ẩm thực, công cụ khám phá món chay, tìm kiếm địa điểm quán ăn chay lân cận, trợ lý ảo AI hỗ trợ lập thực đơn cá nhân hóa và Trung tâm Quản trị (Admin Portal) toàn diện.
 
 ### Các bài toán cốt lõi:
 1. **Thiếu kiến thức dinh dưỡng cân bằng:** Giải quyết nỗi lo thiếu vi chất (B12, sắt, canxi, protein thực vật) khi chuyển sang chế độ ăn chay.
 2. **Khó khăn trong việc lên thực đơn:** Trợ lý AI tự động tính toán nhu cầu calo và đề xuất thực đơn 7 ngày phù hợp với thể trạng, mục tiêu sức khỏe và dị ứng thực phẩm.
-3. **Tìm kiếm địa điểm ăn chay:** Định vị nhà hàng, quán chay uy tín xung quanh người dùng dựa trên tọa độ địa lý (GPS).
-4. **Kết nối cộng đồng & Kiểm duyệt:** Chia sẻ công thức, nhật ký nấu nướng, video hướng dẫn và tự động kiểm duyệt nội dung độc hại bằng AI kết hợp can thiệp thủ công từ Quản trị viên.
+3. **Tìm kiếm địa điểm ăn chay:** Định vị nhà hàng, quán chay uy tín xung quanh người dùng dựa trên tọa độ địa lý (GPS) và dịch vụ ZIOMAP.
+4. **Kết nối cộng đồng & Kiểm duyệt an toàn:** Chia sẻ công thức, nhật ký nấu nướng, video hướng dẫn và tự động kiểm duyệt nội dung độc hại bằng AI kết hợp can thiệp thủ công từ Quản trị viên.
+
+### Đối tượng sử dụng:
+- **Người mới bắt đầu ăn chay (Beginners):** Cần kiến thức dinh dưỡng, từ điển nguyên liệu, công thức dễ làm và hướng dẫn tránh thiếu chất.
+- **Người ăn chay trường / theo tôn giáo (Vegans & Buddhist Vegetarians):** Cần bộ lọc khắt khe loại trừ ngũ vị tân, phụ phẩm động vật hoặc chế độ ăn thuần chay.
+- **Quản trị viên hệ thống (Admins):** Cần dashboard giám sát số liệu, duyệt nội dung cộng đồng, kiểm tra sức khỏe hệ thống và can thiệp AI.
 
 ---
 
-## 2. ✨ Tính năng chính
+## 2. Tính năng chính & Trạng thái triển khai (Key Features)
 
-### Phân hệ Người dùng (Member Portal)
-- **Tài khoản:** Đăng nhập có tùy chọn ghi nhớ, tự gia hạn access token, đăng xuất xóa refresh cookie. Quên mật khẩu gửi liên kết dùng một lần qua SMTP thật; đặt lại mật khẩu thu hồi các access/refresh token cũ.
-- **Kiểm tra món ăn & Quét nhãn thành phần qua hình ảnh (Smart Food & Label Vision Scanner):** Tự động nhận diện đĩa món ăn và bóc tách chữ/mã phụ gia quốc tế (E-numbers) trên bao bì sản phẩm qua AI Vision, đối chiếu theo 5 lớp quy tắc ẩm thực chay (Thịt & hải sản, Phụ phẩm động vật, Trứng/sữa/mật ong, Ngũ vị tân Phật giáo, Dị ứng cá nhân), cảnh báo nguy cơ gia vị ẩn (nước dùng hầm xương, nước mắm) và cung cấp bộ câu hỏi nhanh khi dùng bữa ngoài quán kèm gợi ý đổi món tức thì.
-- **Đổi món chay thông minh:** Gợi ý nguyên liệu và món chay thay thế tương đương về cấu trúc dinh dưỡng.
-- **Từ điển nguyên liệu chay:** Tra cứu chỉ số calo, đạm, đường, béo và nguồn gốc thực vật.
-- **Khám phá công thức & Bản đồ Quán chay:** Định vị GPS thời gian thực (hiệu ứng Radar Pulse), tính khoảng cách kép (`user_distance_m`), hệ thống Hubs đa tỉnh thành (TP.HCM, Hà Nội, Đà Nẵng, Cần Thơ, Huế), tùy chỉnh bán kính quét (3 - 20 km), lọc theo chế độ ăn (Thuần chay, Chay Phật giáo, Chay trứng sữa), tích hợp dịch vụ ZIOMAP kết hợp cơ chế Read-through Caching vào PostgreSQL (<100ms), tự động hiển thị ảnh đại diện và trạng thái mở/đóng cửa (`🟢 Đang mở cửa` / `🔴 Đã đóng cửa`).
-- **Nhật ký dinh dưỡng cá nhân:** Ghi nhận khẩu phần calo theo ngày/tuần theo múi giờ địa phương.
-- **Lịch sử AI cá nhân:** Mở lại hỏi đáp/thực đơn trong khung chat và kết quả quét ảnh tại trang Kiểm tra món. Lưu món từ kết quả quét phù hợp vào nhật ký sau khi xác nhận khẩu phần và số liệu dinh dưỡng; giá trị chưa biết được để trống.
-- **Hồ sơ và chế độ ăn:** Giữ đủ vegan/lacto/ovo/lacto_ovo/buddhist/keto/eat_clean khi gọi AI. Quét ảnh trong trang và chat sử dụng dị ứng đã lưu; đổi chế độ/tài khoản/dị ứng vô hiệu hóa kết quả cũ. BMI trong chat được tính từ số đo thật của hồ sơ. Một ảnh không đủ để xác minh giới hạn carb thuần cả ngày của Keto.
-- **Công thức từ video YouTube:** Thành viên dán link video nấu ăn tiếng Việt tối đa 11 phút vào chat. Job chạy nền, lưu công thức vào DB; mở lại chat sau khi tải lại trang sẽ khôi phục tối đa 10 tác vụ gần nhất cùng tác vụ đang xử lý.
+Hệ thống phân định rõ ràng các tính năng theo vai trò và trạng thái thực tế trong source code:
 
-### Phân hệ Quản trị viên (Admin Portal - `/admin`)
-- **Tổng quan Hệ thống (Dashboard):** Thống kê thời gian thực về thành viên, bài viết, video, tỷ lệ chính xác AI và việc cần xử lý.
-- **Quản lý Thành viên:** Tra cứu danh sách, xem bài viết/bình luận của từng thành viên, khóa/mở khóa hoặc xóa tài khoản. Quản trị viên sau khi đăng nhập được tự động chuyển hướng vào Dashboard quản trị.
-- **Khôi phục tài khoản:** Dùng thao tác khôi phục riêng, giữ trạng thái kiểm duyệt trước xóa của bài/bình luận. Nội dung cũ thiếu metadata tiếp tục bị xóa và có cảnh báo; không tự công bố lại nội dung ẩn/chờ duyệt.
-- **Nội dung pháp lý:** Soạn, lưu nháp hoặc công bố điều khoản/chính sách tại `/admin?tab=legal-documents`. Trang công khai chỉ hiển thị nội dung thật đã công bố; chưa nhập nội dung sẽ báo chưa công bố.
-- **Quản lý Bài viết & Video:** Phê duyệt bài đăng mới, chỉnh sửa nội dung vi phạm tiêu chuẩn cộng đồng, gỡ bỏ bài viết.
-- **Quản lý Bình luận:** Kiểm tra tương tác, ẩn hoặc xóa bình luận spam/quảng cáo.
-- **Quản lý Danh mục:** Thêm, sửa, xóa danh mục món ăn & công thức nấu chay (có kiểm tra ràng buộc dữ liệu).
-- **Kiểm duyệt AI:** Worker local kiểm tra văn bản blog/bình luận; Admin xem lý do, bằng chứng và các mục chờ/lỗi, sau đó duyệt hoặc gỡ bằng xóa mềm. Chính sách cho phép sườn chay, món có trứng/sữa; chặn quảng bá thịt/cá. Tính năng cần bật cờ cấu hình.
-- **Giám sát Mô hình AI:** Theo dõi trạng thái hoạt động của các mô hình (Gợi ý thực đơn, Chatbot tư vấn, Kiểm duyệt tự động) và tra cứu nhật ký `ai_logs`.
-- **Health check quản trị:** Đo kết nối PostgreSQL và HTTP AI Service khi mở trang hoặc bấm kiểm tra lại; không tự polling. Mô hình chưa có log hiển thị “Chưa có dữ liệu”, API trả `UNKNOWN` và `successRate: null`; HTTP AI lên không xác nhận provider inference hoạt động.
-- **Can thiệp Thủ công AI:** Ghi nhận điều chỉnh, phản hồi sửa lỗi khi AI đưa ra kết quả chưa chuẩn xác.
-- **Quản lý Báo cáo:** Xử lý các phản ánh vi phạm từ người dùng trong cộng đồng.
-
----
-
-## 3. 🛠️ Công nghệ & Phiên bản cụ thể
-
-| Phân hệ | Công nghệ chính | Phiên bản | Thư viện & Công cụ bổ trợ |
+| Tính năng | Đối tượng | Trạng thái | Mô tả chi tiết |
 | :--- | :--- | :--- | :--- |
-| **Frontend (`client/`)** | React | `19.3.0` | Vite `8.3.3`, React-Bootstrap `2.10.10`, Bootstrap 5, Axios `1.20.0`, React Router `8.4.0`; phiên bản khóa trong `client/package-lock.json` |
-| **Backend (`server/`)** | Node.js (ESM), Express | `5.2.1` | Prisma `6.19.3`, Nodemailer `10.3.1`, PostgreSQL, Zod, bcryptjs, jsonwebtoken, Vitest/Supertest; phiên bản khóa trong `server/package-lock.json` |
-| **AI Service (`ai_service/`)** | Python ≥3.11, FastAPI `0.159.1` | Pydantic `2.14.1` | LangChain `1.4.7`, DeepSeek API, youtube-transcript-api `1.2.4`, SlowAPI `0.1.10`, Pytest `9.1.1` |
-| **Database** | PostgreSQL | `>= 15.0` | Prisma Schema + Migrations, Raw SQL, Connection Pooling |
+| **Tra cứu danh mục & món ăn** | Khách / Member | `Implemented` | Xem công thức, tìm kiếm không dấu tiếng Việt, lọc theo danh mục và chế độ ăn. |
+| **Tìm quán chay lân cận (Radar)** | Khách / Member | `Implemented` | Định vị GPS, tìm kiếm theo bán kính (3–20km), tích hợp ZIOMAP cache vào PostgreSQL. |
+| **Từ điển nguyên liệu & Tỷ trọng** | Khách / Member | `Implemented` | Tra cứu dinh dưỡng, calo, dị ứng và bảng tỷ trọng chất lỏng (`liquid_ingredient_densities`). |
+| **Trợ lý AI Chat tư vấn dinh dưỡng** | Khách / Member | `Implemented` | Hạn ngạch 3 lượt/ngày cho khách; thành viên không giới hạn lượt, lưu lịch sử hội thoại. |
+| **Lập thực đơn AI 7 ngày** | Thành viên | `Implemented` | Tính TDEE/BMI, sinh thực đơn theo thể trạng, dị ứng, mục tiêu; hỗ trợ áp dụng vào lịch tuần. |
+| **Quét nhãn & Kiểm tra món (Scanner)** | Khách / Member | `Implemented` | Nhận diện ảnh món ăn / nhãn thành phần qua AI Vision, kiểm tra quy tắc chay 5 lớp. |
+| **Trích xuất công thức từ YouTube** | Thành viên | `Implemented` | Gửi link YouTube tiếng Việt (≤11 phút), worker trích xuất phụ đề và tóm tắt công thức. |
+| **Đăng bài cộng đồng, bình chọn, bình luận**| Thành viên | `Implemented` | Đăng bài kèm ảnh/video, upvote/downvote, bình luận trao đổi; tự động gửi qua hàng đợi duyệt. |
+| **Nhật ký dinh dưỡng & Cân nặng** | Thành viên | `Implemented` | Ghi nhận bữa ăn theo ngày, tính tổng calo và vĩ chất; biểu đồ theo dõi cân nặng. |
+| **Quản trị Dashboard & Thành viên** | Admin (Role 1) | `Implemented` | Thống kê số liệu, khóa/mở khóa/xóa tài khoản, khôi phục tài khoản với metadata bảo toàn. |
+| **Quản trị Nội dung & Kiểm duyệt** | Admin (Role 1) | `Implemented` | Quản lý bài viết, video, bình luận, danh mục món ăn; xử lý vi phạm báo cáo từ người dùng. |
+| **Giám sát Mô hình AI & System Health**| Admin (Role 1) | `Implemented` | Kiểm tra trạng thái kết nối PostgreSQL & AI Service, xem log `ai_logs`, tỷ lệ thành công. |
+| **Quản lý Văn bản Pháp lý** | Admin (Role 1) | `Implemented` | Soạn thảo, lưu nháp và công bố Điều khoản sử dụng và Chính sách bảo mật. |
+| **Nhận diện nguyên liệu trong tủ lạnh** | Khách / Member | `Partially Implemented` | Đã có agent, schema và API trong `ai_service/api/vision.py` và validator BE, nhưng **chưa mount router** vào FastAPI và route BE bị comment. |
 
 ---
 
-## 4. 🏛️ Kiến trúc tổng quan
+## 3. Ngăn xếp công nghệ thực tế (Technology Stack)
 
-Kiến trúc hệ thống tuân thủ mô hình **Microservices với AI Gateway Pattern**. Backend Express đóng vai trò API Gateway duy nhất kiểm soát toàn bộ lưu lượng, xác thực người dùng, giới hạn hạn ngạch (Guest Quota & Rate Limit) và lưu nhật ký (`ai_logs`), đầu vào/prompt/kết quả của thành viên (`ai_generations`). AI Microservice là dịch vụ tính toán phi trạng thái (stateless), tuyệt đối không kết nối trực tiếp vào cơ sở dữ liệu và chỉ giao tiếp với Backend qua khóa nội bộ bảo mật.
+Toàn bộ phiên bản dưới đây được đối chiếu và xác nhận trực tiếp từ `server/package.json`, `client/package.json` và `ai_service/requirements.txt`:
+
+| Phân hệ | Công nghệ | Phiên bản | Mục đích sử dụng |
+| :--- | :--- | :--- | :--- |
+| **Frontend Core** | React | `^19.2.8` (19.3.0) | Thư viện UI nền tảng xây dựng SPA theo mô hình Declarative Component. |
+| **Frontend Tooling** | Vite | `^8.3.0` (8.3.3) | Build tool và Dev server với Hot Module Replacement (HMR). |
+| **Frontend UI/UX** | React-Bootstrap / Bootstrap | `^2.10.10` / `^5.3.8` | Bộ thành phần giao diện chuẩn và hệ thống lưới Responsive Grid. |
+| **Frontend Icons** | Bootstrap Icons | `^1.13.1` | Hệ thống vector icon thống nhất. |
+| **Frontend Routing** | React Router | `^8.4.0` | Điều hướng trang phía client với lazy loading và Suspense. |
+| **Frontend HTTP** | Axios | `^1.20.0` | Client gọi REST API với interceptors tự động refresh token và đính kèm Bearer token. |
+| **Frontend Forms** | React Hook Form + Zod | `^7.90.0` / `^4.6.7` | Quản lý form hiệu năng cao và validate dữ liệu bằng Zod Schema. |
+| **Frontend Maps** | Leaflet | `^1.9.4` | Bản đồ tương tác hiển thị vị trí quán chay và bán kính quét. |
+| **Backend Runtime** | Node.js | `>= 22.22.0` | Môi trường thực thi JavaScript phía máy chủ sử dụng ES Modules (`"type": "module"`). |
+| **Backend Framework**| Express.js | `^5.2.1` | Framework xây dựng RESTful API phân tầng. |
+| **Database ORM** | Prisma | `^6.19.3` | ORM quản trị schema, migration và thao tác truy vấn cơ sở dữ liệu PostgreSQL. |
+| **Database Engine** | PostgreSQL | `>= 15.0` | Hệ quản trị cơ sở dữ liệu quan hệ lưu trữ dữ liệu nghiệp vụ. |
+| **Backend Validation**| Zod | `^4.6.5` | Validate request body, query params, URL route params và biến môi trường. |
+| **Backend Logging** | Pino & Pino-HTTP | `10.4.0` / `^11.0.0` | Hệ thống ghi log có cấu trúc hiệu năng cao. |
+| **Backend Auth** | jsonwebtoken & bcryptjs | `^9.0.3` / `^3.0.3` | Tạo/giải mã JWT Access Token/Refresh Token và băm mật khẩu bảo mật. |
+| **Backend Security** | Helmet & express-rate-limit | `^8.3.0` / `^8.7.1` | Bảo vệ HTTP headers và hạn chế tần suất request chống brute-force/DDoS. |
+| **Backend Utilities** | Nodemailer & Multer | `^10.3.1` / `^2.4.0` | Gửi email khôi phục mật khẩu qua SMTP và xử lý upload file ảnh local. |
+| **AI Framework** | Python & FastAPI | `>= 3.11, < 3.15` / `0.159.1` | Ngôn ngữ và Web framework hiệu năng cao cho AI Microservice. |
+| **AI Server Engine** | Uvicorn | `0.54.0` | ASGI Server chạy ứng dụng FastAPI. |
+| **AI Data Validation**| Pydantic v2 & Settings | `2.14.1` / `2.16.1` | Khai báo schema request/response với `CamelModel` và quản lý cấu hình. |
+| **AI Orchestration** | LangChain | `1.4.7` | Điều phối prompt, context và tích hợp mô hình ngôn ngữ lớn (LLM). |
+| **LLM Provider** | DeepSeek API | `deepseek-chat` | Mô hình ngôn ngữ xử lý tư vấn, lập thực đơn, quét món và tóm tắt video. |
+| **YouTube Captions** | youtube-transcript-api | `1.2.4` | Trích xuất phụ đề tiếng Việt có sẵn từ video YouTube. |
+| **Testing** | Vitest, Supertest, Pytest | Vitest `5.0.3`, Pytest `9.1.1` | Framework kiểm thử tự động cho cả 3 phân hệ. |
+
+---
+
+## 4. Kiến trúc hệ thống & Luồng giao tiếp (System Architecture)
+
+Dự án áp dụng mô hình **Microservices kết hợp AI Gateway Pattern**:
+
+1. **Frontend (`client/`):** Ứng dụng Single Page Application (SPA) tương tác với người dùng, kết nối tới Backend thông qua một điểm tập trung `/api`.
+2. **Backend Gateway (`server/`):** Đóng vai trò kiểm soát lưu lượng duy nhất. Thực hiện xác thực JWT, phân quyền RBAC, kiểm tra hạn ngạch khách (Guest Quota), ghi log AI (`ai_logs`), điều phối các tác vụ nền qua Worker và tương tác trực tiếp với PostgreSQL.
+3. **AI Microservice (`ai_service/`):** Dịch vụ tính toán phi trạng thái (Stateless). **Tuyệt đối không kết nối trực tiếp vào PostgreSQL**. Chỉ nhận yêu cầu đã được xác thực từ Backend qua header `X-Internal-Api-Key`.
+4. **Cơ sở dữ liệu (PostgreSQL):** Lưu trữ toàn bộ dữ liệu nghiệp vụ, hồ sơ sức khỏe, nhật ký dinh dưỡng, quán ăn và hàng đợi job.
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer ["1. Frontend Web App (client/)"]
-        Client["React 19 + Vite + React-Bootstrap<br/>Axios Interceptor + React Router<br/>(Port 5173)"]
+    subgraph ClientLayer ["1. Frontend Web App (client/ - Port 5173)"]
+        UI["React 19 SPA + React-Bootstrap"]
+        Axios["Axios Interceptor (apiClient.js)<br/>Auto Refresh Token & Error Normalization"]
+        UI --> Axios
     end
 
-    subgraph BackendLayer ["2. Backend Core Server / AI Gateway (server/)"]
-        Server["Express.js 5 + Layered Architecture<br/>JWT Auth & RBAC (Role 1: Admin, Role 2: User)<br/>Guest Quota & AI Logging Manager<br/>(Port 5000)"]
+    subgraph BackendLayer ["2. Backend Core / AI Gateway (server/ - Port 5000)"]
+        Gateway["Express 5 REST API Gateway"]
+        AuthMiddleware["Auth & RBAC Middleware<br/>JWT Access/Refresh + tokenVersion"]
+        WorkerModeration["Content Moderation Worker"]
+        WorkerVideo["Video Recipe Worker"]
+        Gateway --> AuthMiddleware
+        Gateway -.-> WorkerModeration
+        Gateway -.-> WorkerVideo
     end
 
-    subgraph AILayer ["3. AI Microservice (ai_service/)"]
-        AIService["FastAPI + LangChain<br/>Stateless Microservice<br/>Auth: X-Internal-Api-Key<br/>(Port 8000)"]
+    subgraph AILayer ["3. AI Microservice (ai_service/ - Port 8000)"]
+        FastAPI["FastAPI 0.159 (Stateless Engine)<br/>Header: X-Internal-Api-Key"]
+        Agents["Chatbot, MealPlanner, FoodScanner,<br/>VideoRecipe, ContentModeration"]
+        FastAPI --> Agents
     end
 
-    subgraph DataLayer ["4. Persistence & External Models"]
-        DB[("PostgreSQL 15+ Database<br/>(vegetarian_db)")]
-        DeepSeek["DeepSeek LLM Engine"]
+    subgraph ExternalLayer ["4. Hạ tầng & Dịch vụ Bên ngoài"]
+        DB[("PostgreSQL 15+<br/>(vegetarian_db)")]
+        LLM["DeepSeek LLM API<br/>(deepseek-chat)"]
+        ZIOMAP["ZIOMAP Places API"]
+        SMTP["SMTP Mail Provider"]
+        YT["YouTube Video Captions"]
     end
 
-    Client -- "HTTP / REST API / Bearer Token / SSE" --> Server
-    Server -- "Prisma Client (ACID, Raw Queries)" --> DB
-    Server -- "Internal HTTP + X-Internal-Api-Key" --> AIService
-    AIService -- "Prompt & Streaming Completion" --> DeepSeek
+    Axios -- "HTTP REST / Bearer Token / SSE" --> Gateway
+    Gateway -- "Prisma Client 6 (ACID Pool)" --> DB
+    WorkerModeration -- "Job Lease & Update" --> DB
+    WorkerVideo -- "Job Lease & Update" --> DB
+    Gateway -- "Internal HTTP + X-Internal-Api-Key" --> FastAPI
+    WorkerModeration -- "Internal HTTP Check" --> FastAPI
+    WorkerVideo -- "Internal HTTP Transcribe/Summarize" --> FastAPI
+    FastAPI -- "Streaming Completion / JSON" --> LLM
+    Gateway -- "Place Search & Photos" --> ZIOMAP
+    Gateway -- "Password Reset Mails" --> SMTP
+    FastAPI -- "Vietnamese Captions" --> YT
 ```
 
 ---
 
-## 5. 📂 Cấu trúc thư mục
+## 5. Cấu trúc thư mục Monorepo (Project Structure)
 
 ```text
 SWP391/
-├── client/                     # Frontend React SPA
+├── client/                     # Phân hệ Frontend (React 19 + Vite + React-Bootstrap)
 │   ├── src/
-│   │   ├── components/         # Header, Footer, SiteLayout, AuthForm...
-│   │   ├── features/admin/     # Các bảng & modal phân rã cho Admin Portal (<250 dòng)
-│   │   ├── pages/              # Trang công cộng (Home, Recipes, Community, Profile...)
-│   │   │   └── admin/          # Cổng Quản trị AdminPortal & các Tab chức năng
-│   │   ├── services/           # apiClient.js, authService.js, workspaceService.js, placeService.js...
-│   │   ├── context/            # DatabaseProvider, databaseContext
-│   │   ├── hooks/              # Custom hooks (useDatabase, useAuth...)
-│   │   ├── utils/              # Tiện ích session, syncEvents, helpers...
-│   │   └── App.jsx             # React Router định tuyến (kèm /admin)
-│   └── test/                   # Kiểm thử logic FE & Admin
+│   │   ├── assets/             # Hình ảnh tĩnh và SCSS/CSS tùy biến giao diện
+│   │   ├── components/         # Component dùng chung (common/, layout/)
+│   │   ├── constants/          # Hằng số hiển thị, phân loại chế độ ăn, nhãn quán
+│   │   ├── context/            # Quản lý state toàn cục (DatabaseProvider, databaseContext)
+│   │   ├── features/           # Các module nghiệp vụ phân rã độc lập (<250 dòng)
+│   │   ├── hooks/              # Custom hooks (useDatabase, useAuth, useDebounce...)
+│   │   ├── pages/              # Trang theo từng tuyến đường (bao gồm auth/ và admin/)
+│   │   ├── routes/             # Cấu hình AppRoutes (React Router 8, lazy, Suspense)
+│   │   ├── services/           # Tầng gọi API Backend qua Axios singleton
+│   │   └── utils/              # Quản lý session, định dạng tiền tệ, ngày giờ UTC
+│   ├── test/                   # Kiểm thử logic frontend bằng Node Test Runner & Vitest
+│   ├── package.json
+│   ├── vite.config.js
+│   └── README.md               # Tài liệu chi tiết Frontend
 │
-├── server/                     # Backend REST API
+├── server/                     # Phân hệ Backend (Node.js + Express 5 + Prisma 6)
+│   ├── prisma/
+│   │   ├── schema.prisma       # Định nghĩa toàn bộ Data Models & ánh xạ quan hệ
+│   │   ├── migrations/         # Lịch sử các bản migration cơ sở dữ liệu
+│   │   ├── seed.js             # Script nạp dữ liệu khởi tạo
+│   │   └── seed.sql            # Dữ liệu hạt giống SQL mẫu
+│   ├── scripts/                # Scripts bảo trì dữ liệu, import ảnh nguyên liệu, đồng bộ
 │   ├── src/
-│   │   ├── config/             # Kết nối Prisma Client, cấu hình env
-│   │   ├── constants/          # Roles, Status, HttpStatus
-│   │   ├── controllers/        # Tiếp nhận request & trả envelope JSON (kèm ai.controller.js)
-│   │   ├── middlewares/        # authMiddleware (JWT, RBAC), validation, error
-│   │   ├── repositories/       # Nơi duy nhất gọi Prisma Client (tách SRP theo model)
-│   │   ├── routes/             # Định tuyến RESTful (/api/ai, /api/v1/ai-generations)
-│   │   ├── services/           # Logic nghiệp vụ (kèm ai.service.js, admin.service.js)
-│   │   └── utils/              # apiResponse, apiError, jwt
-│   ├── prisma/                 # schema.prisma, migrations/, seed.js & seed.sql
-│   ├── scripts/                # Script bảo trì: import-ingredient-images, repair, sync-assets
-│   └── tests/                  # Kiểm thử tự động Vitest
+│   │   ├── config/             # Cấu hình môi trường (Zod env), Prisma singleton, logger
+│   │   ├── constants/          # Hằng số HTTP status, roles, trạng thái tài khoản
+│   │   ├── controllers/        # Tiếp nhận HTTP request, gọi service, trả response chuẩn
+│   │   ├── middlewares/        # Xác thực JWT, RBAC, Zod validation, error handler, rate limit
+│   │   ├── repositories/       # Nơi duy nhất gọi Prisma Client thao tác với Database
+│   │   ├── routes/             # Định tuyến RESTful API (/api/v1/... và backward routes)
+│   │   ├── services/           # Logic nghiệp vụ lõi, điều phối transaction, gọi AI Service
+│   │   ├── utils/              # Tiện ích API response, JWT, phân tích SSE, lỗi chuẩn hóa
+│   │   ├── validators/         # Toàn bộ Zod Schema kiểm thực dữ liệu đầu vào
+│   │   ├── workers/            # Worker chạy nền (kiểm duyệt văn bản, tóm tắt video)
+│   │   ├── app.js              # Cấu hình Express, middleware toàn cục
+│   │   └── server.js           # Entry point khởi động HTTP server và graceful shutdown
+│   ├── tests/                  # Bộ kiểm thử Vitest + Supertest trên DB test riêng
+│   ├── package.json
+│   └── README.md               # Tài liệu chi tiết Backend
 │
-├── ai_service/                 # AI Microservice Python FastAPI (Stateless)
-│   ├── agents/                 # Chatbot Agent & Meal Planner Agent
-│   ├── api/                    # Routers: /api/chat, /api/meal-planner, /api/admin-actions
-│   └── core/                   # Cấu hình DeepSeek LLM, Security (X-Internal-Api-Key), Logging
+├── ai_service/                 # Phân hệ AI Microservice (Python 3.11+ + FastAPI + Pydantic v2)
+│   ├── agents/                 # Logic Agent xử lý prompt (Chatbot, MealPlanner, Vision)
+│   ├── api/                    # APIRouters xử lý các endpoint nghiệp vụ
+│   ├── core/                   # Cấu hình DeepSeek LLM, bảo mật X-Internal-Api-Key, rate limit
+│   ├── prompts/                # Thư viện prompt kỹ thuật hệ thống (Markdown format)
+│   ├── schemas/                # Pydantic v2 models kế thừa CamelModel (request/response)
+│   ├── services/               # Xử lý phụ đề video, trích xuất dữ liệu, tiền/hậu xử lý
+│   ├── tests/                  # Bộ kiểm thử Pytest tự động
+│   ├── main.py                 # Entry point khởi tạo ứng dụng FastAPI và lifespan
+│   ├── requirements.txt        # Danh mục dependencies cố định phiên bản
+│   └── README.md               # Tài liệu chi tiết AI Service
 │
-├── docs/                       # Tài liệu thiết kế ERD & OpenAPI
-└── README.md                   # Hướng dẫn toàn diện dự án
+├── docs/                       # Tài liệu kiến trúc dự án, OpenAPI specs, sơ đồ ERD
+├── AGENTS.md                   # Bộ nguyên tắc và quy chuẩn kỹ thuật toàn dự án
+└── README.md                   # Tài liệu tổng quan toàn bộ dự án (File này)
 ```
 
 ---
 
-## 6. ⚙️ Yêu cầu hệ thống (System Requirements)
+## 6. Điều hướng tài liệu kỹ thuật chi tiết (Documentation Navigation)
 
-- **Node.js:** `>= 22.22.0` & `npm >= 10.x` cho toàn monorepo hiện tại. Quy tắc nền của dự án là Node ≥20, nhưng React Router `8.4.0` trong lockfile yêu cầu Node ≥22.22; Vite `8.3.3` yêu cầu Node `^20.19.0 || >=22.12.0`.
-- **Python:** `>= 3.11, < 3.15` với bộ phụ thuộc AI hiện tại.
-- **PostgreSQL:** `>= 15.x` (Đang chạy local port `5432`)
-- **Hệ điều hành:** Windows, macOS, hoặc Linux
+Để tìm hiểu sâu hơn về kiến trúc kỹ thuật, chi tiết API và hướng dẫn phát triển của từng phân hệ, vui lòng tham khảo các tài liệu chuyên sâu:
+
+- 🎨 **Tài liệu Frontend:** Xem chi tiết tại [`client/README.md`](./client/README.md)
+  - *Bao gồm: Kiến trúc Component, Quản lý State toàn cục & Session, Axios Interceptors, Quy chuẩn 4 trạng thái UI, Hướng dẫn kiểm thử giao diện.*
+- ⚙️ **Tài liệu Backend:** Xem chi tiết tại [`server/README.md`](./server/README.md)
+  - *Bao gồm: Kiến trúc phân tầng (Controller-Service-Repository), Vòng đời Request, Bảng đối chiếu API đầy đủ, Mô hình Prisma Database, Worker chạy nền, Cơ chế Token Versioning.*
+- 🧠 **Tài liệu AI Service:** Xem chi tiết tại [`ai_service/README.md`](./ai_service/README.md)
+  - *Bao gồm: FastAPI Lifespan, Pydantic v2 CamelModel, Cấu trúc Prompt Engineering, Luồng Streaming SSE, Quy trình xử lý ảnh và phụ đề YouTube.*
 
 ---
 
-## 7. 🚀 Hướng dẫn cài đặt & Khởi động Local từng bước
+## 7. Yêu cầu hệ thống môi trường local (Prerequisites)
 
-Mỗi khối lệnh của một service chạy trong **terminal mới tại thư mục gốc repository**. Thư mục Python thực tế là `ai_service/`. Hệ thống chạy trực tiếp trên máy local; không cần thêm hạ tầng triển khai.
+Dự án hiện tại chạy **100% trong môi trường máy local**, chưa áp dụng Docker hay Cloud:
 
-Trước khi khởi động, sao chép mẫu nếu file chưa tồn tại và điền cấu hình thật theo Mục 8 (không ghi đè `.env` đã có):
+- **Node.js:** `>= 22.22.0` (Do `react-router` 8.4.0 yêu cầu tối thiểu Node 22.22.0; Vite 8 yêu cầu `^20.19.0 || >=22.12.0`).
+- **npm:** `>= 10.x`
+- **Python:** `>= 3.11, < 3.15` (Khuyến nghị Python 3.11 hoặc 3.12).
+- **PostgreSQL:** `>= 15.x` (Đang chạy dịch vụ local tại cổng mặc định `5432`).
+- **Hệ điều hành:** Khuyến nghị Windows 10/11 (sử dụng PowerShell). Tương thích hoàn toàn với macOS và Linux.
 
-```powershell
-if (!(Test-Path server/.env)) { Copy-Item server/.env.example server/.env }
-if (!(Test-Path ai_service/.env)) { Copy-Item ai_service/.env.example ai_service/.env }
-if (!(Test-Path client/.env)) { Copy-Item client/.env.example client/.env }
-```
+---
 
-Thứ tự khởi động: **PostgreSQL 5432 → AI 8000 → Backend 5000 → Frontend 5173**. Thực hiện phần cài dependencies/migration trước; khi chạy local, mở AI trước BE để worker không gặp dịch vụ AI chưa sẵn sàng. SMTP là tùy chọn cho các chức năng khác, bắt buộc nếu cần gửi email khôi phục.
+## 8. Hướng dẫn cài đặt & Khởi động từng bước (Installation & Setup)
+
+Mở **4 cửa sổ Terminal riêng biệt** tại thư mục gốc repository (`SWP391/`) và thực hiện tuần tự:
 
 ### Bước 1: Khởi tạo Cơ sở dữ liệu PostgreSQL
-Mở terminal `psql` hoặc pgAdmin và tạo database:
+Mở terminal công cụ `psql` hoặc ứng dụng pgAdmin:
 ```sql
 CREATE DATABASE vegetarian_db;
+CREATE DATABASE vegetarian_db_test;
 ```
+> **Giải thích:** `vegetarian_db` dùng cho quá trình phát triển (development); `vegetarian_db_test` là cơ sở dữ liệu độc lập dùng để chạy kiểm thử tự động, tuyệt đối không dùng chung để tránh mất dữ liệu.
 
-### Bước 2: Khởi chạy AI Microservice (Port 8000)
+### Bước 2: Cài đặt và cấu hình AI Microservice (Terminal 1)
 ```powershell
+# Di chuyển vào thư mục AI Service
 cd ai_service
+
+# Tạo và kích hoạt môi trường ảo Python
 python -m venv venv
-.\venv\Scripts\python.exe -m pip install -r requirements.txt
-# Tạo file .env và điền thông số (đặc biệt INTERNAL_API_KEY và DEEPSEEK_API_KEY) theo Mục 8
-.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
+.\venv\Scripts\Activate.ps1
+
+# Cài đặt các thư viện phụ thuộc chính xác phiên bản
+pip install -r requirements.txt
+
+# Khởi tạo file cấu hình môi trường
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+
+# Khởi chạy dịch vụ AI tại Port 8000
+python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 ```
-> AI Service sẽ hoạt động tại: `http://localhost:8000` (Swagger docs: `http://localhost:8000/docs`)
+> **Kết quả mong đợi:** Terminal hiển thị `Application startup complete.` và dịch vụ chạy tại `http://127.0.0.1:8000`. Truy cập Swagger Docs tại `http://127.0.0.1:8000/docs`.
 
-Video dùng phụ đề tiếng Việt có sẵn: ưu tiên bản thủ công, sau đó bản tự động; thiếu phụ đề báo “Video chưa có phụ đề phù hợp”. Không tải audio, không dùng Groq/STT hoặc dịch từ ngôn ngữ khác. `youtube-transcript-api` không cần API key nhưng dùng giao diện không chính thức của YouTube, có thể bị chặn hoặc thay đổi; không đảm bảo tốc độ cố định. DeepSeek vẫn cần key và có chi phí để tạo công thức. Đặt `YT_DLP_PATH` trong `server/.env` thành đường dẫn tuyệt đối tới executable yt-dlp vừa cài (Windows: `ai_service/venv/Scripts/yt-dlp.exe`; Linux/macOS: `ai_service/venv/bin/yt-dlp`), rồi restart BE; yt-dlp chỉ đọc metadata. `npm run dev` / `npm start` của BE tự chạy worker video. Trên Linux/macOS, thay `.\venv\Scripts\python.exe` bằng `./venv/bin/python`. Xem [luồng video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
-
-Để bật kiểm duyệt, đặt `CONTENT_MODERATION_ENABLED=true` trong `server/.env`, restart API (worker kiểm duyệt tự chạy cùng `npm run dev`/`npm start`). BE và AI phải dùng cùng `INTERNAL_API_KEY`; AI cần provider key hợp lệ. Giữ mặc định tắt khi chưa cấu hình. Xem [quy trình đầy đủ](docs/CONTENT_MODERATION.md).
-
-### Bước 3: Khởi chạy Backend Server (Port 5000)
-```bash
+### Bước 3: Cài đặt và cấu hình Backend Server (Terminal 2)
+```powershell
+# Di chuyển vào thư mục Backend
 cd server
+
+# Cài đặt dependencies chuẩn xác theo lockfile
 npm ci --include=optional
-# Tạo file .env và điền các thông số theo bảng ở Mục 8
+
+# Khởi tạo file cấu hình môi trường
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+
+# Chạy tạo mã nguồn Prisma Client và triển khai migration
 npm run prisma:generate
 npx prisma migrate deploy
+
+# Khởi động Backend server ở chế độ giám sát tự tải lại (Port 5000)
 npm run dev
 ```
-> Server sẽ hoạt động tại: `http://localhost:5000` (Kiểm tra sức khỏe: `http://localhost:5000/health`)
+> **Kết quả mong đợi:** Terminal hiển thị `Server is running on port 5000` và `Connected to PostgreSQL database`. Kiểm tra sức khỏe tại `http://localhost:5000/health` trả về `{"status":"UP"}`.
 
-Đăng nhập bằng tài khoản thật đã được cấp trong DB local; DB mới chưa có tài khoản quản trị cần quy trình cấp quyền của nhóm. Lệnh seed hiện tại xóa dữ liệu và chứa dữ liệu demo, không thuộc luồng khởi động mặc định. Không chạy seed để sửa health hoặc ảnh.
-
-Khi chuyển DB đã sửa ảnh sang máy khác, sao chép cả `server/uploads/restaurants/` và `server/uploads/recipes/`; ảnh nguyên liệu nằm trong DB. Git bỏ qua thư mục uploads nên chỉ pull code không khôi phục các ảnh này. Xem [nguồn ảnh và bảo trì](docs/real-image-repairs.md).
-
-Với DB đang có dữ liệu/lịch sử migration cũ, xem [hướng dẫn baseline](docs/AI_INTEGRATION.md) trước khi chạy migrate; không chấp nhận reset.
-
-### Bước 4: Khởi chạy Frontend Web App (Port 5173)
-```bash
+### Bước 4: Cài đặt và cấu hình Frontend Web App (Terminal 3)
+```powershell
+# Di chuyển vào thư mục Frontend
 cd client
+
+# Cài đặt dependencies chuẩn xác theo lockfile
 npm ci --include=optional
+
+# Khởi tạo file cấu hình môi trường
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+
+# Khởi động máy chủ phát triển Vite (Port 5173)
 npm run dev
 ```
-> Truy cập ứng dụng tại: `http://localhost:5173`
+> **Kết quả mong đợi:** Terminal hiển thị `VITE v8.x.x ready in ... ms` với địa chỉ `http://localhost:5173`. Mở trình duyệt và truy cập vào trang web Chay Xanh.
 
 ---
 
-## 8. 🔐 Bảng biến môi trường (Environment Variables)
+## 9. Tổng quan biến môi trường (Environment Variables Overview)
 
-Tạo file từ `server/.env.example`, `ai_service/.env.example`. Sinh key bằng `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`; đặt cùng INTERNAL_API_KEY cho BE/AI, JWT_SECRET dùng key khác.
+Hệ thống phân tách cấu hình độc lập cho từng dịch vụ:
 
-### 1. `server/.env`
-| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
-| :--- | :--- | :--- |
-| `PORT` | `5000` | Cổng HTTP của Backend Server |
-| `NODE_ENV` | `development` | Môi trường phát triển |
-| `CLIENT_URL` | `http://localhost:5173` | Địa chỉ Frontend cho phép CORS |
-| `DATABASE_URL` | Theo `server/.env.example`, thay `CHANGE_ME` bằng mật khẩu DB thật | Chuỗi kết nối PostgreSQL qua Prisma; không commit giá trị thật |
-| `JWT_SECRET` | `Key ngẫu nhiên riêng của BE` | Khóa bí mật ký mã hóa JWT |
-| `JWT_EXPIRES_IN` | `7d` | Thời hạn của Access Token |
-| `REFRESH_TOKEN_SECRET` | Rỗng: dùng khóa dẫn xuất từ JWT_SECRET hiện hành | Khóa ký refresh token; có thể cấu hình riêng ở BE, không đưa sang client |
-| `REFRESH_TOKEN_EXPIRES_IN` | `30d` | Thời hạn JWT refresh; cookie trình duyệt hiện giữ tối đa 30 ngày |
-| `AI_SERVICE_URL` | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice |
-| `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa bí mật nội bộ truyền qua header `X-Internal-Api-Key` |
-| `AI_TIMEOUT_MS` | `180000` | Tổng thời gian chờ AI tối đa trên BE (ms) |
-| `YT_DLP_PATH` | `yt-dlp` | Executable lấy metadata video; dùng đường dẫn tuyệt đối khi không có trên PATH |
-| `VIDEO_METADATA_TIMEOUT_MS` / `VIDEO_AI_TIMEOUT_MS` | `30000` / `600000` | Deadline metadata / toàn bộ HTTP xử lý AI video (ms) |
-| `VIDEO_JOB_LEASE_MS` / `VIDEO_JOB_POLL_MS` | `90000` / `2000` | Lease và chu kỳ nhận job video (ms) |
-| `VIDEO_JOB_RETRY_MS` / `VIDEO_JOB_MAX_ATTEMPTS` | `30000` / `3` | Khoảng thử lại lỗi tạm thời (ms) / tổng số lần thử |
-| `CONTENT_MODERATION_ENABLED` | `false` | Bật tạo/xử lý job văn bản; API và worker cần cùng cấu hình |
-| `CONTENT_MODERATION_TIMEOUT_MS` | `30000` | Deadline HTTP kiểm duyệt (ms), gồm đọc body |
-| `CONTENT_MODERATION_MAX_ATTEMPTS` | `3` | Tổng số lần thử mỗi job; lỗi không tự công khai nội dung |
-| `GUEST_DAILY_LIMIT`| `3` | Giới hạn số lượt dùng AI miễn phí mỗi ngày cho khách vãng lai |
-| `ZIOMAP_API_KEY` | `Key API ZIOMAP` | Tìm kiếm, chi tiết và giải mã ảnh đúng Place ID; chỉ BE gửi header `x-api-key`. Thiếu ảnh trả rỗng, không tạo ảnh mẫu; ảnh local đã tải không cần key |
-| `SMTP_HOST` / `SMTP_PORT` | Rỗng / `587` | Host SMTP thật; 587 cho STARTTLS hoặc 465 cho TLS ngay khi kết nối |
-| `SMTP_SECURE` | `false` | `false` với 587 (vẫn bắt buộc STARTTLS); `true` với 465. Không tắt xác minh chứng chỉ |
-| `SMTP_USER` / `SMTP_PASS` | Rỗng | Thông tin xác thực do nhà cung cấp email cấp; chỉ lưu local ở BE |
-| `SMTP_FROM` | Rỗng | Địa chỉ email người gửi đã được nhà cung cấp cho phép, không phải chuỗi tên hiển thị |
-| `PASSWORD_RESET_TTL_MINUTES` | `15`, miền `5..60` | Thời hạn link khôi phục mới; link dùng CLIENT_URL và token trong URL fragment |
-| `RATE_LIMIT_MAX` / `AUTH_RATE_LIMIT_MAX` / `PLACES_RATE_LIMIT` | `300` / `15` / `60` | Giới hạn request toàn cục / xác thực / places; cửa sổ hiện hành xem middleware tương ứng |
+### Bảng tóm tắt biến môi trường:
 
-### 2. `ai_service/.env`
-| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
-| :--- | :--- | :--- |
-| `INTERNAL_API_KEY` | `Không có mặc định; key ngẫu nhiên ≥32 ký tự` | Khóa so khớp với Backend qua header `X-Internal-Api-Key` |
-| `DEEPSEEK_API_KEY` | `sk-xxxxxxxxxxxxxxxx` | Khóa kết nối API DeepSeek LLM Engine |
-| `DEEPSEEK_MODEL` | `deepseek-chat` | Mô hình ngôn ngữ mặc định |
-| `DEEPSEEK_FALLBACK_MODEL` | `deepseek-v4-pro` | Model dự phòng; model xử lý Food Scanner phải hỗ trợ đầu vào hình ảnh |
-| `VIDEO_CAPTIONS_TIMEOUT_SECONDS` | `30` | Budget lấy phụ đề (giây, >0 đến 120); đọc HTTP từng phần với socket timeout tối đa 5 giây, mỗi response tối đa 4 MiB |
-| `VIDEO_SUMMARY_TIMEOUT_SECONDS` | `120` | Deadline gọi model tạo công thức (giây, >0 đến 300) |
-| `CONTENT_MODERATION_TIMEOUT_SECONDS` | `20` | Deadline inference kiểm duyệt (giây); nên ngắn hơn timeout worker |
-| `DEBUG` | `False` | Chế độ debug |
-| `ALLOWED_ORIGINS` | `http://localhost:5000` trong mẫu | Danh sách origin cho phép; frontend gọi AI qua BE |
-| `TRUSTED_PROXIES` | `127.0.0.1,::1` | Proxy tin cậy theo cấu hình AI hiện hành |
-| `RATE_LIMIT` | `30/minute` | Giới hạn request ở AI Service |
+| Service | Biến quan trọng | Bắt buộc | Mục đích & Lưu ý |
+| :--- | :--- | :---: | :--- |
+| **Backend** | `DATABASE_URL` | Có | Chuỗi kết nối PostgreSQL: `postgresql://user:pass@localhost:5432/vegetarian_db`. |
+| **Backend** | `PORT` | Không | Cổng chạy server (mặc định `5000`). |
+| **Backend** | `JWT_SECRET` | Có | Khóa bí mật ký mã hóa JWT Access Token (chuỗi ngẫu nhiên dài). |
+| **Backend** | `INTERNAL_API_KEY` | Có | Khóa bảo mật nội bộ giao tiếp với AI (phải trùng với `ai_service/.env`). |
+| **Backend** | `AI_SERVICE_URL` | Có | Địa chỉ nội bộ gọi sang AI Microservice (`http://127.0.0.1:8000`). |
+| **Backend** | `CONTENT_MODERATION_ENABLED` | Không | Bật (`true`) / Tắt (`false`) tính năng quét kiểm duyệt bài viết tự động. |
+| **Backend** | `ZIOMAP_API_KEY` | Tùy chọn| Khóa gọi API bản đồ và giải mã ảnh quán chay ZIOMAP. |
+| **Backend** | `SMTP_*` | Tùy chọn| Cấu hình máy chủ gửi email khôi phục mật khẩu (Host, Port, User, Pass). |
+| **AI Service**| `INTERNAL_API_KEY` | Có | Khóa đối chiếu từ Backend truyền qua header `X-Internal-Api-Key`. |
+| **AI Service**| `DEEPSEEK_API_KEY` | Có | Khóa kết nối API DeepSeek LLM Engine phục vụ suy luận AI. |
+| **AI Service**| `DEEPSEEK_MODEL` | Không | Tên mô hình ngôn ngữ mặc định (`deepseek-chat`). |
+| **Frontend** | `VITE_API_URL` | Không | Tiền tố gọi API phía client (mặc định `/api`, được Vite proxy về cổng 5000). |
 
-### 3. `client/.env`
-| Biến môi trường | Giá trị mặc định / Mẫu | Mô tả |
-| :--- | :--- | :--- |
-| `VITE_API_URL` | `/api` | Base path của fetch/SSE AI; Axios dùng `/api` cố định. Giữ `/api` khi chạy local để cùng origin/cookie và cùng refresh session |
-
-Vite proxy `/api` và `/uploads` tới `http://127.0.0.1:5000` trong `client/vite.config.js`. Đổi riêng VITE_API_URL không đổi các service Axios. Không đặt JWT/SMTP/provider key hoặc INTERNAL_API_KEY trong biến `VITE_*`.
-
-Sau khi điền SMTP thật, restart BE. Thiếu cấu hình hoặc không verify được SMTP trả `503 PASSWORD_RESET_UNAVAILABLE` đồng nhất. Phản hồi `200` chỉ xác nhận xử lý yêu cầu chung, không xác nhận email tồn tại hoặc đã giao thành công; lỗi gửi sau verify thu hồi link và ghi mã lỗi không chứa token/mật khẩu. Chưa có bảo đảm thời gian phản hồi ngang nhau giữa email tồn tại/không tồn tại.
-
-Để công bố nội dung pháp lý, đăng nhập bằng admin thật → tab **Nội dung pháp lý** → chọn tài liệu → nhập nội dung đã được phê duyệt → bật công bố → lưu. Kiểm tra `/dieu-khoan` và `/chinh-sach-bao-mat` không cần đăng nhập. Không có văn bản mẫu tự điền.
+*Chi tiết toàn bộ biến môi trường xem tại:* [`server/README.md`](./server/README.md#19-bảng-biến-môi-trường-environment-variables) và [`ai_service/README.md`](./ai_service/README.md#12-bảng-biến-môi-trường-environment-variables).
 
 ---
 
-## 9. 📜 Danh sách Scripts
+## 10. Tổng quan cơ sở dữ liệu (Database Overview)
 
-### Backend (`server/`)
-- `npm run dev`: Chạy server ở chế độ giám sát tự tải lại (nodemon).
-- `npm start`: Khởi động server production.
-- `npm test`: Chạy Vitest/Supertest trên DB `_test` (AI Gateway, lưu prompt/kết quả, quota, Repository, Quản trị & RBAC).
-- `npm run test:prepare`: Tạo/reset schema public của DB local `_test`, apply migrations và seed SQL.
-- `npm run prisma:migrate -- --name <ten_thay_doi>`: Sinh/áp dụng migration local bằng Prisma Migrate.
-- `npm run prisma:generate`: Tạo mã nguồn Prisma Client.
-- Không dùng `prisma db push` cho DB có dữ liệu cần giữ; dùng Prisma Migrate.
-- `npm run seed` / `npm run db:seed`: Áp dụng migration còn thiếu rồi nạp `seed.sql`; xóa dữ liệu cũ.
-- `npm run worker:content-moderation`: Chạy thêm worker kiểm duyệt độc lập (tùy chọn, API đã tự chạy một worker); cần bật cờ cấu hình.
-- `npm run worker:video-recipes`: Worker video độc lập tùy chọn; API đã tự chạy worker. Cùng DB được bảo vệ bằng lease khi có nhiều worker.
-- `npm run test:video-recipes`: Kiểm thử pipeline video trên DB test.
-- `node tests/videoRecipeSummaryCaptions.integration.mjs`: Kiểm tra video thật → phụ đề → DeepSeek → DB `_test`, gồm retry và thiếu phụ đề; chạy riêng, có thể tính phí provider.
-- `npm run test:ai-internal-auth`: Kiểm thử HTTP BE → FastAPI thật bằng runtime test, không gọi provider.
-- `npm run test:content-moderation`: Kiểm thử API/DB/worker/HTTP kiểm duyệt và migration/seed trên DB test.
-- `npm run db:repair-ingredients`: Cập nhật chi tiết dinh dưỡng nguyên liệu từ catalog chuẩn (`scripts/repair-ingredients.js`).
-- `npm run db:import-ingredient-images`: Tải và lưu trữ binary ảnh nguyên liệu vào PostgreSQL (`scripts/import-ingredient-images.js`).
-- `node scripts/repairRestaurantImages.js`: Chuẩn bị ảnh đúng Google Place ID và manifest, chưa ghi DB; chỉ dùng khi còn mã ảnh chưa giải quyết. `--apply` kiểm tra hash rồi cập nhật có điều kiện trong transaction. Xem [quy trình bảo trì](docs/real-image-repairs.md) trước khi chạy.
-- `npm run test:real-images`: Kiểm tra hash, ảnh trùng và HTTP cho ảnh quán/công thức đã tải; chạy riêng sau khi khôi phục uploads, không nằm trong `npm test` mặc định.
-- `npm run assets:sync`: Đồng bộ nguồn ảnh nguyên liệu từ Wikimedia (`scripts/sync-ingredient-assets.js`).
+Cơ sở dữ liệu của dự án sử dụng **PostgreSQL** kết hợp **Prisma ORM**, đảm bảo tính toàn vẹn dữ liệu (ACID) và quy chuẩn tên gọi xuyên suốt:
 
-### Frontend (`client/`)
-- `npm run dev`: Khởi động Vite dev server.
-- `npm run build`: Đóng gói ứng dụng thành phẩm (Production build).
-- `npm test`: Chạy test logic/service với Node.js Test Runner (`test/*.test.js`).
-- `npm run test:ui`: Chạy toàn bộ `test/*.test.jsx` bằng Vitest/React Testing Library, gồm auth, scanner, chat, admin, cộng đồng và job.
-- `npm run lint`: Kiểm tra ESLint; cảnh báo effect bản đồ được giải thích ở Mục 13.
-- `npm run preview`: Chạy thử bản build đã đóng gói trên máy local.
+### Các thực thể cốt lõi (Core Entities):
+- **Người dùng & Xác thực:** `User` (bảng `users`), `PasswordResetToken` (`password_reset_tokens`), `HealthProfile` (`health_profiles`), `HealthHistory` (`health_histories`), `UserAllergy` (`user_allergies`).
+- **Nội dung & Cộng đồng:** `Post` (`posts`), `Blog` (`blogs`), `Video` (`videos`), `Comment` (`comments`), `PostVote` (`post_votes`), `PostAttachment` (`post_attachments`), `Category` (`categories`).
+- **Dinh dưỡng & Ẩm thực:** `Recipe` (`recipes`), `Ingredient` (`ingredients`), `LiquidIngredientDensity` (`liquid_ingredient_densities`), `MealPlan` (`meal_plans`), `FoodDiary` (`food_diaries`).
+- **Địa điểm & Nhà hàng:** `Restaurant` (`restaurants`), `RestaurantRecipe` (`restaurant_recipes`), `RestaurantReview` (`restaurant_reviews`).
+- **Hệ thống AI & Kiểm duyệt:** `AiGeneration` (`ai_generations`), `AiLog` (`ai_logs`), `ContentModerationJob` (`content_moderation_jobs`), `VideoRecipeSummaryJob` (`video_recipe_summary_jobs`), `GuestQuota` (`guest_quotas`).
+- **Quản trị & Pháp lý:** `LegalDocument` (`legal_documents`), `Report` (`reports`), `Notification` (`notifications`).
+
+### Quy tắc quan trọng về Migration & Seed:
+- Khởi tạo bảng bằng lệnh: `npx prisma migrate deploy` (cho database môi trường phát triển).
+- Tuyệt đối **không tự ý chạy `prisma db push`** trên cơ sở dữ liệu có dữ liệu cần bảo toàn.
+- Lệnh nạp seed `npm run db:seed` sẽ triển khai migration và nạp script `prisma/seed.sql` (chỉ dùng cho môi trường khởi tạo ban đầu do có thao tác reset bảng).
+
+---
+
+## 11. Tổng quan xác thực & Phân quyền (Authentication & Authorization)
+
+Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Control)** kết hợp **Stateful Token Revocation**:
+
+1. **Đăng nhập & Cấp phát Token:**
+   - Khi đăng nhập thành công, máy chủ trả về **Access Token** (hạn 7 ngày) qua JSON và ghi nhận **Refresh Token** (hạn 30 ngày) vào `httpOnly` Secure Cookie.
+2. **Cơ chế Token Versioning (`tokenVersion`):**
+   - Model `User` lưu trữ trường `token_version`. Khi người dùng thực hiện đổi mật khẩu hoặc đặt lại mật khẩu, giá trị này sẽ tự động tăng lên (+1). Mọi Access Token và Refresh Token cũ lập tức bị vô hiệu hóa trên toàn hệ thống.
+3. **Phân quyền người dùng (Roles):**
+   - `ADMIN` (`Role 1`): Toàn quyền truy cập Cổng Quản trị (`/admin`), duyệt bài, xem logs hệ thống, quản lý tài khoản thành viên, cấu hình pháp lý.
+   - `USER` (`Role 2`): Thành viên chính thức; quyền tạo bài viết, lưu nhật ký dinh dưỡng, lập thực đơn không giới hạn.
+   - `GUEST`: Khách vãng lai chưa đăng nhập; chỉ được trải nghiệm tối đa 3 lượt gọi AI mỗi ngày (theo dõi qua `guest_quotas`).
+
+---
+
+## 12. Vận hành toàn bộ hệ thống (Running the Entire Project)
+
+Để hệ thống hoạt động đầy đủ mọi tính năng (bao gồm cả các Worker xử lý tác vụ nền):
+
+| Thứ tự | Dịch vụ | Thư mục thực thi | Lệnh khởi chạy (Windows PowerShell) | Cổng truy cập |
+| :---: | :--- | :--- | :--- | :---: |
+| **1** | PostgreSQL DB | Local Service | Chạy nền dịch vụ Windows Service | `5432` |
+| **2** | AI Microservice | `ai_service/` | `.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload` | `8000` |
+| **3** | Backend Gateway | `server/` | `npm run dev` *(Tự động chạy Worker Video & Moderation kèm theo)* | `5000` |
+| **4** | Frontend Client | `client/` | `npm run dev` | `5173` |
+
+> *Ghi chú cho Linux / macOS:* Tại bước 2, thay thế lệnh bằng `./venv/bin/python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload`.
+
+---
+
+## 13. Danh mục Scripts thực tế
+
+### Backend (`server/package.json`)
+- `npm run dev`: Khởi động Express Server chế độ dev kèm nodemon và workers tích hợp.
+- `npm start`: Khởi động Express Server ở chế độ production.
+- `npm test`: Chạy toàn bộ 58 test suite tự động với Vitest trên database test riêng (`_test`).
+- `npm run test:prepare`: Chuẩn bị cơ sở dữ liệu test (áp dụng migration và seed dữ liệu chuẩn).
+- `npm run test:content-moderation`: Kiểm thử chuyên sâu luồng kiểm duyệt nội dung tự động.
+- `npm run test:video-recipes`: Kiểm thử pipeline trích xuất công thức từ video YouTube.
+- `npm run test:database`: Kiểm thử tích hợp truy vấn cơ sở dữ liệu (`tests/workspace.integration.mjs`).
+- `npm run test:ai-internal-auth`: Kiểm thử xác thực bảo mật nội bộ HTTP Backend ↔ FastAPI.
+- `npm run test:real-images`: Kiểm tra tính hợp lệ và phản hồi của kho ảnh cục bộ đã lưu trữ.
+- `npm run prisma:migrate`: Sinh bản migration mới khi thay đổi schema (`--name <ten_thay_doi>`).
+- `npm run prisma:generate`: Tái tạo mã nguồn Prisma Client.
+- `npm run prisma:studio`: Mở giao diện trực quan quản lý dữ liệu Prisma Studio.
+- `npm run db:seed`: Nạp dữ liệu hạt giống hệ thống từ `prisma/seed.sql`.
+
+### Frontend (`client/package.json`)
+- `npm run dev`: Khởi chạy Vite Development Server tại cổng 5173.
+- `npm run build`: Đóng gói ứng dụng thành phẩm (Production bundle ra thư mục `dist/`).
+- `npm run preview`: Chạy thử bản đóng gói production trên môi trường local.
+- `npm test`: Chạy kiểm thử logic và tiện ích bằng Node.js Test Runner.
+- `npm run test:ui`: Chạy kiểm thử thành phần giao diện người dùng với Vitest và React Testing Library.
+- `npm run lint`: Quét và kiểm tra lỗi cú pháp bằng ESLint.
 
 ### AI Microservice (`ai_service/`)
-- `.\venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload`: Khởi động FastAPI bằng đúng venv; Linux/macOS dùng `./venv/bin/python`.
-- `pytest`: Chạy các kiểm thử tự động với Pytest (bao gồm Chatbot Agent, Meal Planner SSE stream, Xác thực X-Internal-Api-Key, Tính toán Dinh dưỡng & Rate Limiting).
-
-
----
-
-## 10. 📚 Link tài liệu API & ERD
-
-- **Khôi phục mật khẩu, refresh, pháp lý và restore tài khoản:** [`docs/frontend-repairs-openapi.json`](docs/frontend-repairs-openapi.json).
-- **Video/phụ đề nội bộ AI:** [`docs/video-recipe-ai-openapi.json`](docs/video-recipe-ai-openapi.json); API job công khai nằm trong [`docs/ai-openapi.json`](docs/ai-openapi.json).
-- **Kết quả rà soát và kiểm chứng:** [audit](docs/frontend-audit-2026-11-03.md), [Phase 1](docs/frontend-repairs-phase1.md), [Phase 2](docs/frontend-repairs-phase2.md), [Phase 3 và hai cảnh báo bản đồ](docs/frontend-repairs-phase3.md).
-
-- **Health quản trị & AI chưa có dữ liệu:** [`docs/admin-health-openapi.json`](docs/admin-health-openapi.json).
-- **Ảnh đã xác minh, nguồn và cách chuyển máy:** [`docs/real-image-repairs.md`](docs/real-image-repairs.md), [ảnh quán](docs/restaurant-image-sources.json), [ảnh công thức](docs/recipe-image-sources.json).
-- **AI Gateway, persistence & migration:** [`docs/AI_INTEGRATION.md`](docs/AI_INTEGRATION.md), [`docs/ai-openapi.json`](docs/ai-openapi.json).
-- **Kiểm duyệt cộng đồng:** [`docs/CONTENT_MODERATION.md`](docs/CONTENT_MODERATION.md), [`docs/content-moderation-openapi.json`](docs/content-moderation-openapi.json).
-- **Tài liệu ERD Database:** Lưu trữ tại [`docs/ERD.md`](docs/ERD.md)
-
-- **Tài liệu Swagger / OpenAPI:** Truy cập trực tiếp tại `http://localhost:8000/docs` khi AI Service khởi chạy.
-- **Quy chuẩn lập trình:** Chi tiết tại [`AGENTS.md`](AGENTS.md), [`server/AGENTS.md`](server/AGENTS.md), [`client/AGENTS.md`](client/AGENTS.md), và [`ai_service/AGENTS.md`](ai_service/AGENTS.md).
+- `pytest`: Chạy toàn bộ 306 bài test tự động bao phủ chatbot, meal planner, scanner và rate limiting.
+- `ruff check .`: Quét và định dạng mã nguồn Python theo chuẩn PEP 8.
 
 ---
 
-## 11. 🧪 Hướng dẫn chạy Test trên DB Test riêng
+## 14. Tổng hợp chiến lược kiểm thử (Testing Overview)
 
-Backend bắt buộc nạp `.env.test`, tên DB kết thúc bằng `_test`. Không dùng DB phát triển để chạy test.
+Hệ thống sở hữu hơn **1.140 bài test tự động** bao phủ toàn bộ các tầng:
 
 ```powershell
+# 1. Kiểm thử Backend trên cơ sở dữ liệu riêng (server/)
 cd server
-if (!(Test-Path .env.test)) { Copy-Item .env.test.example .env.test }
-# Điền DATABASE_URL, JWT_SECRET, INTERNAL_API_KEY và PSQL_PATH trong .env.test.
-# JWT_SECRET và INTERNAL_API_KEY dùng giá trị ngẫu nhiên riêng cho test.
 npm run test:prepare
 npm test
-npm run test:database
-```
 
-Kiểm tra riêng health/RBAC, timeout và ảnh đã sửa (từ `server/`, với `.env.test` đã cấu hình và ảnh trong uploads đã được sao chép):
-
-```powershell
-npx vitest run tests/adminHealthApi.test.js tests/adminHealth.test.js tests/adminModelStatus.test.js tests/restaurantImageRepair.test.js tests/placePhoto.test.js tests/placePhotoResolution.test.js tests/ingredientImageImport.test.js tests/places.test.js
-npm run test:real-images
-```
-
-`test:real-images` đọc hai manifest, kiểm tra hash duy nhất và HTTP phục vụ ảnh local, không tải Internet hay ghi DB. `adminHealthApi.test.js` xác thực bằng DB `_test` thật và dùng HTTP fixture local cho tình huống AI lên/lỗi/treo; không cần inference provider. Test ảnh yêu cầu file binary đã sửa, không tự sinh ảnh thay thế khi thiếu file. Bộ `npm test` mặc định không phụ thuộc uploads đã tải trên máy này.
-
-`test:prepare` reset schema public của DB test local, áp dụng migration thật rồi seed SQL. Integration ảnh (`npm run test:ingredient-images`) cần 28 ảnh nguyên liệu thật được import vào DB test; xem tài liệu AI integration. Mỗi file test chạy tuần tự để tránh xung đột fixture cũ.
-
-Chỉ chạy `test:prepare` khi chủ đích khởi tạo lại DB test có thể xóa. Để **giữ DB test hiện có** và chỉ áp dụng migration, chạy từ `server/`:
-
-```powershell
-node --input-type=module -e 'await import("./tests/loadTestEnvironment.js"); const {execFileSync}=await import("node:child_process"); execFileSync(process.execPath,["node_modules/prisma/build/index.js","migrate","deploy"],{stdio:"inherit"});'
-```
-
-Kiểm tra riêng các hợp đồng vừa sửa, không cần inference hoặc SMTP thật:
-
-```powershell
-npx vitest run tests/frontendAuthIntegration.test.js tests/passwordResetApi.test.js tests/tokenVersion.test.js tests/legalDocuments.test.js tests/adminAccountRestore.test.js
-```
-
-`frontendAuthIntegration.test.js` dùng client Axios/authService thật → Express HTTP loopback → Prisma/PostgreSQL `_test`. Chỉ SMTP transport được thay thế trong test; Node giả lập cookie jar của trình duyệt bằng header ở phía test. Bao phủ gửi link → parse fragment → đổi mật khẩu → từ chối dùng lại/phiên cũ → đăng nhập mới, refresh cùng tài khoản và từ chối cookie khác tài khoản trước khi ghi dữ liệu. Tự xóa fixture do file tạo; không khởi động worker hay gửi mail thật.
-
-```powershell
+# 2. Kiểm thử Frontend (client/)
 cd ../client
 npm test
 npm run test:ui
-npm run lint
-npm run build
+
+# 3. Kiểm thử AI Microservice (ai_service/)
 cd ../ai_service
-.\venv\Scripts\python.exe -m pytest tests -q
-.\venv\Scripts\python.exe -m ruff check agents api core schemas main.py tests
+.\venv\Scripts\python.exe -m pytest -q
 ```
 
-Provider được thay thế chỉ trong test; test không gọi DeepSeek thật. Nếu Vitest gặp lỗi worker trong môi trường giới hạn, dùng `npm run test:ui -- --pool=threads --maxWorkers=1 --no-file-parallelism`. Các file `.env`, `.env.test` không được commit.
-
-Kiểm tra video thật chạy riêng, ngoài các suite mặc định: khởi động AI bằng venv, cấu hình cùng khóa nội bộ và DeepSeek hợp lệ, bảo đảm không có worker/suite khác dùng hàng chờ DB test, rồi chạy từ `server/`:
-
-```powershell
-node tests/videoRecipeSummaryCaptions.integration.mjs
-```
-
-Script giữ nguyên `DATABASE_URL` của `.env.test` (bắt buộc loopback và hậu tố `_test`), chỉ đọc cấu hình kết nối AI/khóa nội bộ/metadata executable từ `server/.env`. Nó dùng video thật, gọi DeepSeek có tính phí, xác minh lỗi xác thực → endpoint thử lại → lưu công thức, và video không có phụ đề Việt; sau đó tự xóa fixture riêng. Không chạy trên DB phát triển và không trả kết quả giả khi nguồn/provider lỗi. Xem [chi tiết kiểm thử video](server/docs/videoRecipeSummaryBackend.md#verification).
-
-Nếu môi trường hạn chế báo ENOENT ở thư mục tạm, đặt TEMP/TMP vào cache workspace trước khi chạy Vitest (thực hiện riêng trong `client/` hoặc `server/`):
-
-```powershell
-New-Item -ItemType Directory -Force node_modules/.cache/frontend-repairs | Out-Null
-$env:TEMP = Join-Path (Get-Location) 'node_modules/.cache/frontend-repairs'
-$env:TMP = $env:TEMP
-```
-
-Test tự động không chứng minh email đã tới hộp thư hoặc chất lượng kết quả từ provider thật. Kiểm chứng hai phần này cần cấu hình/tài khoản thật riêng.
+> **Nguyên tắc bất khả xâm phạm:** Kiểm thử Backend bắt buộc trỏ vào database có hậu tố `_test` trong file `.env.test`. Tuyệt đối không chạy kiểm thử trên cơ sở dữ liệu phát triển.
 
 ---
 
-## 12. 📐 Quy ước Code & Git
+## 15. Quy chuẩn mã nguồn & Quy ước Git
 
-- **Quy chuẩn mã nguồn:**
-  - Không dữ liệu giả (`No Mock Data`) trong code chạy thật.
-  - Xử lý đủ 4 trạng thái UI: `loading`, `error`, `empty`, `success`.
-  - Component React $\le 250$ dòng, hàm JS $\le 30$ dòng, tham số $\le 3$.
-- **Quy ước đặt tên (FE ↔ BE ↔ DB):**
-  - Model Prisma: `PascalCase` (`User`, `Post`, `Comment`).
-  - Bảng Database: `snake_case` số nhiều (`@@map("users")`, `@@map("posts")`).
-  - Cột Database: `snake_case` (`@map("created_at")`, `@map("user_id")`).
-  - JSON API: `camelCase` (`userId`, `createdAt`).
-- **Quy ước Commit:** Theo chuẩn Conventional Commits: `feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`.
-- **Nhánh cho đợt sửa này:** `fix-frontend`, giữ một nhánh và commit riêng theo chức năng theo yêu cầu người dùng. Quy tắc nhánh chung cho công việc khác vẫn xem AGENTS.md.
+- **Clean Code:**
+  - Component React $\le 250$ dòng; hàm nghiệp vụ $\le 30$ dòng; tham số $\le 3$.
+  - Xử lý đủ 4 trạng thái giao diện: `loading`, `error`, `empty`, `success`.
+  - **Tuyệt đối cấm dữ liệu giả (No Mock Data)** trong code thực thi.
+- **Quy ước đặt tên (FE ↔ BE ↔ AI ↔ DB):**
+  - Prisma Model: `PascalCase` danh từ số ít (`User`, `Post`).
+  - Bảng Database: `snake_case` danh từ số nhiều qua `@@map("users")`.
+  - Cột Database: `snake_case` qua `@map("created_at")`.
+  - Request/Response JSON: Bắt buộc `camelCase` (`userId`, `createdAt`).
+- **Quy ước Commit:** Chuẩn Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`).
 
 ---
 
-## 13. 🔧 Troubleshooting các lỗi thường gặp
+## 16. Xử lý sự cố thường gặp (Troubleshooting)
 
 1. **Lỗi `P1001: Can't reach database server at localhost:5432`:**
-   - *Nguyên nhân:* Dịch vụ PostgreSQL chưa khởi động hoặc sai thông tin mật khẩu trong `DATABASE_URL`.
-   - *Khắc phục:* Mở `Services` trên Windows, kiểm tra dịch vụ `postgresql-x64-15` đang ở trạng thái `Running`. Kiểm tra lại user/password trong file `.env`.
-2. **Lỗi 403 Forbidden khi truy cập `/api/admin/*`:**
-   - *Nguyên nhân:* Đang dùng tài khoản thành viên thông thường (Role 2).
-   - *Khắc phục:* Đăng nhập bằng tài khoản quản trị thật đang hoạt động trong DB; role trong DB quyết định quyền truy cập.
-3. **Lỗi 401 Unauthorized khi Backend gọi AI Service:**
-   - *Nguyên nhân:* `INTERNAL_API_KEY` trong `server/.env` không khớp với `INTERNAL_API_KEY` trong `ai_service/.env`.
-   - *Khắc phục:* Kiểm tra và đồng bộ giá trị khóa bí mật giữa hai file môi trường.
-4. **Lỗi `ReferenceError: window is not defined` khi chạy test Frontend:**
-   - *Nguyên nhân:* Môi trường Node.js không có sẵn đối tượng browser.
-   - *Khắc phục:* Đảm bảo các file test có mock `globalThis.window` và `sessionStorage` tương thích trước khi gọi hàm.
-5. **Nội dung kiểm duyệt chờ mãi hoặc job `FAILED`:** Kiểm tra cờ bật, worker chạy đúng DB, khóa nội bộ và provider key. Không seed/reset DB để sửa hàng chờ; Admin có thể duyệt/gỡ thủ công. Xem [bảng lỗi kiểm duyệt](docs/CONTENT_MODERATION.md#xử-lý-sự-cố).
-6. **Video chờ hoặc lỗi phụ đề:** `PENDING` cần BE/worker đang chạy đúng DB; `VALIDATING_VIDEO` cần `YT_DLP_PATH` và kết nối YouTube; `FETCHING_CAPTIONS` cần phụ đề Việt. `VIDEO_CAPTIONS_UNAVAILABLE` báo “Video chưa có phụ đề phù hợp”; `VIDEO_CAPTIONS_BLOCKED` là YouTube chặn truy cập, không đồng nghĩa thiếu phụ đề. `VIDEO_CAPTIONS_TIMEOUT` được thử lại có giới hạn. Dùng nút “Thử tạo lại” hoặc endpoint `/retries` cho job đã lỗi. Khởi động AI bằng Python của venv để tránh thiếu thư viện; không seed/reset DB để xử lý hàng chờ. Xem [luồng video](docs/AI_INTEGRATION.md#video-youtube-chạy-nền).
-7. **Food Scanner báo lỗi hoặc chưa kết luận:** Ảnh tối đa 10 MiB, JPEG/PNG/WebP; model phải hỗ trợ ảnh. Lỗi AI không tạo kết quả thành công giả. `nutritionEstimate=null` nghĩa là chưa có số liệu, không phải 0. Xem [hợp đồng quét ảnh](docs/AI_INTEGRATION.md#quét-ảnh-và-lưu-nhật-ký).
-8. **Health báo AI DOWN hoặc “Chưa có dữ liệu”:** Kiểm tra AI Service port 8000, `AI_SERVICE_URL` và khóa nội bộ; sau đó bấm “Kiểm tra lại”. `UNKNOWN` của mô hình nghĩa là chưa có log phù hợp, không phải lỗi hay tỷ lệ thành công 0%. DB lỗi có thể chặn xác thực admin trước khi chạy probe.
-9. **Ảnh trống sau khi chuyển máy:** Khôi phục đúng thư mục uploads cùng DB, giữ nguyên tên file/hash trong manifest. Không chạy seed hoặc thay bằng ảnh stock; ảnh nguồn không lấy được được để trống. Tám ảnh công thức có nhãn “Ảnh món ăn tham khảo” vì có thể khác biến thể nguyên liệu.
-10. **CI seed dừng với `P3005: The database schema is not empty`:** Workflow phải tạo schema bằng `npx prisma migrate deploy` trước `npm run seed`. Không chạy `prisma db push` trước migration vì nó tạo bảng mà không ghi lịch sử migration. Test seed đọc trực tiếp các lệnh setup DB từ workflow và chạy trên DB tạm mới để bắt lỗi này. Với DB đang có dữ liệu cần giữ, kiểm tra drift và baseline theo [hướng dẫn migration](docs/AI_INTEGRATION.md), không reset hoặc tự đánh dấu migration đã áp dụng.
-11. **Quên mật khẩu báo chưa sẵn sàng:** Kiểm tra SMTP_HOST/PORT/SECURE/USER/PASS/FROM, quyền người gửi, mạng và CLIENT_URL. Link dùng HTTPS ngoài loopback local. Không đưa token vào query string/log; yêu cầu link mới nếu hết hạn hoặc đã dùng. Nếu DB còn dùng mật khẩu admin seed từng công khai, chủ tài khoản cần đổi bằng luồng đổi mật khẩu.
-12. **Điều khoản báo chưa công bố:** Admin cần nhập và công bố nội dung được duyệt. Lưu nháp không hiển thị công khai; không dùng seed để tạo văn bản pháp lý.
-13. **Khôi phục tài khoản có cảnh báo nội dung:** Tài khoản đã phục hồi nhưng bài/bình luận cũ thiếu trạng thái trước xóa sẽ tiếp tục DELETED. Không đoán trạng thái gốc; xem số lượng trong `data.restoration` và `data.warning`.
-14. **ESLint có hai cảnh báo ở RestaurantMap.jsx:** Effect khởi tạo bản đồ đọc `userLocation` nhưng dependency là `[]`; effect vẽ marker/bán kính đọc cả object `userLocation`/`searchCenter` trong khi dependency liệt kê các trường tọa độ. Đây là `react-hooks/exhaustive-deps`, không phải lỗi biên dịch hoặc bằng chứng API bản đồ chưa nối. Xem giải thích và giới hạn trong báo cáo Phase 3; không thêm object vào effect khởi tạo một cách máy móc vì có thể tạo lại bản đồ mỗi lần vị trí đổi.
-15. **Build cảnh báo chunk lớn:** Bundle chính trên 500 kB trước gzip; build vẫn thành công. Đây là cảnh báo kích thước tải JS, độc lập với hai cảnh báo dependency bản đồ.
-16. **Cài npm báo tarball corrupted, cache `ENOENT`, hoặc Rolldown không nạp được native binding trên Windows:**
-    - Dừng Vite/nodemon bằng `Ctrl+C` trong terminal đang chạy trước khi cài lại để tránh file bị giữ (`EPERM`). Giữ nguyên `package-lock.json`; sau khi clone dùng `npm ci --include=optional` để cài đúng phiên bản đã khóa và các gói native phù hợp máy.
-    - Chạy `npm cache verify`. Nếu lỗi cache vẫn lặp lại nhưng cài bằng cache mới thành công, đặt một cache mới cố định cho tài khoản (lệnh dưới đây thay đổi cache cho tất cả dự án npm của tài khoản), rồi cài lại lần lượt trong `server/` và `client/`:
-
-      ```powershell
-      npm config set cache "$env:LOCALAPPDATA\npm-cache-repaired" --location=user
-      npm ci --include=optional --prefer-online
-      ```
-
-    - Trong `server/`, chạy thêm `npm run prisma:generate`. npm 12 yêu cầu cho phép script cài đặt; `server/package.json` đã cho phép đúng `@prisma/client`, `@prisma/engines`, `prisma` phiên bản `6.19.3`. Khi chủ động nâng Prisma, kiểm tra script rồi chạy `npm install-scripts approve @prisma/client @prisma/engines prisma`, commit thay đổi cùng lockfile. Xem [npm ci](https://docs.npmjs.com/cli/v12/commands/npm-ci/), [cache](https://docs.npmjs.com/cli/v12/commands/npm-cache/), [quyền chạy script](https://docs.npmjs.com/cli/v12/commands/npm-install-scripts/).
-    - Cảnh báo `npm audit` là vấn đề dependency riêng; xem báo cáo trước khi cập nhật, không dùng `npm audit fix --force` để sửa lỗi cache. Nếu cache mới cũng tiếp tục mất/hỏng file, kiểm tra lịch sử cách ly của antivirus, phần mềm dọn cache và ổ đĩa; chưa thể kết luận nguyên nhân chỉ từ log npm.
+   - *Nguyên nhân:* Dịch vụ PostgreSQL chưa khởi động hoặc sai mật khẩu trong `DATABASE_URL`.
+   - *Khắc phục:* Mở `services.msc` trên Windows, kiểm tra dịch vụ PostgreSQL đang ở trạng thái `Running`. Kiểm tra lại user/password trong `server/.env`.
+2. **Lỗi `401 Unauthorized` khi Backend gọi AI Service:**
+   - *Nguyên nhân:* Giá trị `INTERNAL_API_KEY` trong `server/.env` không khớp với `ai_service/.env`.
+   - *Khắc phục:* Mở cả 2 file `.env` và sao chép cùng một chuỗi khóa bí mật (dài $\ge 32$ ký tự ngẫu nhiên).
+3. **Lỗi `403 Forbidden` khi truy cập Cổng Quản trị (`/admin`):**
+   - *Nguyên nhân:* Tài khoản hiện tại có `role = 2` (Member) thay vì `role = 1` (Admin).
+   - *Khắc phục:* Đăng nhập bằng tài khoản Quản trị viên được cấp quyền trong database.
+4. **Lỗi `VIDEO_CAPTIONS_UNAVAILABLE` khi trích xuất công thức YouTube:**
+   - *Nguyên nhân:* Video YouTube không có phụ đề tiếng Việt (bản thủ công hoặc tự động).
+   - *Khắc phục:* Hệ thống chỉ hỗ trợ video nấu ăn tiếng Việt có phụ đề sẵn có. Hãy chọn video khác có phụ đề tiếng Việt.
+5. **Worker kiểm duyệt hoặc Video không tự động chạy:**
+   - *Nguyên nhân:* Chưa bật cờ `CONTENT_MODERATION_ENABLED=true` trong `server/.env` hoặc sai đường dẫn `YT_DLP_PATH`.
+   - *Khắc phục:* Kiểm tra cấu hình và khởi động lại Backend API.
 
 ---
 
-## 14. 📄 License & Thông tin liên hệ
+## 17. Thành viên phát triển & Bản quyền (Contributors & License)
 
-- **Dự án học tập:** SWP391 - Kỹ thuật phần mềm (FPT University).
-- **Nhóm phát triển:** Đội ngũ Kỹ sư Chay Xanh SWP391.
-- **Bản quyền:** Mã nguồn phục vụ mục đích nghiên cứu và phát triển học thuật.
-
-
----
-
-## Tính năng mới: Nhận diện nguyên liệu qua ảnh (Computer Vision AI)
-
-> Được thêm vào phiên bản hiện tại — áp dụng cho cả khách và thành viên đã đăng nhập.
-
-### Mô tả
-Người dùng chụp ảnh nguyên liệu hoặc nội dung tủ lạnh; AI tự động:
-- Nhận diện từng nguyên liệu có trong ảnh kèm độ tin cậy (confidence)
-- Đánh giá độ tươi: FRESH / GOOD / EXPIRING_SOON / SPOILED
-- Ước tính thời hạn bảo quản còn lại (số ngày)
-- Đề xuất dấu hiệu hư hỏng và cách bảo quản
-- Gợi ý công thức chay phù hợp theo 3 cấp độ:
-  - READY_TO_COOK — có đủ nguyên liệu (≥ 100%)
-  - MISSING_FEW — thiếu ít nguyên liệu (≥ 60%)
-  - INSPIRATION — cần bổ sung thêm (≥ 30%)
-- Ưu tiên các recipe dùng nguyên liệu sắp hỏng (+30 điểm ưu tiên)
-
-### API Endpoints
-
-| Method   | Endpoint                                          | Xác thực            |
-|----------|---------------------------------------------------|---------------------|
-| POST     | /api/v1/ingredient-recognition/recognize          | Optional (guest/JWT) |
-| GET      | /api/v1/ingredient-recognition/history            | JWT bắt buộc        |
-| GET      | /api/v1/ingredient-recognition/history/:id        | Optional (guest/JWT) |
-| DELETE   | /api/v1/ingredient-recognition/history/:id        | JWT bắt buộc        |
-
-### Chạy test
-
-`powershell
-cd server
-npx vitest run tests/ingredientRecognition.test.js
-`
-
-### Route Frontend
-
-Đường dẫn: /nhan-dien-nguyen-lieu
-
-
-- **License:** Repository chưa có file LICENSE ở gốc; `server/package.json` khai báo ISC cho package backend, không đủ để suy ra giấy phép toàn monorepo.
-- **Liên hệ/báo lỗi:** [Issues của repository](https://github.com/minHow14/SWP391/issues). Không có email liên hệ được xác nhận trong cấu hình dự án.
-
+- **Đơn vị thực hiện:** Nhóm sinh viên Kỹ thuật Phần mềm - Khóa SE, Trường Đại học FPT (FPT University).
+- **Môn học:** SWP391 - Software Development Project.
+- **Bản quyền & Giấy phép:** Dự án phục vụ mục đích nghiên cứu, học thuật và phát triển kỹ năng kỹ thuật phần mềm. Giấy phép mã nguồn nội bộ: ISC License.

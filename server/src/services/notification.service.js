@@ -92,6 +92,23 @@ export const notificationService = {
   },
 
   /**
+   * Xóa một thông báo của người dùng
+   */
+  async deleteNotification(notificationId, userId) {
+    const id = Number(notificationId);
+    if (!id) throw ApiError.badRequest('Mã thông báo không hợp lệ');
+
+    const notification = await notificationRepository.findById(id);
+    if (!notification) throw ApiError.notFound('Không tìm thấy thông báo');
+    if (notification.user_id !== Number(userId)) {
+      throw ApiError.forbidden('Bạn không có quyền thao tác trên thông báo này');
+    }
+
+    await notificationRepository.delete(id, userId);
+    return { notification_id: id, message: 'Đã xóa thông báo thành công' };
+  },
+
+  /**
    * Tạo thông báo mới cho người dùng (Helper nội bộ các service gọi khi có sự kiện)
    */
   async notify({ user_id, content }) {

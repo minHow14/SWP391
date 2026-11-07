@@ -43,8 +43,14 @@ export const changePasswordSchema = z.object({
   { message: 'Mật khẩu hiện tại và mật khẩu mới (tối thiểu 8 ký tự) là bắt buộc' }
 );
 
+const optionalDateString = z
+  .string()
+  .trim()
+  .refine((val) => !isNaN(Date.parse(val)), 'Ngày ghi nhận không hợp lệ')
+  .optional();
+
 export const recordWeightSchema = z.object({
   weight: z.coerce.number().min(20, 'Cân nặng tối thiểu là 20kg').max(350, 'Cân nặng tối đa là 350kg'),
-  recorded_date: z.string().optional(),
-  recordedDate: z.string().optional(),
+  recorded_date: optionalDateString,
+  recordedDate: optionalDateString,
 });

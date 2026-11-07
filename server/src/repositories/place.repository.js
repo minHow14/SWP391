@@ -77,26 +77,27 @@ export const placeRepository = {
         const record = await db.restaurant.upsert({
           where: { place_id: p.place_id },
           update: {
-            rating: p.rating ?? undefined,
+            rating: p.rating != null ? Number(p.rating) : undefined,
             address: p.address || undefined,
+            image_url: p.image_url || undefined,
           },
           create: {
             name: p.name,
             address: p.address,
             latitude: p.latitude,
             longitude: p.longitude,
-            rating: p.rating ?? 4.5,
+            rating: p.rating != null ? Number(p.rating) : null,
             image_url: p.image_url || null,
-            diet_type_id: p.diet_type_id || 1, // Mặc định 1: Thuần Chay (Vegan)
+            diet_type_id: p.diet_type_id ? Number(p.diet_type_id) : null,
             source: 'ziomap',
             status: 'APPROVED',
             place_id: p.place_id,
             details: {
               create: {
-                city: p.city || (p.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
+                city: p.city || (p.address?.includes('Hà Nội') ? 'Hà Nội' : p.address?.includes('Hồ Chí Minh') || p.address?.includes('TP.HCM') ? 'Hồ Chí Minh' : 'Chưa xác định'),
                 hours: p.hours || 'Chưa cập nhật',
-                price_range: 'Theo thời giá',
-                separate_kitchen: true,
+                price_range: p.price_range || 'Theo thời giá',
+                separate_kitchen: p.separate_kitchen ?? null,
               },
             },
           },

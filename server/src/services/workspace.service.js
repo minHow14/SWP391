@@ -458,6 +458,8 @@ export const workspaceService = {
 
             const day = new Date(date);
             const { monday, sunday: end } = weekRangeOf(date);
+            const weekStart = monday.toISOString().slice(0, 10);
+            await workspaceRepository.lockUserDate(userId, weekStart, tx);
 
             let plan = await workspaceRepository.findMealPlanByStartDate(userId, monday, tx);
             if (!plan) {
@@ -466,7 +468,7 @@ export const workspaceService = {
                         user_id: Number(userId),
                         start_date: monday,
                         end_date: end,
-                        title: `Thực đơn tuần ${monday.toISOString().slice(0, 10)}`,
+                        title: `Thực đơn tuần ${weekStart}`,
                     },
                     tx
                 );
@@ -554,19 +556,23 @@ export const workspaceService = {
      * Đăng bài đánh giá và cập nhật điểm số nhà hàng
      */
     async reviewRestaurant(userId, restaurantId, { stars, text }) {
+        const id = Number(restaurantId);
         return prisma.$transaction(async (tx) => {
-            const restaurant = await tx.restaurant.findUnique({
-                where: { restaurant_id: Number(restaurantId) },
-            });
-            if (!restaurant) {
+            const locked = await tx.$queryRaw`
+                SELECT restaurant_id FROM restaurants
+                WHERE restaurant_id = ${id}
+                FOR UPDATE
+            `;
+            if (!locked || locked.length === 0) {
                 throw ApiError.notFound('Quán không tồn tại');
             }
 
-            await workspaceRepository.insertRestaurantReview(restaurantId, userId, stars, text, tx);
-            const avg = await workspaceRepository.calculateAvgRestaurantStars(restaurantId, tx);
+            await workspaceRepository.insertRestaurantReview(id, userId, stars, text, tx);
+            const avg = await workspaceRepository.calculateAvgRestaurantStars(id, tx);
+            const newRating = avg?.[0]?.rating != null ? Number(avg[0].rating) : null;
             await tx.restaurant.update({
-                where: { restaurant_id: Number(restaurantId) },
-                data: { rating: avg[0].rating },
+                where: { restaurant_id: id },
+                data: { rating: newRating },
             });
 
             return { saved: true };

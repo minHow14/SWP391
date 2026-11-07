@@ -97,4 +97,50 @@ describe('Video API & Video Creation Workflow', () => {
     await prisma.postCategory.deleteMany({ where: { post_id: createdPostId } });
     await prisma.post.deleteMany({ where: { post_id: createdPostId } });
   });
+
+  it('hides pending or unpublished videos from anonymous and other users while allowing author/admin', async () => {
+    // Tạo video với trạng thái PENDING_MODERATION
+    const createRes = await request(app)
+      .post('/api/videos')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({
+        title: 'Video chờ kiểm duyệt',
+        video_url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      });
+    expect(createRes.status).toBe(201);
+    const videoId = createRes.body.data.video.post_id;
+
+    // Cập nhật trạng thái PENDING_MODERATION
+    await prisma.post.update({
+      where: { post_id: videoId },
+      data: { status: 'PENDING_MODERATION' },
+    });
+
+    // 1. Khách vãng lai không thể xem (404)
+    const anonRes = await request(app).get(`/api/videos/${videoId}`);
+    expect(anonRes.status).toBe(404);
+
+    // 2. Người dùng khác không thể xem (404)
+    const otherRes = await request(app)
+      .get(`/api/videos/${videoId}`)
+      .set('Authorization', `Bearer ${otherUserToken}`);
+    expect(otherRes.status).toBe(404);
+
+    // 3. Tác giả có thể xem trước (200)
+    const authorRes = await request(app)
+      .get(`/api/videos/${videoId}`)
+      .set('Authorization', `Bearer ${authorToken}`);
+    expect(authorRes.status).toBe(200);
+    expect(authorRes.body.data.video.title).toBe('Video chờ kiểm duyệt');
+
+    // 4. Quản trị viên có thể xem trước (200)
+    const adminRes = await request(app)
+      .get(`/api/videos/${videoId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(adminRes.status).toBe(200);
+
+    // Dọn dẹp
+    await prisma.video.deleteMany({ where: { post_id: videoId } });
+    await prisma.post.deleteMany({ where: { post_id: videoId } });
+  });
 });

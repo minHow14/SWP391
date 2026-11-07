@@ -7,6 +7,7 @@ import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
 import { categoryRepository } from '../repositories/category.repository.js';
 import { notificationService } from './notification.service.js';
+import { contentModerationService } from './contentModerationService.js';
 
 export const videoService = {
   /**
@@ -75,9 +76,19 @@ export const videoService = {
         });
       }
 
+      const moderation = await contentModerationService.queuePost(
+        {
+          post: newPost,
+          title: newVideo.title,
+          content: newVideo.transcript || newVideo.title,
+        },
+        tx
+      );
+
       return {
         ...newPost,
         ...newVideo,
+        ...moderation,
         category_id: numericCategoryId,
         categoryId: numericCategoryId,
         category: categoryInfo,
@@ -193,7 +204,7 @@ export const videoService = {
   /**
    * Lấy chi tiết một video theo ID
    */
-  async getVideoById(id) {
+  async getVideoById(id, currentUser = null) {
     const postId = Number(id);
     if (isNaN(postId)) {
       throw ApiError.badRequest('Invalid video ID format');
@@ -221,6 +232,11 @@ export const videoService = {
     );
 
     if (!video || !video.post || video.post.status === POST_STATUS.DELETED) {
+      throw ApiError.notFound('Video not found');
+    }
+
+    const canPreview = currentUser && (currentUser.role === ROLES.ADMIN || currentUser.user_id === video.post.author_id);
+    if (video.post.status !== POST_STATUS.PUBLISHED && !canPreview) {
       throw ApiError.notFound('Video not found');
     }
 
@@ -287,6 +303,10 @@ export const videoService = {
     if (duration !== undefined) updateData.duration = Number(duration);
     if (transcript !== undefined) updateData.transcript = transcript;
 
+    const textChanged = ['title', 'transcript'].some(
+      (field) => updateData[field] !== undefined && updateData[field] !== existingVideo[field]
+    );
+
     return await prisma.$transaction(async (tx) => {
       const updatedVideo = await tx.video.update({
         where: { post_id: postId },
@@ -320,9 +340,21 @@ export const videoService = {
       });
 
       const { post, ...videoData } = updatedVideo;
+      const moderation = textChanged
+        ? await contentModerationService.queuePost(
+            {
+              post,
+              title: updatedVideo.title,
+              content: updatedVideo.transcript || updatedVideo.title,
+            },
+            tx
+          )
+        : {};
+
       return {
         ...post,
         ...videoData,
+        ...moderation,
         category_id: postCat?.category_id || null,
         categoryId: postCat?.category_id || null,
         category: postCat?.category || null,
