@@ -29,6 +29,12 @@ def ingredient_result() -> dict[str, object]:
             "description": "Nấm ăn có mũ màu nâu và hương thơm đặc trưng.",
             "cooking": "Làm sạch, bỏ phần chân già rồi nấu chín trước khi ăn.",
             "aliases": "Nấm đông cô",
+            "nutritionPer100g": {
+                "calories": 34.0,
+                "protein": 2.2,
+                "fat": 0.5,
+                "carbs": 6.8,
+            },
         },
     }
 
@@ -250,3 +256,102 @@ def test_lifespan_initializes_provider_once_across_requests(
             assert response.status_code == 200
     assert factory.call_count == 1
     assert factory.call_args.kwargs["timeout"] <= 90
+
+
+def lookup_with_nutrition(
+    client: TestClient,
+    internal_headers: dict[str, str],
+    provider: AsyncMock,
+    nutrition: object,
+) -> object:
+    result = ingredient_result()
+    result["ingredient"]["nutritionPer100g"] = nutrition
+    provider.ainvoke.return_value = result
+    return client.post(PATH, json={"ingredientName": "Nấm"}, headers=internal_headers)
+
+
+@pytest.mark.parametrize(
+    "nutrition",
+    [
+        None,
+        {"calories": 0, "protein": 0, "fat": 0, "carbs": 0},
+        {"calories": 579, "protein": 21.2, "fat": 49.9, "carbs": 21.6},
+        {"calories": 884, "protein": 0, "fat": 100, "carbs": 0},
+    ],
+)
+def test_keeps_a_null_or_consistent_nutrition_profile(
+    client: TestClient,
+    internal_headers: dict[str, str],
+    provider: AsyncMock,
+    nutrition: dict | None,
+) -> None:
+    response = lookup_with_nutrition(client, internal_headers, provider, nutrition)
+    assert response.status_code == 200
+    returned = response.json()["data"]["ingredient"]["nutritionPer100g"]
+    assert returned == (
+        None if nutrition is None else {key: float(value) for key, value in nutrition.items()}
+    )
+
+
+@pytest.mark.parametrize(
+    "nutrition",
+    [
+        {"calories": 400, "protein": 1, "fat": 0.1, "carbs": 2},
+        {"calories": 450, "protein": 60, "fat": 10, "carbs": 40},
+        {"calories": 20, "protein": -1, "fat": 0.2, "carbs": 3},
+        {"calories": 950, "protein": 0, "fat": 100, "carbs": 0},
+        {"calories": 20, "protein": 1.5, "fat": 0.2, "carbs": 3, "fiber": 2},
+        {"calories": "20", "protein": 1.5, "fat": 0.2, "carbs": 3},
+        {"calories": 20, "protein": 1.5, "fat": 0.2},
+    ],
+)
+def test_rejects_impossible_or_malformed_nutrition(
+    client: TestClient,
+    internal_headers: dict[str, str],
+    provider: AsyncMock,
+    nutrition: dict,
+) -> None:
+    response = lookup_with_nutrition(client, internal_headers, provider, nutrition)
+    assert response.status_code == 502
+    assert response.json()["errorCode"] == "INGREDIENT_LOOKUP_AI_INVALID_OUTPUT"
+
+
+@pytest.mark.parametrize("missing_key", ["nutritionPer100g", "nutritionPer100G"])
+def test_requires_an_explicit_nutrition_decision_under_the_contract_key(
+    client: TestClient,
+    internal_headers: dict[str, str],
+    provider: AsyncMock,
+    missing_key: str,
+) -> None:
+    result = ingredient_result()
+    nutrition = result["ingredient"].pop("nutritionPer100g")
+    if missing_key != "nutritionPer100g":
+        result["ingredient"][missing_key] = nutrition
+    provider.ainvoke.return_value = result
+    response = client.post(PATH, json={"ingredientName": "Nấm"}, headers=internal_headers)
+    assert response.status_code == 502
+
+
+def test_prompt_asks_for_honest_per_100_g_estimates() -> None:
+    from services import ingredient_lookup as service
+
+    prompt = service._lookup_prompt()
+    assert "per 100 g of the raw, edible portion" in prompt
+    assert "Set `nutritionPer100g` to JSON `null` when no reliable typical value exists" in prompt
+    assert "This schema contains no nutrition fields" not in prompt
+
+
+@pytest.mark.parametrize("model_name", ["IngredientLookupRequest", "IngredientLookupResponse"])
+def test_documented_ai_contract_matches_the_pydantic_schema(model_name: str) -> None:
+    from pathlib import Path
+
+    from schemas import ingredient_lookup as schemas
+
+    document_path = Path(__file__).resolve().parents[2] / "docs" / "ingredient-lookup-openapi.json"
+    documented = json.loads(document_path.read_text(encoding="utf-8"))["components"]["schemas"]
+    generated = getattr(schemas, model_name).model_json_schema(
+        by_alias=True, ref_template="#/components/schemas/{model}"
+    )
+    for name, definition in {**generated.pop("$defs", {}), model_name: generated}.items():
+        # Descriptions are documentation-only additions on top of the generated schema.
+        assert {**documented[name], "description": None} == {**definition, "description": None}

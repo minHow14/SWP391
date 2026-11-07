@@ -52,7 +52,7 @@ Hệ thống phân định rõ ràng các tính năng theo vai trò và trạng 
 | :--- | :--- | :--- | :--- |
 | **Tra cứu danh mục & món ăn** | Khách / Member | `Implemented` | Xem công thức, tìm kiếm không dấu tiếng Việt, lọc theo danh mục và chế độ ăn. |
 | **Tìm quán chay lân cận (Radar)** | Khách / Member | `Implemented` | Định vị GPS, tìm kiếm theo bán kính (3–20km), tích hợp ZIOMAP cache vào PostgreSQL. |
-| **Từ điển nguyên liệu & Tỷ trọng** | Khách / Member | `Implemented` | Tra cứu dinh dưỡng, calo, dị ứng và bảng tỷ trọng chất lỏng (`liquid_ingredient_densities`). |
+| **Từ điển nguyên liệu & Tỷ trọng** | Khách / Member | `Implemented` | Tra cứu dinh dưỡng, calo, dị ứng và bảng tỷ trọng chất lỏng (`liquid_ingredient_densities`); AI tra nguyên liệu mới kèm ước lượng dinh dưỡng trên 100 g. |
 | **Trợ lý AI Chat tư vấn dinh dưỡng** | Khách / Member | `Implemented` | Hạn ngạch 3 lượt/ngày cho khách; thành viên không giới hạn lượt, lưu lịch sử hội thoại. |
 | **Lập thực đơn AI 7 ngày** | Thành viên | `Implemented` | Tính TDEE/BMI, sinh thực đơn theo thể trạng, dị ứng, mục tiêu; hỗ trợ áp dụng vào lịch tuần. |
 | **Quét nhãn & Kiểm tra món (Scanner)** | Khách / Member | `Implemented` | Nhận diện ảnh món ăn / nhãn thành phần qua AI Vision, kiểm tra quy tắc chay 5 lớp. |
@@ -232,6 +232,8 @@ SWP391/
   - *Bao gồm: FastAPI Lifespan, Pydantic v2 CamelModel, Cấu trúc Prompt Engineering, Luồng Streaming SSE, Quy trình xử lý ảnh và phụ đề YouTube.*
 - 🛡️ **Kiểm duyệt nội dung & ảnh:** Xem [`docs/CONTENT_MODERATION.md`](./docs/CONTENT_MODERATION.md) và hợp đồng API [`docs/content-moderation-openapi.json`](./docs/content-moderation-openapi.json)
   - *Bao gồm: Chính sách văn bản/ảnh, quy tắc đường dẫn media, luồng worker, định dạng kết quả `imageFindings`, việc cần làm ở Frontend.*
+- 🥬 **Tra cứu nguyên liệu bằng AI:** Hợp đồng API [`docs/ingredient-lookup-openapi.json`](./docs/ingredient-lookup-openapi.json)
+  - *Bao gồm: Job tra cứu, quota khách, dinh dưỡng /100 g do AI ước lượng và quy tắc không ghi đè số liệu sẵn có.*
 
 ---
 
@@ -396,7 +398,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 ### Backend (`server/package.json`)
 - `npm run dev`: Khởi động Express Server chế độ dev kèm nodemon và workers tích hợp.
 - `npm start`: Khởi động Express Server ở chế độ production.
-- `npm test`: Chạy toàn bộ 61 test file (536 test) tự động với Vitest trên database test riêng (`_test`).
+- `npm test`: Chạy toàn bộ 61 test file (546 test) tự động với Vitest trên database test riêng (`_test`).
 - `npm run test:prepare`: Chuẩn bị cơ sở dữ liệu test (áp dụng migration và seed dữ liệu chuẩn).
 - `npm run test:content-moderation`: Kiểm thử chuyên sâu luồng kiểm duyệt nội dung tự động.
 - `npm run test:video-recipes`: Kiểm thử pipeline trích xuất công thức từ video YouTube.
@@ -407,6 +409,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 - `npm run prisma:generate`: Tái tạo mã nguồn Prisma Client.
 - `npm run prisma:studio`: Mở giao diện trực quan quản lý dữ liệu Prisma Studio.
 - `npm run db:seed`: Nạp dữ liệu hạt giống hệ thống từ `prisma/seed.sql`.
+- `npm run db:backfill-ingredient-nutrition`: Gọi AI điền dinh dưỡng /100 g cho nguyên liệu từ điển còn thiếu (chỉ ghi ô trống; thêm `-- --dry-run` để xem trước).
 
 ### Frontend (`client/package.json`)
 - `npm run dev`: Khởi chạy Vite Development Server tại cổng 5173.
@@ -424,7 +427,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 
 ## 14. Tổng hợp chiến lược kiểm thử (Testing Overview)
 
-Hệ thống sở hữu **1.226 bài test tự động** (server 536, AI 339, client 351) bao phủ toàn bộ các tầng:
+Hệ thống sở hữu **1.252 bài test tự động** (server 546, AI 355, client 351) bao phủ toàn bộ các tầng:
 
 ```powershell
 # 1. Kiểm thử Backend trên cơ sở dữ liệu riêng (server/)

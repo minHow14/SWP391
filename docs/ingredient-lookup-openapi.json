@@ -1,0 +1,695 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "ChayXanh Ingredient Lookup",
+    "version": "1.0.0",
+    "description": "AI ingredient dictionary lookup. The backend queues a job, a local worker calls the AI service, and the result is saved to the shared dictionary. AI-generated nutrition per 100 g fills only empty columns; npm run db:backfill-ingredient-nutrition fills entries created before nutrition existed."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Express backend"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      },
+      "internalApiKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Internal-Api-Key"
+      }
+    },
+    "schemas": {
+      "IngredientLookupRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "ingredientName": {
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Ingredientname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ingredientName"
+        ],
+        "title": "IngredientLookupRequest",
+        "type": "object"
+      },
+      "GeneratedIngredient": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "enum": [
+              "protein",
+              "mushroom",
+              "vegetable",
+              "additive",
+              "other"
+            ],
+            "title": "Category",
+            "type": "string"
+          },
+          "origin": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Origin",
+            "type": "string"
+          },
+          "plant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plant"
+          },
+          "description": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Description",
+            "type": "string"
+          },
+          "cooking": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Cooking",
+            "type": "string"
+          },
+          "aliases": {
+            "maxLength": 1000,
+            "title": "Aliases",
+            "type": "string"
+          },
+          "nutritionPer100g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionPer100g"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "category",
+          "origin",
+          "plant",
+          "description",
+          "cooking",
+          "aliases",
+          "nutritionPer100g"
+        ],
+        "title": "GeneratedIngredient",
+        "type": "object",
+        "description": "nutritionPer100g is required but nullable: null when no reliable typical value exists (branded or mixed products, sugar alcohols, uncertain identification)."
+      },
+      "IngredientLookupResult": {
+        "additionalProperties": false,
+        "properties": {
+          "isIngredient": {
+            "title": "Isingredient",
+            "type": "boolean"
+          },
+          "ingredient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeneratedIngredient"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "isIngredient",
+          "ingredient"
+        ],
+        "title": "IngredientLookupResult",
+        "type": "object"
+      },
+      "NutritionPer100g": {
+        "additionalProperties": false,
+        "properties": {
+          "calories": {
+            "maximum": 900.0,
+            "minimum": 0,
+            "title": "Calories",
+            "type": "number"
+          },
+          "protein": {
+            "maximum": 100.0,
+            "minimum": 0,
+            "title": "Protein",
+            "type": "number"
+          },
+          "fat": {
+            "maximum": 100.0,
+            "minimum": 0,
+            "title": "Fat",
+            "type": "number"
+          },
+          "carbs": {
+            "maximum": 100.0,
+            "minimum": 0,
+            "title": "Carbs",
+            "type": "number"
+          }
+        },
+        "required": [
+          "calories",
+          "protein",
+          "fat",
+          "carbs"
+        ],
+        "title": "NutritionPer100g",
+        "type": "object",
+        "description": "Typical AI-estimated values per 100 g of the raw, edible portion, not lab measurements. protein + fat + carbs <= 100 g and calories must be within max(25 kcal, 35%) of 4P + 4C + 9F."
+      },
+      "IngredientLookupResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "const": true,
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "Đã tra cứu thông tin nguyên liệu.",
+            "title": "Message",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/IngredientLookupResult"
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "title": "IngredientLookupResponse",
+        "type": "object"
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "success",
+          "message"
+        ],
+        "properties": {
+          "success": {
+            "const": false
+          },
+          "message": {
+            "type": "string"
+          },
+          "errorCode": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "IngredientLookupCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ingredientName"
+        ],
+        "properties": {
+          "ingredientName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "NFKC-normalized, trimmed and whitespace-collapsed before the 150-character check."
+          },
+          "photo": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "imageBase64",
+              "mimeType"
+            ],
+            "properties": {
+              "imageBase64": {
+                "type": "string",
+                "description": "Standard base64; decoded size <= 10 MB."
+              },
+              "mimeType": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png",
+                  "image/webp"
+                ]
+              }
+            },
+            "description": "Optional user photo stored as the dictionary image; never sent to the AI."
+          }
+        }
+      },
+      "IngredientView": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "category",
+          "origin",
+          "plant",
+          "description",
+          "cooking",
+          "aliases",
+          "image",
+          "nutritionPer100g"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "protein",
+              "mushroom",
+              "vegetable",
+              "additive",
+              "other"
+            ]
+          },
+          "origin": {
+            "type": "string"
+          },
+          "plant": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "cooking": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "string"
+          },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "nutritionPer100g": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NutritionPer100g"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Saved per-100 g profile; null unless calories, protein, fat and carbs are all known. Seeded or admin-entered figures are never overwritten by AI estimates."
+          }
+        }
+      },
+      "IngredientLookupReceipt": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "status",
+          "ingredient",
+          "errorCode",
+          "errorMessage"
+        ],
+        "properties": {
+          "jobId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "PROCESSING",
+              "COMPLETED",
+              "FAILED"
+            ]
+          },
+          "ingredient": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IngredientView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "jobId is null when the dictionary already had the ingredient (200, no AI call)."
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/ingredient-lookup-jobs": {
+      "post": {
+        "tags": [
+          "Ingredient lookup"
+        ],
+        "summary": "Return a saved dictionary entry or queue an AI lookup",
+        "description": "Members use a JWT; guests use the signed guest cookie and spend one daily AI turn, refunded if the job fails.",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngredientLookupCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Already in the dictionary; no job, no quota.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/IngredientLookupReceipt"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Queued or an identical job is already running.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/IngredientLookupReceipt"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid name or photo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Guest daily AI quota exhausted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "AI service not configured.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ingredient-lookup-jobs/{id}": {
+      "get": {
+        "tags": [
+          "Ingredient lookup"
+        ],
+        "summary": "Poll a lookup job owned by the current member or guest session",
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {}
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current job state; FAILED carries errorCode such as INGREDIENT_NOT_RECOGNIZED or INGREDIENT_LOOKUP_INVALID_OUTPUT.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/IngredientLookupReceipt"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing job or owned by someone else.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/ingredient-lookups": {
+      "post": {
+        "tags": [
+          "Internal AI"
+        ],
+        "summary": "Generate dictionary facts and per-100 g nutrition without database access",
+        "servers": [
+          {
+            "url": "http://127.0.0.1:8000",
+            "description": "FastAPI internal service"
+          }
+        ],
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngredientLookupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated verdict; isIngredient false for non-food names.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngredientLookupResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid internal key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid ingredient name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Invalid or inconsistent model output, including impossible nutrition.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Missing provider key or provider failure.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "Inference deadline exceeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

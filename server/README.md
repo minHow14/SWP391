@@ -465,6 +465,8 @@ npm run db:seed
 | Phương thức | Đường dẫn (Endpoint) | Mô tả | Xác thực | Quyền hạn |
 | :---: | :--- | :--- | :---: | :---: |
 | `GET` | `/api/v1/workspace/catalog` | Lấy danh mục nguyên liệu và món ăn chuẩn | Không | Public |
+| `POST` | `/api/v1/ingredient-lookup-jobs` | Trả nguyên liệu có sẵn hoặc tạo job AI tra cứu (mô tả + dinh dưỡng /100 g) | Tùy chọn | Khách / Member |
+| `GET` | `/api/v1/ingredient-lookup-jobs/:id` | Theo dõi job tra cứu nguyên liệu của chính người gọi | Tùy chọn | Khách / Member |
 | `GET` | `/api/v1/workspace/journal` | Lấy lịch sử nhật ký ăn uống theo ngày/tuần | Có | Member |
 | `POST` | `/api/v1/workspace/diary` | Thêm bản ghi món ăn vào nhật ký | Có | Member |
 | `DELETE`| `/api/v1/workspace/diary/:id` | Xóa bản ghi món ăn khỏi nhật ký | Có | Member |
@@ -601,6 +603,7 @@ npm run dev
 | `npm run prisma:generate` | Tạo lại thư viện mã nguồn `@prisma/client`. |
 | `npm run prisma:studio` | Mở giao diện đồ họa quản lý dữ liệu Prisma Studio trên trình duyệt. |
 | `npm run db:seed` | Nạp dữ liệu hạt giống hệ thống ban đầu từ `prisma/seed.sql`. |
+| `npm run db:backfill-ingredient-nutrition` | Gọi AI điền dinh dưỡng /100 g cho nguyên liệu từ điển còn thiếu; chỉ ghi ô trống, không đổi mô tả/ảnh. Thêm `-- --dry-run` để xem trước. |
 
 ---
 
