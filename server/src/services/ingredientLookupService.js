@@ -11,11 +11,18 @@ import { INGREDIENT_LOOKUP_FAILURE_MESSAGE, INGREDIENT_LOOKUP_RELEASED } from '.
 const hash = (text) => createHash('sha256').update(text).digest('hex');
 const ownerKey = ({ userId, guestId }) => hash(userId ? `user:${userId}` : `guest:${guestId}`);
 
+function nutritionView({ calories_per_100g: calories, protein, fat, carbs }) {
+  // A partial set would mislead readers, so only a complete per-100 g profile is exposed.
+  return [calories, protein, fat, carbs].some((value) => value === null || value === undefined)
+    ? null : { calories, protein, fat, carbs };
+}
+
 function ingredientView(row) {
   if (!row?.details) return null;
   const { ingredient_id: id, name, details } = row;
   return { id: String(id), name, category: details.category, origin: details.origin, plant: details.plant,
-    description: details.description, cooking: details.cooking, aliases: details.aliases, image: details.image_url };
+    description: details.description, cooking: details.cooking, aliases: details.aliases, image: details.image_url,
+    nutritionPer100g: nutritionView(row) };
 }
 
 function jobView(job) {

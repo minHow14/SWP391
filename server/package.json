@@ -21,6 +21,7 @@
     "prisma:studio": "prisma studio",
     "db:seed": "prisma migrate deploy && node prisma/seed.js",
     "db:repair-ingredients": "node scripts/repair-ingredients.js",
+    "db:backfill-ingredient-nutrition": "node scripts/backfill-ingredient-nutrition.js",
     "db:import-ingredient-images": "node scripts/import-ingredient-images.js",
     "test:database": "node tests/workspace.integration.mjs",
     "test:ai-internal-auth": "node tests/ai-internal-auth.integration.mjs",
