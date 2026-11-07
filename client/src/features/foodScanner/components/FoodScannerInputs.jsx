@@ -50,7 +50,7 @@ export default function FoodScannerInputs({ scanner, dietOptions, diet }) {
         </div>
       </fieldset>
       <Button variant="success" size="lg" className="w-100" type="submit" disabled={scanner.loading || scanner.blocked || !scanner.photo?.base64}>
-        {scanner.loading ? <><Spinner size="sm" animation="border" /> Đang phân tích hình ảnh…</> : 'Phân tích bằng AI Vision'}
+        {scanner.loading ? <><Spinner size="sm" animation="border" /> Đang phân tích hình ảnh…</> : 'Phân tích'}
       </Button>
     </Form> : <Form onSubmit={scanner.analyzeText}>
       <Form.Group controlId="scan-ingredients" className="mb-3">
