@@ -4,7 +4,7 @@ import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { workspaceService } from '../services/workspaceService.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
-import ContentImage from '../components/common/ContentImage.jsx';
+import RestaurantImage from '../features/restaurants/components/RestaurantImage.jsx';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 import RestaurantDetail from '../features/restaurants/components/RestaurantDetail.jsx';
 import RestaurantProposalForm from '../features/restaurants/components/RestaurantProposalForm.jsx';
@@ -195,7 +195,7 @@ export default function Restaurants() {
               key={place.id}
             >
               <div className="cx-restaurant-summary">
-                <ContentImage src={resolveRestaurantPhoto(place)} emptyText="Chưa có ảnh thực tế" alt={`Ảnh quán ${place.name}`} />
+                <RestaurantImage src={resolveRestaurantPhoto(place)} name={place.name} alt={`Ảnh quán ${place.name}`} type={place.type} dietTypeId={place.diet_type_id} isShop={place.isIngredientShop} variant="card" />
                 <div>
                   <span className={`cx-restaurant-type is-${place.type}`}>
                     {typeName(place.type)}

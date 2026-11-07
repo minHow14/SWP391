@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
 import { restaurantDirections } from '../../../utils/restaurantDirections.js';
-import ContentImage from '../../../components/common/ContentImage.jsx';
+import RestaurantImage from './RestaurantImage.jsx';
 import {
   CITY_HUBS,
   RADIUS_OPTIONS,
@@ -386,9 +386,13 @@ export default function NearbyPlaces({
                 return (
                   <li key={place.id} className="cx-nearby-item">
                     <div className="cx-nearby-thumb-wrap">
-                      <ContentImage
+                      <RestaurantImage
                         src={resolveRestaurantPhoto(place)}
-                        emptyText="Chưa có ảnh thực tế"
+                        name={place.name}
+                        type={place.type}
+                        dietTypeId={place.diet_type_id}
+                        isShop={place.isIngredientShop}
+                        variant="thumb"
                         alt={place.name}
                         className="cx-place-thumb"
                       />

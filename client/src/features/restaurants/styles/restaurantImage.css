@@ -1,0 +1,170 @@
+/* D:/SWP391/SWP391/client/src/features/restaurants/styles/restaurantImage.css */
+
+.cx-rest-img-frame {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  user-select: none;
+}
+
+.cx-rest-img-real {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Biến thể hiển thị */
+.cx-rest-img-frame.is-thumb {
+  width: 72px;
+  height: 72px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.cx-rest-img-frame.is-card {
+  width: 100%;
+  height: 160px;
+  border-radius: 16px;
+}
+
+.cx-rest-img-frame.is-hero {
+  width: 100%;
+  height: 200px;
+  border-radius: 20px 20px 0 0;
+}
+
+/* Khung fallback khi chưa có ảnh thực tế */
+.cx-rest-img-frame.is-fallback {
+  border: 1px solid #e2e8f0;
+}
+
+/* Theme màu sắc theo trường phái ẩm thực chay */
+.cx-rest-img-frame.is-fallback.is-vegan {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: #a7f3d0;
+}
+
+.cx-rest-img-frame.is-fallback.is-buddhist {
+  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+  border-color: #fde68a;
+}
+
+.cx-rest-img-frame.is-fallback.is-shop {
+  background: linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%);
+  border-color: #99f6e4;
+}
+
+.cx-rest-img-frame.is-fallback.is-separate {
+  background: linear-gradient(135deg, #f4fbf7 0%, #e6f4ed 100%);
+  border-color: #cde4d8;
+}
+
+/* Họa tiết nền và chữ cái đầu (Initial) */
+.cx-rest-fallback-backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.cx-rest-fallback-initial {
+  position: absolute;
+  font-size: 80px;
+  font-weight: 900;
+  line-height: 1;
+  opacity: 0.12;
+  color: #065f46;
+  text-transform: uppercase;
+}
+
+.cx-rest-img-frame.is-thumb .cx-rest-fallback-initial {
+  font-size: 40px;
+}
+
+.cx-rest-img-frame.is-hero .cx-rest-fallback-initial {
+  font-size: 130px;
+  opacity: 0.15;
+}
+
+/* SVG icon trung tâm */
+.cx-rest-fallback-icon-wrap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+}
+
+.cx-rest-fallback-svg {
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.06));
+}
+
+.cx-rest-img-frame.is-thumb .cx-rest-fallback-svg {
+  width: 28px;
+  height: 28px;
+}
+
+.cx-rest-img-frame.is-hero .cx-rest-fallback-svg {
+  width: 60px;
+  height: 60px;
+}
+
+/* Huy hiệu (Badge) thông báo trạng thái "Chưa có ảnh thực tế" */
+.cx-rest-fallback-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  color: #475569;
+  font-size: 10px;
+  font-weight: 650;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.cx-rest-fallback-badge .bi {
+  font-size: 11px;
+  color: #059669;
+}
+
+/* Với thumbnail nhỏ, rút gọn badge thành icon tròn */
+.cx-rest-img-frame.is-thumb .cx-rest-fallback-badge {
+  bottom: 4px;
+  padding: 2px 4px;
+  font-size: 8.5px;
+}
+
+.cx-rest-img-frame.is-thumb .cx-rest-fallback-badge span {
+  display: none;
+}
+
+.cx-rest-img-frame.is-hero .cx-rest-fallback-badge {
+  bottom: 20px;
+  left: 20px;
+  transform: none;
+  padding: 5px 12px;
+  font-size: 11px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.cx-rest-img-frame.is-hero .cx-rest-fallback-badge .bi {
+  color: #34d399;
+}
