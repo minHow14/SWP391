@@ -3,30 +3,18 @@ import fs from 'node:fs';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { sendCreated } from '../utils/apiResponse.js';
 import { ApiError } from '../utils/apiError.js';
+import { detectImageMimeType, IMAGE_SIGNATURE_BYTES } from '../utils/imageSignature.js';
 
 /**
  * Kiểm tra Magic Bytes đầu file để xác thực định dạng ảnh thực sự
  */
 const isValidImageMagicBytes = (filePath) => {
   try {
-    const buffer = Buffer.alloc(12);
+    const buffer = Buffer.alloc(IMAGE_SIGNATURE_BYTES);
     const fd = fs.openSync(filePath, 'r');
-    fs.readSync(fd, buffer, 0, 12, 0);
+    fs.readSync(fd, buffer, 0, IMAGE_SIGNATURE_BYTES, 0);
     fs.closeSync(fd);
-
-    // PNG: 89 50 4E 47
-    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return true;
-    // JPEG: FF D8 FF
-    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
-    // GIF: 47 49 46 38 ('GIF8')
-    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x38) return true;
-    // WEBP: RIFF....WEBP (52 49 46 46 .... 57 45 42 50)
-    if (
-      buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
-      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
-    ) return true;
-
-    return false;
+    return detectImageMimeType(buffer) !== null;
   } catch {
     return false;
   }

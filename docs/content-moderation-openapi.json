@@ -3,7 +3,7 @@
   "info": {
     "title": "ChayXanh Content Moderation",
     "version": "1.0.0",
-    "description": "Local text moderation. JWT protects BE; X-Internal-Api-Key protects the AI operation with its own server URL. No automatic media scanning, historical backfill, threshold hiding or notification expansion. See CONTENT_MODERATION.md."
+    "description": "Local text and image moderation. JWT protects BE; X-Internal-Api-Key protects the AI operations with their own server URL. Uploaded post images (blog attachments and uploaded video thumbnails) are moderated one by one; video files, YouTube content and YouTube thumbnails are not scanned. Attachments must be files returned by POST /api/v1/upload/post-media and video links must be YouTube, so outside links are rejected with 400. No historical backfill, threshold hiding or notification expansion. See CONTENT_MODERATION.md."
   },
   "servers": [
     {
@@ -150,7 +150,7 @@
         "tags": [
           "Content submission"
         ],
-        "summary": "Update blog text",
+        "summary": "Update blog text or images",
         "parameters": [
           {
             "name": "id",
@@ -174,7 +174,7 @@
         },
         "responses": {
           "200": {
-            "description": "Unchanged text, disabled moderation or preserved hidden content; no new job.",
+            "description": "Unchanged text and images, disabled moderation or preserved hidden content; no new job.",
             "content": {
               "application/json": {
                 "schema": {
@@ -208,7 +208,7 @@
             }
           },
           "202": {
-            "description": "Changed eligible text queued for its new version.",
+            "description": "Changed eligible text or a changed set of uploaded images queued for its new version.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1057,6 +1057,354 @@
           }
         }
       }
+    },
+    "/api/v1/image-moderations": {
+      "post": {
+        "tags": [
+          "Internal AI"
+        ],
+        "servers": [
+          {
+            "url": "http://127.0.0.1:8000",
+            "description": "FastAPI internal service"
+          }
+        ],
+        "security": [
+          {
+            "internalApiKey": []
+          }
+        ],
+        "summary": "Classify one uploaded post image without reading or writing the database",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImageModerationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated structured verdict with actual provenance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageModerationResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid internal key.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid snapshot, base64, size or image format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Invalid, contradictory or unsupported model output.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Missing provider key, inference deadline or provider failure. Never an ALLOW fallback.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/videos": {
+      "post": {
+        "tags": [
+          "Content submission"
+        ],
+        "summary": "Create a YouTube video post; title, transcript and an uploaded thumbnail are moderated",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Moderation disabled; legacy create result, no job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Saved atomically with a PENDING job; AI has not finished.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoReceipt"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, including a non-YouTube video_url or an outside thumbnail_url.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing or inaccessible content/job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}": {
+      "put": {
+        "tags": [
+          "Content submission"
+        ],
+        "summary": "Update a video post; changed text or uploaded thumbnail is re-moderated",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VideoUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Unchanged text and thumbnail, disabled moderation or preserved hidden content; no new job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Changed eligible text or uploaded thumbnail queued for its new version.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "const": true
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/VideoReceipt"
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "requestId": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request, including a non-YouTube video_url or an outside thumbnail_url.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Insufficient permissions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Missing or inaccessible content/job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1224,6 +1572,140 @@
         "type": "object",
         "description": "ALLOW requires empty categories/evidence; REVIEW requires both non-empty. Evidence must occur verbatim in title/content; unknown ingredients are not invented. Real modelName and policyVersion are saved on the job."
       },
+      "ModerationImageFinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "imageUrl",
+          "decision",
+          "reason",
+          "categories",
+          "observations",
+          "errorCode"
+        ],
+        "properties": {
+          "imageUrl": {
+            "type": "string",
+            "pattern": "^/uploads/posts/[A-Za-z0-9_-]+\\.(?:[jJ][pP][eE]?[gG]|[pP][nN][gG]|[wW][eE][bB][pP]|[gG][iI][fF])$"
+          },
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ALLOW",
+              "REVIEW"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "enum": [
+                "SPAM",
+                "SCAM",
+                "HARASSMENT",
+                "ANIMAL_MEAT_PROMOTION",
+                "INGREDIENT_MISREPRESENTATION"
+              ]
+            }
+          },
+          "observations": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "MODERATION_IMAGE_UNREADABLE"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "Verdict for one uploaded image. MODERATION_IMAGE_UNREADABLE (missing, corrupt or over 10 MB) is always REVIEW with empty categories so an administrator checks the file."
+      },
+      "StoredModerationResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "decision",
+          "reason",
+          "categories",
+          "evidence",
+          "modelName",
+          "policyVersion"
+        ],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": [
+              "ALLOW",
+              "REVIEW"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "categories": {
+            "type": "array",
+            "maxItems": 10,
+            "items": {
+              "type": "string",
+              "enum": [
+                "SPAM",
+                "SCAM",
+                "HARASSMENT",
+                "ANIMAL_MEAT_PROMOTION",
+                "INGREDIENT_MISREPRESENTATION"
+              ]
+            }
+          },
+          "evidence": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1000
+            }
+          },
+          "modelName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "policyVersion": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "imageFindings": {
+            "type": "array",
+            "maxItems": 7,
+            "items": {
+              "$ref": "#/components/schemas/ModerationImageFinding"
+            }
+          }
+        },
+        "description": "Saved job verdict. Text-only content keeps the ModerationResult shape. When the post had uploaded images (attachments or an uploaded video thumbnail), imageFindings lists them in order; any REVIEW image makes the whole post REVIEW, categories become the union, and reason is prefixed 'Ảnh N:' when only images were flagged (evidence may then be empty)."
+      },
       "BlogCreate": {
         "type": "object",
         "properties": {
@@ -1294,7 +1776,9 @@
                 "url": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 500
+                  "maxLength": 500,
+                  "pattern": "^/uploads/posts/[A-Za-z0-9_-]+\\.(?:[jJ][pP][eE]?[gG]|[pP][nN][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[mM][pP]4|[wW][eE][bB][mM]|[oO][gG][gG])$",
+                  "description": "Only paths returned by POST /api/v1/upload/post-media; outside links are rejected."
                 },
                 "type": {
                   "default": "image",
@@ -1390,7 +1874,9 @@
                 "url": {
                   "type": "string",
                   "minLength": 1,
-                  "maxLength": 500
+                  "maxLength": 500,
+                  "pattern": "^/uploads/posts/[A-Za-z0-9_-]+\\.(?:[jJ][pP][eE]?[gG]|[pP][nN][gG]|[wW][eE][bB][pP]|[gG][iI][fF]|[mM][pP]4|[wW][eE][bB][mM]|[oO][gG][gG])$",
+                  "description": "Only paths returned by POST /api/v1/upload/post-media; outside links are rejected."
                 },
                 "type": {
                   "default": "image",
@@ -1590,7 +2076,7 @@
           "result": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ModerationResult"
+                "$ref": "#/components/schemas/StoredModerationResult"
               },
               {
                 "type": "null"
@@ -1705,7 +2191,7 @@
           "result": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ModerationResult"
+                "$ref": "#/components/schemas/StoredModerationResult"
               },
               {
                 "type": "null"
@@ -1915,6 +2401,346 @@
             "type": "integer",
             "minimum": 0,
             "description": "Legacy field counts every queued item, including pending/failed scans."
+          }
+        }
+      },
+      "ImageModerationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "contentType": {
+            "const": "POST",
+            "title": "Contenttype",
+            "type": "string"
+          },
+          "contentVersion": {
+            "minimum": 1,
+            "title": "Contentversion",
+            "type": "integer"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Title"
+          },
+          "content": {
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "imageIndex": {
+            "maximum": 6,
+            "minimum": 0,
+            "title": "Imageindex",
+            "type": "integer"
+          },
+          "mimeType": {
+            "enum": [
+              "image/jpeg",
+              "image/png",
+              "image/webp",
+              "image/gif"
+            ],
+            "title": "Mimetype",
+            "type": "string"
+          },
+          "imageBase64": {
+            "maxLength": 13981016,
+            "minLength": 1,
+            "title": "Imagebase64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "jobId",
+          "contentType",
+          "contentVersion",
+          "content",
+          "imageIndex",
+          "mimeType",
+          "imageBase64"
+        ],
+        "title": "ImageModerationRequest",
+        "type": "object",
+        "description": "One server-uploaded post image (index 0–6) with the post text as untrusted context. Decoded size ≤10 MiB and the file header must match mimeType."
+      },
+      "ImageModerationResult": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "ALLOW",
+              "REVIEW"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "categories": {
+            "items": {
+              "enum": [
+                "SPAM",
+                "SCAM",
+                "HARASSMENT",
+                "ANIMAL_MEAT_PROMOTION",
+                "INGREDIENT_MISREPRESENTATION"
+              ],
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Categories",
+            "type": "array"
+          },
+          "observations": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Observations",
+            "type": "array"
+          },
+          "modelName": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Modelname",
+            "type": "string"
+          },
+          "policyVersion": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Policyversion",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reason",
+          "categories",
+          "observations",
+          "modelName",
+          "policyVersion"
+        ],
+        "title": "ImageModerationResult",
+        "type": "object",
+        "description": "REVIEW requires at least one category and one visible observation; ALLOW has no categories. At most five observations are returned. Real modelName and policyVersion are reported."
+      },
+      "ImageModerationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "success": {
+            "const": true,
+            "default": true,
+            "title": "Success",
+            "type": "boolean"
+          },
+          "message": {
+            "default": "Đã kiểm tra ảnh.",
+            "title": "Message",
+            "type": "string"
+          },
+          "data": {
+            "$ref": "#/components/schemas/ImageModerationResult"
+          },
+          "meta": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Meta",
+            "type": "object"
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "title": "ImageModerationResponse",
+        "type": "object"
+      },
+      "VideoCreate": {
+        "type": "object",
+        "required": [
+          "title",
+          "video_url"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "video_url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "HTTPS YouTube link (watch, youtu.be, shorts or embed, no playlist); saved as https://www.youtube.com/watch?v=<id>."
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Empty, a /uploads/posts/<name>.<jpg|jpeg|png|webp|gif> path from post-media upload (moderated as an image), or an https://img.youtube.com or https://i.ytimg.com /vi/<id>/ thumbnail (not moderated)."
+          },
+          "duration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "transcript": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "categoryId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "VideoUpdate": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255
+          },
+          "video_url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500,
+            "description": "HTTPS YouTube link (watch, youtu.be, shorts or embed, no playlist); saved as https://www.youtube.com/watch?v=<id>."
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Empty, a /uploads/posts/<name>.<jpg|jpeg|png|webp|gif> path from post-media upload (moderated as an image), or an https://img.youtube.com or https://i.ytimg.com /vi/<id>/ thumbnail (not moderated)."
+          },
+          "duration": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400
+          },
+          "transcript": {
+            "type": "string",
+            "maxLength": 100000
+          },
+          "categoryId": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "category_id": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "maximum": 9007199254740991
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "VideoReceipt": {
+        "type": "object",
+        "required": [
+          "video",
+          "jobId",
+          "moderationStatus"
+        ],
+        "properties": {
+          "video": {
+            "type": "object",
+            "required": [
+              "post_id",
+              "status",
+              "moderationVersion",
+              "video_url"
+            ],
+            "properties": {
+              "post_id": {
+                "type": "integer"
+              },
+              "status": {
+                "const": "PENDING_MODERATION"
+              },
+              "moderationVersion": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "video_url": {
+                "type": "string"
+              }
+            }
+          },
+          "jobId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "moderationStatus": {
+            "const": "PENDING"
           }
         }
       }

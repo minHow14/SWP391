@@ -3,12 +3,8 @@ import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { ApiError } from '../utils/apiError.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const UPLOAD_ROOT = path.resolve(__dirname, '../../uploads');
+import { UPLOAD_ROOT } from '../config/uploads.js';
 
 // Đảm bảo các thư mục upload tồn tại sẵn
 const subDirs = ['avatars', 'posts', 'temp', 'recognition'];

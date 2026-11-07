@@ -7,7 +7,7 @@ import { POST_STATUS, COMMENT_STATUS } from '../constants/status.js';
 
 const PUBLIC_SELECT = { id: true, postId: true, commentId: true, contentVersion: true, status: true,
   result: true, applied: true, errorCode: true, errorMessage: true, completedAt: true, createdAt: true, updatedAt: true };
-const INTERNAL_SELECT = { ...PUBLIC_SELECT, userId: true, title: true, content: true,
+const INTERNAL_SELECT = { ...PUBLIC_SELECT, userId: true, title: true, content: true, imageUrls: true,
   attempt: true, availableAt: true, leaseToken: true, leaseExpiresAt: true };
 
 export function moderationLeaseLost() {

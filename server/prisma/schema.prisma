@@ -528,6 +528,7 @@ model ContentModerationJob {
   contentVersion Int                        @map("content_version")
   title          String?                    @db.VarChar(255)
   content        String
+  imageUrls      String[]                   @default([]) @map("image_urls")
   status         ContentModerationJobStatus  @default(PENDING)
   attempt        Int                        @default(0)
   availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)

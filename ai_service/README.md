@@ -101,6 +101,7 @@ ai_service/
 │   ├── food_scanner.py        # Endpoint /api/food-scanner/analyze
 │   ├── video_recipe.py        # Endpoint /api/video-recipe-transcriptions & summaries
 │   ├── content_moderation.py  # Endpoint /api/v1/content-moderations
+│   ├── image_moderation.py    # Endpoint /api/v1/image-moderations (kiểm duyệt từng ảnh bài đăng)
 │   ├── ingredient_lookup.py   # Endpoint /api/ingredient-lookups
 │   ├── admin_actions.py       # Endpoint /api/admin/chatbot-cache/clear
 │   └── vision.py              # Endpoint dự thảo nhận diện nguyên liệu (chưa mount vào main.py)
@@ -120,6 +121,7 @@ ai_service/
 │   ├── food_scanner.md        # 5 lớp kiểm tra thành phần chay và chất phụ gia
 │   ├── video_recipe.md        # Khuôn mẫu bóc tách công thức nấu ăn từ phụ đề
 │   ├── content_moderation.md  # Tiêu chí kiểm duyệt văn bản (chặn thịt/cá, cho phép sườn chay)
+│   ├── image_moderation.md    # Tiêu chí kiểm duyệt ảnh (món mặn nhìn thấy, chữ lừa đảo trong ảnh)
 │   └── ingredient_lookup.md   # Nhận diện nguyên liệu, mô tả, gợi ý nấu chay và dinh dưỡng /100 g
 │
 ├── schemas/                   # Pydantic v2 Models kế thừa CamelModel
@@ -127,14 +129,16 @@ ai_service/
 │   ├── food_scanner.py        # Schema phân tích nhãn và món ăn
 │   ├── video_recipe.py        # Schema công thức và phụ đề video
 │   ├── content_moderation.py  # Schema kết quả kiểm duyệt văn bản
+│   ├── image_moderation.py    # Schema yêu cầu/kết quả kiểm duyệt ảnh
 │   └── ingredient_lookup.py   # Schema tra cứu nguyên liệu và dinh dưỡng /100 g
 │
 ├── services/                  # Xử lý logic trung gian, tiền/hậu xử lý dữ liệu
 │   ├── video_captions.py      # Bóc tách và làm sạch phụ đề tiếng Việt YouTube
 │   ├── video_recipe.py        # Điều phối tạo công thức từ phụ đề
-│   └── content_moderation.py  # Chuẩn bị dữ liệu kiểm duyệt nội dung
+│   ├── content_moderation.py  # Chuẩn bị dữ liệu kiểm duyệt nội dung
+│   └── image_moderation.py    # Gửi ảnh + ngữ cảnh văn bản tới DeepSeek, kiểm tra kết quả
 │
-├── tests/                     # 322 bài kiểm thử tự động với Pytest
+├── tests/                     # 355 bài kiểm thử tự động với Pytest
 ├── main.py                    # Entry point khởi tạo FastAPI, lifespan và exception handlers
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
 └── README.md                  # Tài liệu chi tiết phân hệ AI Service (File này)
@@ -150,6 +154,7 @@ Thay thế cho các event `@app.on_event("startup")` đã deprecated. Khởi t�
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     initialize_content_moderation()
+    initialize_image_moderation()
     initialize_ingredient_lookup()
     logger.info("AI Service started successfully.")
     yield
@@ -186,6 +191,7 @@ Toàn bộ các endpoint dưới đây đều yêu cầu header: `X-Internal-Api
 | `POST` | `/api/video-recipe-transcriptions/stream` | Lấy phụ đề tiếng Việt từ YouTube | `VideoCaptionRequest` | `text/event-stream` (SSE) |
 | `POST` | `/api/video-recipe-summaries` | Tổng hợp công thức nấu ăn từ phụ đề | `VideoRecipeSummaryRequest`| `VideoRecipeSummaryResponse` |
 | `POST` | `/api/v1/content-moderations` | Quét kiểm duyệt văn bản tự động | `ContentModerationRequest` | `ContentModerationResponse` |
+| `POST` | `/api/v1/image-moderations` | Kiểm duyệt một ảnh bài đăng (JPEG/PNG/WebP/GIF ≤10 MB) | `ImageModerationRequest` | `ImageModerationResponse` |
 | `POST` | `/api/ingredient-lookups` | Tra cứu chi tiết nguyên liệu chay kèm dinh dưỡng /100 g | `IngredientLookupRequest` | `IngredientLookupResponse` |
 | `POST` | `/api/admin/chatbot-cache/clear` | Xóa bộ nhớ đệm câu trả lời của Chatbot | Không | `CacheClearResponse` |
 
@@ -239,7 +245,8 @@ Tất cả các prompt hệ thống được viết dưới dạng tệp Markdow
    - *Lớp 4:* Ngũ vị tân (Hành, tỏi, kiệu, hẹ, nén đối với phái ăn chay Phật giáo).
    - *Lớp 5:* Thành phần gây dị ứng cá nhân đã lưu trong hồ sơ.
 4. **`content_moderation.md`:** Chính sách cộng đồng: Cho phép thảo luận về thực phẩm chay giả mặn (sườn non chay, cá chay làm từ đậu nành, trứng/sữa nếu theo hệ Ovo/Lacto); chặn các hành vi quảng cáo thịt thật, ngôn từ thù địch, spam đường dẫn độc hại.
-5. **`ingredient_lookup.md`:** Nhận diện nguyên liệu thật, mô tả và gợi ý nấu thuần thực vật; ước lượng dinh dưỡng trung bình trên 100 g phần ăn được ở dạng sống (kcal, đạm, béo, carb), trả `null` khi không có giá trị điển hình đáng tin (sản phẩm theo hãng, rượu đường, nhận diện không chắc).
+5. **`image_moderation.md`:** Áp cùng 5 phân loại cho ảnh: món có thịt/cá/hải sản nhìn thấy được, chữ trong ảnh có dấu hiệu lừa đảo/quảng cáo/lăng mạ; cho phép đồ chay giả mặn khi văn bản nêu rõ là chay; coi chữ trong ảnh là dữ liệu, không nhận diện danh tính người.
+6. **`ingredient_lookup.md`:** Nhận diện nguyên liệu thật, mô tả và gợi ý nấu thuần thực vật; ước lượng dinh dưỡng trung bình trên 100 g phần ăn được ở dạng sống (kcal, đạm, béo, carb), trả `null` khi không có giá trị điển hình đáng tin (sản phẩm theo hãng, rượu đường, nhận diện không chắc).
 
 ---
 
@@ -269,6 +276,7 @@ Tất cả các prompt hệ thống được viết dưới dạng tệp Markdow
 ### 5. Kiểm Duyệt Nội Dung Văn Bản Tự Động (Content Moderation):
 - Tiếp nhận tiêu đề và nội dung bài viết/bình luận từ Backend Worker.
 - Đánh giá theo tiêu chuẩn cộng đồng Chay Xanh và trả về phán quyết: `ALLOW` (Cho phép) hoặc `REVIEW` (Cần quản trị viên kiểm tra lại) kèm lý do và trích dẫn bằng chứng cụ thể.
+- Endpoint ảnh nhận từng ảnh tải lên (base64, kiểm tra chữ ký file) kèm văn bản bài làm ngữ cảnh, trả `ALLOW`/`REVIEW` với `categories` và tối đa 5 `observations` mô tả điều nhìn thấy. Backend gộp kết quả văn bản và các ảnh; chi tiết tại [`docs/CONTENT_MODERATION.md`](../docs/CONTENT_MODERATION.md).
 
 ### 6. Tra Cứu Nguyên Liệu & Dinh Dưỡng (Ingredient Lookup):
 - Tiếp nhận tên nguyên liệu từ Backend Worker; không nhận ảnh và không đọc database.
@@ -295,7 +303,7 @@ File mẫu cấu hình nằm tại `ai_service/.env.example`.
 | `DEEPSEEK_API_KEY` | Có | `sk-xxxxxxxxxxxxxxxx` | Khóa API truy cập mô hình ngôn ngữ lớn DeepSeek. |
 | `DEEPSEEK_MODEL` | Không | `deepseek-chat` | Tên mô hình ngôn ngữ mặc định sử dụng. |
 | `DEEPSEEK_FALLBACK_MODEL`| Không | `deepseek-v4-pro` | Mô hình dự phòng khi mô hình chính gặp sự cố. |
-| `CONTENT_MODERATION_TIMEOUT_SECONDS` | Không | `20` | Thời gian chờ tối đa cho tác vụ kiểm duyệt văn bản (giây). |
+| `CONTENT_MODERATION_TIMEOUT_SECONDS` | Không | `20` | Thời gian chờ tối đa cho mỗi lần kiểm duyệt văn bản hoặc một ảnh (giây). |
 | `VIDEO_CAPTIONS_TIMEOUT_SECONDS` | Không | `30` | Thời gian chờ tối đa khi lấy phụ đề từ YouTube (giây). |
 | `VIDEO_SUMMARY_TIMEOUT_SECONDS` | Không | `120` | Thời gian chờ tối đa khi gọi LLM tạo công thức video (giây). |
 | `DEBUG` | Không | `False` | Bật/tắt chế độ debug của ứng dụng FastAPI. |
@@ -347,7 +355,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 | Lệnh thực thi | Mục đích |
 | :--- | :--- |
 | `python -m uvicorn main:app --reload` | Khởi chạy máy chủ FastAPI chế độ phát triển tự động tải lại code. |
-| `pytest` | Chạy toàn bộ 322 bài kiểm thử tự động với Pytest. |
+| `pytest` | Chạy toàn bộ 355 bài kiểm thử tự động với Pytest. |
 | `pytest -q` | Chạy kiểm thử chế độ rút gọn (Quiet mode). |
 | `ruff check .` | Quét kiểm tra toàn bộ mã nguồn Python theo chuẩn PEP 8. |
 | `ruff format .` | Tự động định dạng mã nguồn theo chuẩn PEP 8. |
@@ -356,7 +364,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 ## 15. Chiến lược kiểm thử tự động (Testing với Pytest)
 
-Bộ kiểm thử của AI Service bao gồm **322 bài test tự động**, được tổ chức tại thư mục `tests/`:
+Bộ kiểm thử của AI Service bao gồm **355 bài test tự động**, được tổ chức tại thư mục `tests/`:
 
 - **Nguyên tắc kiểm thử an toàn:** Toàn bộ các bài test đều sử dụng fixture để giả lập phản hồi của LLM Provider (Mocking). **Tuyệt đối không gọi API DeepSeek thật trong quá trình chạy test** nhằm tránh phát sinh chi phí và đảm bảo tốc độ chạy nhanh.
 - **Thực thi kiểm thử:**
