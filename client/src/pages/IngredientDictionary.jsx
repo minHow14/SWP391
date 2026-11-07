@@ -194,6 +194,12 @@ export default function IngredientDictionary() {
                                           <span>{detail.carbs.toFixed(1)} g</span>
                                       </div>
                                   )}
+                                  {detail.fiber !== null && detail.fiber !== undefined && (
+                                      <div className="cx-nutrition-item">
+                                          <strong>Chất Xơ:</strong>{' '}
+                                          <span>{detail.fiber.toFixed(1)} g</span>
+                                      </div>
+                                  )}
                               </div>
                               <p className="cx-nutrition-disclaimer">
                                   ℹ️ <em>Các thống kê dinh dưỡng là giá trị trung bình trên 100 gram. Giá trị thực tế có thể khác tùy thuộc vào nguồn gốc và chất lượng của nguyên liệu.</em>

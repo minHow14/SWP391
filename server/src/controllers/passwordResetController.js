@@ -2,10 +2,15 @@
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { passwordResetService } from '../services/passwordResetService.js';
+import { passwordResetOtpService } from '../services/passwordResetOtpService.js';
 
 export const forgotPassword = asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'no-store');
   return sendSuccess(res, await passwordResetService.requestReset(req.body));
+});
+export const verifyPasswordResetOtp = asyncHandler(async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  return sendSuccess(res, await passwordResetOtpService.verifyOtp(req.body));
 });
 export const resetPassword = asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'no-store');

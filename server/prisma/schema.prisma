@@ -35,12 +35,29 @@ model User {
   videoRecipeSummaryJobs VideoRecipeSummaryJob[]
   videoRecipeSummaries VideoRecipeSummary[]
   passwordResetTokens PasswordResetToken[]
+  passwordResetOtp PasswordResetOtp?
 
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
 }
 
+
+model PasswordResetOtp {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       Int       @unique(map: "uq_password_reset_otps_user") @map("user_id")
+  otpHash      String    @map("otp_hash") @db.VarChar(64)
+  tokenVersion Int       @map("token_version")
+  attempts     Int       @default(0)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  lastSentAt   DateTime  @map("last_sent_at") @db.Timestamptz(6)
+  consumedAt   DateTime? @map("consumed_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  user         User      @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@map("password_reset_otps")
+}
 
 model PasswordResetToken {
   id           String    @id @default(uuid()) @db.Uuid
@@ -369,6 +386,7 @@ model Ingredient {
   protein            Float?             @default(0) @db.Real
   fat                Float?             @default(0) @db.Real
   carbs              Float?             @default(0) @db.Real
+  fiber              Float?             @default(0) @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
 

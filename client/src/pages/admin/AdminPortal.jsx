@@ -27,6 +27,7 @@ const VALID_TABS = [
   'ai-management',
   'reports',
 ];
+const VALID_TABS = ['dashboard', 'members', 'posts', 'comments', 'categories', 'ai-moderation', 'ai-monitor', 'ai-management', 'reports'];
 
 export default function AdminPortal() {
   const { user } = useDatabase();
@@ -101,6 +102,18 @@ export default function AdminPortal() {
       </Container>
     );
   }
+
+  const navItems = [
+    { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
+    { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
+    { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
+    { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
+    { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
+    { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
+    { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
+    { key: 'ai-management', label: 'Quản trị AI', icon: 'bi-speedometer2' },
+    { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
+  ];
 
   return (
     <div className="admin-portal-shell py-2.5">
