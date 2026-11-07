@@ -399,6 +399,7 @@ model Ingredient {
   protein            Float?             @default(0) @db.Real
   fat                Float?             @default(0) @db.Real
   carbs              Float?             @default(0) @db.Real
+  fiber              Float?             @default(0) @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
 
