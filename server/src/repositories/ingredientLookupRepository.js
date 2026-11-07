@@ -4,7 +4,18 @@ import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { INGREDIENT_LOOKUP_RECOVERY_BATCH } from '../constants/ingredientLookup.js';
 
-const INGREDIENT_SELECT = { ingredient_id: true, name: true, details: true };
+const NUTRITION_SELECT = { calories_per_100g: true, protein: true, fat: true, carbs: true };
+const INGREDIENT_SELECT = { ingredient_id: true, name: true, details: true, ...NUTRITION_SELECT };
+const NUTRITION_COLUMNS = Object.freeze({ calories: 'calories_per_100g', protein: 'protein', fat: 'fat', carbs: 'carbs' });
+const MISSING_NUTRITION = Object.values(NUTRITION_COLUMNS).map((column) => ({ [column]: null }));
+
+/** Maps AI values onto empty columns only, so seeded or admin-entered figures are never overwritten. */
+function missingNutritionData(ingredient, nutrition) {
+  if (!nutrition) return {};
+  return Object.fromEntries(Object.entries(NUTRITION_COLUMNS)
+    .filter(([, column]) => ingredient[column] === null)
+    .map(([field, column]) => [column, nutrition[field]]));
+}
 const PUBLIC_SELECT = { id: true, status: true, errorCode: true, errorMessage: true,
   createdAt: true, updatedAt: true, completedAt: true, ingredient: { select: INGREDIENT_SELECT } };
 const INTERNAL_SELECT = { ...PUBLIC_SELECT, ingredientName: true, ownerKey: true, activeKey: true,
@@ -33,15 +44,29 @@ export const ingredientLookupRepository = {
     await this.lockIngredient(job.ingredientName, db);
     const existing = await this.findIngredient(job.ingredientName, db);
     if (existing?.details) return existing;
+    const { nutritionPer100g, ...details } = result;
     const ingredient = existing || await db.ingredient.create({ data: { name: job.ingredientName,
       calories_per_100g: null, protein: null, fat: null, carbs: null }, select: INGREDIENT_SELECT });
+    await this.fillMissingNutrition({ ingredient, nutrition: nutritionPer100g }, db);
     const imageUrl = job.sourcePhoto ? `/api/workspace/ingredients/${ingredient.ingredient_id}/image` : null;
-    await db.ingredientDetails.create({ data: { ingredient_id: ingredient.ingredient_id, ...result, image_url: imageUrl },
+    await db.ingredientDetails.create({ data: { ingredient_id: ingredient.ingredient_id, ...details, image_url: imageUrl },
       select: { ingredient_id: true } });
     if (job.sourcePhoto) await db.ingredientImage.upsert({ where: { ingredient_id: ingredient.ingredient_id },
       create: { ingredient_id: ingredient.ingredient_id, mime_type: job.sourceMimeType, image_data: job.sourcePhoto },
       update: { mime_type: job.sourceMimeType, image_data: job.sourcePhoto }, select: { ingredient_id: true } });
     return this.findIngredient(job.ingredientName, db);
+  },
+  async fillMissingNutrition({ ingredient, nutrition }, db = prisma) {
+    const data = missingNutritionData(ingredient, nutrition);
+    if (!Object.keys(data).length) return 0;
+    // Re-checking the empty columns guards against a concurrent manual entry between read and write.
+    const updated = await db.ingredient.updateMany({ where: { ingredient_id: ingredient.ingredient_id,
+      AND: Object.keys(data).map((column) => ({ [column]: null })) }, data });
+    return updated.count;
+  },
+  findMissingNutrition(db = prisma) {
+    return db.ingredient.findMany({ where: { details: { isNot: null }, OR: MISSING_NUTRITION },
+      orderBy: { ingredient_id: 'asc' }, select: { ingredient_id: true, name: true, ...NUTRITION_SELECT } });
   },
   async updateLeased({ job, data }, db = prisma) {
     const updated = await db.ingredientLookupJob.updateMany({

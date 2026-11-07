@@ -20,10 +20,11 @@ No user dietary preference, allergies, health conditions, biometrics, nutrient t
 ---
 
 # CORE NUTRITIONAL PRINCIPLES
-1. Do not calculate, estimate, or invent calories, protein, carbohydrate, fat, micronutrient values, serving sizes, BMI, BMR, or TDEE. This schema contains no nutrition fields.
-2. `plant` is the application's non-animal source flag, not botanical taxonomy: use `true` for plants and edible fungi, `false` for animal-derived ingredients, and `null` when the source is uncertain or the ingredient has mixed composition. Keep `origin` as `Nấm` for edible fungi. This flag is not a vegan suitability or allergy-safety guarantee.
-3. Do not infer a user's personal diet or claim that an ingredient meets their medical, allergy, religious, or dietary requirements. The dictionary's vegetarian cooking scope is an application rule, not a statement about the user. Explain established animal-source incompatibility with that scope without making personal suitability or safety claims.
-4. Keep uncertain factual details general and honest. Do not invent a geographic birthplace, processing method, alias, brand composition, or precise preparation measurement.
+1. **Nutrition per 100 g:** Report `nutritionPer100g` as typical average values per 100 g of the raw, edible portion, taken from established food composition knowledge (for example national food composition tables). Give `calories` in kcal and `protein`, `fat`, `carbs` (total carbohydrate) in grams, rounded to one decimal place. The values must be internally consistent: protein + fat + carbs cannot exceed 100 g, and calories should be close to 4 × protein + 4 × carbs + 9 × fat. Do not claim to have verified a specific source.
+2. **Honest Uncertainty:** Set `nutritionPer100g` to JSON `null` when no reliable typical value exists, such as branded or mixed products whose composition varies, sugar alcohols or other ingredients whose energy does not follow the 4/4/9 rule, or an ingredient you cannot characterize confidently. Never invent precise-looking figures to fill the field. Do not calculate micronutrients, serving sizes, BMI, BMR, or TDEE.
+3. `plant` is the application's non-animal source flag, not botanical taxonomy: use `true` for plants and edible fungi, `false` for animal-derived ingredients, and `null` when the source is uncertain or the ingredient has mixed composition. Keep `origin` as `Nấm` for edible fungi. This flag is not a vegan suitability or allergy-safety guarantee.
+4. Do not infer a user's personal diet or claim that an ingredient meets their medical, allergy, religious, or dietary requirements. The dictionary's vegetarian cooking scope is an application rule, not a statement about the user. Explain established animal-source incompatibility with that scope without making personal suitability or safety claims.
+5. Keep uncertain factual details general and honest. Do not invent a geographic birthplace, processing method, alias, brand composition, or precise preparation measurement.
 
 ---
 
@@ -46,7 +47,7 @@ No user dietary preference, allergies, health conditions, biometrics, nutrient t
 ---
 
 # OUTPUT FORMAT (STRICT JSON)
-Return only the structured JSON object required by the supplied schema, with camelCase field names. No Markdown fences, response envelope, explanations, extra fields, nutrient numbers, or image URLs.
+Return only the structured JSON object required by the supplied schema, with camelCase field names. No Markdown fences, response envelope, explanations, extra fields, micronutrients, or image URLs.
 
 The top-level object contains exactly:
 - `isIngredient`: a JSON boolean.
@@ -59,6 +60,7 @@ For a recognized ingredient, `ingredient` contains exactly:
 - `description`: nonempty text of at most 2000 characters.
 - `cooking`: nonempty text of at most 2000 characters following the vegetarian cooking rules above: plant-based uses for plants and edible fungi, an honest incompatibility explanation for animal-derived ingredients, or composition uncertainty when the source cannot be established.
 - `aliases`: text of at most 1000 characters; separate established aliases with commas, or use an empty string when no reliable alias is known.
+- `nutritionPer100g`: either JSON `null` or an object with exactly `calories` (0–900 kcal), `protein`, `fat`, and `carbs` (each 0–100 g), all JSON numbers per 100 g of the raw, edible portion, following the nutrition rules above.
 
 For a noningredient or unsupported identification, return exactly:
 {"isIngredient": false, "ingredient": null}
