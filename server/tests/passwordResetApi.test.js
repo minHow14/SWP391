@@ -40,6 +40,7 @@ beforeEach(async () => {
   vi.stubEnv('SMTP_USER', 'smtp-account'); vi.stubEnv('SMTP_PASS', 'smtp-secret');
   vi.stubEnv('SMTP_FROM', 'support@example.invalid'); vi.stubEnv('CLIENT_URL', 'http://localhost:5173');
   vi.stubEnv('PASSWORD_RESET_TTL_MINUTES', '15');
+  await prisma.passwordResetOtp.deleteMany({ where: { userId: user.user_id } });
   await prisma.passwordResetToken.deleteMany({ where: { userId: user.user_id } });
   await prisma.user.update({ where: { user_id: user.user_id }, data: { password_hash: originalHash, tokenVersion: 0, status: 'ACTIVE', deleted_at: null } });
   transport.verify.mockResolvedValue(true);
@@ -53,19 +54,17 @@ afterAll(async () => {
 });
 
 describe('password recovery HTTP and database contract', () => {
-  it('keeps known/unknown responses identical and stores only the hash of the emailed token', async () => {
+  it('keeps known/unknown responses identical and issues an OTP instead of emailing reset permission', async () => {
     const known = await forgot(user.email.toUpperCase());
     const unknown = await forgot(`unknown-${randomUUID()}@example.invalid`);
     expect(known.status).toBe(200); expect(unknown.body).toEqual(known.body);
-    expect(known.body).toMatchObject({ success: true, data: {} });
+    expect(known.body).toMatchObject({ success: true, data: { expiresInSeconds: 300, resendAfterSeconds: 60 } });
     expect(transport.sendMail).toHaveBeenCalledOnce();
     const emailText = transport.sendMail.mock.calls[0][0].text;
-    const rawToken = /#token=([a-f0-9]{64})/.exec(emailText)[1];
-    const stored = await prisma.passwordResetToken.findMany({ where: { userId: user.user_id } });
-    expect(stored).toHaveLength(1);
-    expect(stored[0].tokenHash).toBe(digest(rawToken));
-    expect(JSON.stringify(stored)).not.toContain(rawToken);
-    expect(JSON.stringify(known.body)).not.toContain(rawToken);
+    const otp = /Mã xác minh:\s*(\d{6})/.exec(emailText)[1];
+    expect(emailText).not.toContain('#token=');
+    expect(JSON.stringify(known.body)).not.toContain(otp);
+    expect(await prisma.passwordResetToken.count({ where: { userId: user.user_id } })).toBe(0);
     expect(known.headers['cache-control']).toBe('no-store');
   });
   it.each(['LOCKED', 'DELETED'])('does not issue recovery tokens for a %s account', async (status) => {

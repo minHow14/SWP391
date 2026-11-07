@@ -11,7 +11,6 @@ import { hashPassword } from '../src/utils/jwt.js';
 import apiClient from '../../client/src/services/apiClient.js';
 import { authService } from '../../client/src/services/authService.js';
 import { getSession, setSession } from '../../client/src/utils/session.js';
-import { getPasswordResetToken } from '../../client/src/features/auth/utils/authValidation.js';
 
 vi.mock('nodemailer', () => ({ default: { createTransport: vi.fn() } }));
 const transport = { verify: vi.fn().mockResolvedValue(true), sendMail: vi.fn() };
@@ -69,15 +68,15 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('completes client recovery over HTTP, rejects link reuse and revokes the old access and refresh tokens', async () => {
+it('completes OTP recovery over HTTP, rejects token reuse and revokes the old access and refresh tokens', async () => {
   const [account] = accounts;
   await login(account);
   const requested = await authService.forgotPassword({ email: account.email });
   expect(requested.success).toBe(true);
   const mail = transport.sendMail.mock.calls.at(-1)[0];
-  const resetUrl = new URL(mail.text.match(/http:\/\/localhost:5173\/dat-lai-mat-khau#token=[a-f0-9]{64}/)[0]);
-  const token = getPasswordResetToken(resetUrl.hash);
-  expect(resetUrl.search).toBe('');
+  const otp = /Mã xác minh:\s*(\d{6})/.exec(mail.text)[1];
+  const verified = await authService.verifyPasswordResetOtp({ email: account.email, otp });
+  const token = verified.data.token;
   expect(token).toHaveLength(64);
   expect((await authService.resetPassword({ token, newPassword: UPDATED_PASSWORD })).success).toBe(true);
   await expect(authService.resetPassword({ token, newPassword: UPDATED_PASSWORD })).rejects.toMatchObject({ status: 400, code: 'PASSWORD_RESET_TOKEN_INVALID' });
