@@ -77,7 +77,8 @@ def _validated_result(
     )
 
 
-def _failure(code: str, status: int = 503) -> HTTPException:
+def moderation_failure(code: str, status: int = 503) -> HTTPException:
+    """Build the sanitized moderation error shared by the text and image endpoints."""
     return HTTPException(
         status_code=status,
         detail={
@@ -90,18 +91,18 @@ def _failure(code: str, status: int = 503) -> HTTPException:
 async def moderate_content(body: ContentModerationRequest) -> ContentModerationResult:
     """Classify submitted text with bounded real inference and grounded evidence only."""
     if not settings.DEEPSEEK_API_KEY:
-        raise _failure("MODERATION_AI_NOT_READY")
+        raise moderation_failure("MODERATION_AI_NOT_READY")
     try:
         model, configured_model = _moderation_model()
         async with asyncio.timeout(settings.CONTENT_MODERATION_TIMEOUT_SECONDS):
             packet = await model.ainvoke(_messages(body))
         return _validated_result(packet, body, configured_model)
     except TimeoutError as failure:
-        raise _failure("MODERATION_AI_TIMEOUT") from failure
+        raise moderation_failure("MODERATION_AI_TIMEOUT") from failure
     except (ValidationError, ValueError, TypeError, AttributeError) as failure:
-        raise _failure("MODERATION_AI_INVALID_OUTPUT", 502) from failure
+        raise moderation_failure("MODERATION_AI_INVALID_OUTPUT", 502) from failure
     except Exception as failure:
         logger.warning(
             "Content moderation unavailable exceptionType=%s", type(failure).__name__
         )
-        raise _failure("MODERATION_AI_UNAVAILABLE") from failure
+        raise moderation_failure("MODERATION_AI_UNAVAILABLE") from failure
