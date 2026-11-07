@@ -57,7 +57,7 @@ Hệ thống phân định rõ ràng các tính năng theo vai trò và trạng 
 | **Lập thực đơn AI 7 ngày** | Thành viên | `Implemented` | Tính TDEE/BMI, sinh thực đơn theo thể trạng, dị ứng, mục tiêu; hỗ trợ áp dụng vào lịch tuần. |
 | **Quét nhãn & Kiểm tra món (Scanner)** | Khách / Member | `Implemented` | Nhận diện ảnh món ăn / nhãn thành phần qua AI Vision, kiểm tra quy tắc chay 5 lớp. |
 | **Trích xuất công thức từ YouTube** | Thành viên | `Implemented` | Gửi link YouTube tiếng Việt (≤11 phút), worker trích xuất phụ đề và tóm tắt công thức. |
-| **Đăng bài cộng đồng, bình chọn, bình luận**| Thành viên | `Implemented` | Đăng bài kèm ảnh/video, upvote/downvote, bình luận trao đổi; tự động gửi qua hàng đợi duyệt. |
+| **Đăng bài cộng đồng, bình chọn, bình luận**| Thành viên | `Implemented` | Đăng bài kèm ảnh/video, upvote/downvote, bình luận trao đổi; AI tự kiểm duyệt cả chữ lẫn ảnh tải lên qua hàng đợi. Đính kèm chỉ nhận file đã upload, video chỉ nhận link YouTube. |
 | **Nhật ký dinh dưỡng & Cân nặng** | Thành viên | `Implemented` | Ghi nhận bữa ăn theo ngày, tính tổng calo và vĩ chất; biểu đồ theo dõi cân nặng. |
 | **Quản trị Dashboard & Thành viên** | Admin (Role 1) | `Implemented` | Thống kê số liệu, khóa/mở khóa/xóa tài khoản, khôi phục tài khoản với metadata bảo toàn. |
 | **Quản trị Nội dung & Kiểm duyệt** | Admin (Role 1) | `Implemented` | Quản lý bài viết, video, bình luận, danh mục món ăn; xử lý vi phạm báo cáo từ người dùng. |
@@ -129,7 +129,7 @@ flowchart TD
 
     subgraph AILayer ["3. AI Microservice (ai_service/ - Port 8000)"]
         FastAPI["FastAPI 0.159 (Stateless Engine)<br/>Header: X-Internal-Api-Key"]
-        Agents["Chatbot, MealPlanner, FoodScanner,<br/>VideoRecipe, ContentModeration"]
+        Agents["Chatbot, MealPlanner, FoodScanner,<br/>VideoRecipe, ContentModeration, ImageModeration"]
         FastAPI --> Agents
     end
 
@@ -194,7 +194,7 @@ SWP391/
 │   │   ├── services/           # Logic nghiệp vụ lõi, điều phối transaction, gọi AI Service
 │   │   ├── utils/              # Tiện ích API response, JWT, phân tích SSE, lỗi chuẩn hóa
 │   │   ├── validators/         # Toàn bộ Zod Schema kiểm thực dữ liệu đầu vào
-│   │   ├── workers/            # Worker chạy nền (kiểm duyệt văn bản, tóm tắt video)
+│   │   ├── workers/            # Worker chạy nền (kiểm duyệt văn bản & ảnh, tóm tắt video)
 │   │   ├── app.js              # Cấu hình Express, middleware toàn cục
 │   │   └── server.js           # Entry point khởi động HTTP server và graceful shutdown
 │   ├── tests/                  # Bộ kiểm thử Vitest + Supertest trên DB test riêng
@@ -230,6 +230,8 @@ SWP391/
   - *Bao gồm: Kiến trúc phân tầng (Controller-Service-Repository), Vòng đời Request, Bảng đối chiếu API đầy đủ, Mô hình Prisma Database, Worker chạy nền, Cơ chế Token Versioning.*
 - 🧠 **Tài liệu AI Service:** Xem chi tiết tại [`ai_service/README.md`](./ai_service/README.md)
   - *Bao gồm: FastAPI Lifespan, Pydantic v2 CamelModel, Cấu trúc Prompt Engineering, Luồng Streaming SSE, Quy trình xử lý ảnh và phụ đề YouTube.*
+- 🛡️ **Kiểm duyệt nội dung & ảnh:** Xem [`docs/CONTENT_MODERATION.md`](./docs/CONTENT_MODERATION.md) và hợp đồng API [`docs/content-moderation-openapi.json`](./docs/content-moderation-openapi.json)
+  - *Bao gồm: Chính sách văn bản/ảnh, quy tắc đường dẫn media, luồng worker, định dạng kết quả `imageFindings`, việc cần làm ở Frontend.*
 
 ---
 
@@ -328,7 +330,7 @@ Hệ thống phân tách cấu hình độc lập cho từng dịch vụ:
 | **Backend** | `JWT_SECRET` | Có | Khóa bí mật ký mã hóa JWT Access Token (chuỗi ngẫu nhiên dài). |
 | **Backend** | `INTERNAL_API_KEY` | Có | Khóa bảo mật nội bộ giao tiếp với AI (phải trùng với `ai_service/.env`). |
 | **Backend** | `AI_SERVICE_URL` | Có | Địa chỉ nội bộ gọi sang AI Microservice (`http://127.0.0.1:8000`). |
-| **Backend** | `CONTENT_MODERATION_ENABLED` | Không | Bật (`true`) / Tắt (`false`) tính năng quét kiểm duyệt bài viết tự động. |
+| **Backend** | `CONTENT_MODERATION_ENABLED` | Không | Bật (`true`) / Tắt (`false`) tính năng quét kiểm duyệt chữ và ảnh tải lên của bài viết, video, bình luận. |
 | **Backend** | `ZIOMAP_API_KEY` | Tùy chọn| Khóa gọi API bản đồ và giải mã ảnh quán chay ZIOMAP. |
 | **Backend** | `SMTP_*` | Tùy chọn| Cấu hình máy chủ gửi email khôi phục mật khẩu (Host, Port, User, Pass). |
 | **AI Service**| `INTERNAL_API_KEY` | Có | Khóa đối chiếu từ Backend truyền qua header `X-Internal-Api-Key`. |
@@ -394,7 +396,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 ### Backend (`server/package.json`)
 - `npm run dev`: Khởi động Express Server chế độ dev kèm nodemon và workers tích hợp.
 - `npm start`: Khởi động Express Server ở chế độ production.
-- `npm test`: Chạy toàn bộ 58 test suite tự động với Vitest trên database test riêng (`_test`).
+- `npm test`: Chạy toàn bộ 61 test file (536 test) tự động với Vitest trên database test riêng (`_test`).
 - `npm run test:prepare`: Chuẩn bị cơ sở dữ liệu test (áp dụng migration và seed dữ liệu chuẩn).
 - `npm run test:content-moderation`: Kiểm thử chuyên sâu luồng kiểm duyệt nội dung tự động.
 - `npm run test:video-recipes`: Kiểm thử pipeline trích xuất công thức từ video YouTube.
@@ -422,7 +424,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 
 ## 14. Tổng hợp chiến lược kiểm thử (Testing Overview)
 
-Hệ thống sở hữu hơn **1.140 bài test tự động** bao phủ toàn bộ các tầng:
+Hệ thống sở hữu **1.226 bài test tự động** (server 536, AI 339, client 351) bao phủ toàn bộ các tầng:
 
 ```powershell
 # 1. Kiểm thử Backend trên cơ sở dữ liệu riêng (server/)
@@ -476,6 +478,9 @@ cd ../ai_service
 5. **Worker kiểm duyệt hoặc Video không tự động chạy:**
    - *Nguyên nhân:* Chưa bật cờ `CONTENT_MODERATION_ENABLED=true` trong `server/.env` hoặc sai đường dẫn `YT_DLP_PATH`.
    - *Khắc phục:* Kiểm tra cấu hình và khởi động lại Backend API.
+6. **Đăng bài bị `400` vì đường dẫn ảnh/video, hoặc bài có ảnh luôn kiểm duyệt `FAILED`:**
+   - *Nguyên nhân:* Đính kèm không phải file upload qua `POST /api/v1/upload/post-media`, link video không phải YouTube; hoặc AI Service đang chạy bản cũ chưa có `/api/v1/image-moderations`.
+   - *Khắc phục:* Upload file trước rồi gửi `url` được trả về, dùng link YouTube; khởi động lại AI Service. Chi tiết tại [`docs/CONTENT_MODERATION.md`](./docs/CONTENT_MODERATION.md#xử-lý-sự-cố).
 
 ---
 

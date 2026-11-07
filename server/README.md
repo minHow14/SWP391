@@ -173,7 +173,7 @@ server/
 │   │   └── videoRecipeSummaryValidator.js
 │   │
 │   ├── workers/               # Worker xử lý tác vụ nền bất đồng bộ
-│   │   ├── contentModerationWorker.js # Worker quét kiểm duyệt văn bản bằng AI
+│   │   ├── contentModerationWorker.js # Worker quét kiểm duyệt văn bản & ảnh tải lên bằng AI
 │   │   └── videoRecipeSummaryWorker.js # Worker trích xuất công thức từ video YouTube
 │   │
 │   ├── utils/                 # Tiện ích bổ trợ
@@ -451,11 +451,11 @@ npm run db:seed
 | `GET` | `/api/v1/blogs` | Lấy danh sách bài viết blog chia sẻ | Không | Public |
 | `GET` | `/api/v1/blogs/:id` | Xem chi tiết bài viết blog | Tùy chọn| Public |
 | `POST` | `/api/v1/blogs` | Đăng bài viết blog mới (gửi qua hàng đợi kiểm duyệt)| Có | Member |
-| `PUT` | `/api/v1/blogs/:id` | Cập nhật bài viết blog của bản thân | Có | Tác giả |
+| `PUT` | `/api/v1/blogs/:id` | Cập nhật bài viết blog của bản thân (đổi chữ hoặc bộ ảnh sẽ kiểm duyệt lại) | Có | Tác giả |
 | `DELETE`| `/api/v1/blogs/:id` | Xóa mềm bài viết blog | Có | Tác giả |
 | `GET` | `/api/v1/videos` | Lấy danh sách video nấu ăn | Không | Public |
 | `GET` | `/api/v1/videos/:id` | Xem chi tiết video nấu ăn | Không | Public |
-| `POST` | `/api/v1/videos` | Đăng video nấu ăn mới | Có | Member |
+| `POST` | `/api/v1/videos` | Đăng video nấu ăn mới (chỉ link YouTube; gửi qua hàng đợi kiểm duyệt) | Có | Member |
 | `GET` | `/api/v1/comments/post/:postId` | Lấy danh sách bình luận của bài viết | Không | Public |
 | `POST` | `/api/v1/comments/post/:postId` | Thêm bình luận mới vào bài viết | Có | Member |
 | `POST` | `/api/v1/votes/post/:postId` | Bình chọn Upvote hoặc Downvote cho bài viết | Có | Member |
@@ -542,7 +542,7 @@ File mẫu: `server/.env.example`.
 | `AI_SERVICE_URL`| Có | `http://127.0.0.1:8000` | Địa chỉ nội bộ kết nối tới AI Microservice. |
 | `INTERNAL_API_KEY`| Có | Chuỗi ngẫu nhiên $\ge 32$ ký tự | Khóa xác thực nội bộ truyền qua header `X-Internal-Api-Key`. |
 | `AI_TIMEOUT_MS` | Không | `180000` | Thời gian chờ tối đa khi Backend gọi tính toán AI (180 giây). |
-| `CONTENT_MODERATION_ENABLED` | Không | `false` | Bật (`true`) hoặc tắt (`false`) tác vụ worker quét kiểm duyệt tự động. |
+| `CONTENT_MODERATION_ENABLED` | Không | `false` | Bật (`true`) hoặc tắt (`false`) tác vụ worker quét kiểm duyệt chữ và ảnh tải lên tự động. |
 | `ZIOMAP_API_KEY`| Tùy chọn| Chuỗi khóa ZIOMAP | Khóa API tìm kiếm quán ăn và ảnh ZIOMAP. |
 | `YT_DLP_PATH` | Không | `yt-dlp` | Đường dẫn tới executable yt-dlp (có thể dùng đường dẫn trong `ai_service/venv`). |
 | `SMTP_HOST` | Tùy chọn| `smtp.gmail.com` | Máy chủ gửi thư SMTP. |
