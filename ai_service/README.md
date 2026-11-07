@@ -101,7 +101,7 @@ ai_service/
 │   ├── food_scanner.py        # Endpoint /api/food-scanner/analyze
 │   ├── video_recipe.py        # Endpoint /api/video-recipe-transcriptions & summaries
 │   ├── content_moderation.py  # Endpoint /api/v1/content-moderations
-│   ├── ingredient_lookup.py   # Endpoint /api/ingredient-lookup
+│   ├── ingredient_lookup.py   # Endpoint /api/ingredient-lookups
 │   ├── admin_actions.py       # Endpoint /api/admin/chatbot-cache/clear
 │   └── vision.py              # Endpoint dự thảo nhận diện nguyên liệu (chưa mount vào main.py)
 │
@@ -119,21 +119,22 @@ ai_service/
 │   ├── meal_planner.md        # Quy tắc cân đối calo, tỷ lệ đạm/béo/đường theo ngày
 │   ├── food_scanner.md        # 5 lớp kiểm tra thành phần chay và chất phụ gia
 │   ├── video_recipe.md        # Khuôn mẫu bóc tách công thức nấu ăn từ phụ đề
-│   └── content_moderation.md  # Tiêu chí kiểm duyệt văn bản (chặn thịt/cá, cho phép sườn chay)
+│   ├── content_moderation.md  # Tiêu chí kiểm duyệt văn bản (chặn thịt/cá, cho phép sườn chay)
+│   └── ingredient_lookup.md   # Nhận diện nguyên liệu, mô tả, gợi ý nấu chay và dinh dưỡng /100 g
 │
 ├── schemas/                   # Pydantic v2 Models kế thừa CamelModel
 │   ├── base.py                # Định nghĩa CamelModel tự động ánh xạ camelCase ↔ snake_case
 │   ├── food_scanner.py        # Schema phân tích nhãn và món ăn
 │   ├── video_recipe.py        # Schema công thức và phụ đề video
 │   ├── content_moderation.py  # Schema kết quả kiểm duyệt văn bản
-│   └── ingredient_lookup.py   # Schema tra cứu nguyên liệu
+│   └── ingredient_lookup.py   # Schema tra cứu nguyên liệu và dinh dưỡng /100 g
 │
 ├── services/                  # Xử lý logic trung gian, tiền/hậu xử lý dữ liệu
 │   ├── video_captions.py      # Bóc tách và làm sạch phụ đề tiếng Việt YouTube
 │   ├── video_recipe.py        # Điều phối tạo công thức từ phụ đề
 │   └── content_moderation.py  # Chuẩn bị dữ liệu kiểm duyệt nội dung
 │
-├── tests/                     # 306 bài kiểm thử tự động với Pytest
+├── tests/                     # 322 bài kiểm thử tự động với Pytest
 ├── main.py                    # Entry point khởi tạo FastAPI, lifespan và exception handlers
 ├── requirements.txt           # Danh sách các thư viện phụ thuộc
 └── README.md                  # Tài liệu chi tiết phân hệ AI Service (File này)
@@ -185,7 +186,7 @@ Toàn bộ các endpoint dưới đây đều yêu cầu header: `X-Internal-Api
 | `POST` | `/api/video-recipe-transcriptions/stream` | Lấy phụ đề tiếng Việt từ YouTube | `VideoCaptionRequest` | `text/event-stream` (SSE) |
 | `POST` | `/api/video-recipe-summaries` | Tổng hợp công thức nấu ăn từ phụ đề | `VideoRecipeSummaryRequest`| `VideoRecipeSummaryResponse` |
 | `POST` | `/api/v1/content-moderations` | Quét kiểm duyệt văn bản tự động | `ContentModerationRequest` | `ContentModerationResponse` |
-| `POST` | `/api/ingredient-lookup` | Tra cứu chi tiết nguyên liệu chay | `IngredientLookupRequest` | `IngredientLookupResponse` |
+| `POST` | `/api/ingredient-lookups` | Tra cứu chi tiết nguyên liệu chay kèm dinh dưỡng /100 g | `IngredientLookupRequest` | `IngredientLookupResponse` |
 | `POST` | `/api/admin/chatbot-cache/clear` | Xóa bộ nhớ đệm câu trả lời của Chatbot | Không | `CacheClearResponse` |
 
 > **LƯU Ý VỀ TÍNH NĂNG CHƯA HOÀN THIỆN (Partially Implemented):**  
@@ -238,6 +239,7 @@ Tất cả các prompt hệ thống được viết dưới dạng tệp Markdow
    - *Lớp 4:* Ngũ vị tân (Hành, tỏi, kiệu, hẹ, nén đối với phái ăn chay Phật giáo).
    - *Lớp 5:* Thành phần gây dị ứng cá nhân đã lưu trong hồ sơ.
 4. **`content_moderation.md`:** Chính sách cộng đồng: Cho phép thảo luận về thực phẩm chay giả mặn (sườn non chay, cá chay làm từ đậu nành, trứng/sữa nếu theo hệ Ovo/Lacto); chặn các hành vi quảng cáo thịt thật, ngôn từ thù địch, spam đường dẫn độc hại.
+5. **`ingredient_lookup.md`:** Nhận diện nguyên liệu thật, mô tả và gợi ý nấu thuần thực vật; ước lượng dinh dưỡng trung bình trên 100 g phần ăn được ở dạng sống (kcal, đạm, béo, carb), trả `null` khi không có giá trị điển hình đáng tin (sản phẩm theo hãng, rượu đường, nhận diện không chắc).
 
 ---
 
@@ -267,6 +269,11 @@ Tất cả các prompt hệ thống được viết dưới dạng tệp Markdow
 ### 5. Kiểm Duyệt Nội Dung Văn Bản Tự Động (Content Moderation):
 - Tiếp nhận tiêu đề và nội dung bài viết/bình luận từ Backend Worker.
 - Đánh giá theo tiêu chuẩn cộng đồng Chay Xanh và trả về phán quyết: `ALLOW` (Cho phép) hoặc `REVIEW` (Cần quản trị viên kiểm tra lại) kèm lý do và trích dẫn bằng chứng cụ thể.
+
+### 6. Tra Cứu Nguyên Liệu & Dinh Dưỡng (Ingredient Lookup):
+- Tiếp nhận tên nguyên liệu từ Backend Worker; không nhận ảnh và không đọc database.
+- Trả về `isIngredient` cùng mô tả, gợi ý nấu và `nutritionPer100g` (`calories`, `protein`, `fat`, `carbs`) hoặc `null`.
+- Từ chối (`502`) số liệu vô lý: âm, calo > 900, tổng đạm + béo + carb > 100 g, hoặc calo lệch quá max(25 kcal, 35%) so với 4P + 4C + 9F. Đây là ước lượng của AI, không phải số đo phòng thí nghiệm; Backend chỉ điền vào ô dinh dưỡng còn trống. Hợp đồng: [`docs/ingredient-lookup-openapi.json`](../docs/ingredient-lookup-openapi.json).
 
 ---
 
@@ -340,7 +347,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 | Lệnh thực thi | Mục đích |
 | :--- | :--- |
 | `python -m uvicorn main:app --reload` | Khởi chạy máy chủ FastAPI chế độ phát triển tự động tải lại code. |
-| `pytest` | Chạy toàn bộ 306 bài kiểm thử tự động với Pytest. |
+| `pytest` | Chạy toàn bộ 322 bài kiểm thử tự động với Pytest. |
 | `pytest -q` | Chạy kiểm thử chế độ rút gọn (Quiet mode). |
 | `ruff check .` | Quét kiểm tra toàn bộ mã nguồn Python theo chuẩn PEP 8. |
 | `ruff format .` | Tự động định dạng mã nguồn theo chuẩn PEP 8. |
@@ -349,7 +356,7 @@ python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 ## 15. Chiến lược kiểm thử tự động (Testing với Pytest)
 
-Bộ kiểm thử của AI Service bao gồm **306 bài test tự động**, được tổ chức tại thư mục `tests/`:
+Bộ kiểm thử của AI Service bao gồm **322 bài test tự động**, được tổ chức tại thư mục `tests/`:
 
 - **Nguyên tắc kiểm thử an toàn:** Toàn bộ các bài test đều sử dụng fixture để giả lập phản hồi của LLM Provider (Mocking). **Tuyệt đối không gọi API DeepSeek thật trong quá trình chạy test** nhằm tránh phát sinh chi phí và đảm bảo tốc độ chạy nhanh.
 - **Thực thi kiểm thử:**
