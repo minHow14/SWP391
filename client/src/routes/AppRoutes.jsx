@@ -35,7 +35,7 @@ export default function AppRoutes() {
                     <Route path="/ho-so" element={<Profile />} />
                     <Route path="/cong-thuc" element={<Recipes />} />
                     <Route path="/cong-dong" element={<Community />} />
-                </Route>} />} />
+                </Route>
                 <Route path="/admin" element={<AdminPortal />} />
                 <Route path="/admin/ai" element={<Navigate to="/admin?tab=ai-management" replace />} />
                 <Route path="/dang-nhap" element={<Login />} />
