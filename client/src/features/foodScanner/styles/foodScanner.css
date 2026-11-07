@@ -1,4 +1,4 @@
-/* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/foodScanner/styles/foodScanner.css */
+/* D:/SWP391/SWP391/client/src/features/foodScanner/styles/foodScanner.css */
 .cx-scanner-page { padding: 48px 28px 110px; background: #f8fafc; }
 .cx-scanner-card { max-width: 1240px; margin: 0 auto; padding: 32px; border: 1px solid #f0f4f8; border-radius: 26px; background: #fff; }
 .cx-scanner-card h1 { display: flex; align-items: center; gap: 9px; margin: 0 0 7px; color: #233244; font-size: 26px; font-weight: 800; letter-spacing: -.6px; }
@@ -23,11 +23,15 @@
 .cx-scan-demo:hover { background: #d98600; }
 .cx-scan-choose { background: #059669; }
 .cx-scan-choose:hover { background: #047857; }
-.cx-scan-preview { position: relative; width: min(100%, 470px); margin: 16px auto 0; overflow: hidden; border-radius: 12px; background: #e2eee6; }
-.cx-scan-preview img { display: block; width: 100%; height: 190px; object-fit: cover; }
-.cx-scan-preview figcaption { position: absolute; inset: auto 0 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 24px 12px 12px; background: linear-gradient(transparent, #000a); font-size: 11px; }
-.cx-scan-preview figcaption span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 5px 8px; border-radius: 7px; background: #0f172ad9; color: #99f6cf; font-weight: 650; }
-.cx-scan-preview figcaption button { flex-shrink: 0; border: 0; border-radius: 7px; padding: 5px 9px; color: #fff; background: #953737; font-size: 11px; font-weight: 650; }
+.cx-scan-preview { width: min(100%, 470px); margin: 16px auto 0; padding: 6px; border: 2px solid transparent; border-radius: 16px; transition: border-color .2s, box-shadow .2s, transform .2s; }
+.cx-scan-preview img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; }
+@media (hover: hover) {
+  .cx-scan-preview:hover { border-color: #059669; box-shadow: 0 12px 28px #05966926; transform: translateY(-3px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cx-scan-preview { transition: none; }
+  .cx-scan-preview:hover { transform: none; }
+}
 .cx-scan-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; width: 100%; padding: 38px 10px; border: 0; background: transparent; color: #718198; font-size: 13px; }
 .cx-scan-empty .bi { font-size: 32px; color: #059669; }
 .cx-scan-note { margin: 11px 0 20px; color: #718198; font-size: 12px; line-height: 1.6; }
@@ -56,7 +60,6 @@
   .cx-scan-upload { padding: 14px; }
   .cx-scan-upload-actions { width: 100%; }
   .cx-scan-upload-actions button { flex: 1; border-radius: 10px; }
-  .cx-scan-preview img { height: 180px; }
   .cx-scan-result { padding: 18px; border-radius: 18px; }
   .cx-scan-result h2 { font-size: 13px; align-items: flex-start; }
   .cx-scan-layers { justify-content: flex-start; gap: 9px 14px; }

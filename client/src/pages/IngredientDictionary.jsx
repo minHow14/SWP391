@@ -172,26 +172,26 @@ export default function IngredientDictionary() {
                               <div className="cx-nutrition-grid">
                                   {detail.calories_per_100g !== null && detail.calories_per_100g !== undefined && (
                                       <div className="cx-nutrition-item">
-                                          <strong>Calo</strong>
+                                          <strong>Calo:</strong>{' '}
                                           <span>{detail.calories_per_100g.toFixed(1)} kcal</span>
                                       </div>
                                   )}
                                   {detail.protein !== null && detail.protein !== undefined && (
                                       <div className="cx-nutrition-item">
-                                          <strong>Protein</strong>
-                                          <span>{detail.protein.toFixed(1)}g</span>
+                                          <strong>Protein:</strong>{' '}
+                                          <span>{detail.protein.toFixed(1)} g</span>
                                       </div>
                                   )}
                                   {detail.fat !== null && detail.fat !== undefined && (
                                       <div className="cx-nutrition-item">
-                                          <strong>Chất Béo</strong>
-                                          <span>{detail.fat.toFixed(1)}g</span>
+                                          <strong>Chất Béo:</strong>{' '}
+                                          <span>{detail.fat.toFixed(1)} g</span>
                                       </div>
                                   )}
                                   {detail.carbs !== null && detail.carbs !== undefined && (
                                       <div className="cx-nutrition-item">
-                                          <strong>Carbohydrate</strong>
-                                          <span>{detail.carbs.toFixed(1)}g</span>
+                                          <strong>Carbohydrate:</strong>{' '}
+                                          <span>{detail.carbs.toFixed(1)} g</span>
                                       </div>
                                   )}
                               </div>
