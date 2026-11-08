@@ -1,6 +1,6 @@
-﻿// client/src/features/diet/components/WelcomeModal.jsx
+// D:/SWP391/SWP391/client/src/features/diet/components/WelcomeModal.jsx
 import { useEffect, useRef, useState } from 'react';
-import { saveDiet } from '../../../utils/dietSelection.js';
+import { Alert, Spinner } from 'react-bootstrap';
 
 const icons = {
   1: 'leaf',
@@ -12,8 +12,11 @@ const icons = {
   7: 'heart-pulse',
 };
 
-export default function WelcomeModal({ onConfirm,options: dietOptions }) {
-  const [selectedDiet, setSelectedDiet] = useState('');
+export default function WelcomeModal({ onConfirm, options: dietOptions, initialDietId = '' }) {
+  const [selectedDiet, setSelectedDiet] = useState(initialDietId);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  const saveLock = useRef(false);
   const dialog = useRef(null);
 
   useEffect(() => {
@@ -33,12 +36,22 @@ export default function WelcomeModal({ onConfirm,options: dietOptions }) {
     };
   }, []);
 
-  function handleConfirm(event) {
+  async function handleConfirm(event) {
     event.preventDefault();
+    if (saveLock.current) return;
     const diet = dietOptions.find((item) => item.diet_type_id === selectedDiet);
     if (!diet) return;
-    saveDiet(diet, dietOptions);
-    onConfirm(diet);
+    saveLock.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      await onConfirm(diet);
+    } catch (failure) {
+      setError(failure.message || 'Không thể lưu kiểu ăn chay. Vui lòng thử lại.');
+    } finally {
+      saveLock.current = false;
+      setSaving(false);
+    }
   }
 
   return (
@@ -63,8 +76,8 @@ export default function WelcomeModal({ onConfirm,options: dietOptions }) {
         Vui lòng chọn loại ăn chay và xác nhận trước khi vào ChayXanh. Bạn có
         thể đổi lựa chọn sau khi vào trang chủ.
       </p>
-      <form onSubmit={handleConfirm}>
-        <fieldset className="border-0 p-0">
+      <form onSubmit={handleConfirm} aria-busy={saving}>
+        <fieldset className="border-0 p-0" disabled={saving}>
           <legend className="visually-hidden">Chọn loại ăn chay</legend>
           <div className="row g-3 mt-1">
             {dietOptions.map((diet) => (
@@ -96,13 +109,13 @@ export default function WelcomeModal({ onConfirm,options: dietOptions }) {
             ))}
           </div>
         </fieldset>
+        {error && <Alert variant="danger" className="mt-3">{error}</Alert>}
         <button
           type="submit"
           className="btn btn-success w-100 py-3 mt-4"
-          disabled={!selectedDiet}
+          disabled={!selectedDiet || saving}
         >
-          Xác nhận & vào ChayXanh{' '}
-          <i className="bi bi-arrow-right ms-2" aria-hidden="true" />
+          {saving ? <><Spinner size="sm" animation="border" className="me-2" aria-hidden="true" />Đang lưu kiểu ăn chay…</> : <>Xác nhận & vào ChayXanh <i className="bi bi-arrow-right ms-2" aria-hidden="true" /></>}
         </button>
       </form>
     </dialog>
