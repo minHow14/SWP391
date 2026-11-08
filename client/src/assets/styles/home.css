@@ -739,6 +739,8 @@ dialog::backdrop {
   text-decoration: none;
 }
 .cx-home-media > img { display: block; width: 100%; }
+.cx-home-media .cx-home-restaurant-image.cx-rest-img-frame { height: 215px; border-radius: 0; border: 0; }
+.cx-home-media .cx-home-restaurant-image .cx-rest-img-real { height: 100%; object-fit: cover; }
 .cx-home .cx-hero-media { height: 100%; }
 .cx-home-video-preview { aspect-ratio: 16 / 9; }
 .cx-home-video-preview > img,
@@ -812,7 +814,9 @@ dialog::backdrop {
     transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
   }
   .cx-home-interactive-card:hover .cx-home-media > img,
-  .cx-home-interactive-card:focus-within .cx-home-media > img { transform: scale(1.04); }
+  .cx-home-interactive-card:focus-within .cx-home-media > img,
+  .cx-home-interactive-card:hover .cx-home-media .cx-rest-img-real,
+  .cx-home-interactive-card:focus-within .cx-home-media .cx-rest-img-real { transform: scale(1.04); }
   .cx-home-media-hint { transition: background-color 200ms ease, color 200ms ease; }
   .cx-home-play { transition: transform 250ms ease; }
   .cx-home-interactive-card:hover .cx-home-play,

@@ -38,7 +38,10 @@ export const workspaceRepository = {
           attachments: { orderBy: { attachment_id: 'asc' } },
         },
       }),
-      db.restaurant.findMany({ include: { restaurant_recipes: { include: { recipe: true } } } }),
+      db.restaurant.findMany({
+        orderBy: { restaurant_id: 'asc' },
+        include: { restaurant_recipes: { include: { recipe: true } } },
+      }),
       db.$queryRaw`SELECT * FROM restaurant_details`,
       db.$queryRaw`SELECT r.review_id, r.restaurant_id, r.stars, r.content, r.created_at, u.full_name FROM restaurant_reviews r JOIN users u USING(user_id) ORDER BY r.created_at DESC`,
       db.$queryRaw`SELECT * FROM restaurant_menu_prices`,

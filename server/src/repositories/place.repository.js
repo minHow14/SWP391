@@ -1,6 +1,7 @@
-// D:/SWP391/SWP391/server/src/repositories/place.repository.js
+// d:/Projects/FPT/SWP391/server/src/repositories/place.repository.js
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
+import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
 
 export const placeRepository = {
   replaceImageUrls(records, db = prisma) {
@@ -72,7 +73,7 @@ export const placeRepository = {
     if (!Array.isArray(places) || places.length === 0) return [];
     const saved = [];
     for (const p of places) {
-      if (!p.place_id || p.latitude == null || p.longitude == null) continue;
+      if (!p.place_id || p.latitude == null || p.longitude == null || !isVegetarianPlace(p)) continue;
       try {
         const record = await db.restaurant.upsert({
           where: { place_id: p.place_id },

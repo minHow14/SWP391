@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/restaurants/components/NearbyPlaces.jsx
+// d:/Projects/FPT/SWP391/client/src/features/restaurants/components/NearbyPlaces.jsx
 import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
@@ -10,6 +10,7 @@ import {
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
+  isVegetarianPlace,
   resolveRestaurantPhoto,
 } from '../utils/nearbyHelpers.js';
 
@@ -96,7 +97,7 @@ export default function NearbyPlaces({
           ? result
           : [];
 
-      const places = rawPlaces.map((place) => {
+      const places = rawPlaces.filter(isVegetarianPlace).map((place) => {
         const isExternal = place.source === 'ziomap';
         const photo = resolveRestaurantPhoto(place);
         return {

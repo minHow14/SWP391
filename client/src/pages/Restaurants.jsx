@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/pages/Restaurants.jsx
+// d:/Projects/FPT/SWP391/client/src/pages/Restaurants.jsx
 import { useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -11,7 +11,7 @@ import RestaurantProposalForm from '../features/restaurants/components/Restauran
 import NearbyPlaces from '../features/restaurants/components/NearbyPlaces.jsx';
 import RestaurantMap from '../features/restaurants/components/RestaurantMap.jsx';
 import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirections.js';
-import { resolveRestaurantPhoto } from '../features/restaurants/utils/nearbyHelpers.js';
+import { resolveRestaurantPhoto, isVegetarianPlace } from '../features/restaurants/utils/nearbyHelpers.js';
 import { compareRestaurantPrices } from '../features/restaurants/utils/restaurantSort.js';
 
 const typeName = (type) =>
@@ -22,7 +22,7 @@ const directions = restaurantDirections;
 
 export default function Restaurants() {
   const { data, user, reload } = useDatabase();
-  const places = data.restaurants;
+  const places = (data.restaurants || []).filter(isVegetarianPlace);
   const [query, setQuery] = useState('');
   const [type, setType] = useState('all');
   const [city, setCity] = useState('all');
@@ -57,6 +57,7 @@ export default function Restaurants() {
   const filtered = pinned ? [pinned, ...sorted.filter((place) => place !== pinned)] : sorted;
 
   const visibleNearby = nearbyPlaces
+    .filter(isVegetarianPlace)
     .filter((place) => !places.some((p) => p.id === place.restaurant_id || p.id === place.id))
     .filter(
       (place) =>

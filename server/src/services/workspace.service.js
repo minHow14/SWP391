@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/src/services/workspace.service.js
+// d:/Projects/FPT/SWP391/server/src/services/workspace.service.js
 import { ingredientService } from './ingredient.service.js';
 import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
@@ -7,6 +7,7 @@ import { placeRepository } from '../repositories/place.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { weekRangeOf } from '../utils/weekRange.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
+import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
 import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
 export const ingredientImageUrl = (ingredientId) =>
@@ -152,7 +153,7 @@ export const workspaceService = {
                 })),
             }));
 
-    const mappedRestaurants = restaurants.map((p) => {
+    const mappedRestaurants = restaurants.filter(isVegetarianPlace).map((p) => {
       const d = placeDetails.find((item) => item.restaurant_id === p.restaurant_id);
       return {
         ...p,

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import express from 'express';
 import placesRoutes from '../src/routes/places.route.js';
-import { clearZiomapCache, normalize } from '../src/services/places.service.js';
+import { clearZiomapCache, normalize, isVegetarianPlace } from '../src/services/places.service.js';
 import prisma from '../src/config/prisma.js';
 
 // Fixed records isolate route/search tests from the user's live database.
@@ -177,12 +177,12 @@ test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không gi
   globalThis.fetch = ziomapReply([
     {
       id: 'near',
-      displayName: { text: 'Quán gần' },
+      displayName: { text: 'Quán Chay Gần' },
       location: { latitude: 16.0540, longitude: 108.2020 }, // ~50 m
     },
     {
       id: 'far',
-      displayName: { text: 'Quán xa' },
+      displayName: { text: 'Quán Chay Xa' },
       location: { latitude: 16.5, longitude: 108.5 }, // ~60 km
     },
   ]);
@@ -196,7 +196,7 @@ test('quán ZIOMAP thiếu toạ độ bị bỏ qua, không làm hỏng respons
   globalThis.fetch = ziomapReply([
     { id: 'no_location', displayName: { text: 'Thiếu toạ độ' } },
     { id: 'bad', displayName: { text: 'Sai toạ độ' }, location: { latitude: 'x', longitude: 1 } },
-    { id: 'ok', displayName: { text: 'Hợp lệ' }, location: { latitude: 16.0540, longitude: 108.2020 } },
+    { id: 'ok', displayName: { text: 'Quán Chay Hợp Lệ' }, location: { latitude: 16.0540, longitude: 108.2020 } },
   ]);
   const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
   assert.equal(res.status, 200);
@@ -297,4 +297,61 @@ test('nearby giữ ảnh trống khi quán chưa có ảnh thực tế', async (
   const places = res.body.data.places;
   assert.ok(places.length > 0);
   assert.ok(places.every((p) => p.image_url === null));
+});
+
+test('isVegetarianPlace lọc chính xác quán chay thật và loại bỏ tiệm nail, spa, yoga, quán thịt', () => {
+  assert.equal(isVegetarianPlace({ name: 'Nhà Hàng Chay Hum Vegetarian', address: 'Quận 3' }), true);
+  assert.equal(isVegetarianPlace({ name: 'Siêu Thị Thực Phẩm Chay Âu Lạc', isIngredientShop: true }), true);
+  assert.equal(isVegetarianPlace({ name: 'Quán Chay Bồ Đề', diet_type_id: 1 }), true);
+  assert.equal(isVegetarianPlace({ name: 'CHAY GARDEN - Vegetarian Restaurant & Space' }), true);
+  assert.equal(isVegetarianPlace({ name: 'Bếp Chay Huệ Nhiên', type: 'vegan' }), true);
+
+  assert.equal(isVegetarianPlace({ name: 'UK MANI NAIL BAR', address: 'Gò Vấp' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Nhà Nàng Nails & Beauty - Bình Thạnh' }), false);
+  assert.equal(isVegetarianPlace({ name: 'OnOn Nails Bar - Bến Thành' }), false);
+
+  assert.equal(isVegetarianPlace({ name: 'Mani Mani Spa – Massage', address: 'Quận 3' }), false);
+  assert.equal(isVegetarianPlace({ name: 'ANNE SPA - Gội đầu' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Mani House - Ngôi Nhà Chuông Xoay' }), false);
+
+  assert.equal(isVegetarianPlace({ name: 'OM YOGA - YOGA BÌNH THẠNH' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Mani om yoga' }), false);
+
+  assert.equal(isVegetarianPlace({ name: 'Ushi Mania - Japanese Aging Beef & Bar' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Bánh Mì Chim Chạy Nguyễn Gia Trí' }), false);
+  assert.equal(isVegetarianPlace({ name: 'CHAGEE NGUYỄN GIA TRÍ' }), false);
+  assert.equal(isVegetarianPlace({ name: 'GÓC THÁI | QUÁN THÁI NGON' }), false);
+
+  assert.equal(isVegetarianPlace({ name: '36/59 nguyễn gia trí', address: '36/59 Nguyễn Gia Trí' }), false);
+});
+
+test('ZIOMAP tự động loại bỏ các địa điểm phi chay không phải quán chay', async () => {
+  process.env.ZIOMAP_API_KEY = TEST_KEY;
+  globalThis.fetch = async () =>
+    ziomapReply([
+      {
+        id: 'ChIJ_good',
+        displayName: { text: 'Quán Cơm Chay Tịnh Tâm' },
+        formattedAddress: '100 Nguyễn Thị Minh Khai, Q1',
+        location: { latitude: 16.054, longitude: 108.202 },
+      },
+      {
+        id: 'ChIJ_bad_nail',
+        displayName: { text: 'Mani Nails Spa' },
+        formattedAddress: '102 Nguyễn Thị Minh Khai, Q1',
+        location: { latitude: 16.0541, longitude: 108.2021 },
+      },
+      {
+        id: 'ChIJ_bad_beef',
+        displayName: { text: 'BBQ Beef Mania' },
+        formattedAddress: '104 Nguyễn Thị Minh Khai, Q1',
+        location: { latitude: 16.0542, longitude: 108.2022 },
+      },
+    ])();
+
+  const res = await request(app).get('/api/places/nearby').query({ ...FAR_AWAY, radius_km: 2 });
+  assert.equal(res.status, 200);
+  const places = res.body.data.places;
+  assert.equal(places.length, 1);
+  assert.equal(places[0].name, 'Quán Cơm Chay Tịnh Tâm');
 });

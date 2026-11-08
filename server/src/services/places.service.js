@@ -1,9 +1,12 @@
-// D:/SWP391/SWP391/server/src/services/places.service.js
+// d:/Projects/FPT/SWP391/server/src/services/places.service.js
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
 import { placeRepository } from '../repositories/place.repository.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
+import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
+
+export { isVegetarianPlace };
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
 const ZIOMAP_PHOTOS_URL = 'https://ziomap-api.socibi.com/api/place/photos';
@@ -91,7 +94,7 @@ export async function findNearbyLocal({ lat, lng, radiusKm, userOrigin = null, d
 
   return restaurants
     .map((restaurant) => toPlace(restaurant, origin, {}, userOrigin))
-    .filter((place) => place.distance_m !== null && place.distance_m <= radiusKm * 1000)
+    .filter((place) => place.distance_m !== null && place.distance_m <= radiusKm * 1000 && isVegetarianPlace(place))
     .sort(byDistance);
 }
 
@@ -142,6 +145,7 @@ export async function searchLocal({ query, lat, lng }) {
         matched_dishes: matchedDishes,
       });
     })
+    .filter(isVegetarianPlace)
     .sort((a, b) => b.match_score - a.match_score || byDistance(a, b));
 }
 
@@ -245,25 +249,27 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
     (p) => p?.id && isCoordinate(p.location?.latitude, 90) && isCoordinate(p.location?.longitude, 180)
   );
   const resolved = await resolveSearchPhotos(valid);
-  const places = resolved.map((p) => {
-    const location = { latitude: p.location.latitude, longitude: p.location.longitude };
-    return {
-      id: `ziomap_${p.id}`,
-      source: 'ziomap',
-      restaurant_id: null,
-      name: p.displayName?.text ?? '',
-      address: p.formattedAddress ?? '',
-      ...location,
-      phone: null,
-      diet_type_id: null,
-      rating: p.rating ?? null,
-      image_url: p.photoUrl,
-      place_id: p.id,
-      distance_m: distanceMeters(origin, location),
-      user_distance_m: userOrigin ? distanceMeters(userOrigin, location) : null,
-      maps_url: mapsUrl({ ...location, place_id: p.id }),
-    };
-  });
+  const places = resolved
+    .map((p) => {
+      const location = { latitude: p.location.latitude, longitude: p.location.longitude };
+      return {
+        id: `ziomap_${p.id}`,
+        source: 'ziomap',
+        restaurant_id: null,
+        name: p.displayName?.text ?? '',
+        address: p.formattedAddress ?? '',
+        ...location,
+        phone: null,
+        diet_type_id: null,
+        rating: p.rating ?? null,
+        image_url: p.photoUrl,
+        place_id: p.id,
+        distance_m: distanceMeters(origin, location),
+        user_distance_m: userOrigin ? distanceMeters(userOrigin, location) : null,
+        maps_url: mapsUrl({ ...location, place_id: p.id }),
+      };
+    })
+    .filter(isVegetarianPlace);
   ziomapCache.set(cacheKey, places);
 
   // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test (bất đồng bộ, không chặn response)

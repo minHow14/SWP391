@@ -1,6 +1,19 @@
 {
   "records": [
     {
+      "restaurantId": 6,
+      "placeId": "local_seed_om_mani",
+      "name": "Ẩm Thực Chay Om Mani",
+      "previousImageUrl": "https://images.unsplash.com/photo-1525610553991-2bede1a236e2?auto=format&fit=crop&w=800&q=80",
+      "imageUrl": "/uploads/restaurants/google-6-f349cc99588c.jpg",
+      "photoUrl": "https://lh3.googleusercontent.com/grass-cs/AABkmLc6kzddYcC2sQVJf-wDjkU-nXYXkQGKNoc-kO9V8LP6H13lSmgi7nEmyTprGlE5rXOJNNjbNpv6-NbQ8KJhS9gPrxs5ZvefcpxdqBQWecSA3J2J5bo4P2yehayW5Mu2f8a5XBM9ow=s4800-w800",
+      "sourcePage": "https://www.google.com/maps/search/?api=1&query=%E1%BA%A8m%20Th%E1%BB%B1c%20Chay%20Om%20Mani&query_place_id=ChIJHWVGCQApdTERM7Z155MeXwg",
+      "mimeType": "image/jpeg",
+      "bytes": 114530,
+      "sha256": "f349cc99588caf8d2e680738870cc85dbff503a4e70107069539f2f6725851aa",
+      "checkedAt": "2026-11-08T05:00:29.000Z"
+    },
+    {
       "restaurantId": 9,
       "placeId": "ChIJd2usmqrZdDERJEELl_gtV6U",
       "name": "Lẩu Chay Tiệm Nhà Mèo",
@@ -12,6 +25,19 @@
       "bytes": 173408,
       "sha256": "05b8cbaed1f3ee70101bb1efee788eb134fb6dada76122d0b023b83ead7e1a22",
       "checkedAt": "2026-11-05T06:10:14.855Z"
+    },
+    {
+      "restaurantId": 10,
+      "placeId": "ChIJb_uO7lEndTER4GbhkLB9s34",
+      "name": "Tiệm Lẩu Chay Xưa - 1996 -",
+      "previousImageUrl": "places/ChIJb_uO7lEndTER4GbhkLB9s34/photos/AV-0GLcK_hlpGv6svn6U9EG9bNoc5OiS1TtiK8PrD2tYNpoMsGLc8CSkAjbrItYByMBV4UW6zKKhX3i5J6HDWNwKTL6yB8mC_jZ7ICACymgNhZNwjATF6it2bPxvmGZ86fRd6IRZUPUkf-o-3hLOr8QhVe9tSdTqA6fKQieq-CdpGVt5bl-FNMbeg68gnS2gEy0-EYVTVIWdOJgNfmgSZ3wWRzD3fI6DMBAHQDu_AWw6UnVKMbwwd2dPOTHRNr4wUV0qISMbey5ATFcMY2hiiVcB8t_hzMuOFPjuu7zScIWXCyeQ1M0V6B7AkoyzxGFXLurCfA8yMJtWIW0DJlFkZRmw8vXwTUGmk7kxce5a2UhtAWLHHGriC1cipTLqQhLn1aAsai9f8QEuut-7wofyMPb93F3evRE",
+      "imageUrl": "/uploads/restaurants/google-10-3f8ce7a04070.jpg",
+      "photoUrl": "https://lh3.googleusercontent.com/grass-cs/AABkmLcXWVyhgQzpAH-LtPNc3p_2euHQJLmcxo2vwporLw_6qHEQPGRuW5VMQZuv_B4w6OZXvuP3v5iuUep0Kfuxyv6spWCoJB8AY8d8lPm8eN3Yz_SnXTuo6aaPjgD_lMRu8LxZUlq6=s4800-w800",
+      "sourcePage": "https://www.google.com/maps/search/?api=1&query=Ti%E1%BB%87m%20L%E1%BA%A9u%20Chay%20X%C6%B0a%20-%201996%20-&query_place_id=ChIJb_uO7lEndTER4GbhkLB9s34",
+      "mimeType": "image/jpeg",
+      "bytes": 172944,
+      "sha256": "3f8ce7a0407046d647ae8f6f26ac3c0954c75786c99dd7a151c6af601b05838a",
+      "checkedAt": "2026-11-08T05:00:01.174Z"
     },
     {
       "restaurantId": 11,
@@ -170,10 +196,5 @@
       "checkedAt": "2026-11-05T06:10:30.596Z"
     }
   ],
-  "failures": [
-    {
-      "restaurantId": 10,
-      "reason": "Không lấy được URL ảnh từ đúng Google Place ID."
-    }
-  ]
+  "failures": []
 }

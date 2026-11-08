@@ -8,6 +8,7 @@ import {
   DIET_OPTIONS,
   checkIsOpenNow,
   getPosition,
+  isVegetarianPlace,
   resolveRestaurantPhoto,
 } from '../src/features/restaurants/utils/nearbyHelpers.js';
 import { placeService } from '../src/services/placeService.js';
@@ -139,4 +140,39 @@ test('resolveRestaurantPhoto preserves real photos and never substitutes unrelat
     assert.equal(resolveRestaurantPhoto({ name: 'Quán kiểm thử', image }), null);
   }
   assert.equal(resolveRestaurantPhoto(null), null);
+});
+
+test('isVegetarianPlace identifies true vegetarian places and rejects non-vegetarian names', () => {
+  // Accepted
+  assert.equal(isVegetarianPlace({ name: 'Nhà Hàng Chay Hum Vegetarian' }), true);
+  assert.equal(isVegetarianPlace({ name: 'Siêu Thị Thực Phẩm Chay Âu Lạc' }), true);
+  assert.equal(isVegetarianPlace({ name: 'Quán Chay Bồ Đề' }), true);
+  assert.equal(isVegetarianPlace({ name: 'CHAY GARDEN Nguyễn Thị Minh Khai - Vegetarian Restaurant & Space' }), true);
+  assert.equal(isVegetarianPlace({ name: 'Cửa Hàng Thực Dưỡng', isIngredientShop: true }), true);
+  assert.equal(isVegetarianPlace({ name: 'Tiệm Ăn Chay', diet_type_id: 1 }), true);
+  assert.equal(isVegetarianPlace({ name: 'Bếp Nhà', type: 'vegan' }), true);
+
+  // Rejected: Nail & Beauty
+  assert.equal(isVegetarianPlace({ name: 'UK MANI NAIL BAR' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Nhà Nàng Nails & Beauty - Bình Thạnh' }), false);
+  assert.equal(isVegetarianPlace({ name: 'OnOn Nails Bar - Bến Thành' }), false);
+
+  // Rejected: Spa & Massage & Chuông xoay
+  assert.equal(isVegetarianPlace({ name: 'Mani Mani Spa – Massage – マッサージ – 按摩 – 마사지' }), false);
+  assert.equal(isVegetarianPlace({ name: 'ANNE SPA - Nails - Gội đầu - Foot Massage' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Mani House - Ngôi Nhà Chuông Xoay' }), false);
+
+  // Rejected: Yoga & Fitness
+  assert.equal(isVegetarianPlace({ name: 'OM YOGA - YOGA BÌNH THẠNH' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Mani om yoga' }), false);
+
+  // Rejected: Beef, Thai, Meat, Tea
+  assert.equal(isVegetarianPlace({ name: 'Ushi Mania - Japanese Aging Beef & Bar' }), false);
+  assert.equal(isVegetarianPlace({ name: 'Bánh Mì Chim Chạy Nguyễn Gia Trí' }), false);
+  assert.equal(isVegetarianPlace({ name: 'GÓC THÁI | QUÁN THÁI NGON BÌNH THẠNH | MÓN THÁI BÌNH THẠNH' }), false);
+  assert.equal(isVegetarianPlace({ name: 'CHAGEE NGUYỄN GIA TRÍ' }), false);
+
+  // Rejected: Pure house number addresses
+  assert.equal(isVegetarianPlace({ name: '36/59 nguyễn gia trí', address: '36/59 Nguyễn Gia Trí' }), false);
+  assert.equal(isVegetarianPlace({ name: '69/1/7, Nguyễn Gia Trí' }), false);
 });

@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/client/src/features/home/components/HomeMain.jsx
+// d:/Projects/FPT/SWP391/client/src/features/home/components/HomeMain.jsx
 import { useState } from 'react';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -7,6 +7,8 @@ import HomeContentDialog from './HomeContentDialog.jsx';
 import PostMedia from '../../community/components/PostMedia.jsx';
 import ContentImage from '../../../components/common/ContentImage.jsx';
 import RecipeImage from '../../../components/common/RecipeImage.jsx';
+import RestaurantImage from '../../restaurants/components/RestaurantImage.jsx';
+import { isVegetarianPlace } from '../../restaurants/utils/nearbyHelpers.js';
 import heroPhoto from '../../../assets/images/chayxanh-bowl.webp';
 
 export default function HomeMain() {
@@ -15,6 +17,14 @@ export default function HomeMain() {
   const videos = data.posts.filter(post => post.post_type === 'VIDEO');
   const articles = data.posts.filter(post => post.post_type === 'BLOG');
   const openDetail = (kind, item) => setDetail({ kind, item });
+
+  const vegetarianRestaurants = (data.restaurants || []).filter(isVegetarianPlace);
+  const featuredRestaurants = vegetarianRestaurants
+    .filter((place) => place.image)
+    .slice(0, 4);
+  const displayRestaurants = featuredRestaurants.length >= 4
+    ? featuredRestaurants
+    : vegetarianRestaurants.slice(0, 4);
 
   return (
     <main className="home-content cx-home flex-grow-1 pb-5">
@@ -29,7 +39,7 @@ export default function HomeMain() {
               <Button as={Link} to="/tu-dien-chay" variant="light" className="cx-outline-button cx-hero-cta">Tra cứu nguyên liệu</Button>
             </div>
             <div className="d-flex flex-wrap gap-4 mt-4 small text-secondary">
-              <span>{data.recipes.length} công thức</span><span>{data.restaurants.length} quán chay</span><span>{articles.length} bài chia sẻ</span>
+              <span>{data.recipes.length} công thức</span><span>{vegetarianRestaurants.length} quán chay</span><span>{articles.length} bài chia sẻ</span>
             </div>
           </div>
           <div className="cx-hero-media">
@@ -94,11 +104,20 @@ export default function HomeMain() {
             <h2 className="cx-section-title">Quán Chay & Nhà Hàng</h2>
             <Link className="cx-home-section-link" to="/quan-chay">Xem bản đồ <i className="bi bi-arrow-right" aria-hidden="true" /></Link>
           </div>
-          <Row className="g-4">{data.restaurants.slice(0, 4).map(place => (
+          <Row className="g-4">{displayRestaurants.map(place => (
             <Col md={6} xl={3} key={place.id}>
               <Card as={Link} to="/quan-chay" className="cx-home-place-link cx-home-interactive-card border-0 rounded-4 overflow-hidden h-100" aria-label={`${place.name} — Xem trang Quán chay`}>
                 <div className="cx-home-media">
-                  <ContentImage src={place.image} alt={place.name} className="cx-recipe-image" />
+                  <RestaurantImage
+                    src={place.image}
+                    name={place.name}
+                    alt={place.name}
+                    type={place.type}
+                    dietTypeId={place.diet_type_id}
+                    isShop={place.isIngredientShop}
+                    variant="card"
+                    className="cx-home-restaurant-image"
+                  />
                   <span className="cx-home-media-hint">Khám phá quán chay <i className="bi bi-arrow-right" aria-hidden="true" /></span>
                 </div>
                 <Card.Body className="p-3">
@@ -108,7 +127,7 @@ export default function HomeMain() {
               </Card>
             </Col>
           ))}</Row>
-          {!data.restaurants.length && <p>Chưa có quán chay.</p>}
+          {!vegetarianRestaurants.length && <p>Chưa có quán chay.</p>}
         </section>
       </Container>
       {detail && <HomeContentDialog detail={detail} onClose={() => setDetail(null)} />}
