@@ -23,6 +23,7 @@ function restaurantProposalData(data) {
     isIngredientShop: data.isIngredientShop ?? false,
     latitude: data.latitude,
     longitude: data.longitude,
+    phone: data.phone ?? null,
     source: 'proposal',
     status: 'APPROVED',
     rating: null,
@@ -544,7 +545,13 @@ export const workspaceService = {
 
       const place = await placeRepository.create(restaurantProposalData(data), tx);
 
-            await workspaceRepository.insertRestaurantDetails(place.restaurant_id, data.city, tx);
+      await workspaceRepository.insertRestaurantDetails({
+        restaurantId: place.restaurant_id,
+        city: data.city,
+        hours: data.hours ?? null,
+        priceRange: data.price_range ?? null,
+        separateKitchen: data.separate_kitchen ?? null,
+      }, tx);
             return {
                 ...place,
                 image: place.image_url,

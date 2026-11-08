@@ -53,6 +53,10 @@ export const suggestRestaurantSchema = z.object({
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
   image_url: z.string().trim().max(500).optional().nullable(),
+  phone: z.string().trim().max(50).optional().nullable(),
+  hours: z.string().trim().max(100).optional().nullable(),
+  price_range: z.string().trim().max(100).optional().nullable(),
+  separate_kitchen: z.boolean().optional().nullable(),
 }).strict().refine(
   ({ isIngredientShop, diet_type_id }) => isIngredientShop ? diet_type_id === null : diet_type_id !== null,
   { path: ['diet_type_id'], message: 'Phân loại địa điểm không khớp chế độ ăn đã chọn.' }

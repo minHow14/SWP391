@@ -249,10 +249,30 @@ export const workspaceRepository = {
     });
   },
 
-  async insertRestaurantDetails(restaurantId, city, db = prisma) {
+  async insertRestaurantDetails(restaurantIdOrData, cityArg, dbArg) {
+    let restaurantId;
+    let city;
+    let hours = null;
+    let priceRange = null;
+    let separateKitchen = null;
+    let db = prisma;
+
+    if (typeof restaurantIdOrData === 'object' && restaurantIdOrData !== null) {
+      restaurantId = restaurantIdOrData.restaurantId;
+      city = restaurantIdOrData.city;
+      hours = restaurantIdOrData.hours ?? null;
+      priceRange = restaurantIdOrData.priceRange ?? null;
+      separateKitchen = restaurantIdOrData.separateKitchen ?? null;
+      db = cityArg || prisma;
+    } else {
+      restaurantId = restaurantIdOrData;
+      city = cityArg;
+      db = dbArg || prisma;
+    }
+
     return db.$executeRaw`
-      INSERT INTO restaurant_details(restaurant_id, city)
-      VALUES(${Number(restaurantId)}, ${city})
+      INSERT INTO restaurant_details(restaurant_id, city, hours, price_range, separate_kitchen)
+      VALUES(${Number(restaurantId)}, ${city}, ${hours}, ${priceRange}, ${separateKitchen})
     `;
   },
 

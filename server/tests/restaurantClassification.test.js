@@ -58,6 +58,34 @@ describe('restaurant and ingredient-shop classification', () => {
     });
   });
 
+  it('persists operational and vegan details when supplied in proposal', async () => {
+    const payload = proposal({
+      phone: '0901234567',
+      hours: '07:00 - 21:00',
+      price_range: '30.000đ - 60.000đ',
+      separate_kitchen: true,
+      diet_type_id: 1,
+    });
+    const response = await submit(payload);
+    expect(response.status).toBe(200);
+    const saved = response.body.data;
+    const details = await prisma.restaurantDetails.findUnique({
+      where: { restaurant_id: saved.restaurant_id },
+    });
+    expect(details).toMatchObject({
+      city: 'Test fixture city',
+      hours: '07:00 - 21:00',
+      price_range: '30.000đ - 60.000đ',
+      separate_kitchen: true,
+    });
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { restaurant_id: saved.restaurant_id },
+    });
+    expect(restaurant).toMatchObject({
+      phone: '0901234567',
+    });
+  });
+
   it.each([[1, 'vegan'], [5, 'buddhist'], [4, 'separate']])(
     'keeps legacy diet %s classified as %s when the caller omits the shop flag', async (dietId, type) => {
       const response = await submit(proposal({ diet_type_id: dietId }));

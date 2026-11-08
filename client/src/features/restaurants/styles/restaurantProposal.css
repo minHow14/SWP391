@@ -1,0 +1,101 @@
+/* D:/SWP391/SWP391/client/src/features/restaurants/styles/restaurantProposal.css */
+
+.cx-proposal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.cx-proposal-section {
+  padding: 16px;
+  border-radius: 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.cx-proposal-section.is-primary {
+  background: #f4fbf7;
+  border-color: #d1fae5;
+}
+
+.cx-proposal-section-title {
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 750;
+  color: #065f46;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cx-proposal-section-title .bi {
+  font-size: 15px;
+  color: #059669;
+}
+
+.cx-proposal-section-title.is-secondary {
+  color: #334155;
+}
+
+.cx-proposal-section-title.is-secondary .bi {
+  color: #64748b;
+}
+
+.cx-gps-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px dashed #a7f3d0;
+  margin-top: 8px;
+}
+
+.cx-gps-info {
+  font-size: 12px;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cx-gps-info.is-success {
+  color: #047857;
+  font-weight: 650;
+}
+
+.cx-gps-btn {
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.cx-gps-btn:hover:not(:disabled) {
+  background: #d1fae5;
+  border-color: #34d399;
+}
+
+.cx-gps-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cx-proposal-notice {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.5;
+  margin: 4px 0 0;
+  text-align: center;
+}
