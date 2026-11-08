@@ -4,11 +4,12 @@ import { Link } from 'react-router';
 import TagField from './TagField.jsx';
 import PlanResult from './PlanResult.jsx';
 import ContentDialog from '../../../components/common/ContentDialog.jsx';
-import { AiApiError, streamMealPlan } from '../../../services/aiApi.js';
+import { AiApiError } from '../../../services/aiApi.js';
+import { generateMealPlan } from '../../../services/mealPlanService.js';
 import HealthProfileNotice from '../../profile/components/HealthProfileNotice.jsx';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
 import {
-  bmiCategory, buildMealPlanRequest, calcBmi, formatBmi, friendlyAiError, isQuotaError, mealPlanDefaults,
+  bmiCategory, calcBmi, formatBmi, friendlyAiError, isQuotaError, mealPlanDefaults,
   stagePercent, validateMealPlanValues,
 } from '../../../utils/aiHelpers.js';
 
@@ -33,6 +34,7 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
   const [plan, setPlan] = useState(initialPlan ?? null);
   const [failure, setFailure] = useState(null);
   const controller = useRef(null);
+  const submitting = useRef(false);
   useEffect(() => () => controller.current?.abort(), []);
   const needsProfile = Boolean(user) && !hasBodyMeasurements(user.health_profile);
 
@@ -42,10 +44,11 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
 
   async function submit(event) {
     event.preventDefault();
-    if (needsProfile) return;
+    if (needsProfile || submitting.current) return;
     const found = validateMealPlanValues(values);
     setErrors(found);
     if (Object.keys(found).length) return;
+    submitting.current = true;
     controller.current?.abort();
     const current = new AbortController();
     controller.current = current;
@@ -53,8 +56,8 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
     setFailure(null);
     setPhase('running');
     try {
-      const result = await streamMealPlan({
-        request: buildMealPlanRequest(values),
+      const result = await generateMealPlan({
+        values, userId: user?.user_id,
         signal: current.signal,
         onProgress: (step) => { if (!current.signal.aborted) setSteps((previous) => [...previous, step]); },
       });
@@ -66,6 +69,8 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
       if (current.signal.aborted) return;
       setFailure(error instanceof AiApiError ? error : new AiApiError({ message: error.message, cause: error }));
       setPhase('error');
+    } finally {
+      submitting.current = false;
     }
   }
 
@@ -96,7 +101,7 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
             <div className="cx-mp-field"><label htmlFor="mp-days">Số ngày (1-7)</label><input id="mp-days" type="number" min="1" max="7" value={values.days} onChange={set('days')} aria-invalid={!!errors.days} />{errors.days && <small role="alert">{errors.days}</small>}</div>
             <div className="cx-mp-field"><label htmlFor="mp-goal">Mục tiêu</label><select id="mp-goal" value={values.goal} onChange={set('goal')}>{GOALS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="cx-mp-field"><label htmlFor="mp-activity">Mức vận động</label><select id="mp-activity" value={values.activityLevel} onChange={set('activityLevel')}>{ACTIVITY.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-            <div className="cx-mp-field"><label htmlFor="mp-diet">Chế độ ăn</label><select id="mp-diet" value={values.dietaryType} onChange={set('dietaryType')}>{DIETS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="cx-mp-field"><label htmlFor="mp-diet">Chế độ ăn</label><select id="mp-diet" value={values.dietaryType} onChange={set('dietaryType')} disabled={Boolean(user)} aria-describedby={user ? 'mp-diet-help' : undefined}>{DIETS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>{user && <small id="mp-diet-help" className="text-secondary">Dùng kiểu ăn chay đã lưu trong hồ sơ. Bạn có thể đổi ở mục chọn kiểu ăn chay trên trang chủ.</small>}</div>
             <TagField id="mp-allergies" label="Dị ứng / không ăn được" tags={values.allergies} onChange={setList('allergies')} hints={ALLERGY_HINTS} placeholder="Gõ rồi Enter, ví dụ: đậu phộng" />
             <TagField id="mp-pantry" label="Nguyên liệu đang có (tuỳ chọn)" tags={values.availableIngredients} onChange={setList('availableIngredients')} placeholder="Ví dụ: đậu phụ, cà chua" />
           </div>

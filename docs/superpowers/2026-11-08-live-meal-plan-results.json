@@ -1,0 +1,748 @@
+{
+  "startedAt": "2026-11-08T03:40:17.887Z",
+  "inputSource": "Existing synthetic PROFILE fixture in ai_service/tests/test_meal_planner_agent.py; no real account data",
+  "checks": [
+    {
+      "name": "swagger-ui",
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    {
+      "name": "openapi-specification",
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    {
+      "name": "backend-health",
+      "status": "PASS",
+      "httpStatus": 200
+    },
+    {
+      "name": "internal-auth-rejects-missing-key",
+      "status": "PASS",
+      "httpStatus": 401
+    },
+    {
+      "name": "diet-persisted-and-reloaded",
+      "status": "PASS",
+      "dietTypeId": 1
+    },
+    {
+      "name": "diet-persisted-and-reloaded",
+      "status": "PASS",
+      "dietTypeId": 2
+    },
+    {
+      "name": "invalid-measurements-rejected-before-ai",
+      "status": "PASS",
+      "httpStatus": 422
+    },
+    {
+      "name": "saved-diet-forwarded-by-real-client-and-gateway",
+      "status": "PASS",
+      "dietaryType": "lacto"
+    },
+    {
+      "name": "real-weekly-meal-plan",
+      "status": "PASS",
+      "days": 7,
+      "dietaryType": "lacto",
+      "durationSeconds": 119
+    }
+  ],
+  "progress": [
+    {
+      "stage": "calculating",
+      "message": "Đã tính nhu cầu năng lượng: khoảng 1781 kcal/ngày.",
+      "targetCalories": 1781,
+      "proteinG": 55,
+      "bmi": 20.2
+    },
+    {
+      "stage": "generating",
+      "message": "Đang tạo thực đơn...",
+      "attempt": 1,
+      "maxAttempts": 3
+    },
+    {
+      "stage": "validating",
+      "message": "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...",
+      "attempt": 1
+    },
+    {
+      "stage": "retrying",
+      "message": "Thực đơn chưa đạt yêu cầu, đang điều chỉnh...",
+      "attempt": 1
+    },
+    {
+      "stage": "generating",
+      "message": "Đang tạo lại thực đơn (lần 2/3)...",
+      "attempt": 2,
+      "maxAttempts": 3
+    },
+    {
+      "stage": "validating",
+      "message": "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...",
+      "attempt": 2
+    },
+    {
+      "stage": "retrying",
+      "message": "Thực đơn chưa đạt yêu cầu, đang điều chỉnh...",
+      "attempt": 2
+    },
+    {
+      "stage": "generating",
+      "message": "Đang tạo lại thực đơn (lần 3/3)...",
+      "attempt": 3,
+      "maxAttempts": 3
+    },
+    {
+      "stage": "validating",
+      "message": "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...",
+      "attempt": 3
+    }
+  ],
+  "finishedAt": "2026-11-08T03:44:29.276Z",
+  "testHarnessCorrection": "Invalid AI input correctly uses HTTP 422, as defined by aiRequestValidator.js; corrected the initial test expectation of 400.",
+  "expectedDiet": "lacto",
+  "attempts": [
+    {
+      "attempt": 1,
+      "feedback": null
+    },
+    {
+      "attempt": 2,
+      "feedback": "Thực đơn lần trước chưa đạt chỉ tiêu dinh dưỡng: Thứ Hai: tổng 1600 kcal, cần nằm trong khoảng 1603-1959 kcal. Thứ Năm: tổng 1600 kcal, cần nằm trong khoảng 1603-1959 kcal. Chủ Nhật: tổng 1600 kcal, cần nằm trong khoảng 1603-1959 kcal. Hãy điều chỉnh khẩu phần và sinh lại toàn bộ thực đơn."
+    },
+    {
+      "attempt": 3,
+      "feedback": "Thực đơn lần trước vi phạm yêu cầu bắt buộc: Thứ Năm - Bữa tối 'Mì gạo lứt xào rau củ, đậu hũ và mè rang' chứa 'gà' (không phải món chay) Chủ Nhật - Bữa tối 'Mì gạo lứt xào rau củ, đậu hũ và mè rang' chứa 'gà' (không phải món chay) Hãy sinh lại toàn bộ thực đơn và sửa các lỗi này."
+    }
+  ],
+  "historyStatus": "COMPLETED",
+  "generatedDays": 7,
+  "effectiveTimeoutMs": 180000,
+  "initialHarnessTimeoutMs": 1000,
+  "plan": {
+    "title": "Thực Đơn Chay Có Sữa (Lacto) 7 Ngày – Duy Trì Vóc Dáng & Sức Khỏe",
+    "summary": "Thực đơn chay có sữa (lacto – dùng sữa, KHÔNG dùng trứng, không thịt/cá/hải sản) thiết kế cho nữ 25 tuổi, BMI 20.2 (bình thường), mục tiêu duy trì vóc dáng và sức khỏe. Mỗi ngày được cân chỉnh để tổng calo nằm trong khoảng 1603–1959 kcal (mục tiêu 1781 kcal) và protein trung bình đạt ~55 g/ngày. Thực đơn cân bằng đạm thực vật (đậu hũ, đậu lăng, đậu gà, sữa, sữa chua, các loại hạt), tinh bột phức hợp giàu chất xơ (gạo lứt, yến mạch, khoai lang), chất béo tốt (hạt, dầu ô liu, bơ đậu phộng) và rau củ nhiều màu. Đã sửa lỗi: tất cả các món đều 100% chay, không còn bất kỳ thành phần thịt/gia cầm nào; các ngày Thứ Hai, Thứ Năm, Chủ Nhật đã được tăng khẩu phần để đạt ngưỡng calo tối thiểu 1603 kcal.",
+    "profileSummary": {
+      "bmi": 20.2,
+      "bmiCategory": "Bình thường (Normal weight)",
+      "targetDailyCalories": 1781,
+      "primaryGoal": "Duy trì vóc dáng & Sức khỏe (Maintenance)",
+      "dietaryType": "lacto",
+      "usedAvailableIngredients": []
+    },
+    "weeklyPlan": [
+      {
+        "day": "Thứ Hai",
+        "dayNumber": 1,
+        "breakfast": {
+          "name": "Cháo yến mạch sữa tươi chuối & hạt óc chó",
+          "ingredients": [
+            "Yến mạch cán dẹt 60 g",
+            "Sữa tươi không đường 250 ml",
+            "Chuối chín 1 quả (100 g)",
+            "Hạt óc chó 15 g",
+            "Hạt chia 10 g",
+            "Quế xay 1/2 thìa cà phê"
+          ],
+          "instructions": "Đun yến mạch với sữa tươi 5 phút, khuấy đều. Thêm chuối cắt lát, rắc óc chó, hạt chia và quế.",
+          "estimatedCalories": 520,
+          "proteinG": 19,
+          "carbsG": 68,
+          "fiberG": 10,
+          "fatG": 19
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu hũ sốt cà chua & canh rau ngót",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu hũ non 150 g",
+            "Cà chua 150 g",
+            "Hành tím, tỏi 10 g",
+            "Dầu ô liu 10 ml",
+            "Rau ngót 100 g",
+            "Nước mắm chay 1 thìa cà phê"
+          ],
+          "instructions": "Đậu hũ áp chảo vàng rồi sốt cùng cà chua. Rau ngót nấu canh với nước, nêm nhạt.",
+          "estimatedCalories": 560,
+          "proteinG": 25,
+          "carbsG": 72,
+          "fiberG": 9,
+          "fatG": 17
+        },
+        "dinner": {
+          "name": "Bún gạo lứt trộn đậu hũ chiên, rau sống & mè rang",
+          "ingredients": [
+            "Bún gạo lứt khô 80 g",
+            "Đậu hũ 150 g",
+            "Dưa leo 80 g",
+            "Xà lách, rau thơm 80 g",
+            "Cà rốt 50 g",
+            "Mè rang 10 g",
+            "Nước tương chay 1 thìa canh",
+            "Dầu mè 5 ml"
+          ],
+          "instructions": "Bún luộc chín, đậu hũ chiên áp chảo ít dầu. Trộn rau củ, rưới nước tương + dầu mè, rắc mè rang.",
+          "estimatedCalories": 520,
+          "proteinG": 22,
+          "carbsG": 62,
+          "fiberG": 8,
+          "fatG": 19
+        },
+        "snacks": {
+          "name": "Sữa chua không đường & hạt điều",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạt điều 15 g",
+            "Dâu tây 60 g"
+          ],
+          "instructions": "Trộn sữa chua với dâu tây cắt nhỏ, rắc hạt điều.",
+          "estimatedCalories": 210,
+          "proteinG": 8,
+          "carbsG": 16,
+          "fiberG": 2,
+          "fatG": 12
+        },
+        "dailyCalories": 1810,
+        "dailyProteinG": 74,
+        "dailyCarbsG": 218,
+        "dailyFatG": 67
+      },
+      {
+        "day": "Thứ Ba",
+        "dayNumber": 2,
+        "breakfast": {
+          "name": "Bánh mì nguyên cám bơ đậu phộng & sữa đậu nành",
+          "ingredients": [
+            "Bánh mì nguyên cám 2 lát (80 g)",
+            "Bơ đậu phộng nguyên chất 20 g",
+            "Chuối 1 quả (100 g)",
+            "Sữa đậu nành không đường 250 ml"
+          ],
+          "instructions": "Phết bơ đậu phộng lên bánh mì, kẹp chuối cắt lát. Dùng kèm sữa đậu nành.",
+          "estimatedCalories": 500,
+          "proteinG": 20,
+          "carbsG": 62,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt cá viên chay sốt cà & canh bí đỏ",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu hũ 150 g",
+            "Nấm hương 30 g",
+            "Cà chua 150 g",
+            "Bí đỏ 150 g",
+            "Dầu ô liu 10 ml",
+            "Hành lá"
+          ],
+          "instructions": "Đậu hũ + nấm xay nhuyễn, vo viên chiên áp chảo. Sốt cà chua. Bí đỏ nấu canh.",
+          "estimatedCalories": 570,
+          "proteinG": 26,
+          "carbsG": 74,
+          "fiberG": 10,
+          "fatG": 17
+        },
+        "dinner": {
+          "name": "Canh chua chay đậu hũ & cơm gạo lứt",
+          "ingredients": [
+            "Gạo lứt chín 180 g",
+            "Đậu hũ 150 g",
+            "Cà chua 100 g",
+            "Thơm (dứa) 80 g",
+            "Giá đỗ 80 g",
+            "Rau muống 100 g",
+            "Me chua 10 g",
+            "Dầu ăn 5 ml"
+          ],
+          "instructions": "Nấu canh chua với me, cà chua, thơm, giá đỗ, rau muống và đậu hũ. Ăn kèm cơm.",
+          "estimatedCalories": 520,
+          "proteinG": 23,
+          "carbsG": 70,
+          "fiberG": 9,
+          "fatG": 15
+        },
+        "snacks": {
+          "name": "Sữa chua & hạnh nhân",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạnh nhân 15 g",
+            "Việt quất 50 g"
+          ],
+          "instructions": "Trộn đều, dùng lạnh.",
+          "estimatedCalories": 200,
+          "proteinG": 8,
+          "carbsG": 15,
+          "fiberG": 2,
+          "fatG": 12
+        },
+        "dailyCalories": 1790,
+        "dailyProteinG": 77,
+        "dailyCarbsG": 221,
+        "dailyFatG": 63
+      },
+      {
+        "day": "Thứ Tư",
+        "dayNumber": 3,
+        "breakfast": {
+          "name": "Sinh tố yến mạch – sữa – xoài & hạt chia",
+          "ingredients": [
+            "Yến mạch 50 g",
+            "Sữa tươi không đường 250 ml",
+            "Xoài chín 120 g",
+            "Hạt chia 10 g",
+            "Hạt bí 10 g"
+          ],
+          "instructions": "Xay yến mạch, sữa, xoài. Rắc hạt chia và hạt bí lên trên.",
+          "estimatedCalories": 510,
+          "proteinG": 19,
+          "carbsG": 66,
+          "fiberG": 9,
+          "fatG": 18
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu gà hầm cà ri rau củ",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu gà chín 150 g",
+            "Khoai lang 100 g",
+            "Cà rốt 60 g",
+            "Nước cốt dừa 50 ml",
+            "Bột cà ri 5 g",
+            "Dầu ô liu 5 ml"
+          ],
+          "instructions": "Hầm đậu gà, khoai lang, cà rốt với nước cốt dừa và bột cà ri 15 phút. Ăn kèm cơm.",
+          "estimatedCalories": 580,
+          "proteinG": 24,
+          "carbsG": 82,
+          "fiberG": 13,
+          "fatG": 17
+        },
+        "dinner": {
+          "name": "Phở chay nấm đậu hũ & rau cải",
+          "ingredients": [
+            "Bánh phở gạo 100 g",
+            "Đậu hũ 120 g",
+            "Nấm rơm 80 g",
+            "Cải ngọt 100 g",
+            "Hành tây 30 g",
+            "Gừng, quế, hồi",
+            "Nước tương chay 1 thìa canh"
+          ],
+          "instructions": "Nấu nước dùng từ gừng, quế, hồi, hành tây. Trụng bánh phở, thêm đậu hũ, nấm, cải ngọt.",
+          "estimatedCalories": 500,
+          "proteinG": 22,
+          "carbsG": 66,
+          "fiberG": 7,
+          "fatG": 14
+        },
+        "snacks": {
+          "name": "Sữa chua & óc chó",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạt óc chó 15 g"
+          ],
+          "instructions": "Dùng trực tiếp.",
+          "estimatedCalories": 200,
+          "proteinG": 8,
+          "carbsG": 12,
+          "fiberG": 1,
+          "fatG": 14
+        },
+        "dailyCalories": 1790,
+        "dailyProteinG": 73,
+        "dailyCarbsG": 226,
+        "dailyFatG": 63
+      },
+      {
+        "day": "Thứ Năm",
+        "dayNumber": 4,
+        "breakfast": {
+          "name": "Bánh mì nguyên cám trứng chay (đậu hũ non) & sữa tươi",
+          "ingredients": [
+            "Bánh mì nguyên cám 2 lát (80 g)",
+            "Đậu hũ non 120 g",
+            "Nghệ, tiêu, hành lá",
+            "Dầu ô liu 5 ml",
+            "Sữa tươi không đường 200 ml",
+            "Dưa leo 50 g"
+          ],
+          "instructions": "Đậu hũ non tán nhuyễn, nêm nghệ, tiêu, chiên áp chảo thành lớp trứng chay. Kẹp bánh mì với dưa leo.",
+          "estimatedCalories": 520,
+          "proteinG": 24,
+          "carbsG": 58,
+          "fiberG": 8,
+          "fatG": 20
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu hũ kho nấm & canh cải xanh",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu hũ 150 g",
+            "Nấm đông cô 50 g",
+            "Nước tương chay 1 thìa canh",
+            "Đường thốt nốt 5 g",
+            "Cải xanh 100 g",
+            "Dầu ăn 5 ml"
+          ],
+          "instructions": "Kho đậu hũ với nấm, nước tương, đường thốt nốt đến khi sánh. Cải xanh nấu canh.",
+          "estimatedCalories": 570,
+          "proteinG": 26,
+          "carbsG": 74,
+          "fiberG": 9,
+          "fatG": 17
+        },
+        "dinner": {
+          "name": "Bún gạo lứt xào rau củ, đậu hũ và mè rang",
+          "ingredients": [
+            "Bún gạo lứt khô 80 g",
+            "Đậu hũ 150 g",
+            "Bông cải xanh 100 g",
+            "Cà rốt 50 g",
+            "Nấm mèo 30 g",
+            "Mè rang 10 g",
+            "Nước tương chay 1 thìa canh",
+            "Dầu mè 5 ml"
+          ],
+          "instructions": "Bún luộc chín. Xào đậu hũ, bông cải, cà rốt, nấm mèo với dầu mè và nước tương, trộn bún, rắc mè rang.",
+          "estimatedCalories": 540,
+          "proteinG": 23,
+          "carbsG": 66,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "snacks": {
+          "name": "Sữa chua & hạt bí rang",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạt bí rang 20 g",
+            "Chuối 1/2 quả (50 g)"
+          ],
+          "instructions": "Trộn đều.",
+          "estimatedCalories": 220,
+          "proteinG": 9,
+          "carbsG": 18,
+          "fiberG": 2,
+          "fatG": 12
+        },
+        "dailyCalories": 1850,
+        "dailyProteinG": 82,
+        "dailyCarbsG": 216,
+        "dailyFatG": 68
+      },
+      {
+        "day": "Thứ Sáu",
+        "dayNumber": 5,
+        "breakfast": {
+          "name": "Cháo đậu xanh – hạt sen & sữa tươi",
+          "ingredients": [
+            "Đậu xanh 50 g",
+            "Hạt sen 30 g",
+            "Gạo lứt 30 g",
+            "Sữa tươi không đường 200 ml",
+            "Đường thốt nốt 5 g"
+          ],
+          "instructions": "Ninh nhừ đậu xanh, hạt sen, gạo lứt. Thêm sữa tươi, nêm nhẹ đường thốt nốt.",
+          "estimatedCalories": 500,
+          "proteinG": 20,
+          "carbsG": 78,
+          "fiberG": 10,
+          "fatG": 9
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu lăng hầm cà chua & rau luộc",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu lăng đỏ 100 g",
+            "Cà chua 150 g",
+            "Hành tây 40 g",
+            "Dầu ô liu 10 ml",
+            "Rau cải luộc 150 g"
+          ],
+          "instructions": "Hầm đậu lăng với cà chua, hành tây 20 phút. Ăn kèm cơm và rau luộc.",
+          "estimatedCalories": 580,
+          "proteinG": 26,
+          "carbsG": 88,
+          "fiberG": 14,
+          "fatG": 14
+        },
+        "dinner": {
+          "name": "Súp bí đỏ đậu hũ non & bánh mì nguyên cám",
+          "ingredients": [
+            "Bí đỏ 250 g",
+            "Đậu hũ non 150 g",
+            "Sữa tươi không đường 100 ml",
+            "Hành tây 40 g",
+            "Bánh mì nguyên cám 60 g",
+            "Dầu ô liu 5 ml"
+          ],
+          "instructions": "Nấu bí đỏ mềm, xay nhuyễn với đậu hũ non và sữa. Dùng kèm bánh mì nướng.",
+          "estimatedCalories": 500,
+          "proteinG": 21,
+          "carbsG": 62,
+          "fiberG": 9,
+          "fatG": 17
+        },
+        "snacks": {
+          "name": "Sữa chua & hạt điều",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạt điều 15 g",
+            "Táo 1/2 quả (80 g)"
+          ],
+          "instructions": "Dùng kèm.",
+          "estimatedCalories": 210,
+          "proteinG": 8,
+          "carbsG": 20,
+          "fiberG": 3,
+          "fatG": 11
+        },
+        "dailyCalories": 1790,
+        "dailyProteinG": 75,
+        "dailyCarbsG": 248,
+        "dailyFatG": 51
+      },
+      {
+        "day": "Thứ Bảy",
+        "dayNumber": 6,
+        "breakfast": {
+          "name": "Bánh mì nguyên cám sốt bơ đậu phộng & sinh tố sữa – chuối",
+          "ingredients": [
+            "Bánh mì nguyên cám 2 lát (80 g)",
+            "Bơ đậu phộng 20 g",
+            "Sữa tươi không đường 200 ml",
+            "Chuối 1 quả (100 g)",
+            "Hạt chia 5 g"
+          ],
+          "instructions": "Phết bơ đậu phộng lên bánh mì. Xay sữa, chuối, hạt chia thành sinh tố.",
+          "estimatedCalories": 520,
+          "proteinG": 20,
+          "carbsG": 66,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu hũ chiên sả ớt & canh mồng tơi",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu hũ 150 g",
+            "Sả 20 g",
+            "Ớt 5 g",
+            "Nước tương chay 1 thìa canh",
+            "Mồng tơi 120 g",
+            "Dầu ăn 10 ml"
+          ],
+          "instructions": "Đậu hũ chiên áp chảo với sả ớt, nêm nước tương. Mồng tơi nấu canh.",
+          "estimatedCalories": 580,
+          "proteinG": 25,
+          "carbsG": 74,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "dinner": {
+          "name": "Mì gạo lứt xào rau củ, đậu hũ và mè rang",
+          "ingredients": [
+            "Mì gạo lứt khô 80 g",
+            "Đậu hũ 150 g",
+            "Bông cải xanh 100 g",
+            "Cà rốt 50 g",
+            "Nấm hương 30 g",
+            "Mè rang 10 g",
+            "Nước tương chay 1 thìa canh",
+            "Dầu mè 5 ml"
+          ],
+          "instructions": "Mì luộc chín. Xào đậu hũ, bông cải, cà rốt, nấm hương với dầu mè, nước tương. Trộn mì, rắc mè rang.",
+          "estimatedCalories": 540,
+          "proteinG": 23,
+          "carbsG": 66,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "snacks": {
+          "name": "Sữa chua & hạnh nhân",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạnh nhân 15 g",
+            "Dâu tây 60 g"
+          ],
+          "instructions": "Trộn đều.",
+          "estimatedCalories": 200,
+          "proteinG": 8,
+          "carbsG": 16,
+          "fiberG": 2,
+          "fatG": 12
+        },
+        "dailyCalories": 1840,
+        "dailyProteinG": 76,
+        "dailyCarbsG": 222,
+        "dailyFatG": 69
+      },
+      {
+        "day": "Chủ Nhật",
+        "dayNumber": 7,
+        "breakfast": {
+          "name": "Bánh mì nguyên cám đậu hũ non chiên & sữa tươi",
+          "ingredients": [
+            "Bánh mì nguyên cám 2 lát (80 g)",
+            "Đậu hũ non 120 g",
+            "Nghệ, tiêu, hành lá",
+            "Dầu ô liu 5 ml",
+            "Sữa tươi không đường 200 ml",
+            "Cà chua 50 g"
+          ],
+          "instructions": "Đậu hũ non tán nhuyễn, nêm nghệ, tiêu, chiên áp chảo. Kẹp bánh mì với cà chua.",
+          "estimatedCalories": 520,
+          "proteinG": 24,
+          "carbsG": 58,
+          "fiberG": 8,
+          "fatG": 20
+        },
+        "lunch": {
+          "name": "Cơm gạo lứt đậu hũ sốt nấm & canh bí đao",
+          "ingredients": [
+            "Gạo lứt chín 200 g",
+            "Đậu hũ 150 g",
+            "Nấm đông cô 50 g",
+            "Nấm rơm 50 g",
+            "Nước tương chay 1 thìa canh",
+            "Bí đao 150 g",
+            "Dầu ăn 5 ml"
+          ],
+          "instructions": "Sốt đậu hũ với nấm, nước tương. Bí đao nấu canh.",
+          "estimatedCalories": 570,
+          "proteinG": 26,
+          "carbsG": 74,
+          "fiberG": 9,
+          "fatG": 17
+        },
+        "dinner": {
+          "name": "Bún gạo lứt xào rau củ, đậu hũ và mè rang",
+          "ingredients": [
+            "Bún gạo lứt khô 80 g",
+            "Đậu hũ 150 g",
+            "Bông cải xanh 100 g",
+            "Cà rốt 50 g",
+            "Nấm mèo 30 g",
+            "Mè rang 10 g",
+            "Nước tương chay 1 thìa canh",
+            "Dầu mè 5 ml"
+          ],
+          "instructions": "Bún luộc chín. Xào đậu hũ, bông cải, cà rốt, nấm mèo với dầu mè và nước tương, trộn bún, rắc mè rang.",
+          "estimatedCalories": 540,
+          "proteinG": 23,
+          "carbsG": 66,
+          "fiberG": 9,
+          "fatG": 19
+        },
+        "snacks": {
+          "name": "Sữa chua & óc chó",
+          "ingredients": [
+            "Sữa chua không đường 150 g",
+            "Hạt óc chó 15 g",
+            "Chuối 1/2 quả (50 g)"
+          ],
+          "instructions": "Trộn đều.",
+          "estimatedCalories": 220,
+          "proteinG": 8,
+          "carbsG": 20,
+          "fiberG": 2,
+          "fatG": 13
+        },
+        "dailyCalories": 1850,
+        "dailyProteinG": 81,
+        "dailyCarbsG": 218,
+        "dailyFatG": 69
+      }
+    ],
+    "groceryShoppingList": [
+      "Yến mạch cán dẹt (500 g)",
+      "Gạo lứt (1 kg)",
+      "Bún gạo lứt khô (400 g)",
+      "Mì gạo lứt khô (200 g)",
+      "Bánh phở gạo (300 g)",
+      "Bánh mì nguyên cám (1 ổ)",
+      "Đậu hũ (1.5 kg)",
+      "Đậu hũ non (600 g)",
+      "Sữa tươi không đường (2 lít)",
+      "Sữa đậu nành không đường (500 ml)",
+      "Sữa chua không đường (1.2 kg)",
+      "Đậu gà (200 g khô hoặc hộp)",
+      "Đậu lăng đỏ (200 g)",
+      "Đậu xanh (100 g)",
+      "Hạt sen (100 g)",
+      "Bơ đậu phộng nguyên chất (1 hũ nhỏ)",
+      "Hạt chia (100 g)",
+      "Hạt óc chó (100 g)",
+      "Hạnh nhân (100 g)",
+      "Hạt điều (100 g)",
+      "Hạt bí (100 g)",
+      "Mè rang (50 g)",
+      "Nước cốt dừa (200 ml)",
+      "Bột cà ri (1 gói nhỏ)",
+      "Nước tương chay (1 chai)",
+      "Dầu ô liu (250 ml)",
+      "Dầu mè (100 ml)",
+      "Đường thốt nốt (100 g)",
+      "Me chua (50 g)",
+      "Nấm hương khô (50 g)",
+      "Nấm đông cô (100 g)",
+      "Nấm rơm (100 g)",
+      "Nấm mèo (50 g)",
+      "Rau ngót, mồng tơi, cải xanh, cải ngọt, rau muống (mỗi loại 200 g)",
+      "Bông cải xanh (300 g)",
+      "Cà rốt (300 g)",
+      "Cà chua (700 g)",
+      "Dưa leo (200 g)",
+      "Xà lách & rau thơm (200 g)",
+      "Bí đỏ (400 g)",
+      "Bí đao (200 g)",
+      "Khoai lang (200 g)",
+      "Hành tây (200 g)",
+      "Hành tím, tỏi, sả, ớt, gừng, quế, hồi, nghệ",
+      "Chuối (7 quả)",
+      "Xoài (1 quả)",
+      "Dâu tây (200 g)",
+      "Việt quất (100 g)",
+      "Táo (2 quả)",
+      "Thơm/dứa (1 quả)",
+      "Giá đỗ (100 g)"
+    ],
+    "nutritionistTips": [
+      "Uống đủ 1.8–2 lít nước mỗi ngày; có thể dùng trà thảo mộc không đường xen giữa các bữa.",
+      "Chế độ lacto có sữa nhưng không trứng: nên bổ sung vitamin B12 (sữa và sữa chua có một phần, nhưng vẫn nên kiểm tra và bổ sung 25–100 mcg/ngày hoặc theo chỉ dẫn bác sĩ).",
+      "Kết hợp thực phẩm giàu vitamin C (cà chua, ớt chuông, cam) với đậu, đậu lăng để tăng hấp thu sắt không heme.",
+      "Bổ sung canxi từ sữa, sữa chua, đậu hũ (đông kết canxi sulfat), hạt chia và hạnh nhân; mục tiêu ~1000 mg/ngày.",
+      "Omega-3 ALA: thêm 1 thìa hạt chia hoặc hạt lanh xay mỗi ngày; cân nhắc dầu tảo nếu cần DHA/EPA.",
+      "Ưu tiên đậu hũ, đậu lăng, đậu gà và sữa chua để đạt ~55 g protein/ngày; chia đều protein cho 3 bữa chính giúp duy trì cơ và cảm giác no.",
+      "Hạn chế chiên ngập dầu; dùng áp chảo với dầu ô liu hoặc nướng để giữ chất béo tốt và kiểm soát calo.",
+      "Ngâm đậu khô qua đêm và nấu mềm để dễ tiêu hóa, giảm đầy hơi; tăng dần lượng chất xơ trong 1–2 tuần đầu.",
+      "Bữa phụ là sữa chua + hạt giúp ổn định đường huyết và bổ sung canxi; tránh bỏ bữa để duy trì năng lượng cho mục tiêu duy trì vóc dáng.",
+      "Vì BMI 20.2 ở mức bình thường, mục tiêu là duy trì: theo dõi cân nặng hàng tuần, không cắt giảm calo dưới 1603 kcal/ngày."
+    ],
+    "chat": {
+      "title": "Thực Đơn Chay Có Sữa (Lacto) 7 Ngày – Duy Trì Vóc Dáng & Sức Khỏe",
+      "text": "Mục tiêu khoảng 1781 kcal/ngày (BMI 20.2, Bình thường (Normal weight)). Thực đơn chay có sữa (lacto – dùng sữa, KHÔNG dùng trứng, không thịt/cá/hải sản) thiết kế cho nữ 25 tuổi, BMI 20.2 (bình thường), mục tiêu duy trì vóc dáng và sức khỏe. Mỗi ngày được cân chỉnh để tổng calo nằm trong khoảng 1603–1959 kcal (mục tiêu 1781 kcal) và protein trung bình đạt ~55 g/ngày. Thực đơn cân bằng đạm thực vật (đậu hũ, đậu lăng, đậu gà, sữa, sữa chua, các loại hạt), tinh bột phức hợp giàu chất xơ (gạo lứt, yến mạch, khoai lang), chất béo tốt (hạt, dầu ô liu, bơ đậu phộng) và rau củ nhiều màu. Đã sửa lỗi: tất cả các món đều 100% chay, không còn bất kỳ thành phần thịt/gia cầm nào; các ngày Thứ Hai, Thứ Năm, Chủ Nhật đã được tăng khẩu phần để đạt ngưỡng calo tối thiểu 1603 kcal.",
+      "items": [
+        "Thứ Hai: Cháo yến mạch sữa tươi chuối & hạt óc chó · Cơm gạo lứt đậu hũ sốt cà chua & canh rau ngót · Bún gạo lứt trộn đậu hũ chiên, rau sống & mè rang (~1810 kcal)",
+        "Thứ Ba: Bánh mì nguyên cám bơ đậu phộng & sữa đậu nành · Cơm gạo lứt cá viên chay sốt cà & canh bí đỏ · Canh chua chay đậu hũ & cơm gạo lứt (~1790 kcal)",
+        "Thứ Tư: Sinh tố yến mạch – sữa – xoài & hạt chia · Cơm gạo lứt đậu gà hầm cà ri rau củ · Phở chay nấm đậu hũ & rau cải (~1790 kcal)",
+        "Thứ Năm: Bánh mì nguyên cám trứng chay (đậu hũ non) & sữa tươi · Cơm gạo lứt đậu hũ kho nấm & canh cải xanh · Bún gạo lứt xào rau củ, đậu hũ và mè rang (~1850 kcal)",
+        "Thứ Sáu: Cháo đậu xanh – hạt sen & sữa tươi · Cơm gạo lứt đậu lăng hầm cà chua & rau luộc · Súp bí đỏ đậu hũ non & bánh mì nguyên cám (~1790 kcal)",
+        "Thứ Bảy: Bánh mì nguyên cám sốt bơ đậu phộng & sinh tố sữa – chuối · Cơm gạo lứt đậu hũ chiên sả ớt & canh mồng tơi · Mì gạo lứt xào rau củ, đậu hũ và mè rang (~1840 kcal)",
+        "Chủ Nhật: Bánh mì nguyên cám đậu hũ non chiên & sữa tươi · Cơm gạo lứt đậu hũ sốt nấm & canh bí đao · Bún gạo lứt xào rau củ, đậu hũ và mè rang (~1850 kcal)"
+      ],
+      "footer": "Uống đủ 1.8–2 lít nước mỗi ngày; có thể dùng trà thảo mộc không đường xen giữa các bữa. Thực đơn mang tính tham khảo, không thay thế tư vấn của bác sĩ hoặc chuyên gia dinh dưỡng."
+    },
+    "generationId": "c0c28d21-02de-416e-a35b-a943657655f9"
+  },
+  "finalValidation": {
+    "hardErrors": [],
+    "softErrors": [],
+    "targetCalories": 1781
+  },
+  "testApiStopped": true
+}
