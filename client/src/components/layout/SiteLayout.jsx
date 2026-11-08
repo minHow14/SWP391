@@ -1,4 +1,4 @@
-// C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/components/layout/SiteLayout.jsx
+// D:/SWP391/SWP391/client/src/components/layout/SiteLayout.jsx
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet } from 'react-router';
 import Header from './Header.jsx';
@@ -6,7 +6,7 @@ import Footer from './Footer.jsx';
 import WelcomeModal from '../../features/diet/components/WelcomeModal.jsx';
 import ChatBox from '../../features/chat/components/ChatBox.jsx';
 import SiteStatus from '../common/SiteStatus.jsx';
-import { getSavedDiet } from '../../utils/dietSelection.js';
+import { useDietSelection } from '../../features/diet/hooks/useDietSelection.js';
 import { useDatabase } from '../../hooks/useDatabase.js';
 
 export default function SiteLayout() {
@@ -16,8 +16,8 @@ export default function SiteLayout() {
 }
 
 function LoadedSiteLayout({data}) {
-  const [diet, setDiet] = useState(() => getSavedDiet(data.diets));
-  const [dietPickerOpen, setDietPickerOpen] = useState(false);
+  const { diet, pickerOpen, openPicker, confirm, identityRevision } = useDietSelection(data.diets);
+  const { user, userLoading, userError, refreshUser } = useDatabase();
   const [personalPosts, setPersonalPosts] = useState([]);
   const mediaUrls = useRef(new Set());
   const createPostAttachment = useCallback((file) => {
@@ -41,6 +41,9 @@ function LoadedSiteLayout({data}) {
     };
   }, []);
   const dietName = diet?.name || 'Chưa chọn chế độ ăn';
+  if (user && !diet && (userLoading || userError)) {
+    return <SiteStatus error={userError} onRetry={refreshUser} />;
+  }
 
   return (
     <div
@@ -51,7 +54,7 @@ function LoadedSiteLayout({data}) {
         <>
           <Header
             dietName={dietName}
-            onChangeDiet={() => setDietPickerOpen(true)}
+            onChangeDiet={openPicker}
           />
           <div id="main-content" className="cx-main-content" tabIndex={-1}><Outlet
             context={{
@@ -72,13 +75,8 @@ function LoadedSiteLayout({data}) {
           aria-label="Chọn loại ăn chay trước khi vào ChayXanh"
         />
       )}
-      {(dietPickerOpen || !diet) && (
-        <WelcomeModal options={data.diets}
-          onConfirm={(selection) => {
-            setDiet(selection);
-            setDietPickerOpen(false);
-          }}
-        />
+      {(pickerOpen || !diet) && (
+        <WelcomeModal key={identityRevision} options={data.diets} initialDietId={diet?.diet_type_id} onConfirm={confirm} />
       )}
     </div>
   );
