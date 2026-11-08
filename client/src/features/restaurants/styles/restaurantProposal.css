@@ -99,3 +99,98 @@
   margin: 4px 0 0;
   text-align: center;
 }
+
+/* Checkbox card tiêu chuẩn ăn chay */
+.cx-proposal-check-card {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.cx-proposal-check-card:hover {
+  border-color: #86efac;
+  background: #fbfdfc;
+}
+
+.cx-proposal-check-card.is-checked {
+  background: #f0fdf4;
+  border-color: #86efac;
+  box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
+}
+
+.cx-proposal-form .cx-proposal-check-card .form-check {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
+
+.cx-proposal-form .cx-proposal-check-card .form-check-input {
+  display: inline-block !important;
+  float: none !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  min-width: 1.25rem;
+  max-width: 1.25rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 1.5px solid #94a3b8 !important;
+  border-radius: 5px !important;
+  background-color: #ffffff;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.cx-proposal-form .cx-proposal-check-card .form-check-input:checked {
+  background-color: #15803d !important;
+  border-color: #15803d !important;
+}
+
+.cx-proposal-form .cx-proposal-check-card .form-check-input:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15) !important;
+  outline: none;
+}
+
+.cx-proposal-form .cx-proposal-check-card .form-check-label {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+}
+
+.cx-proposal-check-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cx-proposal-check-title {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: #1e293b;
+  line-height: 1.35;
+}
+
+.cx-proposal-check-card.is-checked .cx-proposal-check-title {
+  color: #065f46;
+}
+
+.cx-proposal-check-desc {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.35;
+}
+
+.cx-proposal-check-card.is-checked .cx-proposal-check-desc {
+  color: #047857;
+}

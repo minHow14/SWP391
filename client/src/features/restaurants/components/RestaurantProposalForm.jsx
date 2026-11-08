@@ -308,13 +308,25 @@ export default function RestaurantProposalForm({ onSubmit }) {
             2. Tiêu chuẩn ăn chay & Thông tin hoạt động (Tùy chọn)
           </h6>
 
-          <Form.Group controlId="proposal-separate-kitchen" className="mb-3">
+          <div
+            className={`cx-proposal-check-card ${values.separate_kitchen ? 'is-checked' : ''} mb-3`}
+          >
             <Form.Check
               type="checkbox"
-              label="✓ Gian bếp & dụng cụ nấu thuần chay riêng biệt (Không chung với đồ mặn)"
+              id="proposal-separate-kitchen"
               {...register('separate_kitchen')}
+              label={
+                <div className="cx-proposal-check-content">
+                  <span className="cx-proposal-check-title">
+                    Gian bếp & dụng cụ nấu thuần chay riêng biệt
+                  </span>
+                  <span className="cx-proposal-check-desc">
+                    Không chung với đồ mặn, đảm bảo không gian chế biến thuần chay
+                  </span>
+                </div>
+              }
             />
-          </Form.Group>
+          </div>
 
           <Row>
             <Col xs={12} sm={6}>
