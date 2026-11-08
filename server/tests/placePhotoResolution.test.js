@@ -1,4 +1,4 @@
-// D:/SWP391/SWP391/server/tests/placePhotoResolution.test.js
+// d:/Projects/FPT/SWP391/server/tests/placePhotoResolution.test.js
 import { afterEach, expect, it, vi } from 'vitest';
 import { clearZiomapCache, resolvePlacePhoto, searchZiomap } from '../src/services/places.service.js';
 
@@ -56,7 +56,7 @@ it('does not borrow another place photo or invent a photo when the provider fail
 it('returns valid restaurants within one shared photo deadline when photo requests hang', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   let photoRequests = 0;
-  const places = Array.from({ length: 4 }, (_, index) => ({ id: `deadline-${index}`,
+  const places = Array.from({ length: 4 }, (_, index) => ({ id: `deadline-${index}`, displayName: { text: `Restaurant fixture ${index}` },
     location: { latitude: 0, longitude: 0 }, photos: [{ name: `places/deadline-${index}/photos/image` }] }));
   vi.stubGlobal('fetch', vi.fn(async (url, options) => {
     if (url.includes('/text-search')) return { ok: true, json: async () => ({ places }) };
