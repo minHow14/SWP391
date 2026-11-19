@@ -57,6 +57,7 @@ Hệ thống phân định rõ ràng các tính năng theo vai trò và trạng 
 | **Lập thực đơn AI 7 ngày** | Thành viên | `Implemented` | Tính TDEE/BMI, sinh thực đơn theo thể trạng, dị ứng, mục tiêu; hỗ trợ áp dụng vào lịch tuần. |
 | **Quét nhãn & Kiểm tra món (Scanner)** | Khách / Member | `Implemented` | Nhận diện ảnh món ăn / nhãn thành phần qua AI Vision, kiểm tra quy tắc chay 5 lớp. |
 | **Trích xuất công thức từ YouTube** | Thành viên | `Implemented` | Gửi link YouTube tiếng Việt (≤11 phút), worker trích xuất phụ đề và tóm tắt công thức. |
+| **Tìm kiếm Video và Blog toàn cục** | Khách / Member | `Implemented` | Tìm kiếm bài viết Blog và Video theo từ khóa trên tiêu đề, nội dung, phụ đề (transcript); lọc theo loại nội dung, chuyên mục và phân trang. |
 | **Đăng bài cộng đồng, bình chọn, bình luận**| Thành viên | `Implemented` | Đăng bài kèm ảnh/video, upvote/downvote, bình luận trao đổi; AI tự kiểm duyệt cả chữ lẫn ảnh tải lên qua hàng đợi. Đính kèm chỉ nhận file đã upload, video chỉ nhận link YouTube. |
 | **Nhật ký dinh dưỡng & Cân nặng** | Thành viên | `Implemented` | Ghi nhận bữa ăn theo ngày, tính tổng calo và vĩ chất; biểu đồ theo dõi cân nặng. |
 | **Quản trị Dashboard & Thành viên** | Admin (Role 1) | `Implemented` | Thống kê số liệu, khóa/mở khóa/xóa tài khoản, khôi phục tài khoản với metadata bảo toàn. |
@@ -234,6 +235,8 @@ SWP391/
   - *Bao gồm: Chính sách văn bản/ảnh, quy tắc đường dẫn media, luồng worker, định dạng kết quả `imageFindings`, việc cần làm ở Frontend.*
 - 🥬 **Tra cứu nguyên liệu bằng AI:** Hợp đồng API [`docs/ingredient-lookup-openapi.json`](./docs/ingredient-lookup-openapi.json)
   - *Bao gồm: Job tra cứu, quota khách, dinh dưỡng /100 g do AI ước lượng và quy tắc không ghi đè số liệu sẵn có.*
+- 🔍 **Tìm kiếm Video & Blog:** Hợp đồng API [`docs/search-openapi.json`](./docs/search-openapi.json)
+  - *Bao gồm: Tìm kiếm toàn cục Blog & Video theo từ khóa, lọc theo loại nội dung, chuyên mục và phân trang dành cho toàn bộ người dùng.*
 
 ---
 

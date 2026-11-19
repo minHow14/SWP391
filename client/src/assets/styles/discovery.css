@@ -34,11 +34,17 @@
 .cx-ingredient-diets small { display: block; color: #b5e9d6; font-size: 11px; font-weight: 700; }
 .cx-ingredient-diets strong { display: block; margin-top: 8px; color: #80e5a2; font-size: 13px; }
 .cx-ingredient-diets > p { margin: 12px 0 0; color: #b8c8ea; font-size: 11px; }
-.cx-discovery-search { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border: 1px solid #e6edf5; border-radius: 16px; background: #f8fafc; }
+.cx-discovery-search { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border: 1px solid #e6edf5; border-radius: 16px; background: #f8fafc; transition: border-color .2s ease, box-shadow .2s ease; }
 .cx-discovery-search > .bi { color: #94a3b8; font-size: 15px; }
-.cx-discovery-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: #43536a; font: inherit; font-size: 13px; }
+.cx-discovery-search input { width: 100%; min-width: 0; border: none !important; outline: none !important; box-shadow: none !important; background: transparent !important; color: #43536a; font: inherit; font-size: 13px; padding: 0; }
+.cx-discovery-search input:focus,
+.cx-discovery-search input:focus-visible { border: none !important; outline: none !important; box-shadow: none !important; }
+.cx-discovery-search input::-webkit-search-decoration,
+.cx-discovery-search input::-webkit-search-cancel-button,
+.cx-discovery-search input::-webkit-search-results-button,
+.cx-discovery-search input::-webkit-search-results-decoration { -webkit-appearance: none; }
 .cx-discovery-search input::placeholder { color: #94a3b8; }
-.cx-discovery-search:focus-within { border-color: #93c5fd; }
+.cx-discovery-search:focus-within { border-color: #198754; box-shadow: 0 0 0 3px rgba(25, 135, 84, .12); }
 .cx-ingredient-filters { display: flex; flex-wrap: wrap; gap: 9px; margin: 18px 0 29px; }
 .cx-ingredient-filters button { padding: 8px 15px; border: 0; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 12px; font-weight: 750; }
 .cx-ingredient-filters button:hover { background: #e2e8f0; }

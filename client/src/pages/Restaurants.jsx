@@ -126,6 +126,7 @@ export default function Restaurants() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm tên quán, địa chỉ, món ăn..."
+              style={{ border: 'none', outline: 'none', boxShadow: 'none', background: 'transparent' }}
             />
           </div>
           <label>

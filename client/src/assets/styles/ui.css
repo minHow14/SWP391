@@ -150,7 +150,9 @@ body {
 .home-page :is(.cx-heading-icon, .cx-restaurant-heading-icon) { color: #176b48; background: #edf5ed; }
 .home-page :is(.cx-search-field, .cx-discovery-search) { min-height: 48px; background: #fafcf9; border-color: #dbe5dc; }
 .home-page :is(.cx-search-field, .cx-discovery-search):focus-within { border-color: #568f6c; box-shadow: 0 0 0 3px rgb(23 107 72 / 10%); }
-.home-page :is(.cx-search-field, .cx-discovery-search) input { font-size: 14px; }
+.home-page :is(.cx-search-field, .cx-discovery-search) input { font-size: 14px; border: 0 !important; outline: none !important; box-shadow: none !important; }
+.home-page :is(.cx-search-field, .cx-discovery-search) input:focus,
+.home-page :is(.cx-search-field, .cx-discovery-search) input:focus-visible { border: 0 !important; outline: none !important; box-shadow: none !important; }
 .home-page .cx-category-filters button { padding: 10px 15px; background: #fff; border-color: #dfe7df; font-size: 13px; }
 .home-page .cx-category-filters button:hover { border-color: #8bb59a; color: #176b48; }
 .home-page .cx-category-filters button.is-active { background: #176b48; border-color: #176b48; color: #fff; }
