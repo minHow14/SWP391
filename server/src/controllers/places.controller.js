@@ -1,6 +1,8 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\places.controller.js
 import { z } from 'zod';
 import { ok, fail } from '../utils/apiResponse.js';
+import { aiLogService } from '../services/aiLogService.js';
+import { AI_LOG_STATUS } from '../constants/aiLogs.js';
 import {
   PlacesProviderError,
   findNearbyLocal,
@@ -99,6 +101,11 @@ export async function getNearby(req, res) {
   const local = await findNearbyLocal({ lat, lng, radiusKm, userOrigin, dietTypeId });
   // DB đã đủ kết quả thì không gọi ZIOMAP để tiết kiệm phí
   if (local.length >= limit) {
+    aiLogService.recordLog({
+      modelName: 'Internal / DeepSeek',
+      action: 'RECOMMENDATION_NEARBY',
+      status: AI_LOG_STATUS.SUCCESS,
+    }).catch(() => {});
     return ok(res, { places: local.slice(0, limit) }, 200, { ziomap: 'not_needed' });
   }
 
@@ -107,8 +114,19 @@ export async function getNearby(req, res) {
     local
   );
   if (providerError && places.length === 0) {
+    aiLogService.recordLog({
+      modelName: 'Internal / DeepSeek',
+      action: 'RECOMMENDATION_NEARBY',
+      status: AI_LOG_STATUS.ERROR,
+      errorFeedback: 'ZIOMAP tạm thời không phản hồi.',
+    }).catch(() => {});
     return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
+  aiLogService.recordLog({
+    modelName: 'Internal / DeepSeek',
+    action: 'RECOMMENDATION_NEARBY',
+    status: AI_LOG_STATUS.SUCCESS,
+  }).catch(() => {});
   return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
 }
 
@@ -123,6 +141,11 @@ export async function searchPlaces(req, res) {
   const local = (await searchLocal({ query: q, lat, lng })).slice(0, limit);
   // Chỉ hỏi ZIOMAP khi DB không có quán phù hợp và biết vị trí người dùng
   if (local.length > 0 || lat === undefined) {
+    aiLogService.recordLog({
+      modelName: 'Internal / DeepSeek',
+      action: 'RECOMMENDATION_SEARCH',
+      status: AI_LOG_STATUS.SUCCESS,
+    }).catch(() => {});
     return ok(res, { places: local }, 200, { ziomap: 'not_needed' });
   }
 
@@ -132,7 +155,18 @@ export async function searchPlaces(req, res) {
     local
   );
   if (providerError && places.length === 0) {
+    aiLogService.recordLog({
+      modelName: 'Internal / DeepSeek',
+      action: 'RECOMMENDATION_SEARCH',
+      status: AI_LOG_STATUS.ERROR,
+      errorFeedback: 'ZIOMAP tạm thời không phản hồi.',
+    }).catch(() => {});
     return fail(res, 502, 'PLACES_PROVIDER_ERROR', 'ZIOMAP tạm thời không phản hồi.');
   }
+  aiLogService.recordLog({
+    modelName: 'Internal / DeepSeek',
+    action: 'RECOMMENDATION_SEARCH',
+    status: AI_LOG_STATUS.SUCCESS,
+  }).catch(() => {});
   return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
 }

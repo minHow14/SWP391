@@ -733,7 +733,7 @@ export const getAiModelsStatus = async () => {
       name: 'Recommendation Engine',
       type: 'Gợi ý món ăn & quán chay',
       provider: 'Internal / DeepSeek',
-      actions: ['NUTRIENT_ANALYSIS', 'RECOMMENDATION'],
+      actions: ['MEAL_PLANNER', 'NUTRITION_', 'RECOMMENDATION', 'NUTRIENT_ANALYSIS'],
     },
     {
       id: 'chatbot',

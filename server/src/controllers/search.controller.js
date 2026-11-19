@@ -2,6 +2,8 @@
 import { searchService } from '../services/search.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
+import { aiLogService } from '../services/aiLogService.js';
+import { AI_LOG_STATUS } from '../constants/aiLogs.js';
 
 export const globalSearch = asyncHandler(async (req, res) => {
   const { q, type, page, limit, categoryId, category_id } = req.query;
@@ -17,6 +19,11 @@ export const globalSearch = asyncHandler(async (req, res) => {
 
 export const suggestByKeyword = asyncHandler(async (req, res) => {
   const data = await searchService.suggestByKeyword(req.query.keyword);
+  await aiLogService.recordLog({
+    modelName: 'Internal / DeepSeek',
+    action: 'RECOMMENDATION',
+    status: AI_LOG_STATUS.SUCCESS,
+  }).catch(() => {});
   return sendSuccess(res, data);
 });
 
