@@ -55,7 +55,6 @@ export const placeRepository = {
       where,
       include: {
         diet_type: true,
-        details: true,
         restaurant_recipes: {
           include: {
             recipe: true,

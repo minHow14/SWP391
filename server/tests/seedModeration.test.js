@@ -74,9 +74,9 @@ async function verifyMigratedSchema() {
   ]));
   const columns = await db.$queryRaw`SELECT table_name, column_name, data_type, numeric_precision, numeric_scale
     FROM information_schema.columns WHERE table_schema = 'public' AND (table_name, column_name) IN
-    (('restaurant_menu_prices', 'price'), ('health_histories', 'recorded_date'), ('restaurants', 'source'), ('restaurants', 'place_id'), ('restaurants', 'status'))`;
+    (('restaurant_recipes', 'price'), ('health_histories', 'recorded_date'), ('restaurants', 'source'), ('restaurants', 'place_id'), ('restaurants', 'status'))`;
   expect(columns).toEqual(expect.arrayContaining([
-    expect.objectContaining({ table_name: 'restaurant_menu_prices', column_name: 'price', data_type: 'numeric', numeric_precision: 18, numeric_scale: 2 }),
+    expect.objectContaining({ table_name: 'restaurant_recipes', column_name: 'price', data_type: 'numeric', numeric_precision: 18, numeric_scale: 2 }),
     expect.objectContaining({ table_name: 'health_histories', column_name: 'recorded_date', data_type: 'timestamp with time zone' }),
     expect.objectContaining({ table_name: 'restaurants', column_name: 'source' }),
     expect.objectContaining({ table_name: 'restaurants', column_name: 'place_id' }),

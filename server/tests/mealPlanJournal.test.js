@@ -54,9 +54,9 @@ describe('applying an AI meal plan to the journal', () => {
   it('records the suggested meals of a day into the real diary exactly once', async () => {
     const recorded = await request(app).post('/api/workspace/plan/record').set(token).send({ date: MONDAY });
     expect(recorded.status).toBe(200);
-    const diaries = await prisma.foodDiary.findMany({ where: { user_id: owner.user_id }, include: { nutrients: true }, orderBy: { diary_id: 'asc' } });
+    const diaries = await prisma.foodDiary.findMany({ where: { user_id: owner.user_id }, orderBy: { diary_id: 'asc' } });
     expect(diaries.map((entry) => entry.custom_food_name).sort()).toEqual(['Phụ 1', 'Sáng 1', 'Trưa 1', 'Tối 1']);
-    expect(diaries.find((entry) => entry.custom_food_name === 'Sáng 1')).toMatchObject({ recipe_id: null, calories: 400, nutrients: { protein: 10, carbs: 20, fat: 5 } });
+    expect(diaries.find((entry) => entry.custom_food_name === 'Sáng 1')).toMatchObject({ recipe_id: null, calories: 400, protein: 10, carbs: 20, fat: 5 });
     const again = await request(app).post('/api/workspace/plan/record').set(token).send({ date: MONDAY });
     expect(again.status).toBe(409);
   });

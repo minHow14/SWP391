@@ -69,20 +69,15 @@ describe('restaurant and ingredient-shop classification', () => {
     const response = await submit(payload);
     expect(response.status).toBe(200);
     const saved = response.body.data;
-    const details = await prisma.restaurantDetails.findUnique({
-      where: { restaurant_id: saved.restaurant_id },
-    });
-    expect(details).toMatchObject({
-      city: 'Test fixture city',
-      hours: '07:00 - 21:00',
-      price_range: '30.000đ - 60.000đ',
-      separate_kitchen: true,
-    });
     const restaurant = await prisma.restaurant.findUnique({
       where: { restaurant_id: saved.restaurant_id },
     });
     expect(restaurant).toMatchObject({
       phone: '0901234567',
+      city: 'Test fixture city',
+      hours: '07:00 - 21:00',
+      priceRange: '30.000đ - 60.000đ',
+      separateKitchen: true,
     });
   });
 
