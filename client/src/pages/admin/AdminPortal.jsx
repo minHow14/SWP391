@@ -83,15 +83,26 @@ export default function AdminPortal() {
               <div className="text-danger display-4 mb-3">
                 <i className="bi bi-shield-lock" />
               </div>
-              <h4 className="fw-bold text-danger">Khu vực Giới hạn Quyền Hạn</h4>
+              <h4 className="fw-bold text-danger">
+                Khu vực Giới hạn Quyền Hạn
+              </h4>
               <p className="text-muted small">
-                Bạn cần đăng nhập bằng tài khoản có quyền <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông tin này.
+                Bạn cần đăng nhập bằng tài khoản có quyền{' '}
+                <strong>Quản trị viên (ADMIN)</strong> để truy cập cổng thông
+                tin này.
               </p>
               <div className="d-flex justify-content-center gap-2">
-                <Link to="/dang-nhap" className="btn btn-success btn-sm rounded-2">
-                  <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng nhập
+                <Link
+                  to="/dang-nhap"
+                  className="btn btn-success btn-sm rounded-2"
+                >
+                  <i className="bi bi-box-arrow-in-right me-1" /> Đến trang Đăng
+                  nhập
                 </Link>
-                <Link to="/" className="btn btn-outline-secondary btn-sm rounded-2">
+                <Link
+                  to="/"
+                  className="btn btn-outline-secondary btn-sm rounded-2"
+                >
                   Quay về Trang chủ
                 </Link>
               </div>
@@ -102,17 +113,17 @@ export default function AdminPortal() {
     );
   }
 
-  const navItems = [
-    { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
-    { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
-    { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
-    { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
-    { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
-    { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
-    { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
-    { key: 'ai-management', label: 'Quản trị AI', icon: 'bi-speedometer2' },
-    { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
-  ];
+  // const navItems = [
+  //   { key: 'dashboard', label: 'Tổng quan hệ thống', icon: 'bi-speedometer2' },
+  //   { key: 'members', label: 'Quản lý thành viên', icon: 'bi-people' },
+  //   { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext' },
+  //   { key: 'comments', label: 'Bình luận', icon: 'bi-chat-left-text' },
+  //   { key: 'categories', label: 'Danh mục món', icon: 'bi-tags' },
+  //   { key: 'ai-moderation', label: 'Kiểm duyệt AI', icon: 'bi-shield-exclamation' },
+  //   { key: 'ai-monitor', label: 'Giám sát mô hình AI', icon: 'bi-cpu' },
+  //   { key: 'ai-management', label: 'Quản trị AI', icon: 'bi-speedometer2' },
+  //   { key: 'reports', label: 'Báo cáo vi phạm', icon: 'bi-flag' },
+  // ];
 
   return (
     <div className="admin-portal-shell py-2.5">
@@ -154,7 +165,9 @@ export default function AdminPortal() {
                   : 'admin-card p-3 p-lg-3.5 min-vh-75 admin-content-canvas admin-tab-content-fade'
               }
             >
-              {activeTab === 'dashboard' && <AdminDashboardTab onNavigateTab={handleSelectTab} />}
+              {activeTab === 'dashboard' && (
+                <AdminDashboardTab onNavigateTab={handleSelectTab} />
+              )}
               {activeTab === 'members' && <AdminMembersTab />}
               {activeTab === 'posts' && <AdminPostsTab />}
               {activeTab === 'comments' && <AdminCommentsTab />}
