@@ -1,7 +1,7 @@
 <!-- docs/ERD.md -->
 # Sơ đồ Cơ sở Dữ liệu (Entity Relationship Diagram - ERD)
 
-Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với định nghĩa Prisma (`server/prisma/schema.prisma`), các migrations hiện có và PostgreSQL database.
+Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với định nghĩa Prisma (`server/prisma/schema.prisma`), các migrations hiện có và PostgreSQL database (gồm 35 bảng sau tối ưu hóa). Chi tiết từ điển dữ liệu, giải thích từng thuộc tính và nghiệp vụ xem tại: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
 
 ---
 

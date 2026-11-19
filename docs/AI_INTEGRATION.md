@@ -62,7 +62,7 @@ Thực đơn tuần hoàn tất (`ai_generations.type = MEAL_PLAN`, `status = CO
 - Mỗi món AI là một hàng `meal_plan_details` có `recipe_id = NULL`, `custom_food_name` (≤255 ký tự), `calories`, `protein`, `carbs`, `fat`; `meal_type` là `BREAKFAST`, `LUNCH`, `DINNER` hoặc `SNACK` (từ trường `snacks`).
 - Response: `data = { planId, weekStart, appliedMeals }`.
 - `GET /api/workspace/journal` trả thêm `customPlans[YYYY-MM-DD][breakfast|lunch|dinner|snack] = { name, calories, protein, carbs, fat }`. Món từ công thức vẫn nằm ở `plans`.
-- `POST /api/workspace/plan/record` ghi cả món AI vào `food_diaries` (`custom_food_name`, `diary_nutrients`) và vẫn trả `409` nếu ngày đó đã có nhật ký.
+- `POST /api/workspace/plan/record` ghi cả món AI vào `food_diaries` (`custom_food_name`, cùng các chỉ số `serving`, `protein`, `carbs`, `fat`, `fiber` trực tiếp trên bảng `food_diaries`) và vẫn trả `409` nếu ngày đó đã có nhật ký.
 - Để chạy test trên DB riêng, áp dụng migration `20261029030511_add_custom_meals_to_meal_plan_details` cho `vegetarian_db_test` bằng `prisma migrate deploy` với `.env.test`.
 
 ## API BE
@@ -105,7 +105,7 @@ Thành viên gửi `POST /api/v1/video-recipe-summary-jobs` với `videoUrl`. Ch
 
 Thư viện `youtube-transcript-api==1.2.4` dùng giao diện nội bộ không chính thức của YouTube. Ưu tiên bản Việt thủ công, chuyển sang bản Việt tự động nếu bản thủ công thiếu/rỗng; không dịch ngôn ngữ khác. Không tải audio hay gọi STT. Phụ đề có thể bị chặn hoặc thay đổi theo YouTube; không cam kết miễn phí cho toàn bộ pipeline hay thời gian cố định. [Tài liệu thư viện](https://github.com/jdepoix/youtube-transcript-api), [OpenAPI nội bộ](video-recipe-ai-openapi.json).
 
-BE lưu job và transcript vào `video_recipe_summary_jobs`, công thức vào `video_recipe_summaries`. Client đọc `GET /api/v1/video-recipe-summary-jobs` (phân trang, lọc `status`/`videoId`), `GET /api/v1/video-recipe-summary-jobs/{jobId}` và `GET /api/v1/video-recipe-summaries/{summaryId}`. API luôn kiểm tra chủ sở hữu, người khác nhận 404. Mở chat sau reload khôi phục tối đa 10 job gần nhất cộng tác vụ còn hoạt động, tải công thức của job hoàn tất và hiển thị lỗi/thử lại cho job thất bại. Đóng tab không hủy job bền vững; giới hạn này khác luồng SSE của chat/thực đơn.
+BE lưu job, transcript và công thức trực tiếp vào `video_recipe_summary_jobs` (cột `recipe`, đã tối ưu gộp bảng phụ `video_recipe_summaries`). Client đọc `GET /api/v1/video-recipe-summary-jobs` (phân trang, lọc `status`/`videoId`), `GET /api/v1/video-recipe-summary-jobs/{jobId}` và `GET /api/v1/video-recipe-summaries/{summaryId}` (backward-compatible). API luôn kiểm tra chủ sở hữu, người khác nhận 404. Mở chat sau reload khôi phục tối đa 10 job gần nhất cộng tác vụ còn hoạt động, tải công thức của job hoàn tất và hiển thị lỗi/thử lại cho job thất bại. Đóng tab không hủy job bền vững; giới hạn này khác luồng SSE của chat/thực đơn.
 
 Khi lỗi, kiểm tra job/stage và log worker: `PENDING` cần BE/worker đúng DB; `VALIDATING_VIDEO` cần yt-dlp và truy cập YouTube; `FETCHING_CAPTIONS` cần nguồn phụ đề. `VIDEO_CAPTIONS_UNAVAILABLE` báo “Video chưa có phụ đề phù hợp”; `VIDEO_CAPTIONS_BLOCKED` là truy cập bị YouTube chặn, không tự thử liên tục; `VIDEO_CAPTIONS_TIMEOUT` được thử lại theo budget worker. Nếu DeepSeek lỗi sau checkpoint, retry dùng lại transcript đã xác thực. Khi restart, worker nhận lại job đủ điều kiện theo lease/retry; không seed/reset DB, requeue hàng loạt hay xóa lịch sử để sửa hàng chờ. Các biến cấu hình audio/STT cũ không còn được sử dụng và có thể bỏ khỏi `.env` local.
 

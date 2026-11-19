@@ -92,14 +92,10 @@ export const placeRepository = {
             source: 'ziomap',
             status: 'APPROVED',
             place_id: p.place_id,
-            details: {
-              create: {
-                city: p.city || (p.address?.includes('Hà Nội') ? 'Hà Nội' : p.address?.includes('Hồ Chí Minh') || p.address?.includes('TP.HCM') ? 'Hồ Chí Minh' : 'Chưa xác định'),
-                hours: p.hours || 'Chưa cập nhật',
-                price_range: p.price_range || 'Theo thời giá',
-                separate_kitchen: p.separate_kitchen ?? null,
-              },
-            },
+            city: p.city || (p.address?.includes('Hà Nội') ? 'Hà Nội' : p.address?.includes('Hồ Chí Minh') || p.address?.includes('TP.HCM') ? 'Hồ Chí Minh' : 'Chưa xác định'),
+            hours: p.hours || 'Chưa cập nhật',
+            priceRange: p.price_range || 'Theo thời giá',
+            separateKitchen: p.separate_kitchen ?? null,
           },
         });
         saved.push(record);
@@ -119,7 +115,6 @@ export const placeRepository = {
       where: { restaurant_id: Number(restaurantId) },
       include: {
         diet_type: true,
-        details: true,
       },
     });
   },
