@@ -83,6 +83,6 @@ describe('video recipe persistence with isolated PostgreSQL', () => {
     expect(await summaries.findOwned({ id: summary.id, userId: owner.user_id })).toMatchObject({ recipe });
     expect(await summaries.findOwned({ id: summary.id, userId: other.user_id })).toBeNull();
     await expect(jobs.complete({ job, recipe })).rejects.toHaveProperty('errorCode', 'VIDEO_JOB_LEASE_LOST');
-    expect(await prisma.videoRecipeSummary.count({ where: { jobId: job.id } })).toBe(1);
+    expect((await jobs.findOwned({ id: job.id, userId: owner.user_id })).recipe).toMatchObject(recipe);
   });
 });

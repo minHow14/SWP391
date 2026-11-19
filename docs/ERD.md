@@ -1,32 +1,46 @@
+<!-- docs/ERD.md -->
 # Sơ đồ Cơ sở Dữ liệu (Entity Relationship Diagram - ERD)
 
-## Lịch sử sinh AI
+Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với định nghĩa Prisma (`server/prisma/schema.prisma`), các migrations hiện có và PostgreSQL database (gồm 35 bảng sau tối ưu hóa). Chi tiết từ điển dữ liệu, giải thích từng thuộc tính và nghiệp vụ xem tại: [DATABASE_SCHEMA.md](DATABASE_SCHEMA.md).
 
-`AiGeneration` ánh xạ bảng hiện có `ai_generations`; chỉ BE ghi dữ liệu. `promptMessages` là các snapshot `{modelName, attempt, messages}`; `responsePayload` giữ toàn bộ kết quả chat/thực đơn. Không có bản ghi lịch sử cho khách. Chi tiết: [AI_INTEGRATION.md](AI_INTEGRATION.md).
+---
+
+## 1. Lịch sử sinh AI (AI Generation History)
+
+`AiGeneration` ánh xạ bảng `ai_generations`; chỉ Backend ghi dữ liệu khi người dùng đăng nhập gọi các tính năng AI.
+- `type` gồm 3 loại tác vụ: `CHAT` (tư vấn dinh dưỡng), `MEAL_PLAN` (sinh thực đơn tuần), và `FOOD_SCAN` (nhận diện ảnh món ăn / nguyên liệu).
+- `promptMessages` lưu snapshot `{modelName, attempt, messages}`; `responsePayload` giữ toàn bộ kết quả trả về từ AI Service.
+- Không lưu lịch sử sinh đối với khách vãng lai (Guest). Chi tiết: [AI_INTEGRATION.md](AI_INTEGRATION.md).
 
 ```mermaid
 erDiagram
     User ||--o{ AiGeneration : owns
     AiGeneration {
         uuid id PK
-        int userId FK
-        enum type "CHAT | MEAL_PLAN"
+        int userId FK "user_id"
+        enum type "CHAT | MEAL_PLAN | FOOD_SCAN"
         enum status "PROCESSING | COMPLETED | FAILED"
-        string modelName
-        json requestPayload
-        json promptMessages
-        json responsePayload
-        string errorCode
-        string errorMessage
-        datetime completedAt
-        datetime createdAt
-        datetime updatedAt
+        string modelName "model_name, varchar(100)"
+        json requestPayload "request_payload"
+        json promptMessages "prompt_messages"
+        json responsePayload "response_payload, nullable"
+        string errorCode "error_code, varchar(100), nullable"
+        string errorMessage "error_message, nullable"
+        datetime completedAt "completed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
     }
 ```
 
-## Job kiểm duyệt văn bản
+---
 
-`ContentModerationJob` ánh xạ `content_moderation_jobs`; chỉ BE/worker ghi dữ liệu. Mỗi job gắn đúng một bài hoặc bình luận (CHECK ở migration), duy nhất theo đối tượng và `contentVersion`. `Post`/`Comment` có `moderationVersion` ánh xạ `moderation_version`. Snapshot và lease chỉ dành cho worker; API tác giả không trả snapshot đầy đủ/lease. Hành vi: [CONTENT_MODERATION.md](CONTENT_MODERATION.md).
+## 2. Job kiểm duyệt nội dung (Content Moderation Queue)
+
+`ContentModerationJob` ánh xạ `content_moderation_jobs`; quản lý hàng đợi kiểm duyệt văn bản và hình ảnh của bài viết hoặc bình luận.
+- Mỗi job gắn đúng một bài viết (`postId`) hoặc một bình luận (`commentId`) (ràng buộc XOR), duy nhất theo đối tượng và `contentVersion`.
+- `imageUrls`: Mảng chuỗi đường dẫn ảnh đính kèm bài viết/bình luận cần AI kiểm duyệt (thêm từ migration `20261107042935_add_moderation_job_image_urls`).
+- `Post` và `Comment` có trường `moderationVersion` (cột `moderation_version`, mặc định 0) để theo dõi phiên bản nội dung đã được duyệt.
+- Snapshot `content`, lease token và thời hạn `leaseExpiresAt` dùng cho background worker xử lý. Chi tiết: [CONTENT_MODERATION.md](CONTENT_MODERATION.md).
 
 ```mermaid
 erDiagram
@@ -35,66 +49,132 @@ erDiagram
     Comment o|--o{ ContentModerationJob : checkedVersions
     ContentModerationJob {
         uuid id PK
-        int userId FK
-        int postId FK "nullable, XOR commentId"
-        int commentId FK "nullable, XOR postId"
-        int contentVersion
-        string title "nullable"
-        string content "snapshot"
+        int userId FK "user_id"
+        int postId FK "post_id, nullable, XOR commentId"
+        int commentId FK "comment_id, nullable, XOR postId"
+        int contentVersion "content_version"
+        string title "varchar(255), nullable"
+        string content "snapshot text"
+        string_array imageUrls "image_urls, TEXT[] default []"
         enum status "PENDING | PROCESSING | COMPLETED | FAILED"
-        int attempt
-        datetime availableAt
-        uuid leaseToken "nullable"
-        datetime leaseExpiresAt "nullable"
+        int attempt "default 0"
+        datetime availableAt "available_at, timestamptz"
+        uuid leaseToken "lease_token, nullable"
+        datetime leaseExpiresAt "lease_expires_at, timestamptz, nullable"
         json result "nullable"
-        boolean applied
-        string errorCode "nullable"
-        string errorMessage "nullable"
-        datetime completedAt "nullable"
-        datetime createdAt
-        datetime updatedAt
+        boolean applied "default false"
+        string errorCode "error_code, varchar(100), nullable"
+        string errorMessage "error_message, varchar(500), nullable"
+        datetime completedAt "completed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
     }
 ```
 
-## Khôi phục mật khẩu, nội dung pháp lý và trạng thái trước xóa tài khoản
+---
 
-Ba migration bổ sung ngày 04/11/2026: `20261104002853_preserve_account_content_status`, `20261104003005_add_password_reset_tokens`, `20261104003257_add_legal_documents`. Chi tiết API: [frontend-repairs-openapi.json](frontend-repairs-openapi.json).
+## 3. Khôi phục mật khẩu & Quản lý trạng thái xóa tài khoản
 
-`PasswordResetToken` ánh xạ `password_reset_tokens`. `userId` tham chiếu khóa Int hiện có `User.user_id`, index ghép `(userId, expiresAt)`, `onDelete/onUpdate: Cascade`. `tokenHash` unique là SHA-256 của token ngẫu nhiên 32 byte; không lưu token gốc. `tokenVersion` là snapshot phiên bản mật khẩu; so sánh với `User.tokenVersion` (cột `token_version`, mặc định 0). Đổi/đặt lại mật khẩu tăng phiên bản này để từ chối access token, refresh token và link khôi phục cũ.
+Hệ thống hỗ trợ 2 cơ chế đặt lại mật khẩu và cơ chế khôi phục mềm tài khoản:
 
-`LegalDocument` ánh xạ `legal_documents`, không có quan hệ tác giả trong schema hiện tại. `slug` unique nhận `terms-of-service` hoặc `privacy-policy` qua validator API. Bản đầu version 1, mỗi lần cập nhật tăng 1. `published=false` ẩn bản nháp và đặt `publishedAt=null`; công bố lưu thời gian UTC. Không seed nội dung pháp lý.
+1. **`PasswordResetToken`** (ánh xạ `password_reset_tokens`): Quản lý token URL 32-byte ngẫu nhiên. Chỉ lưu băm SHA-256 (`tokenHash`). `tokenVersion` so khớp với `User.tokenVersion` (cột `token_version`). Khi đổi mật khẩu, `User.tokenVersion` tăng lên để vô hiệu hóa toàn bộ link cũ.
+2. **`PasswordResetOtp`** (ánh xạ `password_reset_otps`): Quản lý mã OTP 6 số gửi qua email (migration `20261107112157_add_password_reset_otps`). Quan hệ 1-1 với `User` qua `userId`. Lưu băm SHA-256 (`otpHash`), giới hạn số lần thử (`attempts`), thời hạn `expiresAt` (5 phút) và mốc gửi lại `lastSentAt` (cooldown 60s).
+3. **Trạng thái trước xóa tài khoản**: `Post.statusBeforeAccountDeletion` và `Comment.statusBeforeAccountDeletion` (cột `status_before_account_deletion`, VARCHAR(30) nullable). Khi người dùng xóa tài khoản, trạng thái ban đầu được snapshot lại trước khi chuyển sang `DELETED`. Khi khôi phục tài khoản, nội dung được hoàn nguyên chính xác trạng thái cũ.
+4. **Lưu ý kiến trúc bảng `LegalDocument` (`legal_documents`)**: Bảng này từng được thêm ở migration `20261104003257`, nhưng sau đó đã chính thức bị **gỡ bỏ** (`DROP TABLE`) qua migration `20261107074500_remove_legal_documents` do tài liệu điều khoản/chính sách được chuyển sang quản lý dưới dạng static assets.
 
 ```mermaid
 erDiagram
     User ||--o{ PasswordResetToken : owns
+    User ||--o| PasswordResetOtp : owns
+
     PasswordResetToken {
         uuid id PK
         int userId FK "user_id"
         varchar tokenHash UK "token_hash, SHA-256 hex64"
         int tokenVersion "token_version"
-        datetime expiresAt "expires_at"
-        datetime consumedAt "consumed_at, nullable"
-        datetime createdAt "created_at"
-        datetime updatedAt "updated_at"
+        datetime expiresAt "expires_at, timestamptz"
+        datetime consumedAt "consumed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
     }
-    LegalDocument {
+
+    PasswordResetOtp {
         uuid id PK
-        varchar slug UK
-        varchar title "max 200"
-        text content
-        int version
-        boolean published
-        datetime publishedAt "published_at, nullable"
-        datetime createdAt "created_at"
-        datetime updatedAt "updated_at"
+        int userId FK,UK "user_id, 1-1 với users"
+        varchar otpHash "otp_hash, SHA-256 hex64"
+        int tokenVersion "token_version"
+        int attempts "default 0"
+        datetime expiresAt "expires_at, timestamptz"
+        datetime lastSentAt "last_sent_at, timestamptz"
+        datetime consumedAt "consumed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
     }
 ```
 
-`Post.statusBeforeAccountDeletion` và `Comment.statusBeforeAccountDeletion` ánh xạ `status_before_account_deletion`, VARCHAR(30) nullable. Khi xóa tài khoản, snapshot trạng thái và đánh dấu DELETED trong cùng transaction. Restore chỉ phục hồi nội dung cùng mốc xóa có snapshot hợp lệ, sau đó xóa snapshot; nội dung cũ không có snapshot tiếp tục DELETED và API trả số lượng/cảnh báo. Không tự chuyển nội dung ẩn/chờ kiểm duyệt thành công khai.
+---
 
-## Các bảng nghiệp vụ
+## 4. Tác vụ AI chạy ngầm (Background AI Jobs)
 
-Tài liệu thiết kế cấu trúc Cơ sở dữ liệu cho dự án Healthy Food Community & AI Diet Assistant (SWP391), đồng bộ 100% với file cấu hình Prisma (`server/prisma/schema.prisma`).
+Bao gồm các job xử lý bất đồng bộ kết nối giữa Backend và AI Service:
+
+1. **`VideoRecipeSummaryJob`** (ánh xạ `video_recipe_summary_jobs`): Quản lý hàng đợi xử lý bóc tách công thức nấu ăn từ link video YouTube/TikTok (migration `20261026030123_add_video_recipe_summary_jobs`). Có cơ chế lease lock, phân giai đoạn qua `stage` (`VALIDATING_VIDEO`, `FETCHING_CAPTIONS`, `FETCHING_AUDIO`, `TRANSCRIBING`, `SUMMARIZING`, `SAVING_RESULT`). Kết quả bóc tách công thức dạng JSON được lưu trực tiếp tại cột `recipe` (đã tối ưu gộp bảng `video_recipe_summaries` vào job).
+2. **`IngredientLookupJob`** (ánh xạ `ingredient_lookup_jobs`): Background job tự động tra cứu thành phần dinh dưỡng nguyên liệu qua AI khi hệ thống chưa có dữ liệu (migration `20261029041440_add_ingredient_lookup_jobs`).
+3. **Lưu ý tối ưu bảng tỷ trọng chất lỏng**: Dữ liệu tỷ trọng (`density`) quy đổi thể tích (ml) và khối lượng (gram) đã được gộp trực tiếp vào bảng `ingredients` (`density FLOAT?`), loại bỏ bảng phụ 1:1 `liquid_ingredient_densities`.
+
+```mermaid
+erDiagram
+    User ||--o{ VideoRecipeSummaryJob : requests
+    Ingredient ||--o{ IngredientLookupJob : lookup_jobs
+
+    VideoRecipeSummaryJob {
+        uuid id PK
+        int userId FK "user_id"
+        int activeUserId UK "active_user_id, nullable"
+        varchar videoId "video_id, varchar(11)"
+        varchar videoUrl "video_url, varchar(255)"
+        varchar pipelineVersion "pipeline_version, varchar(20)"
+        enum status "PENDING | PROCESSING | COMPLETED | FAILED"
+        enum stage "VALIDATING_VIDEO | FETCHING_CAPTIONS | FETCHING_AUDIO | TRANSCRIBING | SUMMARIZING | SAVING_RESULT"
+        int attempt "default 0"
+        datetime availableAt "available_at, timestamptz"
+        uuid leaseToken "lease_token, nullable"
+        datetime leaseExpiresAt "lease_expires_at, timestamptz, nullable"
+        json metadata "nullable"
+        json transcript "nullable"
+        json recipe "nullable, kết quả trích xuất công thức"
+        varchar errorCode "error_code, varchar(100), nullable"
+        varchar errorMessage "error_message, varchar(500), nullable"
+        datetime completedAt "completed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
+    }
+
+    IngredientLookupJob {
+        uuid id PK
+        char ownerKey "owner_key, char(64)"
+        char activeKey UK "active_key, char(64), nullable"
+        varchar ingredientName "ingredient_name, varchar(150)"
+        enum status "PENDING | PROCESSING | COMPLETED | FAILED"
+        int ingredientId FK "ingredient_id, nullable"
+        bytes sourcePhoto "source_photo, nullable"
+        varchar sourceMimeType "source_mime_type, varchar(50), nullable"
+        json reservation "nullable"
+        uuid leaseToken "lease_token, nullable"
+        datetime leaseExpiresAt "lease_expires_at, timestamptz, nullable"
+        varchar errorCode "error_code, varchar(100), nullable"
+        varchar errorMessage "error_message, varchar(500), nullable"
+        datetime completedAt "completed_at, timestamptz, nullable"
+        datetime createdAt "created_at, timestamptz"
+        datetime updatedAt "updated_at, timestamptz"
+    }
+```
+
+---
+
+## 5. Các bảng nghiệp vụ cốt lõi (Core Business Domain)
+
+Sơ đồ tổng thể toàn bộ 29 thực thể nghiệp vụ cốt lõi (tổng 35 bảng toàn hệ thống), phản ánh chính xác 100% cấu trúc thực tế của PostgreSQL và Prisma schema sau khi tối ưu giảm 6 bảng 1:1 dư thừa.
 
 ```mermaid
 erDiagram
@@ -103,14 +183,14 @@ erDiagram
     %% ==========================================
     User {
         int user_id PK
-        varchar email
+        varchar email UK
         varchar password_hash
         int tokenVersion "token_version, default 0"
         varchar full_name
-        smallint role
-        varchar status
-        datetime deleted_at
-        datetime created_at
+        smallint role "default 2"
+        varchar status "default ACTIVE"
+        datetime deleted_at "timestamptz, nullable"
+        datetime created_at "timestamptz"
     }
     DietType {
         smallint diet_type_id PK
@@ -119,29 +199,26 @@ erDiagram
     }
     HealthProfile {
         int profile_id PK
-        int user_id FK
-        smallint diet_type_id FK
+        int user_id FK,UK "1-1 với User"
+        smallint diet_type_id FK "nullable"
         float height
         float weight
         date dob
         varchar gender
         varchar health_goal
+        float calorie_goal "nullable"
+        varchar goal "nullable"
+        float protein_goal "nullable"
+        float carbs_goal "nullable"
+        float fat_goal "nullable"
+        float fiber_goal "nullable"
     }
     HealthHistory {
         int history_id PK
         int user_id FK
-        date recorded_date
+        datetime recorded_date "timestamptz"
         float weight
         float bmi
-    }
-    ProfilePreference {
-        int user_id PK,FK
-        float calorie_goal
-        varchar goal
-        float protein_goal
-        float carbs_goal
-        float fat_goal
-        float fiber_goal
     }
     UserAllergy {
         int user_id PK,FK
@@ -159,13 +236,14 @@ erDiagram
         int post_id PK
         int author_id FK
         varchar post_type
-        varchar status
+        varchar status "default PUBLISHED"
         varchar statusBeforeAccountDeletion "status_before_account_deletion, nullable"
-        datetime deleted_at
-        datetime created_at
+        int moderationVersion "moderation_version, default 0"
+        datetime deleted_at "timestamptz, nullable"
+        datetime created_at "timestamptz"
     }
     Video {
-        int post_id PK,FK
+        int post_id PK,FK "1-1 với Post"
         varchar title
         varchar video_url
         varchar thumbnail_url
@@ -173,10 +251,10 @@ erDiagram
         text transcript
     }
     Blog {
-        int post_id PK,FK
+        int post_id PK,FK "1-1 với Post"
         varchar title
         text content
-        int attached_video_id FK
+        int attached_video_id FK "nullable"
     }
     PostCategory {
         int post_id PK,FK
@@ -188,18 +266,19 @@ erDiagram
         varchar file_url
         varchar file_type
         varchar file_name
-        datetime created_at
+        datetime created_at "timestamptz"
     }
     Comment {
         int comment_id PK
         int post_id FK
         int user_id FK
         text content
-        boolean is_flagged_by_ai
-        varchar status
+        boolean is_flagged_by_ai "default false"
+        varchar status "default ACTIVE"
         varchar statusBeforeAccountDeletion "status_before_account_deletion, nullable"
-        datetime deleted_at
-        datetime created_at
+        int moderationVersion "moderation_version, default 0"
+        datetime deleted_at "timestamptz, nullable"
+        datetime created_at "timestamptz"
     }
     PostVote {
         int user_id PK,FK
@@ -212,14 +291,16 @@ erDiagram
     %% ==========================================
     Ingredient {
         int ingredient_id PK
-        varchar name
-        float calories_per_100g
-        float protein
-        float fat
-        float carbs
+        varchar name UK
+        float calories_per_100g "default 0"
+        float protein "default 0"
+        float fat "default 0"
+        float carbs "default 0"
+        float fiber "fiber, default 0"
+        float density "tỷ trọng g/ml, nullable"
     }
     IngredientDetails {
-        int ingredient_id PK,FK
+        int ingredient_id PK,FK "1-1 với Ingredient"
         varchar category
         varchar origin
         boolean plant
@@ -229,7 +310,7 @@ erDiagram
         varchar image_url
     }
     IngredientImage {
-        int ingredient_id PK,FK
+        int ingredient_id PK,FK "1-1 với Ingredient"
         varchar mime_type
         bytes image_data
         varchar attribution
@@ -243,7 +324,7 @@ erDiagram
         varchar emoji
         varchar original
         varchar role
-        jsonb alternatives
+        json alternatives
         text description
         text keywords
     }
@@ -251,7 +332,7 @@ erDiagram
         int recipe_id PK
         int post_id FK
         int category_id FK
-        smallint diet_type_id FK
+        smallint diet_type_id FK "nullable"
         varchar recipe_name
         text description
         varchar image_url
@@ -294,17 +375,14 @@ erDiagram
         int user_id FK
         date consumed_date
         varchar meal_type
-        int recipe_id FK
+        int recipe_id FK "nullable"
         varchar custom_food_name
         float calories
-    }
-    DiaryNutrients {
-        int diary_id PK,FK
-        varchar serving
-        float protein
-        float carbs
-        float fat
-        float fiber
+        varchar serving "nullable"
+        float protein "default 0"
+        float carbs "default 0"
+        float fat "default 0"
+        float fiber "default 0"
     }
 
     %% ==========================================
@@ -312,26 +390,24 @@ erDiagram
     %% ==========================================
     Restaurant {
         int restaurant_id PK
-        smallint diet_type_id FK
+        smallint diet_type_id FK "nullable"
         varchar name
         varchar address
-        varchar phone
-        varchar image_url
-        float rating
-        decimal latitude
-        decimal longitude
-        varchar source
-        varchar place_id UK
-        varchar status
-        datetime created_at
-        datetime updated_at
-    }
-    RestaurantDetails {
-        int restaurant_id PK,FK
-        varchar city
-        varchar hours
-        varchar price_range
-        boolean separate_kitchen
+        varchar phone "nullable"
+        varchar image_url "nullable"
+        float rating "default 4.5"
+        decimal latitude "decimal(10, 7), nullable"
+        decimal longitude "decimal(10, 7), nullable"
+        boolean isIngredientShop "is_ingredient_shop, default false"
+        varchar source "default local"
+        varchar place_id UK "nullable"
+        varchar status "default APPROVED"
+        varchar city "nullable"
+        varchar hours "nullable"
+        varchar price_range "price_range, nullable"
+        boolean separate_kitchen "separate_kitchen, nullable"
+        datetime created_at "timestamptz"
+        datetime updated_at "timestamptz"
     }
     RestaurantReview {
         int review_id PK
@@ -339,50 +415,47 @@ erDiagram
         int user_id FK
         smallint stars
         text content
-        datetime created_at
+        datetime created_at "timestamptz"
     }
     RestaurantRecipe {
         int restaurant_id PK,FK
         int recipe_id PK,FK
-    }
-    RestaurantMenuPrice {
-        int restaurant_id PK,FK
-        int recipe_id PK,FK
-        int price
+        decimal price "decimal(18, 2), nullable"
     }
 
     %% ==========================================
-    %% 6. SYSTEM, REPORTS & AI
+    %% 6. SYSTEM, REPORTS & QUOTA
     %% ==========================================
     Report {
         int report_id PK
         int reporter_id FK
-        int post_id FK
-        int comment_id FK
+        int post_id FK "nullable"
+        int comment_id FK "nullable"
         text reason
-        varchar status
-        datetime created_at
+        varchar status "default PENDING"
+        datetime created_at "timestamptz"
     }
     Notification {
         int notification_id PK
         int user_id FK
         varchar content
-        boolean is_read
-        datetime created_at
+        boolean is_read "default false"
+        datetime created_at "timestamptz"
     }
-    AILog {
-        int log_id PK
-        varchar model_name
+    AiLog {
+        int logId PK "log_id"
+        varchar modelName "model_name"
         varchar action
         varchar status
-        text error_feedback
-        datetime created_at
+        text errorFeedback "error_feedback, nullable"
+        datetime createdAt "created_at, timestamptz"
     }
     GuestQuota {
-        varchar guest_id PK
-        date quota_date PK
-        int used_count
-        datetime updated_at
+        varchar guestId PK "guest_id, varchar(100)"
+        date quotaDate PK "quota_date"
+        int usedCount "used_count, default 0"
+        int reservationRevision "reservation_revision, default 0"
+        datetime updatedAt "updated_at, timestamp(6)"
     }
 
     %% ==========================================
@@ -390,7 +463,6 @@ erDiagram
     %% ==========================================
     User ||--o| HealthProfile : "has"
     User ||--o{ HealthHistory : "records"
-    User ||--o| ProfilePreference : "configures"
     User ||--o{ UserAllergy : "allergic_to"
     User ||--o{ Post : "authors"
     User ||--o{ Comment : "writes"
@@ -409,6 +481,7 @@ erDiagram
     Ingredient ||--o{ RecipeIngredient : "used_in"
     Ingredient ||--o| IngredientDetails : "has_details"
     Ingredient ||--o| IngredientImage : "has_image"
+    Ingredient ||--o{ IngredientAlternative : "has_alternatives"
 
     Category ||--o{ PostCategory : "includes"
     Category ||--o{ Recipe : "classifies"
@@ -416,6 +489,7 @@ erDiagram
     Post ||--o| Video : "is_a"
     Post ||--o| Blog : "is_a"
     Post ||--o{ PostCategory : "belongs_to"
+    Post ||--o{ PostAttachment : "attaches"
     Post ||--o{ Comment : "has"
     Post ||--o{ PostVote : "receives"
     Post ||--o{ Recipe : "contains"
@@ -430,50 +504,18 @@ erDiagram
 
     MealPlan ||--o{ MealPlanDetail : "contains"
 
-    FoodDiary ||--o| DiaryNutrients : "measures"
-
-    Restaurant ||--o| RestaurantDetails : "has_details"
     Restaurant ||--o{ RestaurantReview : "receives"
     Restaurant ||--o{ RestaurantRecipe : "serves"
 
-    RestaurantRecipe ||--o| RestaurantMenuPrice : "priced_at"
-
     Comment ||--o{ Report : "reported_in"
-
-    User ||--o{ IngredientScan : "performs"
-    Ingredient ||--o{ RecognizedIngredientItem : "matched_in"
-    IngredientScan ||--o{ RecognizedIngredientItem : "contains"
 ```
 
-## Nh?n di?n nguy�n li?u qua ?nh (Computer Vision)
+---
 
-`IngredientScan` luu m?i l?n ngu?i d�ng/kh�ch upload ?nh nguy�n li?u ho?c t? l?nh. `RecognizedIngredientItem` luu t?ng nguy�n li?u AI ph�t hi?n du?c, k�m th�ng tin d? tuoi v� bounding box.
+## 6. Kiến trúc Nhận diện nguyên liệu (Food Scanner / Vision Architecture)
 
-```mermaid
-erDiagram
-    User ||--o{ IngredientScan : "performs"
-    IngredientScan ||--o{ RecognizedIngredientItem : "contains"
-    Ingredient ||--o{ RecognizedIngredientItem : "matched_in"
-
-    IngredientScan {
-        uuid id PK
-        int userId FK "NULL neu la khach"
-        string imageUrl
-        enum status "PENDING | PROCESSING | COMPLETED | FAILED"
-        string summary
-        datetime deletedAt
-        datetime createdAt
-    }
-
-    RecognizedIngredientItem {
-        int id PK
-        uuid scanId FK
-        int ingredientId FK
-        string detectedName
-        float confidence
-        enum freshnessStatus "FRESH | GOOD | EXPIRING_SOON | SPOILED"
-        int freshnessScore
-        json boundingBox
-        datetime createdAt
-    }
-```
+Trong kiến trúc hiện tại của dự án:
+- Tính năng quét ảnh món ăn và nguyên liệu (Food Scanner) **không** sử dụng các bảng vật lý riêng lẻ (`ingredient_scans` hay `recognized_ingredient_items`) như giai đoạn nháp ban đầu.
+- Thay vào đó, toàn bộ quy trình scan ảnh được đồng nhất vào pipeline `AiGeneration` với `type = 'FOOD_SCAN'` (chi tiết tại service [aiFoodScanService.js](../server/src/services/aiFoodScanService.js)).
+- Payload kết quả nhận diện (danh sách tên nguyên liệu, điểm tự tin `confidence`, đánh giá độ tươi `freshnessStatus`, `freshnessScore`, lời khuyên bảo quản và `boundingBox`) được serialize dưới dạng JSON lưu trực tiếp trong trường `AiGeneration.responsePayload`.
+- Đối với khách vãng lai (Guest), lượt quét được quản lý hạn mức qua bảng `GuestQuota` (kiểm tra `guestId` và `quotaDate` kèm cơ chế khóa lạc quan `reservationRevision`).

@@ -28,12 +28,9 @@ TRUNCATE TABLE
   "ai_logs",
   "notifications",
   "reports",
-  "restaurant_menu_prices",
   "restaurant_reviews",
-  "restaurant_details",
   "restaurant_recipes",
   "restaurants",
-  "diary_nutrients",
   "food_diaries",
   "meal_plan_details",
   "meal_plans",
@@ -50,7 +47,6 @@ TRUNCATE TABLE
   "ingredient_details",
   "ingredient_alternatives",
   "ingredients",
-  "profile_preferences",
   "user_allergies",
   "health_histories",
   "health_profiles",
@@ -216,11 +212,20 @@ INSERT INTO "user_allergies" ("user_id", "ingredient_id") VALUES
 -- ------------------------------------------------------------------------
 -- 10. MỤC TIÊU DINH DƯỠNG CÁ NHÂN (PROFILE PREFERENCES) (4 hồ sơ)
 -- ------------------------------------------------------------------------
-INSERT INTO "profile_preferences" ("user_id", "calorie_goal", "goal", "protein_goal", "carbs_goal", "fat_goal", "fiber_goal") VALUES
-  (2, 2100, 'Tăng cơ thuần chay', 85.0, 260.0, 55.0, 35.0),
-  (3, 1700, 'Duy trì vóc dáng thon gọn', 60.0, 210.0, 45.0, 30.0),
-  (5, 1800, 'Eat Clean thải độc cơ thể', 70.0, 230.0, 45.0, 35.0),
-  (7, 1600, 'Keto Chay giảm mỡ', 75.0, 45.0, 95.0, 25.0);
+UPDATE "health_profiles" SET
+  "calorie_goal" = v.calorie_goal,
+  "goal" = v.goal,
+  "protein_goal" = v.protein_goal,
+  "carbs_goal" = v.carbs_goal,
+  "fat_goal" = v.fat_goal,
+  "fiber_goal" = v.fiber_goal
+FROM (VALUES
+  (2, 2100.0, 'Tăng cơ thuần chay', 85.0, 260.0, 55.0, 35.0),
+  (3, 1700.0, 'Duy trì vóc dáng thon gọn', 60.0, 210.0, 45.0, 30.0),
+  (5, 1800.0, 'Eat Clean thải độc cơ thể', 70.0, 230.0, 45.0, 35.0),
+  (7, 1600.0, 'Keto Chay giảm mỡ', 75.0, 45.0, 95.0, 25.0)
+) AS v("user_id", "calorie_goal", "goal", "protein_goal", "carbs_goal", "fat_goal", "fiber_goal")
+WHERE "health_profiles"."user_id" = v."user_id";
 
 -- ------------------------------------------------------------------------
 -- 11. BÀI ĐĂNG GỐC CỘNG ĐỒNG (POSTS) (10 bài đăng)
@@ -318,11 +323,11 @@ INSERT INTO "post_categories" ("post_id", "category_id") VALUES
 -- 15. TỆP ĐÍNH KÈM BÀI ĐĂNG (POST ATTACHMENTS) (5 tệp hình ảnh thực tế)
 -- ------------------------------------------------------------------------
 INSERT INTO "post_attachments" ("attachment_id", "post_id", "file_url", "file_type", "file_name", "created_at") VALUES
-  (1, 5, '/uploads/posts/protein-thuc-vat.jpg', 'IMAGE', 'protein-thuc-vat.jpg', '2026-10-14T08:35:00.000Z'),
-  (2, 6, '/uploads/posts/thuc-don-chay-7-ngay.jpg', 'IMAGE', 'thuc-don-chay-7-ngay.jpg', '2026-10-15T10:20:00.000Z'),
-  (3, 7, '/uploads/posts/rau-cu-eat-clean.jpg', 'IMAGE', 'rau-cu-eat-clean.jpg', '2026-10-16T11:05:00.000Z'),
-  (4, 8, '/uploads/posts/am-thuc-chay-thanh-tinh.jpg', 'IMAGE', 'am-thuc-chay-thanh-tinh.jpg', '2026-10-17T09:45:00.000Z'),
-  (5, 9, '/uploads/posts/gym-thuan-chay.jpg', 'IMAGE', 'gym-thuan-chay.jpg', '2026-10-21T18:05:00.000Z');
+  (1, 5, '/uploads/posts/protein-thuc-vat.jpg', 'image', 'protein-thuc-vat.jpg', '2026-10-14T08:35:00.000Z'),
+  (2, 6, '/uploads/posts/thuc-don-chay-7-ngay.jpg', 'image', 'thuc-don-chay-7-ngay.jpg', '2026-10-15T10:20:00.000Z'),
+  (3, 7, '/uploads/posts/rau-cu-eat-clean.jpg', 'image', 'rau-cu-eat-clean.jpg', '2026-10-16T11:05:00.000Z'),
+  (4, 8, '/uploads/posts/am-thuc-chay-thanh-tinh.jpg', 'image', 'am-thuc-chay-thanh-tinh.jpg', '2026-10-17T09:45:00.000Z'),
+  (5, 9, '/uploads/posts/gym-thuan-chay.jpg', 'image', 'gym-thuan-chay.jpg', '2026-10-21T18:05:00.000Z');
 
 -- ------------------------------------------------------------------------
 -- 16. CÔNG THỨC MÓN ĂN (RECIPES) (12 công thức khớp chính xác ảnh & video)
@@ -569,7 +574,13 @@ INSERT INTO "food_diaries" ("diary_id", "user_id", "consumed_date", "meal_type",
 -- ------------------------------------------------------------------------
 -- 24. DINH DƯỠNG CHI TIẾT NHẬT KÝ (DIARY NUTRIENTS)
 -- ------------------------------------------------------------------------
-INSERT INTO "diary_nutrients" ("diary_id", "serving", "protein", "carbs", "fat", "fiber") VALUES
+UPDATE "food_diaries" SET
+  "serving" = v.serving,
+  "protein" = v.protein,
+  "carbs" = v.carbs,
+  "fat" = v.fat,
+  "fiber" = v.fiber
+FROM (VALUES
   (1, '1 đĩa salad lớn', 8.5, 20.8, 53.6, 7.0),
   (2, '1 dĩa ăn trưa', 28.2, 21.8, 15.8, 6.4),
   (3, '1 tô canh vừa', 15.0, 11.5, 7.5, 4.2),
@@ -577,7 +588,9 @@ INSERT INTO "diary_nutrients" ("diary_id", "serving", "protein", "carbs", "fat",
   (5, '1 dĩa ăn trưa', 24.5, 18.2, 12.0, 5.5),
   (6, '1 đĩa cơm chiên', 12.0, 60.5, 7.5, 8.2),
   (7, '1 bát cơm trộn', 14.0, 52.0, 11.5, 6.0),
-  (8, '1 đĩa salad vừa', 11.0, 28.0, 14.0, 8.5);
+  (8, '1 đĩa salad vừa', 11.0, 28.0, 14.0, 8.5)
+) AS v("diary_id", "serving", "protein", "carbs", "fat", "fiber")
+WHERE "food_diaries"."diary_id" = v."diary_id";
 
 -- ------------------------------------------------------------------------
 -- 25. NHÀ HÀNG & QUÁN ĂN CHAY (RESTAURANTS)

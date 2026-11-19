@@ -22,4 +22,22 @@ it('calculates success rate from observed calls and keeps inactive models unknow
   const models = await getAiModelsStatus();
   expect(models.find((model) => model.id === 'chatbot')).toMatchObject({ totalCalls: 2, errorCalls: 1, successRate: 50 });
   expect(models.find((model) => model.id === 'moderation')).toMatchObject({ status: 'UNKNOWN', successRate: null });
+  expect(models.find((model) => model.id === 'recommendation')).toMatchObject({ status: 'UNKNOWN', successRate: null });
+});
+
+it('correctly attributes meal planner, nutrition and recommendation actions to recommendation engine', async () => {
+  vi.spyOn(aiLogRepository, 'findRecent').mockResolvedValue([
+    { action: 'MEAL_PLANNER_USER_10', status: 'SUCCESS', createdAt: new Date('2026-10-30T00:00:00Z') },
+    { action: 'NUTRITION_CALCULATE', status: 'SUCCESS', createdAt: new Date('2026-10-29T00:00:00Z') },
+    { action: 'RECOMMENDATION', status: 'SUCCESS', createdAt: new Date('2026-10-28T00:00:00Z') },
+    { action: 'RECOMMENDATION_NEARBY', status: 'ERROR', createdAt: new Date('2026-10-27T00:00:00Z') },
+  ]);
+  const models = await getAiModelsStatus();
+  const recModel = models.find((model) => model.id === 'recommendation');
+  expect(recModel).toMatchObject({
+    status: 'HEALTHY',
+    totalCalls: 4,
+    errorCalls: 1,
+    successRate: 75,
+  });
 });

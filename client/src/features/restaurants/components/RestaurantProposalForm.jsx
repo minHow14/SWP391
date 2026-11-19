@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { restaurantTypes } from '../../../constants/restaurantLabels.js';
 import { restaurantDirections } from '../../../utils/restaurantDirections.js';
-import { getPosition } from '../utils/nearbyHelpers.js';
+import { getPosition, geocodeAddress } from '../utils/nearbyHelpers.js';
 import '../styles/restaurantProposal.css';
 
 const VIETNAM_POPULAR_CITIES = [
@@ -109,10 +109,10 @@ export default function RestaurantProposalForm({ onSubmit }) {
     setGpsStatus('locating');
     setGpsMessage('Đang lấy tọa độ GPS từ thiết bị...');
     try {
-      const pos = await getPosition();
+      const pos = await getPosition(undefined, { forceRefresh: true });
       setCoords(pos);
       setGpsStatus('success');
-      setGpsMessage(`Đã lấy vị trí: ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`);
+      setGpsMessage(`Đã lấy vị trí thiết bị: ${pos.lat.toFixed(4)}, ${pos.lng.toFixed(4)}`);
     } catch (err) {
       setGpsStatus('error');
       setGpsMessage(err.message || 'Không thể lấy vị trí GPS.');
@@ -123,6 +123,18 @@ export default function RestaurantProposalForm({ onSubmit }) {
     setError('');
     const isIngredientShop = proposal.type === 'shop';
     try {
+      let finalLat = coords ? coords.lat : null;
+      let finalLng = coords ? coords.lng : null;
+
+      // Nếu người dùng không lấy GPS từ thiết bị, tự động tìm toạ độ từ địa chỉ
+      if (!finalLat || !finalLng) {
+        const geo = await geocodeAddress(address);
+        if (geo) {
+          finalLat = geo.lat;
+          finalLng = geo.lng;
+        }
+      }
+
       await onSubmit({
         name: proposal.name,
         address,
@@ -135,8 +147,8 @@ export default function RestaurantProposalForm({ onSubmit }) {
             : proposal.type === 'separate'
               ? 4
               : 1,
-        latitude: coords ? coords.lat : null,
-        longitude: coords ? coords.lng : null,
+        latitude: finalLat,
+        longitude: finalLng,
         phone: proposal.phone?.trim() || null,
         hours: proposal.hours?.trim() || null,
         price_range: proposal.price_range || null,

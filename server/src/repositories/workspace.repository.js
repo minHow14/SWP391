@@ -12,9 +12,7 @@ export const workspaceRepository = {
       recipes,
       posts,
       restaurants,
-      placeDetails,
       reviews,
-      prices,
     ] = await Promise.all([
       db.dietType.findMany({ orderBy: { diet_type_id: 'asc' } }),
       db.category.findMany({ orderBy: { category_id: 'asc' } }),
@@ -42,10 +40,23 @@ export const workspaceRepository = {
         orderBy: { restaurant_id: 'asc' },
         include: { restaurant_recipes: { include: { recipe: true } } },
       }),
-      db.$queryRaw`SELECT * FROM restaurant_details`,
       db.$queryRaw`SELECT r.review_id, r.restaurant_id, r.stars, r.content, r.created_at, u.full_name FROM restaurant_reviews r JOIN users u USING(user_id) ORDER BY r.created_at DESC`,
-      db.$queryRaw`SELECT * FROM restaurant_menu_prices`,
     ]);
+
+    const placeDetails = restaurants.map((r) => ({
+      restaurant_id: r.restaurant_id,
+      city: r.city,
+      hours: r.hours,
+      price_range: r.priceRange,
+      separate_kitchen: r.separateKitchen,
+    }));
+    const prices = restaurants.flatMap((r) =>
+      (r.restaurant_recipes || []).map((rr) => ({
+        restaurant_id: rr.restaurant_id,
+        recipe_id: rr.recipe_id,
+        price: rr.price,
+      }))
+    );
 
     return {
       diets,
@@ -100,7 +111,7 @@ export const workspaceRepository = {
         attachments: (p.attachments || []).map((a) => ({
           id: a.attachment_id,
           url: a.file_url,
-          type: a.file_type,
+          type: a.file_type ? a.file_type.toLowerCase() : 'image',
           name: a.file_name,
         })),
         vote_count: (p.post_votes || []).reduce(
@@ -117,20 +128,41 @@ export const workspaceRepository = {
 
   async fetchJournalData(userId, db = prisma) {
     const numericUserId = Number(userId);
-    const [profile, prefs, days, nutrients, plans] = await Promise.all([
+    const [profile, days, plans] = await Promise.all([
       db.healthProfile.findUnique({ where: { user_id: numericUserId } }),
-      db.$queryRaw`SELECT * FROM profile_preferences WHERE user_id=${numericUserId}`,
       db.foodDiary.findMany({
         where: { user_id: numericUserId },
         include: { recipe: true },
         orderBy: { consumed_date: 'desc' },
       }),
-      db.$queryRaw`SELECT n.* FROM diary_nutrients n JOIN food_diaries d USING(diary_id) WHERE d.user_id=${numericUserId}`,
       db.mealPlan.findMany({
         where: { user_id: numericUserId },
         include: { details: true },
       }),
     ]);
+
+    const prefs = profile
+      ? [
+          {
+            user_id: numericUserId,
+            goal: profile.goal,
+            calorie_goal: profile.calorieGoal,
+            protein_goal: profile.proteinGoal,
+            carbs_goal: profile.carbsGoal,
+            fat_goal: profile.fatGoal,
+            fiber_goal: profile.fiberGoal,
+          },
+        ]
+      : [];
+
+    const nutrients = days.map((d) => ({
+      diary_id: d.diary_id,
+      serving: d.serving,
+      protein: d.protein,
+      carbs: d.carbs,
+      fat: d.fat,
+      fiber: d.fiber,
+    }));
 
     return { profile, prefs, days, nutrients, plans };
   },
@@ -146,13 +178,11 @@ export const workspaceRepository = {
 
   async upsertProfilePreferences(userId, calorieGoal, goal, db = prisma) {
     const numericUserId = Number(userId);
-    return db.$executeRaw`
-      INSERT INTO profile_preferences(user_id, calorie_goal, goal)
-      VALUES(${numericUserId}, ${calorieGoal}, ${goal})
-      ON CONFLICT(user_id) DO UPDATE SET
-        calorie_goal = EXCLUDED.calorie_goal,
-        goal = EXCLUDED.goal
-    `;
+    return db.healthProfile.upsert({
+      where: { user_id: numericUserId },
+      create: { user_id: numericUserId, calorieGoal, goal },
+      update: { calorieGoal, goal },
+    });
   },
 
   async findRecipeById(recipeId, db = prisma) {
@@ -167,10 +197,16 @@ export const workspaceRepository = {
   },
 
   async insertDiaryNutrients(diaryId, { serving, protein, carbs, fat, fiber = 0 }, db = prisma) {
-    return db.$executeRaw`
-      INSERT INTO diary_nutrients(diary_id, serving, protein, carbs, fat, fiber)
-      VALUES(${Number(diaryId)}, ${serving}, ${protein}, ${carbs}, ${fat}, ${fiber})
-    `;
+    return db.foodDiary.update({
+      where: { diary_id: Number(diaryId) },
+      data: {
+        serving: serving || null,
+        protein: protein ?? 0,
+        carbs: carbs ?? 0,
+        fat: fat ?? 0,
+        fiber: fiber ?? 0,
+      },
+    });
   },
 
   async deleteFoodDiary(diaryId, userId, db = prisma) {
@@ -273,10 +309,15 @@ export const workspaceRepository = {
       db = dbArg || prisma;
     }
 
-    return db.$executeRaw`
-      INSERT INTO restaurant_details(restaurant_id, city, hours, price_range, separate_kitchen)
-      VALUES(${Number(restaurantId)}, ${city}, ${hours}, ${priceRange}, ${separateKitchen})
-    `;
+    return db.restaurant.update({
+      where: { restaurant_id: Number(restaurantId) },
+      data: {
+        city: city || null,
+        hours: hours || null,
+        priceRange: priceRange || null,
+        separateKitchen: separateKitchen ?? false,
+      },
+    });
   },
 
   async insertRestaurantReview(restaurantId, userId, stars, content, db = prisma) {

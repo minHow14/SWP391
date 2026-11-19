@@ -52,11 +52,12 @@ Hệ thống phân định rõ ràng các tính năng theo vai trò và trạng 
 | :--- | :--- | :--- | :--- |
 | **Tra cứu danh mục & món ăn** | Khách / Member | `Implemented` | Xem công thức, tìm kiếm không dấu tiếng Việt, lọc theo danh mục và chế độ ăn. |
 | **Tìm quán chay lân cận (Radar)** | Khách / Member | `Implemented` | Định vị GPS, tìm kiếm theo bán kính (3–20km), tích hợp ZIOMAP cache vào PostgreSQL. |
-| **Từ điển nguyên liệu & Tỷ trọng** | Khách / Member | `Implemented` | Tra cứu dinh dưỡng, calo, dị ứng và bảng tỷ trọng chất lỏng (`liquid_ingredient_densities`); AI tra nguyên liệu mới kèm ước lượng dinh dưỡng trên 100 g. |
+| **Từ điển nguyên liệu & Tỷ trọng** | Khách / Member | `Implemented` | Tra cứu dinh dưỡng, calo, dị ứng và tỷ trọng chất lỏng (`ingredients.density`); AI tra nguyên liệu mới kèm ước lượng dinh dưỡng trên 100 g. |
 | **Trợ lý AI Chat tư vấn dinh dưỡng** | Khách / Member | `Implemented` | Hạn ngạch 3 lượt/ngày cho khách; thành viên không giới hạn lượt, lưu lịch sử hội thoại. |
 | **Lập thực đơn AI 7 ngày** | Thành viên | `Implemented` | Tính TDEE/BMI, sinh thực đơn theo thể trạng, dị ứng, mục tiêu; hỗ trợ áp dụng vào lịch tuần. |
 | **Quét nhãn & Kiểm tra món (Scanner)** | Khách / Member | `Implemented` | Nhận diện ảnh món ăn / nhãn thành phần qua AI Vision, kiểm tra quy tắc chay 5 lớp. |
 | **Trích xuất công thức từ YouTube** | Thành viên | `Implemented` | Gửi link YouTube tiếng Việt (≤11 phút), worker trích xuất phụ đề và tóm tắt công thức. |
+| **Tìm kiếm Video và Blog toàn cục** | Khách / Member | `Implemented` | Tìm kiếm bài viết Blog và Video theo từ khóa trên tiêu đề, nội dung, phụ đề (transcript); lọc theo loại nội dung, chuyên mục và phân trang. |
 | **Đăng bài cộng đồng, bình chọn, bình luận**| Thành viên | `Implemented` | Đăng bài kèm ảnh/video, upvote/downvote, bình luận trao đổi; AI tự kiểm duyệt cả chữ lẫn ảnh tải lên qua hàng đợi. Đính kèm chỉ nhận file đã upload, video chỉ nhận link YouTube. |
 | **Nhật ký dinh dưỡng & Cân nặng** | Thành viên | `Implemented` | Ghi nhận bữa ăn theo ngày, tính tổng calo và vĩ chất; biểu đồ theo dõi cân nặng. |
 | **Quản trị Dashboard & Thành viên** | Admin (Role 1) | `Implemented` | Thống kê số liệu, khóa/mở khóa/xóa tài khoản, khôi phục tài khoản với metadata bảo toàn. |
@@ -234,6 +235,8 @@ SWP391/
   - *Bao gồm: Chính sách văn bản/ảnh, quy tắc đường dẫn media, luồng worker, định dạng kết quả `imageFindings`, việc cần làm ở Frontend.*
 - 🥬 **Tra cứu nguyên liệu bằng AI:** Hợp đồng API [`docs/ingredient-lookup-openapi.json`](./docs/ingredient-lookup-openapi.json)
   - *Bao gồm: Job tra cứu, quota khách, dinh dưỡng /100 g do AI ước lượng và quy tắc không ghi đè số liệu sẵn có.*
+- 🔍 **Tìm kiếm Video & Blog:** Hợp đồng API [`docs/search-openapi.json`](./docs/search-openapi.json)
+  - *Bao gồm: Tìm kiếm toàn cục Blog & Video theo từ khóa, lọc theo loại nội dung, chuyên mục và phân trang dành cho toàn bộ người dùng.*
 
 ---
 
@@ -346,15 +349,15 @@ Hệ thống phân tách cấu hình độc lập cho từng dịch vụ:
 
 ## 10. Tổng quan cơ sở dữ liệu (Database Overview)
 
-Cơ sở dữ liệu của dự án sử dụng **PostgreSQL** kết hợp **Prisma ORM**, đảm bảo tính toàn vẹn dữ liệu (ACID) và quy chuẩn tên gọi xuyên suốt:
+Cơ sở dữ liệu của dự án sử dụng **PostgreSQL** kết hợp **Prisma ORM**, đảm bảo tính toàn vẹn dữ liệu (ACID) và quy chuẩn tên gọi xuyên suốt. Hệ thống hiện bao gồm **35 bảng vật lý** sau khi tối ưu hóa gộp 6 bảng 1:1 dư thừa (xem tài liệu chi tiết tại [`docs/DATABASE_SCHEMA.md`](docs/DATABASE_SCHEMA.md) và sơ đồ quan hệ tại [`docs/ERD.md`](docs/ERD.md)):
 
-### Các thực thể cốt lõi (Core Entities):
-- **Người dùng & Xác thực:** `User` (bảng `users`), `PasswordResetToken` (`password_reset_tokens`), `HealthProfile` (`health_profiles`), `HealthHistory` (`health_histories`), `UserAllergy` (`user_allergies`).
-- **Nội dung & Cộng đồng:** `Post` (`posts`), `Blog` (`blogs`), `Video` (`videos`), `Comment` (`comments`), `PostVote` (`post_votes`), `PostAttachment` (`post_attachments`), `Category` (`categories`).
-- **Dinh dưỡng & Ẩm thực:** `Recipe` (`recipes`), `Ingredient` (`ingredients`), `LiquidIngredientDensity` (`liquid_ingredient_densities`), `MealPlan` (`meal_plans`), `FoodDiary` (`food_diaries`).
-- **Địa điểm & Nhà hàng:** `Restaurant` (`restaurants`), `RestaurantRecipe` (`restaurant_recipes`), `RestaurantReview` (`restaurant_reviews`).
-- **Hệ thống AI & Kiểm duyệt:** `AiGeneration` (`ai_generations`), `AiLog` (`ai_logs`), `ContentModerationJob` (`content_moderation_jobs`), `VideoRecipeSummaryJob` (`video_recipe_summary_jobs`), `GuestQuota` (`guest_quotas`).
-- **Quản trị & Pháp lý:** `LegalDocument` (`legal_documents`), `Report` (`reports`), `Notification` (`notifications`).
+### Các thực thể cốt lõi theo Domain (Core Entities):
+- **Người dùng & Xác thực (7 bảng):** `User` (bảng `users`), `PasswordResetOtp` (`password_reset_otps`), `PasswordResetToken` (`password_reset_tokens`), `DietType` (`diet_types`), `HealthProfile` (`health_profiles`), `HealthHistory` (`health_histories`), `UserAllergy` (`user_allergies`).
+- **Nội dung & Cộng đồng (8 bảng):** `Category` (`categories`), `Post` (`posts`), `Video` (`videos`), `Blog` (`blogs`), `PostCategory` (`post_categories`), `PostAttachment` (`post_attachments`), `Comment` (`comments`), `PostVote` (`post_votes`).
+- **Dinh dưỡng & Ẩm thực (9 bảng):** `Ingredient` (`ingredients`), `IngredientDetails` (`ingredient_details`), `IngredientImage` (`ingredient_images`), `IngredientAlternative` (`ingredient_alternatives`), `Recipe` (`recipes`), `RecipeIngredient` (`recipe_ingredients`), `MealPlan` (`meal_plans`), `MealPlanDetail` (`meal_plan_details`), `FoodDiary` (`food_diaries`).
+- **Địa điểm & Nhà hàng (3 bảng):** `Restaurant` (`restaurants`), `RestaurantRecipe` (`restaurant_recipes`), `RestaurantReview` (`restaurant_reviews`).
+- **Hệ thống AI, Kiểm duyệt & Quota (6 bảng):** `AiGeneration` (`ai_generations`), `AiLog` (`ai_logs`), `ContentModerationJob` (`content_moderation_jobs`), `VideoRecipeSummaryJob` (`video_recipe_summary_jobs`), `IngredientLookupJob` (`ingredient_lookup_jobs`), `GuestQuota` (`guest_quota`).
+- **Quản trị & Báo cáo (2 bảng):** `Report` (`reports`), `Notification` (`notifications`).
 
 ### Quy tắc quan trọng về Migration & Seed:
 - Khởi tạo bảng bằng lệnh: `npx prisma migrate deploy` (cho database môi trường phát triển).
@@ -398,7 +401,7 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 ### Backend (`server/package.json`)
 - `npm run dev`: Khởi động Express Server chế độ dev kèm nodemon và workers tích hợp.
 - `npm start`: Khởi động Express Server ở chế độ production.
-- `npm test`: Chạy toàn bộ 61 test file (546 test) tự động với Vitest trên database test riêng (`_test`).
+- `npm test`: Chạy toàn bộ 61 test file (561 test) tự động với Vitest trên database test riêng (`_test`).
 - `npm run test:prepare`: Chuẩn bị cơ sở dữ liệu test (áp dụng migration và seed dữ liệu chuẩn).
 - `npm run test:content-moderation`: Kiểm thử chuyên sâu luồng kiểm duyệt nội dung tự động.
 - `npm run test:video-recipes`: Kiểm thử pipeline trích xuất công thức từ video YouTube.
@@ -420,14 +423,14 @@ Hệ thống bảo vệ tài nguyên theo mô hình **RBAC (Role-Based Access Co
 - `npm run lint`: Quét và kiểm tra lỗi cú pháp bằng ESLint.
 
 ### AI Microservice (`ai_service/`)
-- `pytest`: Chạy toàn bộ 306 bài test tự động bao phủ chatbot, meal planner, scanner và rate limiting.
+- `pytest`: Chạy toàn bộ 355 bài test tự động bao phủ chatbot, meal planner, scanner và rate limiting.
 - `ruff check .`: Quét và định dạng mã nguồn Python theo chuẩn PEP 8.
 
 ---
 
 ## 14. Tổng hợp chiến lược kiểm thử (Testing Overview)
 
-Hệ thống sở hữu **1.252 bài test tự động** (server 546, AI 355, client 351) bao phủ toàn bộ các tầng:
+Hệ thống sở hữu **1.267 bài test tự động** (server 561, AI 355, client 351) bao phủ toàn bộ các tầng:
 
 ```powershell
 # 1. Kiểm thử Backend trên cơ sở dữ liệu riêng (server/)

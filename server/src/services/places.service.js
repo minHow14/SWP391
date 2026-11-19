@@ -63,10 +63,10 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
     restaurant_id: restaurant.restaurant_id,
     name: restaurant.name,
     address: restaurant.address,
-    city: restaurant.details?.city || (restaurant.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
-    hours: restaurant.details?.hours || 'Chưa cập nhật',
-    price_range: restaurant.details?.price_range || 'Theo thời giá',
-    separate: restaurant.details?.separate_kitchen ?? null,
+    city: restaurant.city || restaurant.details?.city || (restaurant.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
+    hours: restaurant.hours || restaurant.details?.hours || 'Chưa cập nhật',
+    price_range: restaurant.priceRange || restaurant.details?.price_range || 'Theo thời giá',
+    separate: restaurant.separateKitchen ?? restaurant.details?.separate_kitchen ?? null,
     latitude: lat,
     longitude: lng,
     phone: restaurant.phone ?? null,
@@ -205,7 +205,7 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
   const params = new URLSearchParams({
     query,
     languageCode: 'vi',
-    maxResultCount: String(limit),
+    maxResultCount: String(Math.min(Math.max(Number(limit) || 10, 1), 20)),
     fieldMask: FIELD_MASK,
     locationBias: JSON.stringify({
       circle: {
@@ -270,14 +270,22 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
       };
     })
     .filter(isVegetarianPlace);
-  ziomapCache.set(cacheKey, places);
-
-  // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test (bất đồng bộ, không chặn response)
+  // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test
   if (process.env.NODE_ENV !== 'test') {
-    placeRepository.saveExternalPlaces(places).catch((err) => {
+    try {
+      const saved = await placeRepository.saveExternalPlaces(places);
+      const savedMap = new Map(saved.map((r) => [r.place_id, r.restaurant_id]));
+      for (const place of places) {
+        if (place.place_id && savedMap.has(place.place_id)) {
+          place.restaurant_id = savedMap.get(place.place_id);
+        }
+      }
+    } catch (err) {
       console.warn('[places.service] Lỗi tự động lưu cache ZIOMAP vào DB:', err.message);
-    });
+    }
   }
+
+  ziomapCache.set(cacheKey, places);
 
   return { places, skipped: false, cached: false };
 }

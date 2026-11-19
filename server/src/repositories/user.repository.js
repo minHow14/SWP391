@@ -202,7 +202,7 @@ export const userRepository = {
 
   async upsertProfilePreference(userId, goal, db = prisma) {
     const numericUserId = Number(userId);
-    return db.profilePreference.upsert({
+    return db.healthProfile.upsert({
       where: { user_id: numericUserId },
       create: { user_id: numericUserId, goal },
       update: { goal },

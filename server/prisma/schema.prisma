@@ -30,10 +30,8 @@ model User {
   reports          Report[]
   allergies        UserAllergy[]
   restaurant_reviews RestaurantReview[]
-  preferences ProfilePreference?
   aiGenerations AiGeneration[]
   videoRecipeSummaryJobs VideoRecipeSummaryJob[]
-  videoRecipeSummaries VideoRecipeSummary[]
   passwordResetTokens PasswordResetToken[]
   passwordResetOtp PasswordResetOtp?
 
@@ -105,35 +103,19 @@ model VideoRecipeSummaryJob {
   leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
   metadata       Json?
   transcript     Json?
+  recipe         Json?
   errorCode      String?                    @map("error_code") @db.VarChar(100)
   errorMessage   String?                    @map("error_message") @db.VarChar(500)
   completedAt    DateTime?                  @map("completed_at") @db.Timestamptz(6)
   createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
   user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
-  summary        VideoRecipeSummary?
 
   @@unique([userId, videoId, pipelineVersion], map: "uq_video_recipe_jobs_user_source_version")
   @@index([status, availableAt, createdAt, id], map: "idx_video_recipe_jobs_queue")
   @@index([status, leaseExpiresAt], map: "idx_video_recipe_jobs_expired_lease")
   @@index([userId, createdAt, id], map: "idx_video_recipe_jobs_user_created")
   @@map("video_recipe_summary_jobs")
-}
-
-model VideoRecipeSummary {
-  id        String                @id @default(uuid()) @db.Uuid
-  jobId     String                @unique(map: "uq_video_recipe_summaries_job") @map("job_id") @db.Uuid
-  userId    Int                   @map("user_id")
-  videoId   String                @map("video_id") @db.VarChar(11)
-  videoUrl  String                @map("video_url") @db.VarChar(255)
-  recipe    Json
-  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
-  job       VideoRecipeSummaryJob @relation(fields: [jobId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  user      User                  @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
-
-  @@index([userId, createdAt, id], map: "idx_video_recipe_summaries_user_created")
-  @@map("video_recipe_summaries")
 }
 
 enum AiGenerationStatus {
@@ -189,6 +171,12 @@ model HealthProfile {
   dob          DateTime? @db.Date
   gender       String?   @db.VarChar(20)
   health_goal  String?   @db.VarChar(255)
+  calorieGoal  Float?    @map("calorie_goal") @db.Real
+  goal         String?   @db.VarChar(50)
+  proteinGoal  Float?    @map("protein_goal") @db.Real
+  carbsGoal    Float?    @map("carbs_goal") @db.Real
+  fatGoal      Float?    @map("fat_goal") @db.Real
+  fiberGoal    Float?    @map("fiber_goal") @db.Real
   diet_type    DietType? @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
   user         User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -366,20 +354,10 @@ model IngredientLookupJob {
   @@map("ingredient_lookup_jobs")
 }
 
-model LiquidIngredientDensity {
-  density_id    Int      @id @default(autoincrement())
-  ingredient_id Int      @unique
-  density       Float    @db.Real
-  ingredient    Ingredient @relation(fields: [ingredient_id], references: [ingredient_id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@map("liquid_ingredient_densities")
-}
-
 model Ingredient {
   lookupJobs IngredientLookupJob[]
   details IngredientDetails?
   image IngredientImage?
-  liquidDensity LiquidIngredientDensity?
   ingredient_id      Int                @id @default(autoincrement())
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
@@ -387,6 +365,7 @@ model Ingredient {
   fat                Float?             @default(0) @db.Real
   carbs              Float?             @default(0) @db.Real
   fiber              Float?             @default(0) @db.Real
+  density            Float?             @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
 
@@ -464,7 +443,6 @@ model MealPlanDetail {
 }
 
 model FoodDiary {
-  nutrients DiaryNutrients?
   diary_id         Int       @id @default(autoincrement())
   user_id          Int
   consumed_date    DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
@@ -472,6 +450,11 @@ model FoodDiary {
   recipe_id        Int?
   custom_food_name String?   @db.VarChar(255)
   calories         Float?    @default(0) @db.Real
+  serving          String?   @db.VarChar(100)
+  protein          Float?    @default(0) @db.Real
+  carbs            Float?    @default(0) @db.Real
+  fat              Float?    @default(0) @db.Real
+  fiber            Float?    @default(0) @db.Real
   recipe           Recipe?   @relation(fields: [recipe_id], references: [recipe_id], onUpdate: NoAction)
   user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -480,7 +463,6 @@ model FoodDiary {
 }
 
 model Restaurant {
-  details RestaurantDetails?
   reviews RestaurantReview[]
   restaurant_id      Int                @id @default(autoincrement())
   name               String             @db.VarChar(255)
@@ -492,6 +474,10 @@ model Restaurant {
   longitude          Decimal?           @db.Decimal(10, 7)
   diet_type_id       Int?               @db.SmallInt
   isIngredientShop   Boolean            @default(false) @map("is_ingredient_shop")
+  city               String?            @db.VarChar(100)
+  hours              String?            @db.VarChar(100)
+  priceRange         String?            @map("price_range") @db.VarChar(50)
+  separateKitchen    Boolean            @default(false) @map("separate_kitchen")
   source             String             @default("local") @db.VarChar(20)
   status             String             @default("APPROVED") @db.VarChar(20)
   place_id           String?            @unique(map: "uq_restaurants_place_id") @db.VarChar(100)
@@ -508,9 +494,9 @@ model Restaurant {
 }
 
 model RestaurantRecipe {
-  price RestaurantMenuPrice?
   restaurant_id Int
   recipe_id     Int
+  price         Decimal?  @db.Decimal(18, 2)
   recipe        Recipe     @relation(fields: [recipe_id], references: [recipe_id], onDelete: Cascade, onUpdate: NoAction)
   restaurant    Restaurant @relation(fields: [restaurant_id], references: [restaurant_id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -636,15 +622,6 @@ model IngredientAlternative {
   keywords String
   @@map("ingredient_alternatives")
 }
-model RestaurantDetails {
-  restaurant_id Int @id
-  city String
-  hours String?
-  price_range String?
-  separate_kitchen Boolean?
-  restaurant Restaurant @relation(fields:[restaurant_id],references:[restaurant_id],onDelete:Cascade,onUpdate:NoAction)
-  @@map("restaurant_details")
-}
 model RestaurantReview {
   review_id Int @id @default(autoincrement())
   restaurant_id Int
@@ -658,36 +635,6 @@ model RestaurantReview {
   @@index([user_id], map: "idx_restaurant_reviews_user")
   @@map("restaurant_reviews")
 }
-model DiaryNutrients {
-  diary_id Int @id
-  serving String @default("1 phần")
-  protein Float @default(0) @db.Real
-  carbs Float @default(0) @db.Real
-  fat Float @default(0) @db.Real
-  fiber Float @default(0) @db.Real
-  diary FoodDiary @relation(fields:[diary_id],references:[diary_id],onDelete:Cascade,onUpdate:NoAction)
-  @@map("diary_nutrients")
-}
-model ProfilePreference {
-  user_id Int @id
-  calorie_goal Float? @db.Real
-  goal String?
-  protein_goal Float? @default(70) @db.Real
-  carbs_goal Float? @default(230) @db.Real
-  fat_goal Float? @default(45) @db.Real
-  fiber_goal Float? @default(30) @db.Real
-  user User @relation(fields:[user_id],references:[user_id],onDelete:Cascade,onUpdate:NoAction)
-  @@map("profile_preferences")
-}
-model RestaurantMenuPrice {
-  restaurant_id Int
-  recipe_id Int
-  price Decimal? @db.Decimal(18, 2)
-  menu RestaurantRecipe @relation(fields:[restaurant_id,recipe_id],references:[restaurant_id,recipe_id],onDelete:Cascade,onUpdate:NoAction)
-  @@id([restaurant_id,recipe_id])
-  @@map("restaurant_menu_prices")
-}
-
 /// BE quản lý hạn mức dùng chung cho chatbot và tạo thực đơn.
 /// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
 model GuestQuota {

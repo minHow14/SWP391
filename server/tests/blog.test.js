@@ -150,4 +150,53 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
+
+  it('accepts uppercase media types (IMAGE/VIDEO) and normalizes to lowercase', async () => {
+    const res = await request(app)
+      .post('/api/blogs')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({
+        title: 'Thử nghiệm phân loại tệp viết hoa',
+        content: 'Kiểm tra trường type nhận IMAGE và VIDEO và chuẩn hóa về chữ thường.',
+        categoryId: 1,
+        attachments: [
+          { url: '/uploads/posts/salad.jpg', type: 'IMAGE', name: 'salad.jpg' },
+          { url: '/uploads/posts/cooking.mp4', type: 'VIDEO', name: 'cooking.mp4' },
+        ],
+      });
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.blog.attachments).toHaveLength(2);
+    expect(res.body.data.blog.attachments[0].type).toBe('image');
+    expect(res.body.data.blog.attachments[1].type).toBe('video');
+
+    const createdPostId = res.body.data.blog.post_id;
+    const updateRes = await request(app)
+      .put(`/api/blogs/${createdPostId}`)
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({
+        attachments: [
+          { url: '/uploads/posts/salad.jpg', type: 'IMAGE', name: 'salad.jpg' },
+        ],
+      });
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.data.blog.attachments[0].type).toBe('image');
+
+    await postRepository.hardDeletePost(createdPostId);
+  });
+
+  it('rejects unsupported media type with 400', async () => {
+    const res = await request(app)
+      .post('/api/blogs')
+      .set('Authorization', `Bearer ${authorToken}`)
+      .send({
+        title: 'Thử nghiệm loại tệp không hợp lệ',
+        content: 'Nội dung kiểm tra loại tệp ngoài image/video',
+        attachments: [
+          { url: '/uploads/posts/salad.jpg', type: 'audio' },
+        ],
+      });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
 });

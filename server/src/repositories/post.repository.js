@@ -45,8 +45,16 @@ export const postRepository = {
     return db.blog.findMany(args);
   },
 
+  async countBlogs(args = {}, db = prisma) {
+    return db.blog.count(args);
+  },
+
   async findAllVideos(args = {}, db = prisma) {
     return db.video.findMany(args);
+  },
+
+  async countVideos(args = {}, db = prisma) {
+    return db.video.count(args);
   },
 
   async updateBlog(postId, data, include = null, db = prisma) {
@@ -182,7 +190,7 @@ export const postRepository = {
         data: attachments.map((item) => ({
           post_id: numericPostId,
           file_url: item.url,
-          file_type: item.type || 'image',
+          file_type: String(item.type || 'image').trim().toLowerCase(),
           file_name: item.name || null,
         })),
       });

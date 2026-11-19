@@ -100,9 +100,17 @@
   width: 100%;
   min-width: 0;
   background: transparent;
-  border: 0;
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
   color: #334155;
   font-size: 12px;
+}
+.cx-search-field input:focus,
+.cx-search-field input:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
 }
 .cx-search-field input::placeholder {
   color: #64748b;

@@ -34,11 +34,17 @@
 .cx-ingredient-diets small { display: block; color: #b5e9d6; font-size: 11px; font-weight: 700; }
 .cx-ingredient-diets strong { display: block; margin-top: 8px; color: #80e5a2; font-size: 13px; }
 .cx-ingredient-diets > p { margin: 12px 0 0; color: #b8c8ea; font-size: 11px; }
-.cx-discovery-search { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border: 1px solid #e6edf5; border-radius: 16px; background: #f8fafc; }
+.cx-discovery-search { display: flex; align-items: center; gap: 12px; padding: 12px 15px; border: 1px solid #e6edf5; border-radius: 16px; background: #f8fafc; transition: border-color .2s ease, box-shadow .2s ease; }
 .cx-discovery-search > .bi { color: #94a3b8; font-size: 15px; }
-.cx-discovery-search input { width: 100%; min-width: 0; border: 0; background: transparent; color: #43536a; font: inherit; font-size: 13px; }
+.cx-discovery-search input { width: 100%; min-width: 0; border: none !important; outline: none !important; box-shadow: none !important; background: transparent !important; color: #43536a; font: inherit; font-size: 13px; padding: 0; }
+.cx-discovery-search input:focus,
+.cx-discovery-search input:focus-visible { border: none !important; outline: none !important; box-shadow: none !important; }
+.cx-discovery-search input::-webkit-search-decoration,
+.cx-discovery-search input::-webkit-search-cancel-button,
+.cx-discovery-search input::-webkit-search-results-button,
+.cx-discovery-search input::-webkit-search-results-decoration { -webkit-appearance: none; }
 .cx-discovery-search input::placeholder { color: #94a3b8; }
-.cx-discovery-search:focus-within { border-color: #93c5fd; }
+.cx-discovery-search:focus-within { border-color: #198754; box-shadow: 0 0 0 3px rgba(25, 135, 84, .12); }
 .cx-ingredient-filters { display: flex; flex-wrap: wrap; gap: 9px; margin: 18px 0 29px; }
 .cx-ingredient-filters button { padding: 8px 15px; border: 0; border-radius: 999px; background: #f1f5f9; color: #64748b; font-size: 12px; font-weight: 750; }
 .cx-ingredient-filters button:hover { background: #e2e8f0; }
@@ -111,8 +117,22 @@
 .cx-restaurant-map-heading { flex-shrink: 0; }
 .cx-live-map { position: relative; flex: 1; min-height: 0; z-index: 0; }
 .cx-live-map-canvas { height: 100%; width: 100%; background: #e8f0ec; }
-.cx-map-marker { display: grid; place-items: center; width: 36px; height: 42px; color: #047857; font-size: 36px; filter: drop-shadow(0 2px 2px #0005); }
-.cx-map-marker.is-selected { color: #e4572e; font-size: 42px; }
+.cx-map-marker { display: grid; place-items: center; width: 36px; height: 42px; color: #047857; font-size: 34px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.25)); transition: transform 0.2s ease; cursor: pointer; }
+.cx-map-marker:hover { transform: scale(1.15); }
+.cx-map-marker.is-vegan { color: #059669; }
+.cx-map-marker.is-buddhist { color: #d97706; }
+.cx-map-marker.is-separate { color: #2563eb; }
+.cx-map-marker.is-shop { color: #7c3aed; }
+.cx-map-marker.is-external { color: #0d9488; }
+.cx-map-marker.is-selected { color: #dc2626; font-size: 42px; transform: scale(1.2); filter: drop-shadow(0 0 8px rgba(220,38,38,0.7)); }
+
+.cx-map-popup { font-family: inherit; font-size: 13px; line-height: 1.4; max-width: 240px; }
+.cx-map-popup strong { display: block; font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.cx-map-popup p { margin: 0 0 6px; color: #475569; font-size: 12px; }
+.cx-map-popup-actions { display: flex; gap: 8px; margin-top: 8px; }
+.cx-map-popup-actions button, .cx-map-popup-actions a { padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 6px; border: 0; text-decoration: none; cursor: pointer; }
+.cx-map-popup-actions button { background: #059669; color: #fff; }
+.cx-map-popup-actions a { background: #e2e8f0; color: #1e293b; display: inline-flex; align-items: center; gap: 4px; }
 .cx-map-load-error { position: absolute; bottom: 30px; left: 12px; right: 12px; z-index: 1000; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 12px; border-radius: 12px; background: #fff; color: #43536a; box-shadow: 0 3px 12px #0002; font-size: 12px; }
 .cx-map-load-error button { border: 0; border-radius: 8px; padding: 6px 10px; background: #047857; color: #fff; }
 .cx-map-no-results { display: grid; place-content: center; height: 85%; gap: 12px; padding: 24px; text-align: center; color: #64748b; font-size: 13px; }

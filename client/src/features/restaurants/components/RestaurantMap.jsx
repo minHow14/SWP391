@@ -148,21 +148,46 @@ export default function RestaurantMap({
     // 3. Marker các quán chay
     for (const place of places.filter(hasCoordinates)) {
       const active = place.id === selected?.id;
+      const typeClass = place.type ? `is-${place.type}` : 'is-vegan';
       const icon = L.divIcon({
         className: 'cx-map-marker-wrapper',
-        html: `<span class="cx-map-marker${active ? ' is-selected' : ''}"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>`,
+        html: `<span class="cx-map-marker ${typeClass}${active ? ' is-selected' : ''}"><i class="bi bi-geo-alt-fill" aria-hidden="true"></i></span>`,
         iconSize: [36, 42],
         iconAnchor: [18, 40],
       });
+
+      const pLat = place.latitude ?? place.lat;
+      const pLng = place.longitude ?? place.lng;
+
+      const popupContent = document.createElement('div');
+      popupContent.className = 'cx-map-popup';
+      popupContent.innerHTML = `
+        <strong>${place.name}</strong>
+        <p><i class="bi bi-geo-alt"></i> ${place.address || 'Chưa cập nhật địa chỉ'}</p>
+        ${place.hours && place.hours !== 'Chưa cập nhật' ? `<p><i class="bi bi-clock"></i> ${place.hours}</p>` : ''}
+        <div class="cx-map-popup-actions">
+          <button type="button" class="cx-popup-select-btn">Xem chi tiết</button>
+          <a href="https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${place.name}, ${place.address}`)}" target="_blank" rel="noreferrer">
+            <i class="bi bi-sign-turn-right-fill"></i> Chỉ đường
+          </a>
+        </div>
+      `;
+
+      popupContent.querySelector('.cx-popup-select-btn')?.addEventListener('click', () => {
+        select.current(place);
+      });
+
       const label = document.createElement('span');
       label.textContent = place.name;
-      L.marker([place.latitude ?? place.lat, place.longitude ?? place.lng], {
+
+      L.marker([pLat, pLng], {
         icon,
         title: place.name,
         alt: place.name,
         zIndexOffset: active ? 1000 : 0,
       })
         .bindTooltip(label, { direction: 'top', offset: [0, -36] })
+        .bindPopup(popupContent, { offset: [0, -32], closeButton: true })
         .on('click', () => select.current(place))
         .addTo(group);
     }

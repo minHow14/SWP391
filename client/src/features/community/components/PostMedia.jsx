@@ -9,7 +9,7 @@ export default function PostMedia({ attachments, preview = false, onRemove }) {
     >
       {attachments.map((attachment) => (
         <figure key={attachment.id || attachment.url}>
-          {attachment.type === 'video' ? (
+          {attachment.type?.toLowerCase() === 'video' ? (
             <video
               src={attachment.url}
               controls

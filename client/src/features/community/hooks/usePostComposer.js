@@ -55,7 +55,7 @@ export function usePostComposer({ post = {}, onSaved }) {
   const initialAttachments = (post.attachments || []).map((a) => ({
     id: a.attachment_id || a.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
     url: a.file_url || a.url,
-    type: a.file_type || a.type || 'image',
+    type: String(a.file_type || a.type || 'image').trim().toLowerCase(),
     name: a.file_name || a.name || '',
   }));
   const [attachments, setAttachments] = useState(initialAttachments);
@@ -189,7 +189,7 @@ export function usePostComposer({ post = {}, onSaved }) {
       const newItems = uploaded.map((file) => ({
         id: crypto.randomUUID(),
         url: file.url,
-        type: file.type || 'image',
+        type: String(file.type || 'image').trim().toLowerCase(),
         name: file.name,
       }));
 
