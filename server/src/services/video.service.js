@@ -121,8 +121,8 @@ export const videoService = {
       };
     }
 
-    if (query.search) {
-      const searchStr = String(query.search).trim();
+    if (query.q || query.search) {
+      const searchStr = String(query.q || query.search).trim();
       where.OR = [
         { title: { contains: searchStr, mode: 'insensitive' } },
         { transcript: { contains: searchStr, mode: 'insensitive' } },

@@ -1,18 +1,22 @@
 // D:/SWP391/SWP391/client/src/pages/Community.jsx
 import { useState, useMemo } from 'react';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { useCommunity } from '../features/community/hooks/useCommunity.js';
 import CreatePostCard from '../features/community/components/CreatePostCard.jsx';
+import CommunitySearchBar from '../features/community/components/CommunitySearchBar.jsx';
 import PostComposer from '../features/community/components/PostComposer.jsx';
 import CommunityPost from '../features/community/components/CommunityPost.jsx';
 import PostComments from '../features/community/components/PostComments.jsx';
 import ReportDialog from '../features/community/components/ReportDialog.jsx';
 import ModerationStatusPanel from '../features/community/components/ModerationStatusPanel.jsx';
+import { normalizeSearch } from '../utils/recipeFilters.js';
 import '../features/community/styles/community.css';
 
 export default function Community() {
   const community = useCommunity();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [view, setView] = useState('feed');
   const [filterType, setFilterType] = useState('ALL');
   const [composer, setComposer] = useState(null);
@@ -20,19 +24,47 @@ export default function Community() {
   const [reportTarget, setReportTarget] = useState(null);
 
   const allPosts = view === 'mine' ? community.ownPosts : community.feed;
+
+  const normalizedQuery = normalizeSearch(searchQuery.trim());
+
+  const searchedPosts = useMemo(() => {
+    if (!normalizedQuery) return allPosts;
+    return allPosts.filter((p) => {
+      const searchTarget = normalizeSearch(
+        `${p.title || ''} ${p.content || ''} ${p.transcript || ''} ${p.author_full_name || ''} ${p.category?.name || ''}`
+      );
+      return searchTarget.includes(normalizedQuery);
+    });
+  }, [allPosts, normalizedQuery]);
+
   const posts = useMemo(() => {
-    if (filterType === 'ALL') return allPosts;
-    return allPosts.filter((p) => p.post_type === filterType || (filterType === 'VIDEO' && p.video_url));
-  }, [allPosts, filterType]);
+    if (filterType === 'ALL') return searchedPosts;
+    return searchedPosts.filter((p) => p.post_type === filterType || (filterType === 'VIDEO' && p.video_url));
+  }, [searchedPosts, filterType]);
 
   const blogCount = useMemo(
-    () => allPosts.filter((p) => p.post_type === 'BLOG' && !p.video_url).length,
-    [allPosts]
+    () => searchedPosts.filter((p) => p.post_type === 'BLOG' && !p.video_url).length,
+    [searchedPosts]
   );
   const videoCount = useMemo(
-    () => allPosts.filter((p) => p.post_type === 'VIDEO' || Boolean(p.video_url)).length,
-    [allPosts]
+    () => searchedPosts.filter((p) => p.post_type === 'VIDEO' || Boolean(p.video_url)).length,
+    [searchedPosts]
   );
+
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+    const params = new URLSearchParams(searchParams);
+    if (query.trim()) {
+      params.set('q', query.trim());
+    } else {
+      params.delete('q');
+    }
+    setSearchParams(params, { replace: true });
+  };
+
+  const handleClearSearch = () => {
+    handleSearchChange('');
+  };
 
   const loading = !community.data || (view === 'mine' && community.mineLoading);
   const error = community.error || (view === 'mine' ? community.mineError : '');
@@ -81,36 +113,17 @@ export default function Community() {
         <div className="cx-community-stream">
           <CreatePostCard user={community.user} onCreate={() => setComposer({})} />
 
-          {/* Bộ lọc loại nội dung bảng tin: Tất cả, Bài viết, Video */}
-          <div className="d-flex flex-wrap gap-2 my-3">
-            <Button
-              type="button"
-              variant={filterType === 'ALL' ? 'success' : 'light'}
-              size="sm"
-              className="rounded-pill px-3"
-              onClick={() => setFilterType('ALL')}
-            >
-              Tất cả ({allPosts.length})
-            </Button>
-            <Button
-              type="button"
-              variant={filterType === 'BLOG' ? 'success' : 'light'}
-              size="sm"
-              className="rounded-pill px-3"
-              onClick={() => setFilterType('BLOG')}
-            >
-              <i className="bi bi-journal-richtext me-1" /> Bài viết ({blogCount})
-            </Button>
-            <Button
-              type="button"
-              variant={filterType === 'VIDEO' ? 'success' : 'light'}
-              size="sm"
-              className="rounded-pill px-3"
-              onClick={() => setFilterType('VIDEO')}
-            >
-              <i className="bi bi-play-circle-fill me-1" /> Video ({videoCount})
-            </Button>
-          </div>
+          {/* Thanh tìm kiếm và bộ lọc loại nội dung Video & Blogs */}
+          <CommunitySearchBar
+            searchQuery={searchQuery}
+            onSearchChange={handleSearchChange}
+            filterType={filterType}
+            onFilterChange={setFilterType}
+            totalCount={searchedPosts.length}
+            blogCount={blogCount}
+            videoCount={videoCount}
+            onClear={handleClearSearch}
+          />
 
           {community.notice && (
             <Alert
@@ -156,18 +169,26 @@ export default function Community() {
               ))}
               {!posts.length && (
                 <section className="cx-empty-state">
-                  <i className="bi bi-chat-square-heart" aria-hidden="true" />
+                  <i className={searchQuery.trim() ? 'bi bi-search' : 'bi bi-chat-square-heart'} aria-hidden="true" />
                   <h2>
-                    {view === 'mine' && !community.user
-                      ? 'Bài viết của bạn'
-                      : 'Chưa có nội dung phù hợp'}
+                    {searchQuery.trim()
+                      ? 'Không tìm thấy kết quả phù hợp'
+                      : view === 'mine' && !community.user
+                        ? 'Bài viết của bạn'
+                        : 'Chưa có nội dung phù hợp'}
                   </h2>
                   <p>
-                    {view === 'mine' && !community.user
-                      ? 'Đăng nhập để xem và quản lý những bài viết hoặc video bạn đã chia sẻ.'
-                      : 'Chia sẻ câu chuyện hoặc video đầu tiên của bạn cùng cộng đồng.'}
+                    {searchQuery.trim()
+                      ? `Không tìm thấy bài viết hoặc video nào khớp với từ khóa "${searchQuery}".`
+                      : view === 'mine' && !community.user
+                        ? 'Đăng nhập để xem và quản lý những bài viết hoặc video bạn đã chia sẻ.'
+                        : 'Chia sẻ câu chuyện hoặc video đầu tiên của bạn cùng cộng đồng.'}
                   </p>
-                  {community.user ? (
+                  {searchQuery.trim() ? (
+                    <Button variant="success" onClick={handleClearSearch}>
+                      Xem tất cả bài viết & video
+                    </Button>
+                  ) : community.user ? (
                     <Button variant="success" onClick={() => setComposer({})}>
                       Tạo bài đăng
                     </Button>

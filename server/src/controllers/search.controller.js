@@ -4,7 +4,14 @@ import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 
 export const globalSearch = asyncHandler(async (req, res) => {
-  const data = await searchService.globalSearch(req.query.q, { limit: req.query.limit });
+  const { q, type, page, limit, categoryId, category_id } = req.query;
+  const resolvedCategoryId = categoryId || category_id;
+  const data = await searchService.globalSearch(q, {
+    type,
+    page: page !== undefined ? Number(page) : 1,
+    limit: limit !== undefined ? Number(limit) : 20,
+    categoryId: resolvedCategoryId !== undefined ? Number(resolvedCategoryId) : undefined,
+  });
   return sendSuccess(res, data);
 });
 

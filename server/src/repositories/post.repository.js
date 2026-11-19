@@ -45,8 +45,16 @@ export const postRepository = {
     return db.blog.findMany(args);
   },
 
+  async countBlogs(args = {}, db = prisma) {
+    return db.blog.count(args);
+  },
+
   async findAllVideos(args = {}, db = prisma) {
     return db.video.findMany(args);
+  },
+
+  async countVideos(args = {}, db = prisma) {
+    return db.video.count(args);
   },
 
   async updateBlog(postId, data, include = null, db = prisma) {

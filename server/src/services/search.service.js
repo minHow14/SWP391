@@ -8,92 +8,184 @@ export const searchService = {
   /**
    * Tìm kiếm toàn cục Blog và Video theo từ khóa trên PostgreSQL
    */
-  async globalSearch(rawQuery, { limit = 20 } = {}) {
+  async globalSearch(rawQuery, { type = 'ALL', page = 1, limit = 20, categoryId } = {}) {
     const query = rawQuery ? String(rawQuery).trim() : '';
     if (!query) {
       throw ApiError.badRequest('Query parameter "q" is required');
     }
 
-    const take = Math.min(50, Math.max(1, Number(limit) || 20));
+    const safePage = Math.max(1, Number(page) || 1);
+    const take = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (safePage - 1) * take;
+    const catId = categoryId ? Number(categoryId) : null;
 
-    const [matchedBlogs, matchedVideos] = await Promise.all([
-      postRepository.findAllBlogs({
-        where: {
-          post: {
-            status: POST_STATUS.PUBLISHED,
-          },
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { content: { contains: query, mode: 'insensitive' } },
-          ],
-        },
+    const shouldSearchBlogs = type === 'ALL' || type === 'BLOG';
+    const shouldSearchVideos = type === 'ALL' || type === 'VIDEO';
+
+    const blogWhere = {
+      post: {
+        status: POST_STATUS.PUBLISHED,
+        deleted_at: null,
+        ...(catId ? { post_categories: { some: { category_id: catId } } } : {}),
+      },
+      OR: [
+        { title: { contains: query, mode: 'insensitive' } },
+        { content: { contains: query, mode: 'insensitive' } },
+      ],
+    };
+
+    const videoWhere = {
+      post: {
+        status: POST_STATUS.PUBLISHED,
+        deleted_at: null,
+        ...(catId ? { post_categories: { some: { category_id: catId } } } : {}),
+      },
+      OR: [
+        { title: { contains: query, mode: 'insensitive' } },
+        { transcript: { contains: query, mode: 'insensitive' } },
+      ],
+    };
+
+    const blogInclude = {
+      post: {
         include: {
-          post: {
-            include: {
-              author: {
-                select: {
-                  user_id: true,
-                  full_name: true,
-                },
-              },
+          author: {
+            select: {
+              user_id: true,
+              full_name: true,
             },
           },
-          attached_video: true,
-        },
-        orderBy: {
-          post: {
-            created_at: 'desc',
-          },
-        },
-        take,
-      }),
-
-      postRepository.findAllVideos({
-        where: {
-          post: {
-            status: POST_STATUS.PUBLISHED,
-          },
-          OR: [
-            { title: { contains: query, mode: 'insensitive' } },
-            { transcript: { contains: query, mode: 'insensitive' } },
-          ],
-        },
-        include: {
-          post: {
+          post_categories: {
             include: {
-              author: {
-                select: {
-                  user_id: true,
-                  full_name: true,
-                },
-              },
+              category: true,
+            },
+          },
+          attachments: {
+            orderBy: {
+              attachment_id: 'asc',
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+              post_votes: true,
             },
           },
         },
-        orderBy: {
-          post: {
-            created_at: 'desc',
+      },
+      attached_video: true,
+    };
+
+    const videoInclude = {
+      post: {
+        include: {
+          author: {
+            select: {
+              user_id: true,
+              full_name: true,
+            },
+          },
+          post_categories: {
+            include: {
+              category: true,
+            },
+          },
+          _count: {
+            select: {
+              comments: true,
+              post_votes: true,
+            },
           },
         },
-        take,
-      }),
+      },
+    };
+
+    const orderBy = {
+      post: {
+        created_at: 'desc',
+      },
+    };
+
+    const [matchedBlogs, totalBlogs, matchedVideos, totalVideos] = await Promise.all([
+      shouldSearchBlogs
+        ? postRepository.findAllBlogs({
+            where: blogWhere,
+            include: blogInclude,
+            orderBy,
+            skip,
+            take,
+          })
+        : Promise.resolve([]),
+      shouldSearchBlogs
+        ? postRepository.countBlogs({ where: blogWhere })
+        : Promise.resolve(0),
+      shouldSearchVideos
+        ? postRepository.findAllVideos({
+            where: videoWhere,
+            include: videoInclude,
+            orderBy,
+            skip,
+            take,
+          })
+        : Promise.resolve([]),
+      shouldSearchVideos
+        ? postRepository.countVideos({ where: videoWhere })
+        : Promise.resolve(0),
     ]);
 
     const formattedBlogs = matchedBlogs.map((b) => {
       const { post, ...blogData } = b;
-      return { ...post, ...blogData };
+      const firstCat = post?.post_categories?.[0];
+      const attachments = (post?.attachments || []).map((a) => ({
+        id: a.attachment_id,
+        url: a.file_url,
+        type: a.file_type,
+        name: a.file_name,
+      }));
+      return {
+        ...post,
+        ...blogData,
+        author_full_name: post?.author?.full_name || '',
+        category_id: firstCat?.category_id || null,
+        categoryId: firstCat?.category_id || null,
+        category: firstCat?.category || null,
+        attachments,
+        comment_count: post?._count?.comments ?? 0,
+        vote_count: post?._count?.post_votes ?? 0,
+      };
     });
 
     const formattedVideos = matchedVideos.map((v) => {
       const { post, ...videoData } = v;
-      return { ...post, ...videoData };
+      const firstCat = post?.post_categories?.[0];
+      return {
+        ...post,
+        ...videoData,
+        author_full_name: post?.author?.full_name || '',
+        category_id: firstCat?.category_id || null,
+        categoryId: firstCat?.category_id || null,
+        category: firstCat?.category || null,
+        comment_count: post?._count?.comments ?? 0,
+        vote_count: post?._count?.post_votes ?? 0,
+      };
     });
+
+    const total = totalBlogs + totalVideos;
 
     return {
       query,
+      type,
       results: {
         blogs: formattedBlogs,
         videos: formattedVideos,
+      },
+      meta: {
+        page: safePage,
+        limit: take,
+        total,
+        totalPages: Math.ceil(total / take),
+        totalBlogs,
+        totalVideos,
       },
     };
   },
