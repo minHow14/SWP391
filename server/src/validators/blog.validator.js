@@ -10,7 +10,12 @@ export const attachmentItemSchema = z.object({
     .min(1, 'Đường dẫn tệp không được để trống')
     .max(500)
     .regex(POST_MEDIA_URL_PATTERN, POST_MEDIA_URL_MESSAGE),
-  type: z.enum(['image', 'video']).default('image'),
+  type: z
+    .preprocess(
+      (val) => (typeof val === 'string' ? val.trim().toLowerCase() : val),
+      z.enum(['image', 'video'])
+    )
+    .default('image'),
   name: z.string().trim().max(255).optional(),
 });
 

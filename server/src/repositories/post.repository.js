@@ -190,7 +190,7 @@ export const postRepository = {
         data: attachments.map((item) => ({
           post_id: numericPostId,
           file_url: item.url,
-          file_type: item.type || 'image',
+          file_type: String(item.type || 'image').trim().toLowerCase(),
           file_name: item.name || null,
         })),
       });

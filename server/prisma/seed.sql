@@ -323,11 +323,11 @@ INSERT INTO "post_categories" ("post_id", "category_id") VALUES
 -- 15. TỆP ĐÍNH KÈM BÀI ĐĂNG (POST ATTACHMENTS) (5 tệp hình ảnh thực tế)
 -- ------------------------------------------------------------------------
 INSERT INTO "post_attachments" ("attachment_id", "post_id", "file_url", "file_type", "file_name", "created_at") VALUES
-  (1, 5, '/uploads/posts/protein-thuc-vat.jpg', 'IMAGE', 'protein-thuc-vat.jpg', '2026-10-14T08:35:00.000Z'),
-  (2, 6, '/uploads/posts/thuc-don-chay-7-ngay.jpg', 'IMAGE', 'thuc-don-chay-7-ngay.jpg', '2026-10-15T10:20:00.000Z'),
-  (3, 7, '/uploads/posts/rau-cu-eat-clean.jpg', 'IMAGE', 'rau-cu-eat-clean.jpg', '2026-10-16T11:05:00.000Z'),
-  (4, 8, '/uploads/posts/am-thuc-chay-thanh-tinh.jpg', 'IMAGE', 'am-thuc-chay-thanh-tinh.jpg', '2026-10-17T09:45:00.000Z'),
-  (5, 9, '/uploads/posts/gym-thuan-chay.jpg', 'IMAGE', 'gym-thuan-chay.jpg', '2026-10-21T18:05:00.000Z');
+  (1, 5, '/uploads/posts/protein-thuc-vat.jpg', 'image', 'protein-thuc-vat.jpg', '2026-10-14T08:35:00.000Z'),
+  (2, 6, '/uploads/posts/thuc-don-chay-7-ngay.jpg', 'image', 'thuc-don-chay-7-ngay.jpg', '2026-10-15T10:20:00.000Z'),
+  (3, 7, '/uploads/posts/rau-cu-eat-clean.jpg', 'image', 'rau-cu-eat-clean.jpg', '2026-10-16T11:05:00.000Z'),
+  (4, 8, '/uploads/posts/am-thuc-chay-thanh-tinh.jpg', 'image', 'am-thuc-chay-thanh-tinh.jpg', '2026-10-17T09:45:00.000Z'),
+  (5, 9, '/uploads/posts/gym-thuan-chay.jpg', 'image', 'gym-thuan-chay.jpg', '2026-10-21T18:05:00.000Z');
 
 -- ------------------------------------------------------------------------
 -- 16. CÔNG THỨC MÓN ĂN (RECIPES) (12 công thức khớp chính xác ảnh & video)

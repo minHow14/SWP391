@@ -140,7 +140,7 @@ export const workspaceService = {
                 attachments: (p.attachments || []).map((a) => ({
                     id: a.attachment_id,
                     url: a.file_url,
-                    type: a.file_type,
+                    type: a.file_type ? a.file_type.toLowerCase() : 'image',
                     name: a.file_name,
                 })),
                 vote_count: p.post_votes.reduce(

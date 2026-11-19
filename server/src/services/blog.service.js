@@ -94,7 +94,7 @@ export const blogService = {
       const formattedAttachments = savedAttachments.map((a) => ({
         id: a.attachment_id,
         url: a.file_url,
-        type: a.file_type,
+        type: a.file_type ? a.file_type.toLowerCase() : 'image',
         name: a.file_name,
       }));
 
@@ -186,7 +186,7 @@ export const blogService = {
       const attachments = (post?.attachments || []).map((a) => ({
         id: a.attachment_id,
         url: a.file_url,
-        type: a.file_type,
+        type: a.file_type ? a.file_type.toLowerCase() : 'image',
         name: a.file_name,
       }));
 
@@ -277,7 +277,7 @@ export const blogService = {
     const attachments = (post?.attachments || []).map((a) => ({
       id: a.attachment_id,
       url: a.file_url,
-      type: a.file_type,
+      type: a.file_type ? a.file_type.toLowerCase() : 'image',
       name: a.file_name,
     }));
 
@@ -406,7 +406,7 @@ export const blogService = {
       const formattedAttachments = currentAttachments.map((a) => ({
         id: a.attachment_id,
         url: a.file_url,
-        type: a.file_type,
+        type: a.file_type ? a.file_type.toLowerCase() : 'image',
         name: a.file_name,
       }));
 

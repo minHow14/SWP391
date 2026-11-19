@@ -55,7 +55,7 @@ export async function savePost({ postId, values, attachments = [], postType }) {
     categoryId: values.categoryId ? Number(values.categoryId) : null,
     attachments: attachments.map((item) => ({
       url: item.url,
-      type: item.type || 'image',
+      type: String(item.type || 'image').trim().toLowerCase(),
       name: item.name || '',
     })),
   };

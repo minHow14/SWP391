@@ -202,7 +202,16 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
     }),
   ]);
 
-  return { posts, total, page: Number(page), limit: Number(limit) };
+  const formattedPosts = posts.map((p) => ({
+    ...p,
+    attachments: (p.attachments || []).map((a) => ({
+      ...a,
+      file_type: a.file_type ? a.file_type.toLowerCase() : 'image',
+      type: a.file_type ? a.file_type.toLowerCase() : 'image',
+    })),
+  }));
+
+  return { posts: formattedPosts, total, page: Number(page), limit: Number(limit) };
 };
 
 export const updatePostStatus = async ({ postId, status }) => {
@@ -272,7 +281,7 @@ export const updatePost = async ({
     );
   }
 
-  return prisma.post.findUnique({
+  const updatedPost = await prisma.post.findUnique({
     where: { post_id: id },
     include: {
       blog: true,
@@ -282,6 +291,16 @@ export const updatePost = async ({
       author: { select: { full_name: true } },
     },
   });
+
+  if (!updatedPost) return null;
+  return {
+    ...updatedPost,
+    attachments: (updatedPost.attachments || []).map((a) => ({
+      ...a,
+      file_type: a.file_type ? a.file_type.toLowerCase() : 'image',
+      type: a.file_type ? a.file_type.toLowerCase() : 'image',
+    })),
+  };
 };
 
 export const deletePost = async (postId, { permanent = false } = {}) => {
