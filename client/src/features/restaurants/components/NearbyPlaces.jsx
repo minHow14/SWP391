@@ -83,7 +83,7 @@ export default function NearbyPlaces({
           userLat: currentUserLoc?.lat,
           userLng: currentUserLoc?.lng,
           radiusKm: targetRadius,
-          limit: 12,
+          limit: targetRadius <= 3 ? 20 : targetRadius <= 5 ? 40 : 80,
           dietTypeId: targetDiet,
         },
         { signal: current.signal }
@@ -157,7 +157,7 @@ export default function NearbyPlaces({
     if (!loc || forceRefresh) {
       setState({ status: 'loading', places: [], message: 'Đang xác định vị trí GPS...', origin: null });
       try {
-        loc = await getPosition();
+        loc = await getPosition(undefined, { forceRefresh });
         setUserLocation(loc);
         onUserLocationChange?.(loc);
       } catch (error) {
@@ -196,6 +196,13 @@ export default function NearbyPlaces({
       executeSearch(userLocation, r, 'nearby', userLocation, selectedDiet);
     } else if (mode === 'city') {
       handleHubSearch(selectedHub, selectedCity, r, selectedDiet);
+    } else {
+      if (userLocation) {
+        setMode('nearby');
+        executeSearch(userLocation, r, 'nearby', userLocation, selectedDiet);
+      } else {
+        handleHubSearch(selectedHub, selectedCity, r, selectedDiet);
+      }
     }
   }
 

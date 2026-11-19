@@ -205,7 +205,7 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
   const params = new URLSearchParams({
     query,
     languageCode: 'vi',
-    maxResultCount: String(limit),
+    maxResultCount: String(Math.min(Math.max(Number(limit) || 10, 1), 20)),
     fieldMask: FIELD_MASK,
     locationBias: JSON.stringify({
       circle: {
@@ -270,14 +270,22 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
       };
     })
     .filter(isVegetarianPlace);
-  ziomapCache.set(cacheKey, places);
-
-  // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test (bất đồng bộ, không chặn response)
+  // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test
   if (process.env.NODE_ENV !== 'test') {
-    placeRepository.saveExternalPlaces(places).catch((err) => {
+    try {
+      const saved = await placeRepository.saveExternalPlaces(places);
+      const savedMap = new Map(saved.map((r) => [r.place_id, r.restaurant_id]));
+      for (const place of places) {
+        if (place.place_id && savedMap.has(place.place_id)) {
+          place.restaurant_id = savedMap.get(place.place_id);
+        }
+      }
+    } catch (err) {
       console.warn('[places.service] Lỗi tự động lưu cache ZIOMAP vào DB:', err.message);
-    });
+    }
   }
+
+  ziomapCache.set(cacheKey, places);
 
   return { places, skipped: false, cached: false };
 }

@@ -33,7 +33,7 @@ const nearbySchema = z.object({
   user_lat: optionalNumber(-90, 90),
   user_lng: optionalNumber(-180, 180),
   radius_km: optionalNumber(0.1, 50).default(5),
-  limit: optionalNumber(1, 20).default(10),
+  limit: optionalNumber(1, 100).default(20),
   diet_type_id: optionalInteger(1),
 });
 

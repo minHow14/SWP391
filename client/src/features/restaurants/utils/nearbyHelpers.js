@@ -114,9 +114,15 @@ export function resolveRestaurantPhoto(place) {
 /**
  * Lấy tọa độ GPS hiện tại từ trình duyệt
  * @param {object} [customNavigator] - Đối tượng navigator (mặc định lấy từ môi trường hiện tại)
+ * @param {object} [options] - Tùy chọn cấu hình
+ * @param {boolean} [options.forceRefresh=false] - Bắt buộc làm mới GPS từ phần cứng, không dùng cache
+ * @param {number} [options.timeout=10000] - Thời gian chờ tối đa
  * @returns {Promise<{lat: number, lng: number}>}
  */
-export function getPosition(customNavigator = typeof navigator !== 'undefined' ? navigator : null) {
+export function getPosition(
+  customNavigator = typeof navigator !== 'undefined' ? navigator : null,
+  { forceRefresh = false, timeout = 10000 } = {}
+) {
   return new Promise((resolve, reject) => {
     if (!customNavigator || !customNavigator.geolocation) {
       reject(new Error('Trình duyệt không hỗ trợ định vị GPS.'));
@@ -135,9 +141,45 @@ export function getPosition(customNavigator = typeof navigator !== 'undefined' ?
         }
         reject(new Error(msg));
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      {
+        enableHighAccuracy: true,
+        timeout,
+        maximumAge: forceRefresh ? 0 : 60000,
+      }
     );
   });
+}
+
+/**
+ * Chuyển đổi địa chỉ thực tế thành toạ độ GPS (lat, lng) qua Nominatim OpenStreetMap
+ * @param {string} fullAddress
+ * @returns {Promise<{lat: number, lng: number}|null>}
+ */
+export async function geocodeAddress(fullAddress) {
+  if (!fullAddress || typeof fullAddress !== 'string' || !fullAddress.trim()) return null;
+  try {
+    const clean = fullAddress.trim().replace(/^,+|,+$/g, '');
+    const query = encodeURIComponent(`${clean}, Việt Nam`);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=vn`,
+      {
+        headers: { 'Accept-Language': 'vi' },
+        signal: AbortSignal.timeout(6000),
+      }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0 && data[0].lat && data[0].lon) {
+      const lat = parseFloat(data[0].lat);
+      const lng = parseFloat(data[0].lon);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return { lat, lng };
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**

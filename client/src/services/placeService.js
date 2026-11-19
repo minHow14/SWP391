@@ -20,4 +20,18 @@ export const placeService = {
       ...config,
     });
   },
+
+  // Tìm kiếm quán chay theo từ khoá (tên quán, tên món), toạ độ và bán kính
+  searchPlaces: async ({ q, lat, lng, radiusKm = 10, limit = 10 } = {}, config = {}) => {
+    return apiClient.get('/places/search', {
+      params: {
+        q,
+        lat,
+        lng,
+        radius_km: radiusKm,
+        limit,
+      },
+      ...config,
+    });
+  },
 };
