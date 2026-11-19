@@ -33,8 +33,7 @@ def _client(
         max_tokens=max_tokens,
         temperature=temperature,
         request_timeout=timeout,
-        # Model suy nghĩ (deepseek-v4-pro) từ chối tool_choice bắt buộc dùng cho JSON (HTTP 400) và
-        # dùng token để suy nghĩ nên có thể trả nội dung rỗng; tắt thinking cho model dự phòng.
+        # Disable fallback thinking because forced tool calls can be rejected in thinking mode.
         extra_body=None if thinking else {"thinking": {"type": "disabled"}},
     )
 

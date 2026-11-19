@@ -1,11 +1,14 @@
+# D:/SWP391/SWP391/ai_service/tests/test_llm.py
+import json
+
 import httpx
 import openai
 import pytest
-from langchain_core.runnables import RunnableLambda
-
 from agents.meal_planner_agent import GeneratedMealPlan
 from core import llm
 from core.config import settings
+from langchain_core.runnables import RunnableLambda
+from pydantic import BaseModel
 
 
 @pytest.fixture(autouse=True)
@@ -85,3 +88,49 @@ def test_json_clients_get_a_larger_token_budget_than_chat(monkeypatch):
     assert llm.get_llm_json().max_tokens == 8192
     assert llm._client("deepseek-chat", 0.7, 30).max_tokens == 4096  # chat giữ nguyên
     assert llm.JSON_MAX_TOKENS > llm.TEXT_MAX_TOKENS
+
+
+class StructuredReply(BaseModel):
+    text: str
+
+
+def structured_reply_response(model: str) -> httpx.Response:
+    tool_call = {
+        "id": "reply", "type": "function", "function": {
+            "name": "StructuredReply", "arguments": '{"text":"validated"}',
+        },
+    }
+    return httpx.Response(200, json={
+        "id": "structured-reply", "object": "chat.completion", "created": 0,
+        "model": model, "choices": [{
+            "index": 0, "finish_reason": "tool_calls",
+            "message": {"role": "assistant", "content": None, "tool_calls": [tool_call]},
+        }],
+    })
+
+
+@pytest.mark.parametrize("use_fallback", [False, True])
+def test_structured_requests_preserve_primary_thinking_and_disable_fallback_thinking(
+    monkeypatch: pytest.MonkeyPatch, use_fallback: bool,
+) -> None:
+    models: list[str] = []
+
+    def respond(request: httpx.Request) -> httpx.Response:
+        payload = json.loads(request.content)
+        models.append(payload["model"])
+        if use_fallback and payload["model"] == "deepseek-chat":
+            return httpx.Response(503, json={"error": {"message": "Service unavailable"}})
+        assert payload["tool_choice"]["function"]["name"] == "StructuredReply"
+        assert payload.get("thinking") == ({"type": "disabled"} if use_fallback else None)
+        return structured_reply_response(payload["model"])
+
+    chat_open_ai = llm.ChatOpenAI
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        monkeypatch.setattr(llm, "ChatOpenAI", lambda **kwargs: chat_open_ai(
+            **kwargs, http_client=client, max_retries=0,
+        ))
+        monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
+        monkeypatch.setattr(settings, "DEEPSEEK_FALLBACK_MODEL", "deepseek-v4-pro")
+        result = llm.get_structured_llm(StructuredReply).invoke("Return a structured reply.")
+    assert result.text == "validated"
+    assert models == (["deepseek-chat", "deepseek-v4-pro"] if use_fallback else ["deepseek-chat"])
