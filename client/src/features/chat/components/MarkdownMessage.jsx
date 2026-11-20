@@ -1,4 +1,5 @@
 ﻿// client/src/features/chat/components/MarkdownMessage.jsx
+// Hiển thị câu trả lời Markdown của chatbot một cách an toàn.
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -12,6 +13,7 @@ const components = {
   ),
 };
 
+// Component bọc ReactMarkdown; skipHtml để bỏ qua HTML thô, tránh XSS từ nội dung AI sinh ra.
 export default function MarkdownMessage({ children }) {
   return (
     <div className="cx-chat-markdown">

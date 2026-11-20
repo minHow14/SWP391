@@ -1,12 +1,15 @@
 ﻿// client/src/services/api.js
+// Hàm gọi API dạng fetch đơn giản (không tự làm mới token), có timeout và chuẩn hóa thông báo lỗi.
 import { getSession, setSession } from '../utils/session.js';
 
+// Gọi /api{path}; trả về data của envelope, hoặc cả envelope khi includeMeta = true.
 export async function api(
   path,
   { method = 'GET', body, signal, includeMeta = false } = {}
 ) {
   const session = getSession();
   let response;
+  // Giới hạn 15 giây để giao diện không treo khi server không phản hồi.
   const timeout = AbortSignal.timeout(15000);
   const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
   try {
@@ -31,6 +34,7 @@ export async function api(
   }
   const result = await response.json().catch(() => null);
   if (!response.ok || !result?.success) {
+    // Chỉ xóa phiên khi token vẫn là token đã gửi, tránh đăng xuất nhầm phiên mới được tạo trong lúc chờ.
     if (
       response.status === 401 &&
       session?.token &&

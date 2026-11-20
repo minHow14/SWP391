@@ -1,10 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/auth/components/RecoveryOtpStep.jsx
+// Bước 2 của khôi phục mật khẩu: nhập và xác minh mã OTP, hỗ trợ gửi lại mã sau thời gian chờ.
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Form, Spinner } from 'react-bootstrap';
 import { passwordResetOtpSchema } from '../utils/authValidation.js';
 
+// Form xác minh OTP; nút gửi lại bị khóa cho tới khi hết thời gian chờ server trả về.
 export default function RecoveryOtpStep({ recovery }) {
   const { busy, email, otpExpired, resendSeconds, sendOtp, verifyOtp } = recovery;
   const { register, handleSubmit, setFocus, formState: { errors } } = useForm({

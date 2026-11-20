@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\constants\postTypes.js
+// Các giá trị liệt kê cho loại bài đăng, loại bình chọn, loại bữa ăn và giới tính.
 /**
  * Định nghĩa loại bài viết (post_type)
  */

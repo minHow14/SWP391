@@ -1,9 +1,10 @@
 /* C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/assets/styles/home.css */
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/Home.css */
+/* Giao diện trang chủ và khung chung (biến màu, navbar, hero, thẻ nội dung, hộp chọn chế độ ăn, chatbox). */
 /* Taste Skill: redesign-preserve. Variance 5, motion 3, density 4.
-   React + Bootstrap remains the UI foundation. Shapes: 20px cards,
-   28px hero/chat, 12px inputs and buttons, pills for compact choices.
-   Layers: chat 1040; Bootstrap modal 1055; native dialogs in top layer. */
+   React + Bootstrap vẫn là nền tảng giao diện. Hình khối: thẻ bo 20px,
+   hero/chat bo 28px, ô nhập và nút bo 12px, dạng viên thuốc cho lựa chọn gọn.
+   Thứ tự lớp: chat 1040; modal Bootstrap 1055; dialog gốc nằm ở top layer. */
 .home-page {
   --cx-bg: #f8fafc;
   --cx-surface: #ffffff;
@@ -119,14 +120,17 @@
 .home-page .navbar-toggler { border-color: #dce7df; color: #15803d; }
 .home-page .account-buttons { padding-left: 12px; border-color: #e2e8f0; gap: 8px; }
 .home-page .account-buttons .btn { white-space: nowrap; border-radius: 10px; padding: 9px 12px; font-size: 12px; }
+/* Màn hình rất rộng: tăng cỡ chữ menu. */
 @media (min-width: 1600px) {
   .home-page .main-menu .nav-link { font-size: 14px; padding-inline: 10px; }
   .home-page .diet-label { font-size: 14px; max-width: 240px; }
 }
+/* Dưới 1400px: menu chuyển sang dạng thu gọn trong navbar. */
 @media (max-width: 1399px) {
   .home-page .main-menu { margin: 16px 0; padding: 12px; border-radius: 18px; gap: 8px; }
   .home-page .account-menu { flex-wrap: wrap; }
 }
+/* Màn hình nhỏ: thu nhỏ logo và khoảng đệm navbar. */
 @media (max-width: 575px) {
   .home-page .home-navbar { padding: 12px 4px; }
   .home-page .home-brand strong { font-size: 23px; }
@@ -597,6 +601,7 @@ dialog::backdrop {
   font-size: 10px;
   margin: 0 0 11px;
 }
+/* Hiệu ứng hover/nhấn chỉ bật khi người dùng không yêu cầu giảm chuyển động. */
 @media (prefers-reduced-motion: no-preference) {
   .cx-food-card {
     transition: transform 180ms ease;
@@ -615,6 +620,7 @@ dialog::backdrop {
     transform: scale(0.98);
   }
 }
+/* Máy tính bảng: thu gọn khối hero. */
 @media (max-width: 991px) {
   .cx-home-shell {
     padding: 22px 20px 0;
@@ -632,6 +638,7 @@ dialog::backdrop {
     min-height: 340px;
   }
 }
+/* Di động: hero một cột, giảm khoảng cách. */
 @media (max-width: 767px) {
   .cx-home-shell {
     padding: 16px 16px 0;
@@ -802,6 +809,7 @@ dialog::backdrop {
   transform: scale(1);
   transform-origin: center;
 }
+/* Hiệu ứng nâng thẻ tương tác ở trang chủ (tôn trọng thiết lập giảm chuyển động). */
 @media (prefers-reduced-motion: no-preference) {
   .home-page .cx-home .card.cx-home-interactive-card {
     transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 280ms ease;

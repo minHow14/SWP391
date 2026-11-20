@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/community/styles/community.css */
+/* Style cho trang cộng đồng: bảng tin, thẻ tạo bài, modal soạn bài, báo cáo và thanh tìm kiếm. */
 .cx-community-page .cx-community-shell { max-width: 1180px; padding-top: 32px; }
 .cx-community-page .cx-page-toolbar { align-items: center; }
 .cx-community-page .cx-feed-tabs { flex-shrink: 0; border-radius: 999px; }
@@ -27,6 +28,7 @@
 .cx-community-page .cx-post-media video { height: auto; max-height: 540px; min-height: 160px; }
 .cx-community-page .cx-post-media.is-grid img,
 .cx-community-page .cx-post-media.is-grid video { height: 260px; }
+/* Modal soạn bài viết. */
 .cx-post-composer .modal-content { border: 0; border-radius: 24px; overflow: hidden; }
 .cx-post-composer .modal-header, .cx-post-composer .modal-body, .cx-post-composer .modal-footer { padding: 20px 24px; }
 .cx-post-composer .modal-title { font-size: 20px; font-weight: 700; }
@@ -39,6 +41,7 @@
 .cx-post-upload .form-text { display: block; font-size: 12px; line-height: 1.6; }
 .cx-post-composer .modal-footer .btn { border-radius: 12px; }
 .cx-post-composer fieldset:disabled .cx-media-remove { opacity: .5; }
+/* Nút báo cáo và modal báo cáo vi phạm. */
 .cx-post-actions .cx-report-button, .cx-comment-heading .cx-report-button { color: #87534a; text-decoration: none; }
 .cx-report-button:hover { color: #b02a37; }
 .cx-report-button:focus-visible { outline: 2px solid #b02a37; outline-offset: 3px; }
@@ -53,6 +56,7 @@
 .cx-report-context p { overflow-wrap: anywhere; margin: 6px 0 0; }
 .cx-report-post-title { font-weight: 600; }
 .cx-report-excerpt { white-space: pre-wrap; max-height: 140px; overflow-y: auto; color: #526175; font-size: 14px; }
+/* Thanh tìm kiếm cộng đồng; dùng !important để ghi đè style mặc định của Bootstrap cho input. */
 .cx-community-search-bar .cx-search-field { display: flex; align-items: center; gap: 12px; width: 100%; max-width: 100%; background: #fff; border: 1px solid #dce8e0; border-radius: 999px; padding: 12px 18px; transition: border-color .2s ease, box-shadow .2s ease; }
 .cx-community-search-bar .cx-search-field:focus-within { border-color: #198754; box-shadow: 0 0 0 3px rgba(25, 135, 84, .12); }
 .cx-community-search-bar .cx-search-field input,
@@ -61,12 +65,14 @@
 .cx-community-search-bar .cx-search-field input:focus-visible,
 .cx-community-search-bar .cx-search-field .cx-search-input:focus,
 .cx-community-search-bar .cx-search-field .cx-search-input:focus-visible { border: none !important; outline: none !important; box-shadow: none !important; }
+/* Ẩn icon tìm kiếm/xóa mặc định của trình duyệt cho input type="search" vì đã có nút xóa riêng. */
 .cx-community-search-bar .cx-search-field input::-webkit-search-decoration,
 .cx-community-search-bar .cx-search-field input::-webkit-search-cancel-button,
 .cx-community-search-bar .cx-search-field input::-webkit-search-results-button,
 .cx-community-search-bar .cx-search-field input::-webkit-search-results-decoration { -webkit-appearance: none; }
 .cx-community-search-bar .cx-search-field .btn-clear { border: 0; background: transparent; padding: 0 4px; line-height: 1; }
 .cx-community-search-bar .cx-search-field .btn-clear:hover { color: #475569 !important; }
+/* Responsive cho màn hình nhỏ (điện thoại). */
 @media (max-width: 767px) {
   .cx-community-page .cx-community-shell { padding-top: 20px; }
   .cx-community-page .cx-feed-tabs { width: 100%; flex-wrap: nowrap; }

@@ -1,14 +1,18 @@
 // D:/SWP391/SWP391/server/src/repositories/post.repository.js
+// Repository truy cập bài viết (post) và hai loại chi tiết blog/video, cùng danh mục, tệp đính kèm và dọn dẹp bài đã xóa.
 import prisma from '../config/prisma.js';
 
 export const postRepository = {
+  // Khóa dòng blog (SELECT ... FOR UPDATE) để tránh sửa đồng thời gây mất dữ liệu.
   lockBlog(postId, db = prisma) {
     return db.$queryRaw`SELECT post_id FROM blogs WHERE post_id = ${postId} FOR UPDATE`;
   },
+  // Tạo bản ghi post gốc.
   async createPost(data, db = prisma) {
     return db.post.create({ data });
   },
 
+  // Tạo chi tiết blog cho post.
   async createBlog(data, include = null, db = prisma) {
     return db.blog.create({
       data,
@@ -16,10 +20,12 @@ export const postRepository = {
     });
   },
 
+  // Tạo chi tiết video cho post.
   async createVideo(data, db = prisma) {
     return db.video.create({ data });
   },
 
+  // Tìm post theo ID.
   async findPostById(postId, include = null, db = prisma) {
     return db.post.findUnique({
       where: { post_id: Number(postId) },
@@ -27,6 +33,7 @@ export const postRepository = {
     });
   },
 
+  // Tìm chi tiết blog theo post_id.
   async findBlogById(postId, include = null, db = prisma) {
     return db.blog.findFirst({
       where: { post_id: Number(postId) },
@@ -34,6 +41,7 @@ export const postRepository = {
     });
   },
 
+  // Tìm chi tiết video theo post_id.
   async findVideoById(postId, include = null, db = prisma) {
     return db.video.findFirst({
       where: { post_id: Number(postId) },
@@ -41,22 +49,27 @@ export const postRepository = {
     });
   },
 
+  // Lấy danh sách blog theo tham số Prisma.
   async findAllBlogs(args = {}, db = prisma) {
     return db.blog.findMany(args);
   },
 
+  // Đếm blog.
   async countBlogs(args = {}, db = prisma) {
     return db.blog.count(args);
   },
 
+  // Lấy danh sách video theo tham số Prisma.
   async findAllVideos(args = {}, db = prisma) {
     return db.video.findMany(args);
   },
 
+  // Đếm video.
   async countVideos(args = {}, db = prisma) {
     return db.video.count(args);
   },
 
+  // Cập nhật chi tiết blog.
   async updateBlog(postId, data, include = null, db = prisma) {
     return db.blog.update({
       where: { post_id: Number(postId) },
@@ -65,6 +78,7 @@ export const postRepository = {
     });
   },
 
+  // Cập nhật chi tiết video.
   async updateVideo(postId, data, include = null, db = prisma) {
     return db.video.update({
       where: { post_id: Number(postId) },
@@ -73,6 +87,7 @@ export const postRepository = {
     });
   },
 
+  // Cập nhật post gốc.
   async updatePost(postId, data, include = null, db = prisma) {
     return db.post.update({
       where: { post_id: Number(postId) },
@@ -81,12 +96,14 @@ export const postRepository = {
     });
   },
 
+  // Xóa post theo ID.
   async deletePost(postId, db = prisma) {
     return db.post.delete({
       where: { post_id: Number(postId) },
     });
   },
 
+  // Xóa vĩnh viễn post cùng mọi dữ liệu phụ thuộc theo đúng thứ tự khóa ngoại.
   async hardDeletePost(postId, db = prisma) {
     const id = Number(postId);
     const execute = async (tx) => {
@@ -147,23 +164,28 @@ export const postRepository = {
       });
     };
 
+    // Đã ở trong transaction (db là transaction client không có $transaction) thì chạy trực tiếp, tránh lồng transaction.
     return typeof db.$transaction === 'function' ? db.$transaction(execute) : execute(db);
   },
 
+  // Đếm post.
   async countPosts(args = {}, db = prisma) {
     return db.post.count(args);
   },
 
+  // Lấy danh sách post theo tham số Prisma.
   async findPosts(args = {}, db = prisma) {
     return db.post.findMany(args);
   },
 
+  // Tìm danh mục theo ID.
   async findCategoryById(categoryId, db = prisma) {
     return db.category.findUnique({
       where: { category_id: Number(categoryId) },
     });
   },
 
+  // Gán danh mục cho post: xóa liên kết cũ rồi tạo mới (mỗi post chỉ một danh mục); categoryId rỗng nghĩa là bỏ danh mục.
   async setPostCategory(postId, categoryId, db = prisma) {
     const numericPostId = Number(postId);
     await db.postCategory.deleteMany({
@@ -180,6 +202,7 @@ export const postRepository = {
     return null;
   },
 
+  // Thay toàn bộ tệp đính kèm của post và trả về danh sách mới theo thứ tự tải lên.
   async setPostAttachments(postId, attachments = [], db = prisma) {
     const numericPostId = Number(postId);
     await db.postAttachment.deleteMany({
@@ -190,6 +213,7 @@ export const postRepository = {
         data: attachments.map((item) => ({
           post_id: numericPostId,
           file_url: item.url,
+          // Chuẩn hóa loại tệp về chữ thường để so sánh nhất quán ở các tầng khác.
           file_type: String(item.type || 'image').trim().toLowerCase(),
           file_name: item.name || null,
         })),
@@ -201,6 +225,7 @@ export const postRepository = {
     });
   },
 
+  // Lấy tệp đính kèm của post theo thứ tự tải lên.
   async findAttachmentsByPostId(postId, db = prisma) {
     return db.postAttachment.findMany({
       where: { post_id: Number(postId) },
@@ -208,14 +233,17 @@ export const postRepository = {
     });
   },
 
+  // Đếm post đã xóa mềm.
   async countDeleted(db = prisma) {
     return db.post.count({ where: { status: 'DELETED' } });
   },
 
+  // Đếm post đã xóa mềm quá hạn lưu giữ.
   async countExpiredDeleted(threshold, db = prisma) {
     return db.post.count({ where: { status: 'DELETED', deleted_at: { lte: threshold } } });
   },
 
+  // Lấy ID post đã xóa mềm quá hạn để xóa vĩnh viễn.
   async findExpiredDeletedPostIds(threshold, db = prisma) {
     return db.post.findMany({
       where: { status: 'DELETED', deleted_at: { lte: threshold } },
@@ -223,6 +251,7 @@ export const postRepository = {
     });
   },
 
+  // Gỡ liên kết công thức khỏi các post sắp xóa để công thức không bị mất theo.
   async unlinkRecipesByPostIds(postIds, db = prisma) {
     return db.recipe.updateMany({
       where: { post_id: { in: postIds } },
@@ -230,6 +259,7 @@ export const postRepository = {
     });
   },
 
+  // Xóa vĩnh viễn post theo danh sách ID.
   async deletePostsByIds(postIds, db = prisma) {
     return db.post.deleteMany({
       where: { post_id: { in: postIds } },

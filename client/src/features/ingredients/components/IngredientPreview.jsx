@@ -1,16 +1,19 @@
 ﻿// D:/SWP391/SWP391/client/src/features/ingredients/components/IngredientPreview.jsx
+// Khu vực tra cứu nguyên liệu bằng ảnh: tải ảnh để AI nhận diện, ghép với từ điển hoặc tạo mới nguyên liệu chưa có.
 import { useRef } from 'react';
 import { Alert, Button } from 'react-bootstrap';
 import { useIngredientPhotoScan } from '../hooks/useIngredientPhotoScan.js';
 import { useIngredientLookup } from '../hooks/useIngredientLookup.js';
 import ScanOutcome from './IngredientScanOutcome.jsx';
 
+// Component tra cứu; onSelect mở nguyên liệu trong từ điển, onSaved tải lại từ điển sau khi AI tạo nguyên liệu mới.
 export default function IngredientPreview({ ingredients, dietId, onSelect, onSaved }) {
   const upload = useRef(null);
   const scanner = useIngredientPhotoScan({ ingredients, dietId });
   const lookup = useIngredientLookup({ onSaved });
   const analyzing = scanner.status === 'analyzing';
 
+  // Quét ảnh mới; nếu chỉ khớp đúng một nguyên liệu thì mở luôn thông tin nguyên liệu đó.
   async function pickFile(file) {
     lookup.clear();
     const matches = await scanner.scan(file);

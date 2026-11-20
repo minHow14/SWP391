@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\constants\httpStatus.js
+// Bảng mã trạng thái HTTP dùng chung để tránh số "ma thuật" trong code.
 /**
  * Định nghĩa mã trạng thái HTTP chuẩn
  */

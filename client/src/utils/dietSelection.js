@@ -1,6 +1,8 @@
 ﻿// client/src/utils/dietSelection.js
+// Danh sách chế độ ăn mặc định và việc lưu/đọc lựa chọn chế độ ăn của người dùng trong sessionStorage.
 import { DIET_TYPE_IDS } from '../constants/dietTypes.js';
 
+// Các chế độ ăn hiển thị khi chọn (ID khớp với DIET_TYPE_IDS và bảng diet_types).
 export const dietOptions = [
   {
     diet_type_id: 1,
@@ -40,9 +42,10 @@ export const dietOptions = [
   },
 ];
 
-// Keep the choice available for navigation even when browser storage is blocked.
+// Giữ lựa chọn trong bộ nhớ để vẫn điều hướng được khi trình duyệt chặn bộ nhớ lưu trữ.
 let currentSelection = null;
 
+// Đọc chế độ ăn đã chọn: ưu tiên bộ nhớ, sau đó sessionStorage (định dạng mới), cuối cùng là khóa cũ selectedDiet.
 export function getSavedDiet(options = dietOptions) {
   if (currentSelection) return options.find(item => item.diet_type_id === currentSelection.diet_type_id) || null;
 
@@ -59,7 +62,7 @@ export function getSavedDiet(options = dietOptions) {
         );
         if (diet) return diet;
       } catch {
-        // A corrupt JSON entry must not prevent reading the legacy choice.
+        // Một mục JSON hỏng không được cản trở việc đọc lựa chọn theo định dạng cũ.
       }
     }
 
@@ -70,6 +73,7 @@ export function getSavedDiet(options = dietOptions) {
   }
 }
 
+// Lưu chế độ ăn đã chọn vào bộ nhớ và sessionStorage, đồng thời xóa khóa định dạng cũ.
 export function saveDiet(diet, options = dietOptions) {
   const selection = options.find(
     (item) =>
@@ -88,6 +92,6 @@ export function saveDiet(diet, options = dietOptions) {
     );
     sessionStorage.removeItem('selectedDiet');
   } catch {
-    // The in-memory choice still lets the user continue in this page session.
+    // Lựa chọn trong bộ nhớ vẫn cho phép người dùng tiếp tục trong phiên trang hiện tại.
   }
 }

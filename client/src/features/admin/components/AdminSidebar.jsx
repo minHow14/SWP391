@@ -1,8 +1,10 @@
 // D:/Projects/FPT/SWP391/client/src/features/admin/components/AdminSidebar.jsx
+// Sidebar điều hướng khu vực quản trị: nhóm các tab chức năng, ô tìm nhanh chức năng và thẻ thông tin Admin.
 import { useState, useMemo } from 'react';
 import { Nav, Form, Badge, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Cấu hình menu quản trị theo nhóm; được export để AdminHeader dựng breadcrumb từ cùng một nguồn.
 export const ADMIN_NAV_SECTIONS = [
   {
     title: 'Tổng quan & Điều hành',
@@ -30,6 +32,15 @@ export const ADMIN_NAV_SECTIONS = [
   },
 ];
 
+/**
+ * Sidebar quản trị.
+ * @param {object} props
+ * @param {string} props.activeTab Khóa tab đang chọn.
+ * @param {Function} props.onSelectTab Chọn tab.
+ * @param {object|null} props.user Admin đang đăng nhập (hiện ở chân sidebar).
+ * @param {boolean} props.isMobileOpen Sidebar đang mở trên màn hình nhỏ.
+ * @param {Function} [props.onCloseMobile] Đóng sidebar trên màn hình nhỏ.
+ */
 export default function AdminSidebar({ activeTab, onSelectTab, user, isMobileOpen, onCloseMobile }) {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -46,10 +57,12 @@ export default function AdminSidebar({ activeTab, onSelectTab, user, isMobileOpe
     }).filter((section) => section.items.length > 0);
   }, [searchTerm]);
 
+  // Tổng số chức năng khớp từ khóa, hiển thị dưới ô tìm kiếm.
   const totalResults = useMemo(() => {
     return filteredSections.reduce((acc, sec) => acc + sec.items.length, 0);
   }, [filteredSections]);
 
+  // Chọn tab rồi tự đóng sidebar trên mobile để nội dung không bị che.
   const handleTabClick = (key) => {
     onSelectTab(key);
     if (onCloseMobile) {
@@ -69,7 +82,7 @@ export default function AdminSidebar({ activeTab, onSelectTab, user, isMobileOpe
         </div>
       )}
 
-      {/* Brand Header */}
+      {/* Phần thương hiệu (logo và tên hệ thống) */}
       <div className="admin-sidebar-brand mb-3 pb-3 border-bottom">
         <div className="d-flex align-items-center gap-3">
           <div className="admin-brand-icon">

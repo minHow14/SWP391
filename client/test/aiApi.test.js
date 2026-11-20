@@ -1,5 +1,7 @@
 // D:/SWP391/SWP391/client/test/aiApi.test.js
 // C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/aiApi.test.js
+// Kiểm thử (node:test) cho client AI: bộ phân tích SSE, các hàm gọi stream chat/thực đơn, adapter quản trị AI
+// và các hàm tiện ích chuyển đổi hồ sơ người dùng sang tham số AI (BMI, tuổi, chế độ ăn, ngữ cảnh thực đơn).
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSseParser } from '../src/services/aiApi.js';
@@ -9,6 +11,7 @@ import {
   validateMealPlanValues, MAX_MENU_CONTEXT,
 } from '../src/utils/aiHelpers.js';
 
+// Lưu descriptor gốc của các biến toàn cục vì nhiều test ghi đè fetch/storage; afterEach sẽ khôi phục lại.
 const originals = Object.fromEntries(['sessionStorage', 'localStorage', 'fetch'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
 afterEach(() => {
   for (const [key, descriptor] of Object.entries(originals)) {
@@ -17,6 +20,7 @@ afterEach(() => {
   }
 });
 
+// Bộ phân tích SSE phải xử lý CRLF, chunk bị cắt giữa chừng, dòng comment (": ping") và data nhiều dòng.
 test('SSE parser handles CRLF, split chunks, comments and multi-line data', () => {
   const events = [];
   const parser = createSseParser((name, payload) => events.push([name, payload]));
@@ -33,6 +37,7 @@ test('SSE parser handles CRLF, split chunks, comments and multi-line data', () =
   ]);
 });
 
+// Sự kiện cuối không có dòng trống kết thúc vẫn phải được phát ra khi gọi end().
 test('SSE parser flushes a final event that lacks the blank line', () => {
   const events = [];
   const parser = createSseParser((name, payload) => events.push([name, payload]));
@@ -42,6 +47,7 @@ test('SSE parser flushes a final event that lacks the blank line', () => {
   assert.deepEqual(events, [['done', { ok: true }]]);
 });
 
+// Đẩy từng ký tự một để chắc chắn cặp \r\n bị tách giữa hai chunk vẫn được nhận đúng.
 test('SSE parser preserves CRLF split between every character', () => {
   const events = [];
   const parser = createSseParser((name, payload) => events.push([name, payload]));
@@ -50,7 +56,9 @@ test('SSE parser preserves CRLF split between every character', () => {
   assert.deepEqual(events, [['token', { token: 'đậu' }], ['done', {}]]);
 });
 
+// Chat phải gửi menuContext dạng camelCase (đúng hợp đồng API) và báo lỗi khi stream kết thúc mà không có sự kiện done.
 test('chat sends camelCase menuContext and rejects an incomplete stream', async () => {
+  // Query string khác nhau trong import để mỗi test nạp một bản module riêng, tránh dùng chung trạng thái.
   const { streamChat } = await import('../src/services/aiApi.js?incomplete');
   let seen;
   globalThis.fetch = async (_url, options) => {
@@ -62,6 +70,7 @@ test('chat sends camelCase menuContext and rejects an incomplete stream', async 
   assert.equal(seen.menu_context, undefined);
 });
 
+// Adapter quản trị phải giữ meta phân trang và gọi đúng route chuẩn của backend (mã hóa guestId trong URL).
 test('admin adapter preserves pagination and uses canonical backend routes', async () => {
   const { adminListLogs, adminResetGuestQuota } = await import('../src/services/aiApi.js?canonical-admin');
   const seen = [];
@@ -78,7 +87,9 @@ test('admin adapter preserves pagination and uses canonical backend routes', asy
   assert.equal(seen[1].options.method, 'DELETE');
 });
 
+// streamChat phải gửi header định danh (Bearer token, X-Guest-Id), ghép các token và trả về số lượt còn lại.
 test('streamChat sends identity headers, joins tokens and returns the remaining quota', async () => {
+  // Giả lập phiên đăng nhập và mã khách trong storage để kiểm tra header được gửi kèm.
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: () => JSON.stringify({ token: 'jwt-123', user: { user_id: 1 } }) } });
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: () => 'guest-xyz', setItem() {} } });
   const { streamChat } = await import('../src/services/aiApi.js?stream');
@@ -98,6 +109,7 @@ test('streamChat sends identity headers, joins tokens and returns the remaining 
   assert.deepEqual(JSON.parse(seen.options.body), { message: 'hi', history: [{ role: 'user', content: 'a' }], dietaryType: 'vegan' });
 });
 
+// Sự kiện error trong stream, envelope lỗi HTTP và lỗi mạng đều phải được chuyển thành AiApiError có mã phù hợp.
 test('streamChat turns an error event or an HTTP error envelope into AiApiError', async () => {
   const { streamChat, AiApiError } = await import('../src/services/aiApi.js?errors');
   globalThis.fetch = async () => new Response('event: error\ndata: {"success":false,"error":{"code":"AI_PROVIDER_ERROR","message":"bận"},"meta":{"requestId":"req_1"}}\n\n', { headers: { 'content-type': 'text/event-stream' } });
@@ -110,6 +122,7 @@ test('streamChat turns an error event or an HTTP error envelope into AiApiError'
   await assert.rejects(streamChat({ message: 'x' }), (error) => error.code === 'NETWORK_ERROR' && error.cause instanceof TypeError);
 });
 
+// streamMealPlan phải báo tiến trình qua onProgress và trả về thực đơn cuối cùng từ sự kiện done.
 test('streamMealPlan reports progress and returns the final plan', async () => {
   const { streamMealPlan } = await import('../src/services/aiApi.js?plan');
   globalThis.fetch = async () => new Response([
@@ -123,6 +136,7 @@ test('streamMealPlan reports progress and returns the final plan', async () => {
   assert.equal(plan.title, 'Thực đơn');
 });
 
+// Dữ liệu hồ sơ (chế độ ăn, giới tính, mục tiêu, ngày sinh) phải được ánh xạ đúng sang giá trị AI service chấp nhận.
 test('profile data maps to the AI request fields', () => {
   assert.equal(dietTypeToAi(1), 'vegan');
   assert.equal(dietTypeToAi(2), 'lacto');
@@ -136,12 +150,14 @@ test('profile data maps to the AI request fields', () => {
   assert.equal(ageFromDob('bad'), null);
 });
 
+// BMI dùng ngưỡng phân loại cho người châu Á, khớp với ngưỡng AI service hiển thị.
 test('BMI uses the Asian cut-offs shown by the AI service', () => {
   assert.equal(calcBmi(170, 65), 22.5);
   assert.equal(calcBmi('', 65), null);
   assert.deepEqual([18.4, 22.9, 23, 25].map(bmiCategory), ['Thiếu cân', 'Bình thường', 'Thừa cân', 'Béo phì']);
 });
 
+// Form thực đơn được điền sẵn từ hồ sơ và tạo request sạch (bỏ trường rỗng), kèm kiểm tra validate.
 test('meal plan form is prefilled from the profile and builds a clean request', () => {
   const user = { health_profile: { height: 165, weight: 60, dob: '2000-01-01', gender: 'FEMALE', health_goal: 'Giảm cân', diet_type_id: 1 }, allergies: [{ ingredient_id: 5 }, { ingredient_id: 9 }] };
   const values = mealPlanDefaults({ user, ingredients: [{ ingredient_id: 5, name: 'Đậu phộng' }, { ingredient_id: 9, name: 'Nấm' }], dietTypeId: 4 });
@@ -157,15 +173,18 @@ test('meal plan form is prefilled from the profile and builds a clean request', 
   assert.deepEqual(Object.keys(validateMealPlanValues({ ...values, heightCm: 10, weightKg: '', days: 9 })).sort(), ['days', 'heightCm', 'weightKg']);
 });
 
+// Khách chưa có hồ sơ thì dùng chế độ ăn đang chọn và để trống các chỉ số cơ thể.
 test('guest without a profile falls back to the chosen diet', () => {
   const values = mealPlanDefaults({ user: null, dietTypeId: 3 });
   assert.equal(values.dietaryType, 'ovo');
   assert.equal(values.heightCm, '');
 });
 
+// Tạo dữ liệu món ăn / ngày ăn mẫu cho các test về ngữ cảnh thực đơn.
 const meal = (name) => ({ name, estimatedCalories: 400, proteinG: 20, ingredients: ['Đậu phụ 100g', 'Cà chua', 'Gạo lứt', 'Rau', 'Nấm', 'Hành'] });
 const day = (label) => ({ day: label, breakfast: meal('Cháo'), lunch: meal('Cơm'), dinner: meal('Canh'), snacks: null });
 
+// Ngữ cảnh thực đơn gửi cho chatbot phải luôn dưới giới hạn độ dài của API, kể cả với thực đơn rất dài.
 test('menu context stays under the API limit even for a long plan', () => {
   const plan = { title: 'Thực đơn', profileSummary: { targetDailyCalories: 1572, bmi: 22, bmiCategory: 'Bình thường', dietaryType: 'vegan' }, weeklyPlan: Array.from({ length: 7 }, (_, i) => day(`Ngày ${i + 1}`)) };
   const text = planToMenuContext(plan);
@@ -175,6 +194,7 @@ test('menu context stays under the API limit even for a long plan', () => {
   assert.ok(planToMenuContext(huge).length <= MAX_MENU_CONTEXT);
 });
 
+// Lịch sử chat chỉ giữ tối đa 10 tin nhắn chat thường gần nhất, bỏ tin demo, tin lỗi và tin đang chờ.
 test('chat history only keeps recent plain chat messages', () => {
   const messages = [
     { role: 'user', kind: 'chat', text: 'q1' },
@@ -190,6 +210,7 @@ test('chat history only keeps recent plain chat messages', () => {
   assert.ok(history.every((item) => !['demo', 'lỗi', '...'].includes(item.content)));
 });
 
+// Thông báo lỗi phải thân thiện, và lỗi hết lượt phải kèm thời điểm được reset cùng gợi ý đăng nhập.
 test('error messages are friendly and include the reset time for quota errors', () => {
   const quota = friendlyAiError({ code: 'CHAT_QUOTA_EXCEEDED', details: { resetAt: '2026-10-13T00:00:00+07:00' } });
   assert.match(quota, /hết lượt/);
@@ -202,6 +223,7 @@ test('error messages are friendly and include the reset time for quota errors', 
   assert.equal(friendlyAiError({ code: 'X', message: 'tuỳ chỉnh' }), 'tuỳ chỉnh');
 });
 
+// Hàm tính phần trăm tiến trình theo giai đoạn và định dạng khoảng cách (m / km kiểu Việt Nam).
 test('progress and distance helpers', () => {
   assert.ok(stagePercent('validating') > stagePercent('generating'));
   assert.ok(stagePercent('retrying') < stagePercent('validating'));
@@ -210,6 +232,7 @@ test('progress and distance helpers', () => {
   assert.equal(formatDistance(null), '');
 });
 
+// BMI hiển thị một chữ số thập phân với dấu phẩy theo kiểu Việt Nam.
 test('BMI is shown with one decimal in Vietnamese style', () => {
   assert.equal(formatBmi(22), '22,0');
   assert.equal(formatBmi(22.54), '22,5');

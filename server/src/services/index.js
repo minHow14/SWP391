@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\services\index.js
+// Điểm export tập trung các service nghiệp vụ để controller import từ một chỗ.
 export * from './auth.service.js';
 export * from './blog.service.js';
 export * from './video.service.js';

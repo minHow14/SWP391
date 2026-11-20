@@ -1,6 +1,14 @@
 // client/src/features/admin/components/AdminMemberContentModal.jsx
+// Modal hiển thị bài viết/video và bình luận gần đây của một thành viên để Admin xem xét.
 import { Modal, Spinner } from 'react-bootstrap';
 
+/**
+ * Modal nội dung của thành viên.
+ * @param {object} props
+ * @param {{ user: object, posts: Array, comments: Array }|null} props.content Dữ liệu nội dung; null thì đóng modal.
+ * @param {boolean} props.loading Đang tải dữ liệu.
+ * @param {Function} props.onHide Đóng modal.
+ */
 export default function AdminMemberContentModal({ content, loading, onHide }) {
   return (
     <Modal show={!!content} onHide={onHide} size="lg" centered>

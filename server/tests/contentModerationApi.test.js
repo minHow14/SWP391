@@ -1,7 +1,10 @@
 // D:/SWP391/SWP391/server/tests/contentModerationApi.test.js
+// Kiểm thử tích hợp (cần DB test) API nội dung khi bật kiểm duyệt: chống quyết định cũ, quyền xem job,
+// bảo vệ nội dung chờ duyệt và tính nhất quán snapshot khi sửa đồng thời.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
+// Bật kiểm duyệt trước khi import app (vi.hoisted chạy trước mọi import).
 vi.hoisted(() => { process.env.CONTENT_MODERATION_ENABLED = 'true'; });
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
@@ -10,10 +13,12 @@ import { contentModerationRepository as jobs } from '../src/repositories/content
 import { getAiFlaggedContent, resolveAiFlaggedItem } from '../src/services/admin.service.js';
 import { processContentModerationJob } from '../src/services/contentModerationProcessor.js';
 
+// User test (tác giả, người khác, admin) cùng token, bài cha của người khác, nội dung mẫu và hàm tạo/sửa blog.
 let owner, other, admin, token, otherToken, adminToken, parent;
 const text = { title: 'Sườn chay từ nấm', content: 'Chia sẻ cách làm sườn chay từ nấm và đậu nành.' };
 const postBlog = (body = text) => request(app).post('/api/v1/blogs').set('Authorization', `Bearer ${token}`).send(body);
 const putBlog = (id, body) => request(app).put(`/api/v1/blogs/${id}`).set('Authorization', `Bearer ${token}`).send(body);
+// Tạo ba user và một bài cha công khai để bình luận vào.
 beforeAll(async () => {
   const user = (name, role = 2) => ({ email: `moderation-api-${randomUUID()}@example.invalid`,
     full_name: name, password_hash: 'unused-test-hash', role });
@@ -26,17 +31,21 @@ beforeAll(async () => {
   parent = await prisma.post.create({ data: { author_id: other.user_id, post_type: 'BLOG',
     blog: { create: { title: text.title, content: text.content } } } });
 });
+// Xóa bài/bình luận của tác giả và đưa bài cha về trạng thái công khai trước mỗi test.
 beforeEach(async () => {
   await prisma.post.deleteMany({ where: { author_id: owner.user_id } });
   await prisma.comment.deleteMany({ where: { user_id: owner.user_id } });
   await prisma.post.update({ where: { post_id: parent.post_id }, data: { status: 'PUBLISHED', deleted_at: null } });
 });
+// Dọn user test và đóng DB.
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: [owner?.user_id, other?.user_id, admin?.user_id].filter(Boolean) } } });
   await prisma.$disconnect();
 });
 
+// Nhóm test: API nội dung khi bật kiểm duyệt.
 describe('moderated content API when enabled', () => {
+  // Quyết định của admin không kèm phiên bản bị từ chối 409 nếu tác giả đã sửa nội dung (tránh duyệt nhầm bản mới).
   it.each([['POST', 'APPROVE'], ['POST', 'REJECT'], ['COMMENT', 'APPROVE'], ['COMMENT', 'REJECT']])(
     'rejects a versionless %s %s decision after the author changes the content', async (entityType, action) => {
       let entityId;
@@ -58,6 +67,7 @@ describe('moderated content API when enabled', () => {
         await prisma.comment.findUnique({ where: { comment_id: entityId } });
       expect(current).toMatchObject({ moderationVersion: 2, status: 'PENDING_MODERATION', deleted_at: null });
     });
+  // Nội dung cũ (phiên bản 0, từ trước khi có versioning) vẫn được duyệt không cần phiên bản để tương thích ngược.
   it.each(['POST', 'COMMENT'])('retains versionless decisions for legacy %s at version zero only', async (entityType) => {
     const legacy = entityType === 'POST' ? await prisma.post.create({ data: { author_id: owner.user_id,
       post_type: 'BLOG', status: 'HIDDEN_BY_AI' } }) : await prisma.comment.create({ data: { user_id: owner.user_id,
@@ -67,6 +77,7 @@ describe('moderated content API when enabled', () => {
       .send({ entityType, entityId, action: 'APPROVE' });
     expect(decision.status).toBe(200);
   });
+  // Phê duyệt đang mở không được "hồi sinh" nội dung tác giả đã xóa.
   it.each(['POST', 'COMMENT'])('does not resurrect a deleted %s from an already-open approval', async (entityType) => {
     let entityId;
     if (entityType === 'POST') {
@@ -87,6 +98,7 @@ describe('moderated content API when enabled', () => {
     expect(record.status).toBe('DELETED');
     expect(record.deleted_at).not.toBeNull();
   });
+  // Quyết định dựa trên phiên bản nội dung đã lỗi thời bị từ chối 409.
   it('rejects an administrator decision based on an obsolete content version', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -96,6 +108,7 @@ describe('moderated content API when enabled', () => {
     expect(reply.status).toBe(409);
     expect((await prisma.post.findUnique({ where: { post_id: id } })).status).toBe('PENDING_MODERATION');
   });
+  // Danh sách job phân trang chỉ của chủ sở hữu, có đếm số job chờ và bản xem trước an toàn (không lộ nội dung/lease).
   it('restores paginated owner-only job states with a pending count and safe preview', async () => {
     const { body } = await postBlog();
     const url = '/api/v1/content-moderation-jobs';
@@ -112,6 +125,7 @@ describe('moderated content API when enabled', () => {
       expect((await request(app).get(`${url}?${query}`).set('Authorization', `Bearer ${token}`)).status).toBe(400);
     }
   });
+  // Hàng đợi admin chỉ gắn kết quả của phiên bản hiện tại; sửa nội dung thì kết quả cũ bị gỡ.
   it('attaches only the current saved result to the administrator queue', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -125,6 +139,7 @@ describe('moderated content API when enabled', () => {
     await putBlog(id, { content: 'Nội dung mới vẫn giữ trạng thái ẩn để Admin xem xét.' });
     expect((await getAiFlaggedContent()).posts.find((post) => post.post_id === id)?.moderation).toBeNull();
   });
+  // Tạo nội dung chờ duyệt và job nguyên tử; bỏ qua trạng thái/phiên bản giả mạo do client gửi.
   it('atomically creates pending content and a job, ignoring forged publication status', async () => {
     const res = await postBlog({ ...text, status: 'PUBLISHED', moderationVersion: 999 });
     expect(res.status).toBe(202);
@@ -135,6 +150,7 @@ describe('moderated content API when enabled', () => {
     const feed = await request(app).get('/api/v1/blogs');
     expect(feed.body.data.blogs.some((blog) => blog.post_id === res.body.data.blog.post_id)).toBe(false);
   });
+  // Chi tiết bài chờ duyệt bị ẩn với khách và người khác, chỉ tác giả và admin xem trước được.
   it('protects pending details while letting the owner and admin preview', async () => {
     const { body } = await postBlog();
     const url = `/api/v1/blogs/${body.data.blog.post_id}`;
@@ -143,6 +159,7 @@ describe('moderated content API when enabled', () => {
     expect((await request(app).get(url).set('Authorization', `Bearer ${token}`)).status).toBe(200);
     expect((await request(app).get(url).set('Authorization', `Bearer ${adminToken}`)).status).toBe(200);
   });
+  // Trạng thái job chỉ chủ và admin xem được, không lộ snapshot nội dung hay lease; ID sai định dạng bị 400.
   it('exposes job state to the owner/admin only without private snapshot or lease', async () => {
     const { body } = await postBlog();
     const url = `/api/v1/content-moderation-jobs/${body.data.jobId}`;
@@ -155,6 +172,7 @@ describe('moderated content API when enabled', () => {
     expect((await request(app).get(url).set('Authorization', `Bearer ${adminToken}`)).status).toBe(200);
     expect((await request(app).get('/api/v1/content-moderation-jobs/invalid').set('Authorization', `Bearer ${token}`)).status).toBe(400);
   });
+  // Sửa nội dung thì kiểm duyệt lại; sửa mà không đổi nội dung thì không tạo job.
   it('rechecks changed text and does not queue unchanged text', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -166,6 +184,7 @@ describe('moderated content API when enabled', () => {
     expect(records).toHaveLength(2);
     expect(records[1]).toMatchObject({ contentVersion: 2, title: text.title, content: 'Sườn chay từ đậu nành, không dùng thịt động vật.' });
   });
+  // Sửa đồng thời vẫn giữ snapshot job mới nhất khớp với nội dung đã lưu.
   it('preserves snapshots under concurrent edits', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -175,6 +194,7 @@ describe('moderated content API when enabled', () => {
     const latest = await prisma.contentModerationJob.findFirst({ where: { postId: id }, orderBy: { contentVersion: 'desc' } });
     expect(latest).toMatchObject({ title: blog.title, content: blog.content, contentVersion: blog.post.moderationVersion });
   });
+  // Lưu job thất bại thì rollback cả bài blog.
   it('rolls back the blog when saving its moderation job fails', async () => {
     const spy = vi.spyOn(jobs, 'create').mockRejectedValueOnce(new Error('Test persistence failure'));
     try {
@@ -182,6 +202,7 @@ describe('moderated content API when enabled', () => {
       expect(await prisma.post.count({ where: { author_id: owner.user_id } })).toBe(0);
     } finally { spy.mockRestore(); }
   });
+  // Bình luận chờ duyệt không hiển thị công khai và không gửi thông báo chứa nội dung cho chủ bài.
   it('keeps comments pending without sending their text in a notification', async () => {
     const before = await prisma.notification.count({ where: { user_id: other.user_id } });
     const res = await request(app).post('/api/v1/comments').set('Authorization', `Bearer ${token}`)
@@ -196,6 +217,7 @@ describe('moderated content API when enabled', () => {
     expect(edited.status).toBe(202);
     expect(edited.body.data.comment.moderationVersion).toBe(2);
   });
+  // Bài chờ duyệt chặn đọc bình luận công khai, tạo bình luận và vote.
   it('blocks public comment reads, comment creation and voting on a pending post', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -205,6 +227,7 @@ describe('moderated content API when enabled', () => {
     expect((await request(app).post('/api/v1/votes').set('Authorization', `Bearer ${otherToken}`)
       .send({ post_id: id, vote_type: 'UPVOTE' })).status).toBe(404);
   });
+  // Báo cáo vi phạm không được làm lộ nội dung đang bị ẩn/chờ duyệt (trả 404).
   it('does not reveal hidden content through report responses', async () => {
     const { body } = await postBlog();
     const postReport = await request(app).post('/api/v1/reports').set('Authorization', `Bearer ${otherToken}`)
@@ -216,6 +239,7 @@ describe('moderated content API when enabled', () => {
       .send({ commentId: comment.comment_id, reason: 'Không được đọc bình luận chờ qua báo cáo.' });
     expect(commentReport.status).toBe(404);
   });
+  // Tác giả sửa bài đang bị ẩn không được tự động đăng lại bài.
   it('never republishes a hidden post through an author edit', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -225,6 +249,7 @@ describe('moderated content API when enabled', () => {
     expect(edited.body.data.blog.status).toBe('HIDDEN');
     expect(await prisma.contentModerationJob.count({ where: { postId: id } })).toBe(1);
   });
+  // Admin sửa nội dung cũng tạo job mới để kết quả quét cũ không áp dụng lên nội dung mới.
   it('queues administrator text edits so an old scan cannot apply to new text', async () => {
     const { body } = await postBlog();
     const id = body.data.blog.post_id;
@@ -234,6 +259,7 @@ describe('moderated content API when enabled', () => {
     expect(await prisma.contentModerationJob.count({ where: { postId: id } })).toBe(2);
     expect((await prisma.post.findUnique({ where: { post_id: id } })).moderationVersion).toBe(2);
   });
+  // Bình luận đã xử lý được loại khỏi hàng đợi AI đang hoạt động.
   it('removes resolved comments from the active AI queue', async () => {
     const comment = await prisma.comment.create({ data: { post_id: parent.post_id, user_id: owner.user_id,
       content: 'Nội dung cần quản trị viên xem xét.', status: 'HIDDEN_BY_AI', is_flagged_by_ai: true } });

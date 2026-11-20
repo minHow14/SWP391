@@ -1,9 +1,11 @@
 // client/src/features/community/components/ReportForm.jsx
+// Form nhập lý do báo cáo vi phạm, validate bằng zod.
 import { Form } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
+// Lý do báo cáo từ 5 đến 1000 ký tự để ban quản trị có đủ thông tin xử lý.
 const REPORT_SCHEMA = z.object({
   reason: z
     .string()
@@ -12,6 +14,7 @@ const REPORT_SCHEMA = z.object({
     .max(1000, 'Lý do báo cáo không được vượt quá 1000 ký tự.'),
 });
 
+// Component form báo cáo; formId cho phép nút submit nằm ngoài form (ở footer của modal).
 export default function ReportForm({ onSubmit, isSubmitting = false, formId = 'community-report-form' }) {
   const {
     register,

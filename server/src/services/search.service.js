@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\services\search.service.js
+// Nghiệp vụ tìm kiếm toàn cục blog/video và gợi ý video, quán ăn theo từ khóa.
 import { postRepository } from '../repositories/post.repository.js';
 import { placeRepository } from '../repositories/place.repository.js';
 import { POST_STATUS } from '../constants/index.js';
@@ -14,6 +15,7 @@ export const searchService = {
       throw ApiError.badRequest('Query parameter "q" is required');
     }
 
+    // Giới hạn tối đa 100 kết quả mỗi trang để tránh truy vấn quá nặng.
     const safePage = Math.max(1, Number(page) || 1);
     const take = Math.min(100, Math.max(1, Number(limit) || 20));
     const skip = (safePage - 1) * take;
@@ -22,6 +24,7 @@ export const searchService = {
     const shouldSearchBlogs = type === 'ALL' || type === 'BLOG';
     const shouldSearchVideos = type === 'ALL' || type === 'VIDEO';
 
+    // Chỉ tìm trong bài đã đăng và chưa bị xóa; blog khớp theo tiêu đề hoặc nội dung.
     const blogWhere = {
       post: {
         status: POST_STATUS.PUBLISHED,
@@ -34,6 +37,7 @@ export const searchService = {
       ],
     };
 
+    // Video khớp theo tiêu đề hoặc transcript.
     const videoWhere = {
       post: {
         status: POST_STATUS.PUBLISHED,
@@ -106,6 +110,7 @@ export const searchService = {
       },
     };
 
+    // Chạy song song truy vấn dữ liệu và đếm; loại không được chọn trả về rỗng để giữ cấu trúc kết quả.
     const [matchedBlogs, totalBlogs, matchedVideos, totalVideos] = await Promise.all([
       shouldSearchBlogs
         ? postRepository.findAllBlogs({
@@ -133,6 +138,7 @@ export const searchService = {
         : Promise.resolve(0),
     ]);
 
+    // Làm phẳng dữ liệu post vào blog và thêm cả category_id lẫn categoryId để tương thích các màn hình FE khác nhau.
     const formattedBlogs = matchedBlogs.map((b) => {
       const { post, ...blogData } = b;
       const firstCat = post?.post_categories?.[0];
@@ -228,6 +234,7 @@ export const searchService = {
 
     const suggestedVideos = matchedVideos
       .map((v) => {
+        // Khớp tiêu đề được ưu tiên (5 điểm) hơn khớp transcript (2 điểm).
         let score = 0;
         const title = (v.title || '').toLowerCase();
         const transcript = (v.transcript || '').toLowerCase();
@@ -274,6 +281,7 @@ export const searchService = {
       .map((shop) => {
         let score = 0;
         const shopName = (shop.name || '').toLowerCase();
+        // Khớp tên quán 5 điểm, mỗi món khớp từ khóa thêm 3 điểm.
         if (shopName.includes(lowerKeyword)) score += 5;
 
         const matchingRecipes = (shop.restaurant_recipes || [])
@@ -308,5 +316,5 @@ export const searchService = {
   },
 };
 
-// Alias tương thích ngược
+// Bí danh tương thích ngược cho các nơi còn import recommendationService.
 export const recommendationService = searchService;

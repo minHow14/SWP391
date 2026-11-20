@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/src/app.js
+// Khởi tạo ứng dụng Express: đăng ký middleware bảo mật, parser, file tĩnh, route API và xử lý lỗi.
+// File này chỉ tạo app (không listen) để test có thể import trực tiếp.
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -15,6 +17,7 @@ import {
   apiLimiter,
 } from './middlewares/index.js';
 
+// ESM không có sẵn __dirname nên phải tự suy ra từ import.meta.url.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -46,6 +49,7 @@ app.use(
 // 4. Nén phản hồi HTTP bằng Gzip để tiết kiệm băng thông và tăng tốc độ tải
 app.use(
   compression({
+    // Cho phép client tắt nén bằng header x-no-compression (ví dụ khi cần đọc luồng phản hồi nguyên gốc).
     filter: (req, res) => {
       if (req.headers['x-no-compression']) {
         return false;
@@ -58,16 +62,17 @@ app.use(
 // 5. Cấu hình CORS chặt chẽ theo cấu hình client URL
 app.use(
   cors({
+    // Thiếu CLIENT_URL thì mở cho mọi origin; chỉ nên xảy ra khi phát triển local.
     origin: config.clientUrl || '*',
     credentials: true,
   })
 );
 
-// Base64 expands image bytes; only scan routes need the larger JSON allowance.
+// Base64 làm phình kích thước ảnh; chỉ các route quét món ăn mới cần giới hạn JSON lớn hơn.
 app.use(['/api/ai/food-scanner/analyze', '/api/v1/ai/food-scanner/analyze'],
   express.json({ limit: MAX_FOOD_SCAN_JSON_BYTES }));
 
-// Ingredient lookup can retain the same uploaded image accepted by the scanner.
+// Tra cứu nguyên liệu có thể giữ lại chính ảnh đã tải lên mà trình quét món ăn chấp nhận.
 app.use('/api/v1/ingredient-lookup-jobs', express.json({ limit: MAX_FOOD_SCAN_JSON_BYTES }));
 
 // 6. Phân tích cú pháp Request Body với giới hạn dung lượng 1MB

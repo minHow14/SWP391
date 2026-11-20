@@ -1,4 +1,5 @@
 // d:/Projects/FPT/SWP391/server/src/services/workspace.service.js
+// Nghiệp vụ không gian làm việc: danh mục tổng hợp (nguyên liệu, công thức, bài viết, quán), Nhật Ký ăn uống, kế hoạch tuần, đề xuất và đánh giá quán.
 import { ingredientService } from './ingredient.service.js';
 import { createHash } from 'node:crypto';
 import prisma from '../config/prisma.js';
@@ -10,11 +11,14 @@ import { placePhotoUrl } from '../utils/placePhoto.js';
 import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
 import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
+// URL nội bộ phục vụ ảnh nguyên liệu lưu trong DB.
 export const ingredientImageUrl = (ingredientId) =>
     `/api/workspace/ingredients/${ingredientId}/image`;
 
+// Dinh dưỡng nguyên liệu tính trên 100 g nên cần chia cho 100 khi nhân với khối lượng thực tế.
 const PER_100_GRAMS = 100;
 
+// Dựng dữ liệu nhà hàng từ đề xuất của người dùng; ảnh được chuẩn hóa qua placePhotoUrl để chỉ nhận URL an toàn.
 function restaurantProposalData(data) {
   return {
     name: data.name,
@@ -71,8 +75,9 @@ export const workspaceService = {
             prices,
         } = raw;
 
-        // Vegan recipes may contain alliums, so do not infer Buddhist compatibility.
-        // Keto and Eat Clean labels require explicit classification in the database.
+        // Công thức thuần chay (vegan) có thể chứa hành tỏi (ngũ vị tân), nên không suy ra là phù hợp với chay Phật giáo.
+        // Nhãn Keto và Eat Clean phải được phân loại rõ ràng trong cơ sở dữ liệu.
+        // Bảng tương thích: diet_type_id của công thức -> các chế độ ăn có thể dùng công thức đó.
         const compat = { 1: [1, 2, 3, 4], 2: [2, 4], 3: [3, 4], 4: [4], 5: [5] };
 
         const mappedIngredients = ingredients.map((i) => {
@@ -109,6 +114,7 @@ export const workspaceService = {
                     carbs: p.ingredient.carbs,
                 },
             })),
+            // Không có trong bảng tương thích thì chỉ phù hợp đúng chế độ ăn của chính công thức.
             compatible_diet_type_ids: compat[r.diet_type_id] || (r.diet_type_id ? [r.diet_type_id] : []),
             nutrition: r.recipe_ingredients.reduce(
                 (sum, p) => {
@@ -128,6 +134,7 @@ export const workspaceService = {
                 ...p.blog,
                 ...p.video,
                 author_full_name: p.author.full_name,
+                // Chữ viết tắt avatar lấy chữ cái đầu của hai từ cuối trong họ tên (tên người Việt đặt ở cuối).
                 initials: p.author.full_name
                     .split(' ')
                     .slice(-2)
@@ -153,6 +160,7 @@ export const workspaceService = {
                 })),
             }));
 
+    // Chỉ hiển thị quán chay; phân loại quán theo cửa hàng nguyên liệu / chay Phật giáo / thuần chay / có bếp riêng.
     const mappedRestaurants = restaurants.filter(isVegetarianPlace).map((p) => {
       const d = placeDetails.find((item) => item.restaurant_id === p.restaurant_id);
       return {
@@ -247,6 +255,7 @@ export const workspaceService = {
         };
 
         for (const d of days) {
+            // Nhóm nhật ký theo ngày dạng YYYY-MM-DD để FE tra cứu nhanh.
             const key = d.consumed_date?.toISOString().slice(0, 10);
             if (!key) continue;
             const n = nutrients.find((item) => item.diary_id === d.diary_id);
@@ -266,8 +275,10 @@ export const workspaceService = {
         for (const plan of plans) {
             for (const detail of plan.details) {
                 const day = new Date(plan.start_date);
+                // Ngày thực tế = ngày bắt đầu tuần (Thứ Hai) + (thứ trong tuần - 1).
                 day.setUTCDate(day.getUTCDate() + detail.day_of_week - 1);
                 const key = day.toISOString().slice(0, 10);
+                // Món tùy chỉnh (vd. từ thực đơn AI) không có recipe_id nên lưu riêng vào customPlans.
                 if (detail.custom_food_name) {
                     (journal.customPlans[key] ??= {})[groups[detail.meal_type]] = {
                         name: detail.custom_food_name,
@@ -295,6 +306,7 @@ export const workspaceService = {
         const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
         const skip = (page - 1) * limit;
 
+        // Chỉ lấy công thức độc lập hoặc gắn với bài đã đăng.
         const where = {
             OR: [{ post_id: null }, { post: { status: 'PUBLISHED' } }],
         };
@@ -321,6 +333,7 @@ export const workspaceService = {
             }),
         ]);
 
+        // Cùng bảng tương thích chế độ ăn như loadCatalog.
         const compat = { 1: [1, 2, 3, 4], 2: [2, 4], 3: [3, 4], 4: [4], 5: [5] };
         const mapped = recipes.map((r) => ({
             ...r,
@@ -390,6 +403,7 @@ export const workspaceService = {
    * Cập nhật thông tin chiều cao, cân nặng, mục tiêu calo
    */
   async updateProfile(userId, { height, weight, calorieGoal, goal }) {
+    // Lưu hồ sơ, mục tiêu và lịch sử cân nặng trong cùng transaction.
     await prisma.$transaction(async (tx) => {
       const savedProfile = await workspaceRepository.upsertProfile(userId, { height, weight, goal }, tx);
       await workspaceRepository.upsertProfilePreferences(userId, calorieGoal, goal, tx);
@@ -404,6 +418,7 @@ export const workspaceService = {
      */
     async addDiaryEntry(userId, data) {
         return prisma.$transaction(async (tx) => {
+            // Kiểm tra công thức tồn tại trước khi ghi để trả lỗi 404 rõ ràng.
             if (data.recipe_id) {
                 const exists = await workspaceRepository.findRecipeById(data.recipe_id, tx);
                 if (!exists) throw ApiError.notFound('Không tìm thấy công thức');
@@ -441,6 +456,7 @@ export const workspaceService = {
      * Xóa một mục khỏi nhật ký ăn uống
      */
     async deleteDiaryEntry(userId, diaryId) {
+        // deleteMany kèm user_id nên count = 0 nghĩa là không tồn tại hoặc không thuộc người dùng.
         const result = await workspaceRepository.deleteFoodDiary(diaryId, userId);
         if (!result.count) {
             throw ApiError.notFound('Không tìm thấy nhật ký của bạn');
@@ -461,6 +477,7 @@ export const workspaceService = {
             const day = new Date(date);
             const { monday, sunday: end } = weekRangeOf(date);
             const weekStart = monday.toISOString().slice(0, 10);
+            // Khóa theo người dùng + tuần để hai thao tác đồng thời không tạo hai kế hoạch cho cùng tuần.
             await workspaceRepository.lockUserDate(userId, weekStart, tx);
 
             let plan = await workspaceRepository.findMealPlanByStartDate(userId, monday, tx);
@@ -476,9 +493,11 @@ export const workspaceService = {
                 );
             }
 
+            // Đổi getUTCDay (0 = Chủ Nhật) sang thứ tự 1..7 với 1 = Thứ Hai.
             const day_of_week = ((day.getUTCDay() + 6) % 7) + 1;
             const where = { plan_id: plan.plan_id, day_of_week, meal_type: group };
 
+            // Mỗi ô (ngày, bữa) chỉ có một món: xóa món cũ rồi thêm món mới; recipe_id rỗng nghĩa là xóa món.
             await workspaceRepository.deleteMealPlanDetails(where, tx);
             if (recipe_id) {
                 await workspaceRepository.createMealPlanDetail({ ...where, recipe_id }, tx);
@@ -493,9 +512,11 @@ export const workspaceService = {
      */
     async recordPlanToDiary(userId, { date }) {
         return prisma.$transaction(async (tx) => {
+            // Khóa theo người dùng + ngày để không ghi trùng nhật ký khi bấm nhiều lần.
             await workspaceRepository.lockUserDate(userId, date, tx);
             const day = new Date(date);
 
+            // Chỉ cho chép khi ngày đó chưa có nhật ký, tránh nhân đôi dữ liệu.
             const existingCount = await workspaceRepository.countDiariesOnDate(userId, day, tx);
             if (existingCount > 0) {
                 throw ApiError.conflict('Ngày này đã có nhật ký.');
@@ -505,8 +526,10 @@ export const workspaceService = {
             const meals = new Map();
 
             for (const plan of plans) {
+                // 86400000 = số ms trong một ngày; offset là thứ trong tuần (1..7) của ngày cần chép.
                 const offset = Math.round((day - plan.start_date) / 86400000) + 1;
                 for (const detail of plan.details.filter((d) => d.day_of_week === offset && (d.recipe || d.custom_food_name))) {
+                    // Kế hoạch mới nhất được ưu tiên (findPlansForDate đã sắp giảm dần), mỗi bữa chỉ lấy một món.
                     if (!meals.has(detail.meal_type)) {
                         meals.set(detail.meal_type, detail);
                     }
@@ -539,6 +562,7 @@ export const workspaceService = {
    */
   async suggestRestaurant(data) {
     return prisma.$transaction(async (tx) => {
+      // Cửa hàng nguyên liệu không bắt buộc chế độ ăn; quán ăn thì chế độ ăn phải hợp lệ.
       if (!data.isIngredientShop) {
         const dietExists = await workspaceRepository.findDietTypeById(data.diet_type_id, tx);
         if (!dietExists) throw ApiError.badRequest('Chế độ ăn không hợp lệ');
@@ -566,6 +590,7 @@ export const workspaceService = {
     async reviewRestaurant(userId, restaurantId, { stars, text }) {
         const id = Number(restaurantId);
         return prisma.$transaction(async (tx) => {
+            // Khóa dòng nhà hàng để các đánh giá đồng thời tính điểm trung bình chính xác.
             const locked = await tx.$queryRaw`
                 SELECT restaurant_id FROM restaurants
                 WHERE restaurant_id = ${id}
@@ -592,12 +617,14 @@ export const workspaceService = {
      */
     async getIngredientImage(ingredientId) {
         const id = Number(ingredientId);
+        // Chỉ chấp nhận ID nguyên dương an toàn để chặn giá trị bất thường trước khi truy vấn.
         if (!Number.isSafeInteger(id) || id <= 0) {
             throw ApiError.badRequest('Mã nguyên liệu không hợp lệ.');
         }
 
         const [image] = await workspaceRepository.getIngredientImage(id);
 
+        // Chỉ phục vụ các MIME type ảnh trong danh sách cho phép.
         if (
             !image?.image_data ||
             !['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'].includes(image.mime_type)
@@ -606,6 +633,7 @@ export const workspaceService = {
         }
 
         const bytes = Buffer.from(image.image_data);
+        // ETag theo băm nội dung để trình duyệt cache và nhận 304 khi ảnh không đổi.
         const etag = `"${createHash('sha256').update(bytes).digest('hex')}"`;
 
         return {
@@ -616,4 +644,5 @@ export const workspaceService = {
     },
 };
 
+// Hàm loadCatalog đã bind sẵn để có thể gọi độc lập mà không mất ngữ cảnh `this`.
 export const loadCatalog = workspaceService.loadCatalog.bind(workspaceService);

@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/profile/components/WeightTracker.jsx
+// Khối theo dõi cân nặng: ghi nhận cân nặng mới và hiển thị lịch sử cân nặng kèm chỉ số BMI.
 import { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Alert, Spinner, Badge, Card, Row, Col } from 'react-bootstrap';
 import { authService } from '../../../services/authService.js';
@@ -6,10 +7,12 @@ import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js'
 import { formatRecordedDateTime } from '../../../utils/formatters.js';
 import { bmiCategory } from '../../../utils/aiHelpers.js';
 
+// Màu badge Bootstrap tương ứng với từng phân loại BMI.
 const BMI_BADGE_VARIANTS = {
   'Thiếu cân': 'info', 'Bình thường': 'success', 'Thừa cân': 'warning', 'Béo phì': 'danger',
 };
 
+// Trả về badge phân loại BMI; BMI không hợp lệ thì hiển thị "Chưa đủ dữ liệu".
 function getBmiBadge(bmi) {
   const value = Number(bmi);
   if (!Number.isFinite(value) || value <= 0) {
@@ -20,6 +23,7 @@ function getBmiBadge(bmi) {
   return <Badge bg={variant} text={variant === 'warning' ? 'dark' : undefined}>{label}</Badge>;
 }
 
+// Component theo dõi cân nặng; onWeightRecorded báo trang cha cập nhật cân nặng hiện tại sau khi ghi nhận.
 export default function WeightTracker({ height, currentWeight, onWeightRecorded }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -29,11 +33,13 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
   const [submitError, setSubmitError] = useState('');
   const [submitSuccess, setSubmitSuccess] = useState('');
 
+  // Tải 20 bản ghi lịch sử gần nhất.
   const loadHistory = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const response = await authService.getHealthHistory({ limit: 20 });
+      // API có thể trả về danh sách ở nhiều vị trí khác nhau trong response nên kiểm tra lần lượt từng dạng.
       const rawList = Array.isArray(response?.data?.histories)
         ? response.data.histories
         : Array.isArray(response?.histories)
@@ -53,10 +59,12 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
     }
   }, []);
 
+  // Tải lại lịch sử khi cân nặng hiện tại thay đổi (ví dụ vừa lưu hồ sơ).
   useEffect(() => {
     loadHistory();
   }, [loadHistory, currentWeight]);
 
+  // Đồng bộ khi thông tin người dùng thay đổi ở nơi khác trong ứng dụng.
   useEffect(() => {
     const unsubscribe = subscribeSyncEvent(['USER_CHANGED'], () => {
       loadHistory();
@@ -64,6 +72,7 @@ export default function WeightTracker({ height, currentWeight, onWeightRecorded 
     return unsubscribe;
   }, [loadHistory]);
 
+  // Ghi nhận cân nặng mới; chặn giá trị ngoài khoảng 20-350 kg ngay trên client trước khi gọi API.
   const handleRecord = async (e) => {
     e.preventDefault();
     const weightNum = parseFloat(newWeight);

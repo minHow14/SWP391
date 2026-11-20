@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/agents/food_scanner_agent.py
+# Agent quét ảnh món ăn/nhãn sản phẩm: gửi ảnh và quy tắc chế độ ăn cho model, validate JSON trả về
+# và hiệu chỉnh kết luận theo chế độ ăn đã chọn.
 import json
 import logging
 from pathlib import Path
@@ -12,11 +14,14 @@ from core.llm import get_llm_json
 from schemas.food_scanner import FoodScanRequest, FoodScanResult
 
 logger = logging.getLogger(__name__)
+# Nạp system prompt một lần khi import module.
 PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "food_scanner.md"
 SYSTEM_PROMPT = PROMPT_FILE.read_text(encoding="utf-8") if PROMPT_FILE.exists() else ""
+# Thời gian chờ tối đa cho một lượt phân tích ảnh.
 SCAN_TIMEOUT_SECONDS = 35.0
 
 
+# Lỗi 503 khi dịch vụ phân tích ảnh chưa khả dụng (thiếu khóa API hoặc nhà cung cấp lỗi).
 def _unavailable_error() -> HTTPException:
     return HTTPException(
         status_code=503,
@@ -27,6 +32,8 @@ def _unavailable_error() -> HTTPException:
     )
 
 
+# Dựng message gửi model: ngữ cảnh người dùng (bỏ ảnh để tránh lặp dữ liệu lớn), quy tắc chế độ ăn,
+# JSON schema kết quả và ảnh dạng data URI.
 def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessage]:
     context = request.model_dump(by_alias=True, exclude={"image_base64", "mime_type"})
     dietary_type = DIET_TYPE_BY_ID.get(request.diet_type_id)
@@ -59,10 +66,12 @@ def _scan_messages(request: FoodScanRequest) -> list[SystemMessage | HumanMessag
     ]
 
 
+# Id chế độ chay Phật giáo và tầng kiểm tra ngũ vị tân trong kết quả quét.
 BUDDHIST_DIET_TYPE_ID = 5
 ALLIUM_LAYER = 4
 
 
+# Ngũ vị tân chỉ bị cấm với chay Phật giáo, nên loại phát hiện tầng này khỏi các chế độ khác rồi tính lại kết luận.
 def _apply_diet_rules(result: FoodScanResult, diet_type_id: int) -> FoodScanResult:
     """Drop findings the selected diet permits and keep the verdict consistent with what remains."""
     findings = [
@@ -75,16 +84,18 @@ def _apply_diet_rules(result: FoodScanResult, diet_type_id: int) -> FoodScanResu
     if len(findings) != len(result.findings):
         status = 'warning' if has_violation else 'clear'
     summary = result.summary
-    # A single image has neither complete fiber data nor the user's full daily intake.
+    # Một ảnh đơn lẻ không có đủ dữ liệu chất xơ cũng như toàn bộ lượng ăn trong ngày của người dùng.
     if DIET_TYPE_BY_ID.get(diet_type_id) == 'keto':
         status = 'warning'
         summary = 'Keto: chưa thể xác minh carb thuần dưới 50 g/ngày từ một ảnh; cần khẩu phần, chất xơ và toàn bộ bữa ăn trong ngày. ' + summary
     return result.model_copy(update={"findings": findings, "status": status, "summary": summary})
 
 
+# Agent quét ảnh: chỉ kiểm tra ảnh qua model và validate toàn bộ kết quả, không tự bịa kết quả.
 class FoodScannerAgent:
     """Inspect images only through a model and validate its complete result."""
 
+    # Phân tích ảnh; lỗi nhà cung cấp trả 503, đầu ra sai định dạng trả 502, không lộ chi tiết lỗi gốc.
     async def analyze(self, request: FoodScanRequest) -> FoodScanResult:
         """Return validated image analysis or an explicit sanitized failure."""
         if not settings.DEEPSEEK_API_KEY.strip():
@@ -92,6 +103,7 @@ class FoodScannerAgent:
         try:
             model = get_llm_json(timeout=SCAN_TIMEOUT_SECONDS)
             response = await model.ainvoke(_scan_messages(request))
+        # Lỗi SDK nhà cung cấp tuyệt đối không được dẫn tới kết quả quét bịa đặt.
         except Exception as exc:  # noqa: BLE001 - Provider SDK failures must never produce fabricated scans.
             logger.warning(
                 "Food scanner provider unavailable exceptionType=%s", type(exc).__name__
@@ -115,4 +127,5 @@ class FoodScannerAgent:
             ) from None
 
 
+# Thể hiện agent dùng chung toàn service.
 food_scanner_agent = FoodScannerAgent()

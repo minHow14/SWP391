@@ -1,10 +1,13 @@
 // client/src/components/recognition/PhotoUploadZone.jsx
+// Vùng tải ảnh nguyên liệu/tủ lạnh (chọn tệp hoặc kéo thả) kèm bộ lọc chế độ ăn và thời gian nấu.
 import { useRef, useState } from 'react';
 import { Card, Form, Button, Row, Col, Spinner, Alert } from 'react-bootstrap';
 
+// Chỉ nhận định dạng ảnh mà AI Service xử lý được và giới hạn dung lượng giống phía server.
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// Component tải ảnh; onAnalyze nhận FormData gồm ảnh và các bộ lọc khi người dùng gửi.
 export default function PhotoUploadZone({ onAnalyze, isLoading, diets = [] }) {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -14,6 +17,7 @@ export default function PhotoUploadZone({ onAnalyze, isLoading, diets = [] }) {
   const [errorMsg, setErrorMsg] = useState('');
   const fileInputRef = useRef(null);
 
+  // Kiểm tra loại và dung lượng tệp trước khi nhận; thu hồi URL xem trước cũ để tránh rò rỉ bộ nhớ.
   const validateAndSetFile = (file) => {
     if (!file) return;
     if (!ALLOWED_TYPES.includes(file.type)) {
@@ -31,6 +35,7 @@ export default function PhotoUploadZone({ onAnalyze, isLoading, diets = [] }) {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  // Bật/tắt hiệu ứng vùng kéo thả theo sự kiện drag.
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -41,6 +46,7 @@ export default function PhotoUploadZone({ onAnalyze, isLoading, diets = [] }) {
     }
   };
 
+  // Nhận tệp đầu tiên được thả vào vùng tải ảnh.
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -50,6 +56,7 @@ export default function PhotoUploadZone({ onAnalyze, isLoading, diets = [] }) {
     }
   };
 
+  // Đóng gói ảnh và bộ lọc vào FormData rồi chuyển cho component cha để gọi API phân tích.
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!selectedFile) {

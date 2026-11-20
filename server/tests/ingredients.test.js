@@ -1,6 +1,11 @@
+// Kiểm thử script sửa chi tiết nguyên liệu (repair-ingredients) trên dữ liệu seed.
 import { test, expect } from 'vitest';
 import { repairIngredientDetails } from '../scripts/repair-ingredients.js';
 
+// Tạo DB giả với một nguyên liệu tên `name` và bản ghi chi tiết `existing`, ghi lại các lệnh upsert.
+// @param name tên nguyên liệu tìm thấy được
+// @param existing chi tiết hiện có (null nếu chưa có)
+// @returns {{ saved, db }} danh sách upsert đã ghi và đối tượng DB giả
 function fixture(name, existing) {
   const saved = [];
   const tx = {
@@ -13,6 +18,8 @@ function fixture(name, existing) {
   return { saved, db: { $transaction: async callback => callback(tx) } };
 }
 
+// Script phải sửa danh mục nấm và ảnh thiếu dựa theo tên (không phụ thuộc ID seed),
+// đồng thời thay mô tả mặc định lộ chi tiết kỹ thuật ("database").
 test('repair corrects seed mushroom categories and missing photos without relying on seed IDs', async () => {
   const { db, saved } = fixture('Nấm đông cô tươi', {
     category: 'other', origin: 'Thực vật', plant: true,
@@ -24,6 +31,7 @@ test('repair corrects seed mushroom categories and missing photos without relyin
   expect(saved[0].update.description).not.toContain('database');
 });
 
+// Ảnh, mô tả và cách chế biến người dùng đã chỉnh sửa phải được giữ nguyên, không bị script ghi đè.
 test('repair preserves edited photos, descriptions and preparation instructions', async () => {
   const { db, saved } = fixture('Đậu hũ non', {
     category: 'protein', origin: 'Thực vật', plant: true,
@@ -35,6 +43,7 @@ test('repair preserves edited photos, descriptions and preparation instructions'
   expect(saved[0].update).not.toHaveProperty('cooking');
 });
 
+// Nguyên liệu chưa có chi tiết phải được tạo mới; phô mai Mozzarella phải có nguồn gốc động vật (không phải thực vật).
 test('repair initializes absent details and fixes mozzarella animal origin', async () => {
   const { db, saved } = fixture('Phô mai Mozzarella', null);
   await repairIngredientDetails(db);

@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/restaurants/components/RestaurantProposalForm.jsx
+// Form đề xuất quán chay mới: nhập địa chỉ chi tiết, lấy GPS tại quán, chọn loại quán và thông tin hoạt động.
 import { useState } from 'react';
 import { Alert, Button, Col, Form, Row, Spinner } from 'react-bootstrap';
 import { useForm, useWatch } from 'react-hook-form';
@@ -9,6 +10,7 @@ import { restaurantDirections } from '../../../utils/restaurantDirections.js';
 import { getPosition, geocodeAddress } from '../utils/nearbyHelpers.js';
 import '../styles/restaurantProposal.css';
 
+// Danh sách tỉnh/thành phổ biến để gợi ý nhanh trong ô nhập (người dùng vẫn có thể gõ tỉnh khác).
 const VIETNAM_POPULAR_CITIES = [
   'TP. Hồ Chí Minh',
   'Hà Nội',
@@ -24,6 +26,7 @@ const VIETNAM_POPULAR_CITIES = [
   'Bà Rịa - Vũng Tàu',
 ];
 
+// Các mức giá tham khảo cho người dùng chọn.
 const PRICE_RANGE_OPTIONS = [
   { value: '', label: '-- Chọn mức giá tham khảo --' },
   { value: 'Bình dân (20.000đ - 45.000đ)', label: 'Bình dân (20.000đ - 45.000đ)' },
@@ -31,6 +34,7 @@ const PRICE_RANGE_OPTIONS = [
   { value: 'Cao cấp / Buffet (> 90.000đ)', label: 'Cao cấp / Buffet (> 90.000đ)' },
 ];
 
+// Tạo schema chuỗi bắt buộc với độ dài tối đa cho trước.
 const requiredText = (maxLength) =>
   z
     .string()
@@ -38,6 +42,7 @@ const requiredText = (maxLength) =>
     .min(1, 'Vui lòng điền thông tin này.')
     .max(maxLength, `Tối đa ${maxLength} ký tự.`);
 
+// Tạo schema chuỗi tùy chọn (cho phép rỗng) với độ dài tối đa cho trước.
 const optionalText = (maxLength) =>
   z
     .string()
@@ -46,9 +51,11 @@ const optionalText = (maxLength) =>
     .optional()
     .or(z.literal(''));
 
+// Ghép các phần địa chỉ thành chuỗi đầy đủ, bỏ qua phần trống.
 const fullAddress = ({ streetAddress, ward, district, city }) =>
   [streetAddress, ward, district, city].filter(Boolean).join(', ');
 
+// Schema đề xuất quán; địa chỉ ghép đầy đủ giới hạn 255 ký tự cho khớp độ dài cột trong DB.
 const proposalSchema = z
   .object({
     name: requiredText(120),
@@ -67,6 +74,7 @@ const proposalSchema = z
     message: 'Địa chỉ đầy đủ không được vượt quá 255 ký tự.',
   });
 
+// Component form đề xuất; onSubmit gửi dữ liệu đã chuẩn hóa lên server.
 export default function RestaurantProposalForm({ onSubmit }) {
   const [error, setError] = useState('');
   const [gpsStatus, setGpsStatus] = useState('idle'); // 'idle' | 'locating' | 'success' | 'error'
@@ -94,6 +102,7 @@ export default function RestaurantProposalForm({ onSubmit }) {
     },
   });
 
+  // Theo dõi giá trị form theo thời gian thực để hiển thị địa chỉ hoàn chỉnh và link kiểm tra Google Maps.
   const values = useWatch({ control });
   const address = fullAddress({
     streetAddress: (values.streetAddress || '').trim(),
@@ -105,6 +114,7 @@ export default function RestaurantProposalForm({ onSubmit }) {
     (value) => typeof value === 'string' && value.trim()
   );
 
+  // Lấy tọa độ GPS hiện tại (bỏ qua cache) khi người dùng đang đứng tại quán.
   async function handleGetGps() {
     setGpsStatus('locating');
     setGpsMessage('Đang lấy tọa độ GPS từ thiết bị...');
@@ -119,6 +129,7 @@ export default function RestaurantProposalForm({ onSubmit }) {
     }
   }
 
+  // Chuẩn hóa và gửi đề xuất quán lên server.
   async function submit(proposal) {
     setError('');
     const isIngredientShop = proposal.type === 'shop';
@@ -140,6 +151,7 @@ export default function RestaurantProposalForm({ onSubmit }) {
         address,
         city: proposal.city,
         isIngredientShop,
+        // Ánh xạ loại quán sang diet_type_id: Phật giáo = 5, bếp riêng = 4, còn lại = 1 (thuần chay); cửa hàng nguyên liệu không có chế độ ăn.
         diet_type_id: isIngredientShop
           ? null
           : proposal.type === 'buddhist'

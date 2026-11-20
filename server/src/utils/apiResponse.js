@@ -1,12 +1,13 @@
 // d:\Projects\FPT\SWP391\server\src\utils\apiResponse.js
+// Các hàm tạo phản hồi HTTP thống nhất theo API Contract (thành công/lỗi), kèm requestId để truy vết.
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
  * Trả về phản hồi thành công chuẩn RESTful theo API Contract thống nhất
  * Format: { success: true, message: string, data: any, meta?: object }
- * @param {import('express').Response} res - Express response
+ * @param {import('express').Response} res - Đối tượng response của Express
  * @param {object|any} payload - Dữ liệu trả về (object hoặc array)
- * @param {number} statusCode - HTTP status code (mặc định 200)
+ * @param {number} statusCode - Mã trạng thái HTTP (mặc định 200)
  * @param {object} extraMeta - Metadata bổ sung nếu có
  */
 export const sendSuccess = (res, payload = {}, statusCode = HTTP_STATUS.OK, extraMeta = {}) => {
@@ -63,9 +64,9 @@ export const sendCreated = (res, payload = {}) => {
 /**
  * Trả về phản hồi lỗi chuẩn theo API Contract
  * Format: { success: false, message, errorCode, errors, details }
- * @param {import('express').Response} res - Express response
+ * @param {import('express').Response} res - Đối tượng response của Express
  * @param {string} error - Thông báo lỗi
- * @param {number} statusCode - HTTP status code (mặc định 500)
+ * @param {number} statusCode - Mã trạng thái HTTP (mặc định 500)
  * @param {any} details - Chi tiết kỹ thuật hoặc danh sách lỗi validate
  * @param {string} errorCode - Mã lỗi nghiệp vụ định danh
  */
@@ -108,6 +109,7 @@ export const ok = (res, data, status = HTTP_STATUS.OK, extraMeta = {}) =>
     meta: { requestId: res.locals?.requestId, ...extraMeta },
   });
 
+// Phản hồi lỗi rút gọn, dùng cho rate limiter và module places.
 export const fail = (res, status = HTTP_STATUS.INTERNAL_SERVER_ERROR, code = 'INTERNAL_ERROR', message = 'Lỗi xử lý', details) =>
   res.status(status).json({
     success: false,

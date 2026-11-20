@@ -1,8 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/chat/components/ChatComposer.jsx
+// Ô soạn tin nhắn của hộp chat cùng nút Gửi / Dừng trả lời / trạng thái đang xử lý video.
 import { Button, Form, Spinner } from 'react-bootstrap';
 
+// Component soạn tin; Enter để gửi, Shift+Enter để xuống dòng.
 export default function ChatComposer({ chat }) {
   const { draft, setDraft, input, mode, busy, videoBusy, sendMessage, stopAnswer } = chat;
+  // Bỏ qua khi đang gõ bộ gõ tiếng Việt (isComposing) để Enter chọn chữ không vô tình gửi tin.
   function handleKeyDown(event) {
     if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();

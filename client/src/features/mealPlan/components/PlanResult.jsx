@@ -1,11 +1,14 @@
 // C:/Users/TRUONGPHU/Desktop/aaa/SWP391/client/src/features/mealPlan/components/PlanResult.jsx
 // client/src/features/mealPlan/components/PlanResult.jsx
+// Hiển thị thực đơn AI đã tạo: chỉ số tổng quan, thực đơn từng ngày, danh sách cần mua và lời khuyên.
 import { useState } from 'react';
 import { bmiCategory, formatBmi } from '../../../utils/aiHelpers.js';
 import ApplyToJournal from './ApplyToJournal.jsx';
 
+// Các bữa trong ngày (khóa dữ liệu, nhãn hiển thị).
 const MEALS = [['breakfast', 'Sáng'], ['lunch', 'Trưa'], ['dinner', 'Tối'], ['snacks', 'Phụ']];
 
+// Component kết quả; onAsk gửi thực đơn sang chatbot, onRedo quay lại form, onOpenJournal đóng hộp khi mở Nhật ký.
 export default function PlanResult({ plan, onAsk, onRedo, onOpenJournal }) {
   const [selected, setSelected] = useState(0);
   const day = plan.weeklyPlan[selected] ?? plan.weeklyPlan[0];

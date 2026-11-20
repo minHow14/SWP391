@@ -1,5 +1,6 @@
 ﻿// client/src/utils/syncEvents.js
 
+// Đồng bộ thay đổi dữ liệu giữa các component trong tab (CustomEvent) và giữa các tab (BroadcastChannel).
 const SYNC_CHANNEL_NAME = 'chayxanh-sync';
 let channel = null;
 
@@ -8,13 +9,13 @@ try {
     channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
   }
 } catch {
-  // BroadcastChannel not available (Node.js test environment or unsupported browser)
+  // BroadcastChannel không khả dụng (môi trường test Node.js hoặc trình duyệt không hỗ trợ)
 }
 
 /**
- * Emit a synchronization event across local components and other browser tabs.
- * @param {string} type - Event type (e.g., 'POST_CHANGED', 'COMMENT_CHANGED', 'CATEGORY_CHANGED', 'USER_CHANGED', 'REPORT_CHANGED', 'AI_CHANGED', 'MODERATION_CHANGED')
- * @param {object} payload - Optional payload data
+ * Phát sự kiện đồng bộ tới các component trong tab hiện tại và các tab trình duyệt khác.
+ * @param {string} type - Loại sự kiện (ví dụ 'POST_CHANGED', 'COMMENT_CHANGED', 'CATEGORY_CHANGED', 'USER_CHANGED', 'REPORT_CHANGED', 'AI_CHANGED', 'MODERATION_CHANGED')
+ * @param {object} payload - Dữ liệu kèm theo (tùy chọn)
  */
 export function emitSyncEvent(type, payload = {}) {
   const detail = { type, payload, timestamp: Date.now() };
@@ -23,7 +24,7 @@ export function emitSyncEvent(type, payload = {}) {
     try {
       window.dispatchEvent(new CustomEvent('chayxanh-sync', { detail }));
     } catch {
-      // Fallback
+      // Bỏ qua nếu trình duyệt không hỗ trợ CustomEvent
     }
   }
 
@@ -31,16 +32,16 @@ export function emitSyncEvent(type, payload = {}) {
     try {
       channel.postMessage(detail);
     } catch {
-      // Ignore broadcast errors
+      // Bỏ qua lỗi khi phát qua BroadcastChannel
     }
   }
 }
 
 /**
- * Subscribe to synchronization events.
- * @param {string|string[]} types - Event type or array of types, or '*' for all
- * @param {function} callback - Handler callback receiving the event detail
- * @returns {function} Unsubscribe function
+ * Đăng ký lắng nghe sự kiện đồng bộ.
+ * @param {string|string[]} types - Loại sự kiện, mảng các loại, hoặc '*' để nghe tất cả
+ * @param {function} callback - Hàm xử lý nhận chi tiết sự kiện
+ * @returns {function} Hàm hủy đăng ký
  */
 export function subscribeSyncEvent(types, callback) {
   if (typeof window === 'undefined') return () => {};

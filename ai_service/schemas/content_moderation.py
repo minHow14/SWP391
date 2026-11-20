@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/schemas/content_moderation.py
+# Schema request/response cho tính năng kiểm duyệt nội dung văn bản (bài viết, bình luận) bằng LLM.
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -6,6 +7,7 @@ from pydantic import Field, StringConstraints, model_validator
 
 from schemas.base import CamelModel
 
+# Các nhóm vi phạm mà LLM được phép gắn cho nội dung.
 ModerationCategory = Literal[
     "SPAM",
     "SCAM",
@@ -13,11 +15,13 @@ ModerationCategory = Literal[
     "ANIMAL_MEAT_PROMOTION",
     "INGREDIENT_MISREPRESENTATION",
 ]
+# Nội dung văn bản cần kiểm duyệt, giới hạn 50.000 ký tự để kiểm soát chi phí và ngữ cảnh LLM.
 ContentText = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=50_000)
 ]
 
 
+# Yêu cầu kiểm duyệt do Backend gửi; content_version giúp Backend bỏ qua kết quả của phiên bản cũ.
 class ContentModerationRequest(CamelModel):
     job_id: UUID
     content_type: Literal["POST", "COMMENT"]
@@ -26,6 +30,7 @@ class ContentModerationRequest(CamelModel):
     content: ContentText
 
 
+# Kết luận của LLM: ALLOW (cho phép) hoặc REVIEW (cần người duyệt), kèm lý do và bằng chứng trích dẫn.
 class ContentModerationVerdict(CamelModel):
     decision: Literal["ALLOW", "REVIEW"]
     reason: str = Field(min_length=1, max_length=2_000)
@@ -34,6 +39,7 @@ class ContentModerationVerdict(CamelModel):
         max_length=5
     )
 
+    # Đảm bảo kết luận nhất quán: REVIEW phải có nhóm vi phạm và bằng chứng; ALLOW thì không được có.
     @model_validator(mode="after")
     def validate_decision(self) -> "ContentModerationVerdict":
         if not self.reason.strip():
@@ -45,11 +51,13 @@ class ContentModerationVerdict(CamelModel):
         return self
 
 
+# Kết quả trả về Backend: kết luận kèm tên model và phiên bản chính sách kiểm duyệt đã dùng.
 class ContentModerationResult(ContentModerationVerdict):
     model_name: str = Field(min_length=1, max_length=100)
     policy_version: str = Field(min_length=1, max_length=100)
 
 
+# Response thành công theo API Contract.
 class ContentModerationResponse(CamelModel):
     success: Literal[True] = True
     message: str = "Đã kiểm tra nội dung."

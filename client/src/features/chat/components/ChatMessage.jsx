@@ -1,9 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/chat/components/ChatMessage.jsx
+// Render một tin nhắn trong hộp chat theo loại (chat, video công thức, quét ảnh, thực đơn, lỗi...).
 import { Link } from 'react-router';
 import MarkdownMessage from './MarkdownMessage.jsx';
 import VideoRecipeMessage from '../../videoRecipeSummary/components/VideoRecipeMessage.jsx';
 import ChatFoodScanMessage from './ChatFoodScanMessage.jsx';
 
+// Component một tin nhắn; actions chứa các hành động mà tin nhắn có thể kích hoạt (hỏi lại, mở thực đơn...).
 export default function ChatMessage({ message, busy, actions }) {
   const { ask, openMealPlan, askAboutPlan } = actions;
   return (

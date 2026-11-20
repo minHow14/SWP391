@@ -1,4 +1,5 @@
 // server/tests/report.test.js
+// Kiểm thử tích hợp hệ thống báo cáo vi phạm bài viết và bình luận (cần DB test có seed user_id 1 là admin, 2 là thành viên).
 import request from 'supertest';
 import { describe, expect, it, beforeAll, afterAll } from 'vitest';
 import app from '../src/app.js';
@@ -6,10 +7,12 @@ import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { postRepository } from '../src/repositories/post.repository.js';
 
+// Nhóm test: báo cáo vi phạm bài viết và bình luận.
 describe('Report System Integration (Post & Comment)', () => {
   const user1Token = generateToken({ user_id: 1, role: 1 });
   const user2Token = generateToken({ user_id: 2, role: 2 });
 
+  // Xóa các báo cáo và bài viết test theo lý do/tiêu đề cố định, để chạy lại test không bị dữ liệu cũ ảnh hưởng.
   const cleanupTestData = async () => {
     // Dọn dẹp các báo cáo và bài viết kiểm thử
     await prisma.report.deleteMany({
@@ -45,6 +48,7 @@ describe('Report System Integration (Post & Comment)', () => {
     }
   };
 
+  // Dọn dữ liệu test trước và sau khi chạy nhóm test.
   beforeAll(async () => {
     await cleanupTestData();
   });
@@ -53,6 +57,7 @@ describe('Report System Integration (Post & Comment)', () => {
     await cleanupTestData();
   });
 
+  // Gửi báo cáo khi chưa đăng nhập phải bị 401.
   it('rejects unauthenticated report submissions with 401', async () => {
     const res = await request(app)
       .post('/api/reports')
@@ -61,6 +66,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Báo cáo không có đối tượng (bài viết hoặc bình luận) phải bị 400.
   it('validates report payload: rejects missing both post and comment target', async () => {
     const res = await request(app)
       .post('/api/reports')
@@ -70,6 +76,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Lý do báo cáo ngắn hơn 5 ký tự phải bị 400.
   it('validates report payload: rejects reason with fewer than 5 characters', async () => {
     const res = await request(app)
       .post('/api/reports')
@@ -79,6 +86,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Người dùng không được tự báo cáo bài của chính mình.
   it('rejects user reporting their own post', async () => {
     const ownPost = await prisma.post.create({
       data: {
@@ -103,6 +111,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(res.body.message).toContain('không thể tự báo cáo');
   });
 
+  // Báo cáo bài của người khác thành công; báo cáo trùng khi báo cáo cũ còn PENDING bị 409 (chống spam báo cáo).
   it('allows user to report another user post, and rejects duplicate pending reports', async () => {
     const postOfUser1 = await prisma.post.create({
       data: {
@@ -139,6 +148,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(dupRes.body.success).toBe(false);
   });
 
+  // Xử lý báo cáo bình luận bằng cách ẩn nội dung chỉ gỡ bình luận đó, bài viết vẫn giữ PUBLISHED.
   it('when admin resolves a COMMENT report by hiding content: ONLY the comment is hidden, the post remains PUBLISHED', async () => {
     // Tạo 1 post của user 1 và 1 comment của user 1
     const post = await prisma.post.create({
@@ -192,6 +202,7 @@ describe('Report System Integration (Post & Comment)', () => {
     expect(postAfter.deleted_at).toBeNull();
   });
 
+  // Xử lý báo cáo bài viết bằng cách ẩn nội dung thì gỡ cả bài và các bình luận của bài.
   it('when admin resolves a POST report by hiding content: the post and its comments are hidden', async () => {
     const postToHide = await prisma.post.create({
       data: {

@@ -1,4 +1,5 @@
 // d:/Projects/FPT/SWP391/server/src/services/places.service.js
+// Nghiệp vụ tìm quán chay: tìm quanh vị trí và theo tên/món trong DB, bổ sung kết quả từ ZIOMAP (có cache) rồi gộp và xếp theo khoảng cách.
 import { getDistance } from 'geolib';
 import Fuse from 'fuse.js';
 import { LRUCache } from 'lru-cache';
@@ -6,6 +7,7 @@ import { placeRepository } from '../repositories/place.repository.js';
 import { placePhotoUrl } from '../utils/placePhoto.js';
 import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
 
+// Export lại bộ lọc quán chay để controller/test dùng chung một quy tắc.
 export { isVegetarianPlace };
 
 const ZIOMAP_TEXT_SEARCH_URL = 'https://ziomap-api.socibi.com/api/place/text-search';
@@ -13,13 +15,18 @@ const ZIOMAP_PHOTOS_URL = 'https://ziomap-api.socibi.com/api/place/photos';
 // Chỉ xin các trường cần dùng để giữ chi phí ở mức thấp nhất
 const FIELD_MASK =
   'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.photos';
+// Timeout 8 giây cho nhà cung cấp ngoài để tìm kiếm không bị treo.
 const PROVIDER_TIMEOUT_MS = 8000;
+// Ngân sách 3 giây cho việc lấy ảnh, chạy 2 ảnh song song để không bị nhà cung cấp chặn vì gọi dồn.
 const PHOTO_RESOLUTION_BUDGET_MS = 3000;
 const PHOTO_CONCURRENCY = 2;
+// Cache kết quả ZIOMAP 24 giờ vì dữ liệu quán ít thay đổi và mỗi lần gọi đều tốn phí.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
+// Lỗi khi gọi nhà cung cấp địa điểm bên ngoài, để controller trả thông báo phù hợp.
 export class PlacesProviderError extends Error {}
 
+// Cache LRU trong bộ nhớ, tối đa 500 truy vấn.
 const ziomapCache = new LRUCache({ max: 500, ttl: CACHE_TTL_MS });
 
 // Bỏ dấu tiếng Việt để "pho chay" khớp "Phở chay"
@@ -32,13 +39,16 @@ export const normalize = (text) =>
     .toLowerCase()
     .trim();
 
+// Tạo link Google Maps theo tọa độ, kèm place_id nếu có để mở đúng địa điểm.
 export const mapsUrl = ({ latitude, longitude, place_id }) =>
   'https://www.google.com/maps/search/?api=1' +
   `&query=${latitude},${longitude}` +
   (place_id ? `&query_place_id=${encodeURIComponent(place_id)}` : '');
 
+// Các từ chung chung bị bỏ khi tìm kiếm mờ vì xuất hiện trong tên hầu hết các quán.
 const GENERIC_QUERY_WORDS = new Set(['chay', 'quan', 'nha', 'hang', 'mon', 'an', 'vegan', 'vegetarian']);
 
+// Khoảng cách (mét) giữa hai điểm; null nếu thiếu tọa độ.
 const distanceMeters = (from, to) =>
   from && to?.latitude != null && to?.longitude != null
     ? getDistance(from, { latitude: to.latitude, longitude: to.longitude })
@@ -52,6 +62,7 @@ const dishesOf = (restaurant) => {
   return [...new Set(recipeNames)];
 };
 
+// Chuyển bản ghi nhà hàng DB sang định dạng quán thống nhất trả cho client (dùng chung với kết quả ZIOMAP).
 const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
   const lat = restaurant.latitude != null ? Number(restaurant.latitude) : null;
   const lng = restaurant.longitude != null ? Number(restaurant.longitude) : null;
@@ -63,6 +74,7 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
     restaurant_id: restaurant.restaurant_id,
     name: restaurant.name,
     address: restaurant.address,
+    // Ưu tiên trường riêng, sau đó tới details cũ, cuối cùng suy ra từ địa chỉ.
     city: restaurant.city || restaurant.details?.city || (restaurant.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
     hours: restaurant.hours || restaurant.details?.hours || 'Chưa cập nhật',
     price_range: restaurant.priceRange || restaurant.details?.price_range || 'Theo thời giá',
@@ -85,6 +97,7 @@ const toPlace = (restaurant, origin, extra = {}, userOrigin = null) => {
   };
 };
 
+// So sánh theo khoảng cách tăng dần; quán không có khoảng cách xếp cuối.
 const byDistance = (a, b) => (a.distance_m ?? Infinity) - (b.distance_m ?? Infinity);
 
 /** Quán trong DB nằm trong bán kính, xếp từ gần đến xa. */
@@ -94,6 +107,7 @@ export async function findNearbyLocal({ lat, lng, radiusKm, userOrigin = null, d
 
   return restaurants
     .map((restaurant) => toPlace(restaurant, origin, {}, userOrigin))
+    // Bounding box ở DB chỉ lọc thô; lọc lại theo khoảng cách thật để loại các góc của hình vuông.
     .filter((place) => place.distance_m !== null && place.distance_m <= radiusKm * 1000 && isVegetarianPlace(place))
     .sort(byDistance);
 }
@@ -121,6 +135,7 @@ export async function searchLocal({ query, lat, lng }) {
     })),
   }));
 
+  // Trọng số món ăn cao hơn tên quán vì người dùng thường tìm theo món; threshold 0.3 cho phép gõ sai nhẹ.
   const fuse = new Fuse(docs, {
     keys: [
       { name: 'name', weight: 2 },
@@ -149,6 +164,7 @@ export async function searchLocal({ query, lat, lng }) {
     .sort((a, b) => b.match_score - a.match_score || byDistance(a, b));
 }
 
+// Gọi API ZIOMAP với timeout; mọi lỗi mạng, HTTP hoặc JSON đều quy về PlacesProviderError.
 async function fetchZiomap(url, init) {
   let response;
   try {
@@ -168,12 +184,15 @@ async function fetchZiomap(url, init) {
   }
 }
 
+// Kiểm tra tọa độ là số hữu hạn và nằm trong giới hạn (90 cho vĩ độ, 180 cho kinh độ).
 const isCoordinate = (value, limit) => Number.isFinite(value) && Math.abs(value) <= limit;
 
+// Lấy URL ảnh của địa điểm: dùng URL có sẵn nếu hợp lệ, không thì gọi API ảnh của ZIOMAP; lỗi thì trả null.
 export async function resolvePlacePhoto({ placeId, photo, signal }) {
   const direct = placePhotoUrl(photo?.photoUri);
   if (direct) return direct;
   const name = photo?.name;
+  // Chỉ chấp nhận tên ảnh thuộc đúng place_id để không bị lợi dụng truy vấn ảnh tùy ý.
   if (signal?.aborted || !process.env.ZIOMAP_API_KEY || !name?.startsWith(`places/${placeId}/photos/`)) return null;
   try {
     const params = new URLSearchParams({ name, maxWidthPx: '800', skipHttpRedirect: 'true' });
@@ -186,10 +205,11 @@ export async function resolvePlacePhoto({ placeId, photo, signal }) {
   }
 }
 
+// Lấy ảnh cho danh sách quán theo từng lô nhỏ trong giới hạn thời gian chung.
 async function resolveSearchPhotos(places) {
   const signal = AbortSignal.timeout(PHOTO_RESOLUTION_BUDGET_MS);
   const resolved = [];
-  // Photos share one budget so a slow photo provider cannot block valid search results.
+  // Các ảnh dùng chung một ngân sách thời gian để nhà cung cấp ảnh chậm không chặn kết quả tìm kiếm hợp lệ.
   for (let offset = 0; offset < places.length; offset += PHOTO_CONCURRENCY) {
     const batch = places.slice(offset, offset + PHOTO_CONCURRENCY);
     resolved.push(...await Promise.all(batch.map(async (place) => ({ ...place,
@@ -205,6 +225,7 @@ function requestZiomap({ query, lat, lng, radiusKm, limit }) {
   const params = new URLSearchParams({
     query,
     languageCode: 'vi',
+    // Giới hạn 1..20 kết quả và bán kính tối đa 50 km theo giới hạn của API.
     maxResultCount: String(Math.min(Math.max(Number(limit) || 10, 1), 20)),
     fieldMask: FIELD_MASK,
     locationBias: JSON.stringify({
@@ -229,6 +250,7 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
   const cacheKey = [normalize(query), lat.toFixed(3), lng.toFixed(3), radiusKm, limit].join('|');
   const hit = ziomapCache.get(cacheKey);
   if (hit) {
+    // Kết quả cache dùng chung cho mọi người nên phải tính lại khoảng cách tới vị trí người dùng hiện tại.
     const cachedPlaces = userOrigin
       ? hit.map((p) => ({
           ...p,
@@ -269,11 +291,13 @@ export async function searchZiomap({ query, lat, lng, radiusKm, limit, userOrigi
         maps_url: mapsUrl({ ...location, place_id: p.id }),
       };
     })
+    // Chỉ giữ quán chay; quán không chay từ nguồn ngoài bị loại trước khi lưu và trả về.
     .filter(isVegetarianPlace);
   // Tự động lưu cache các quán ZIOMAP vào PostgreSQL khi không phải môi trường test
   if (process.env.NODE_ENV !== 'test') {
     try {
       const saved = await placeRepository.saveExternalPlaces(places);
+      // Gắn restaurant_id vừa lưu để client mở được trang chi tiết quán trong hệ thống.
       const savedMap = new Map(saved.map((r) => [r.place_id, r.restaurant_id]));
       for (const place of places) {
         if (place.place_id && savedMap.has(place.place_id)) {
@@ -298,6 +322,7 @@ export function mergePlaces(local, ziomap) {
     const duplicate =
       seen.has(place.place_id) ||
       local.some(
+        // Cùng tên (không dấu) và cách nhau dưới 100 m được coi là cùng một quán.
         (l) => normalize(l.name) === normalize(place.name) && distanceMeters(l, place) < 100
       );
     if (!duplicate) merged.push(place);
@@ -305,6 +330,7 @@ export function mergePlaces(local, ziomap) {
   return merged.sort(byDistance);
 }
 
+// Xóa cache ZIOMAP (dùng trong test hoặc khi admin cần làm mới).
 export function clearZiomapCache() {
   ziomapCache.clear();
 }

@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\tests/ingredient-images.integration.mjs
+// Script tích hợp (chạy bằng node, cần DB test): xác minh mọi ảnh nguyên liệu trong DB được phục vụ
+// đúng byte qua API công khai và catalog chỉ chứa URL ảnh, không nhúng dữ liệu nhị phân.
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -6,11 +8,13 @@ import request from 'supertest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 
+// Băm SHA-256 để so sánh byte ảnh trả qua API với dữ liệu gốc trong DB.
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 try {
   const response = await request(app).get('/api/workspace/catalog');
   assert.equal(response.status, 200);
   const rows = await prisma.$queryRaw`SELECT ingredient_id, mime_type, image_data FROM ingredient_images`;
+  // Số lượng ảnh cố định theo dữ liệu seed nguyên liệu.
   assert.equal(rows.length, 28);
   for (const image of rows) {
     const ingredient = response.body.data.ingredients.find(item => item.ingredient_id === image.ingredient_id);

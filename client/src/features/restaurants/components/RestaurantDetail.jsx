@@ -1,4 +1,5 @@
 // client/src/features/restaurants/components/RestaurantDetail.jsx
+// Dialog chi tiết quán chay: ảnh, thông tin chung, địa chỉ/chỉ đường, thực đơn, đánh giá cộng đồng và form gửi đánh giá.
 import { useState } from 'react';
 import ContentDialog from '../../../components/common/ContentDialog.jsx';
 import RestaurantImage from './RestaurantImage.jsx';
@@ -6,16 +7,20 @@ import { restaurantTypes } from '../../../constants/restaurantLabels.js';
 import { restaurantDirections } from '../../../utils/restaurantDirections.js';
 import { resolveRestaurantPhoto } from '../utils/nearbyHelpers.js';
 
+// Định dạng số tiền theo kiểu Việt Nam (ví dụ 45.000đ).
 const money = (value) => `${Number(value).toLocaleString('vi-VN')}đ`;
 
+// Component chi tiết quán; onReview gửi đánh giá lên server, onClose đóng dialog.
 export default function RestaurantDetail({ place, user, onReview, onClose }) {
   const [stars, setStars] = useState(5);
   const [text, setText] = useState('');
   const [notice, setNotice] = useState('');
+  // Bảo vệ khi API không trả mảng reviews/menu để tránh lỗi khi map.
   const allReviews = Array.isArray(place.reviews) ? place.reviews : [];
   const menu = Array.isArray(place.menu) ? place.menu : [];
   const priceRange = place.price_range || place.priceRange || 'Theo thời giá';
 
+  // Sao chép địa chỉ vào clipboard; trình duyệt có thể chặn quyền clipboard nên có thông báo dự phòng.
   async function copyAddress() {
     try {
       await navigator.clipboard.writeText(place.address);
@@ -25,6 +30,7 @@ export default function RestaurantDetail({ place, user, onReview, onClose }) {
     }
   }
 
+  // Gửi đánh giá sao + nội dung; chặn nội dung rỗng ngay trên client.
   async function submitReview(event) {
     event.preventDefault();
     if (!text.trim()) {

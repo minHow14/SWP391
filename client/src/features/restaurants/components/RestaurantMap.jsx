@@ -1,8 +1,10 @@
 // client/src/features/restaurants/components/RestaurantMap.jsx
+// Bản đồ Leaflet hiển thị các quán chay, vị trí người dùng và vòng tròn bán kính tìm kiếm.
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { hasCoordinates } from '../../../utils/restaurantDirections.js';
 
+// Danh sách nguồn tile bản đồ; nguồn đầu lỗi thì tự chuyển sang nguồn kế tiếp.
 const layers = [
   {
     url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png',
@@ -18,6 +20,7 @@ const layers = [
   },
 ];
 
+// Component bản đồ; onSelect được gọi khi người dùng chọn một quán trên bản đồ.
 export default function RestaurantMap({
   places,
   selected,
@@ -28,6 +31,7 @@ export default function RestaurantMap({
 }) {
   const container = useRef(null);
   const instance = useRef(null);
+  // Giữ onSelect mới nhất trong ref để các handler marker (tạo một lần) luôn gọi đúng callback hiện tại.
   const select = useRef(onSelect);
   const retryTiles = useRef(null);
   const [unavailable, setUnavailable] = useState(false);
@@ -36,6 +40,7 @@ export default function RestaurantMap({
     select.current = onSelect;
   }, [onSelect]);
 
+  // Khởi tạo bản đồ một lần duy nhất; mặc định căn giữa trung tâm TP.HCM khi chưa có vị trí người dùng.
   useEffect(() => {
     const initialLat = hasCoordinates(userLocation)
       ? userLocation.latitude ?? userLocation.lat
@@ -54,6 +59,7 @@ export default function RestaurantMap({
     let provider = 0;
     let disposed = false;
 
+    // Tải lớp tile theo chỉ số nguồn; theo dõi lỗi để chuyển nguồn dự phòng.
     function loadTiles(index) {
       clearTimeout(timer);
       if (layer) map.removeLayer(layer);
@@ -76,6 +82,7 @@ export default function RestaurantMap({
         clearTimeout(timer);
         setUnavailable(false);
       });
+      // Cho phép vài tile lỗi lẻ tẻ; chỉ chuyển nguồn khi lỗi liên tiếp từ 3 tile trở lên.
       layer.on('tileerror', () => {
         if (!disposed && layer === current && ++failures >= 3) fallback();
       });
@@ -83,6 +90,7 @@ export default function RestaurantMap({
         loaded = false;
         failures = 0;
         clearTimeout(timer);
+        // Quá 10 giây chưa tải được tile nào thì coi như nguồn hiện tại không dùng được.
         timer = setTimeout(() => {
           if (!loaded) fallback();
         }, 10000);
@@ -95,6 +103,7 @@ export default function RestaurantMap({
       loadTiles(0);
     };
     loadTiles(0);
+    // Bản đồ Leaflet cần invalidateSize khi khung chứa đổi kích thước, nếu không tile sẽ bị lệch/thiếu.
     const observer = new ResizeObserver(() => map.invalidateSize());
     observer.observe(container.current);
     return () => {
@@ -107,6 +116,7 @@ export default function RestaurantMap({
     };
   }, []);
 
+  // Vẽ lại toàn bộ lớp marker mỗi khi danh sách quán, quán đang chọn, vị trí người dùng hoặc vùng tìm kiếm thay đổi.
   useEffect(() => {
     if (!instance.current) return;
     const group = L.layerGroup().addTo(instance.current);
@@ -193,6 +203,7 @@ export default function RestaurantMap({
     }
 
     return () => group.remove();
+  // Phụ thuộc vào từng tọa độ thay vì cả object để tránh vẽ lại khi object mới nhưng cùng giá trị.
   }, [
     places,
     selected?.id,
@@ -207,6 +218,7 @@ export default function RestaurantMap({
     searchRadius,
   ]);
 
+  // Phóng to và căn giữa vào quán đang được chọn.
   useEffect(() => {
     if (hasCoordinates(selected) && instance.current) {
       instance.current.setView(

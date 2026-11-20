@@ -1,4 +1,6 @@
 ﻿// client/src/utils/recipeFilters.js
+// Lọc và tìm kiếm công thức theo từ khóa, danh mục và chế độ ăn.
+// Chuẩn hóa chuỗi tìm kiếm: chữ thường, bỏ dấu tiếng Việt.
 export function normalizeSearch(value) {
   return value
     .toLowerCase()
@@ -7,6 +9,7 @@ export function normalizeSearch(value) {
     .replace(/đ/g, 'd');
 }
 
+// Lọc công thức theo danh mục, độ phù hợp với chế độ ăn (khi matchDiet bật) và từ khóa trong tên/nguyên liệu.
 export function filterRecipes(
   recipes,
   { query = '', category_id = null, matchDiet = false, diet_type_id }

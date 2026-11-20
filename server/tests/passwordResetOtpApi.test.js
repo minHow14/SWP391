@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/passwordResetOtpApi.test.js
+// Kiểm thử tích hợp (cần DB test) khôi phục mật khẩu bằng OTP qua email: lưu băm OTP, giới hạn số lần thử,
+// cooldown gửi lại, xử lý đồng thời và tính nguyên tử.
 import { createHash, randomUUID } from 'node:crypto';
 import express from 'express';
 import request from 'supertest';
@@ -9,12 +11,14 @@ import passwordResetRoutes from '../src/routes/passwordResetRoutes.js';
 import { globalErrorHandler } from '../src/middlewares/errorMiddleware.js';
 import { comparePassword, hashPassword } from '../src/utils/jwt.js';
 
+// Mock nodemailer và dựng app Express tối giản chỉ gồm route khôi phục mật khẩu cùng error handler chung.
 vi.mock('nodemailer', () => ({ default: { createTransport: vi.fn() } }));
 const transport = { verify: vi.fn(), sendMail: vi.fn() };
 const app = express();
 app.use(express.json());
 app.use('/auth', passwordResetRoutes);
 app.use(globalErrorHandler);
+// Hàm gọi API quên mật khẩu / xác minh OTP / đặt lại; `mailedOtp` đọc mã OTP từ mail cuối cùng đã gửi.
 const forgot = (email) => request(app).post('/auth/forgot-password').send({ email });
 const verify = (email, otp) => request(app).post('/auth/verify-password-reset-otp').send({ email, otp });
 const reset = (token) => request(app).post('/auth/reset-password').send({ token, newPassword: 'Changed-with-OTP-93' });
@@ -23,12 +27,14 @@ const mailedOtp = () => /Mã xác minh:\s*(\d{6})/.exec(transport.sendMail.mock.
 let user;
 let originalHash;
 
+// Tạo user test với mật khẩu gốc đã băm.
 beforeAll(async () => {
   originalHash = await hashPassword('Original-OTP-password-42');
   user = await prisma.user.create({ data: {
     email: `otp-${randomUUID()}@example.invalid`, full_name: 'OTP recovery integration', password_hash: originalHash,
   } });
 });
+// Trước mỗi test: cấu hình SMTP giả, xóa OTP/token cũ và khôi phục trạng thái user ban đầu.
 beforeEach(async () => {
   vi.clearAllMocks();
   vi.stubEnv('SMTP_HOST', 'smtp.provider.invalid');
@@ -44,13 +50,17 @@ beforeEach(async () => {
     status: 'ACTIVE', deleted_at: null, tokenVersion: 0, password_hash: originalHash,
   } });
 });
+// Gỡ biến môi trường đã stub; xóa user và đóng DB khi xong.
 afterEach(() => vi.unstubAllEnvs());
 afterAll(async () => {
   if (user) await prisma.user.delete({ where: { user_id: user.user_id } });
   await prisma.$disconnect();
 });
 
+// Nhóm test: khôi phục mật khẩu bằng OTP email.
 describe('email OTP password recovery', () => {
+  // Gửi OTP 6 số trong mail HTML và text; phản hồi giống nhau cho email có/không tồn tại, không chứa OTP hay link;
+  // OTP được lưu dạng băm có khóa (không phải SHA-256 thuần), hết hạn sau 5 phút.
   it('emails six digits in HTML and text, without putting the OTP or a recovery link in the response', async () => {
     const known = await forgot(user.email.toUpperCase());
     const unknown = await forgot(`unknown-${randomUUID()}@example.invalid`);
@@ -72,6 +82,7 @@ describe('email OTP password recovery', () => {
     expect(await prisma.passwordResetToken.count({ where: { userId: user.user_id } })).toBe(0);
     expect(known.headers['cache-control']).toBe('no-store');
   });
+  // OTP chỉ xác minh được một lần để đổi lấy quyền đặt lại; đặt lại thành công thu hồi phiên cũ và token không dùng lại được.
   it('verifies the OTP once, then resets the password and revokes the old sessions', async () => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -90,6 +101,7 @@ describe('email OTP password recovery', () => {
     expect(await comparePassword('Changed-with-OTP-93', updated.password_hash)).toBe(true);
     expect(checked.headers['cache-control']).toBe('no-store');
   });
+  // Ghi nhận 5 lần đoán sai và chặn cả OTP đúng sau lần sai thứ 5 (chống brute force).
   it('persists five failed guesses and blocks the correct OTP after the fifth failure', async () => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -103,6 +115,7 @@ describe('email OTP password recovery', () => {
     expect((await verify(user.email, otp)).status).toBe(400);
     expect(await prisma.passwordResetToken.count({ where: { userId: user.user_id } })).toBe(0);
   });
+  // Trong thời gian cooldown phản hồi vẫn chung chung; hai yêu cầu đồng thời chỉ gửi một mail.
   it('keeps cooldown responses generic and sends only one email for concurrent requests', async () => {
     const results = await Promise.all([forgot(user.email), forgot(user.email)]);
     const repeated = await forgot(user.email);
@@ -113,6 +126,7 @@ describe('email OTP password recovery', () => {
     expect(transport.sendMail).toHaveBeenCalledOnce();
     expect(await prisma.passwordResetOtp.count({ where: { userId: user.user_id } })).toBe(1);
   });
+  // Gửi lại sau 60 giây đặt lại số lần thử và vô hiệu OTP cũ cùng quyền đặt lại đã cấp.
   it('resending after sixty seconds resets attempts and invalidates the old OTP and reset permissions', async () => {
     await forgot(user.email);
     const oldOtp = mailedOtp();
@@ -125,6 +139,7 @@ describe('email OTP password recovery', () => {
     if (newOtp !== oldOtp) expect((await verify(user.email, oldOtp)).status).toBe(400);
     expect((await verify(user.email, newOtp)).status).toBe(200);
   });
+  // OTP hết hạn, đã dùng, tài khoản khóa/xóa hoặc tokenVersion cũ đều bị từ chối giống như email không tồn tại.
   it.each(['expired', 'locked', 'deleted', 'old password version', 'consumed'])('rejects an %s challenge without issuing reset permission', async (state) => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -139,6 +154,7 @@ describe('email OTP password recovery', () => {
     expect(result.body).toEqual(unknown.body);
     expect(await prisma.passwordResetToken.count({ where: { userId: user.user_id } })).toBe(0);
   });
+  // Hai yêu cầu xác minh đồng thời chỉ một yêu cầu được cấp quyền đặt lại.
   it('allows exactly one of two concurrent verifications to issue a reset permission', async () => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -146,6 +162,7 @@ describe('email OTP password recovery', () => {
     expect(results.map((result) => result.status).sort()).toEqual([200, 400]);
     expect(await prisma.passwordResetToken.count({ where: { userId: user.user_id } })).toBe(1);
   });
+  // 5 lần đoán sai đồng thời không bị mất lượt đếm (cập nhật nguyên tử).
   it('never loses increments when five incorrect verifications arrive concurrently', async () => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -155,6 +172,7 @@ describe('email OTP password recovery', () => {
     expect((await prisma.passwordResetOtp.findUnique({ where: { userId: user.user_id } })).attempts).toBe(5);
     expect((await verify(user.email, otp)).status).toBe(400);
   });
+  // Mã gửi thất bại trở nên vô dụng, phản hồi vẫn chung chung và cooldown gửi lại vẫn áp dụng.
   it('makes an undelivered code unusable while preserving the generic request response and resend cooldown', async () => {
     transport.sendMail.mockRejectedValueOnce(new Error('private SMTP response'));
     const result = await forgot(user.email);
@@ -164,6 +182,7 @@ describe('email OTP password recovery', () => {
     await forgot(user.email);
     expect(transport.sendMail).toHaveBeenCalledOnce();
   });
+  // Tạo quyền đặt lại thất bại thì rollback việc đánh dấu OTP đã dùng, người dùng có thể xác minh lại.
   it('rolls back OTP consumption if creating reset permission fails', async () => {
     await forgot(user.email);
     const otp = mailedOtp();
@@ -175,6 +194,7 @@ describe('email OTP password recovery', () => {
     } finally { failure.mockRestore(); }
     expect((await verify(user.email, otp)).status).toBe(200);
   });
+  // OTP sai định dạng bị từ chối mà không làm tăng số lần thử.
   it.each(['', '12345', '1234567', 'abcdef', 123456])('rejects malformed OTP %s before changing challenge state', async (otp) => {
     await forgot(user.email);
     expect((await verify(user.email, otp)).status).toBe(400);

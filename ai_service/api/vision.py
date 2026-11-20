@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/api/vision.py
+# Router nhận diện nguyên liệu và đánh giá độ tươi qua ảnh tải lên (multipart).
 import logging
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
@@ -10,10 +11,12 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Vision"])
 
+# Định dạng và dung lượng ảnh tối đa được chấp nhận.
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
 MAX_IMAGE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
+# POST /api/vision/recognize-ingredients: kiểm tra định dạng, dung lượng ảnh rồi gọi agent thị giác.
 @router.post(
     "/vision/recognize-ingredients",
     response_model=VisionRecognitionResponse,
@@ -68,6 +71,7 @@ async def recognize_ingredients(
             message="Nhận diện nguyên liệu và đánh giá độ tươi thành công.",
             data=data,
         )
+    # Lỗi từ model thị giác được chuyển thành 503 để Backend có thể thử lại sau.
     except Exception as exc:
         logger.error("Error recognizing ingredients from image filename=%s: %s", image.filename, exc, exc_info=True)
         raise HTTPException(

@@ -39,10 +39,12 @@
 .cx-mp-macros { color: #475569; }
 .cx-mp-total { font-weight: 700; color: #166534; }
 .cx-mp-checklist { list-style: none; padding: 0; columns: 2; font-size: 13px; }
+/* Màn hình nhỏ: form 2 cột, danh sách cần mua 1 cột. */
 @media (max-width: 640px) {
   .cx-mp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .cx-mp-checklist { columns: 1; }
 }
+/* Khối xác nhận áp dụng thực đơn vào nhật ký. */
 .cx-mp-apply { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; width: 100%; margin: 0; padding: 12px 14px; border-radius: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; }
 .cx-mp-apply p { flex: 1 1 100%; margin: 0; font-size: 13px; }
 .cx-mp-apply-done { color: #14532d; }

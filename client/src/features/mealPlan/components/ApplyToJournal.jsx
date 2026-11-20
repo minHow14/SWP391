@@ -1,9 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/mealPlan/components/ApplyToJournal.jsx
+// Nút và hộp xác nhận áp dụng thực đơn AI vào kế hoạch tuần hiện tại của Nhật ký.
 import { Link } from 'react-router';
 import { useApplyMealPlan } from '../hooks/useApplyMealPlan.js';
 
+// Định dạng ngày YYYY-MM-DD thành dd/MM.
 const formatDay = (day) => day.slice(8) + '/' + day.slice(5, 7);
 
+// Component áp dụng; hiển thị theo trạng thái: chưa bấm, chờ xác nhận/đang lưu/lỗi, hoặc đã xong.
 export default function ApplyToJournal({ generationId, onOpenJournal }) {
   const apply = useApplyMealPlan(generationId);
   const week = `${formatDay(apply.weekStart)} – ${formatDay(apply.weekEnd)}`;

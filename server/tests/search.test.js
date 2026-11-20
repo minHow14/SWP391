@@ -1,18 +1,22 @@
 // d:\Projects\FPT\SWP391\server\tests\search.test.js
+// Kiểm thử API tìm kiếm toàn cục cho video và blog (cần DB test có dữ liệu seed).
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import app from '../src/app.js';
 import { generateToken } from '../src/utils/jwt.js';
 
+// Nhóm test: API tìm kiếm video và blog.
 describe('Search API for Video and Blogs', () => {
   const authorToken = generateToken({ user_id: 1, role: 2 });
 
+  // Thiếu tham số q phải trả 400.
   it('rejects search request without query parameter q with 400', async () => {
     const res = await request(app).get('/api/v1/search');
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
   });
 
+  // Khách chưa đăng nhập vẫn được tìm kiếm; kết quả có blogs, videos và meta phân trang.
   it('allows guest (unauthenticated) users to search', async () => {
     const res = await request(app).get('/api/v1/search').query({ q: 'chay' });
     expect(res.status).toBe(200);
@@ -25,6 +29,7 @@ describe('Search API for Video and Blogs', () => {
     expect(res.body.meta.page).toBe(1);
   });
 
+  // Lọc type=BLOG chỉ trả blog.
   it('filters results by type=BLOG', async () => {
     const res = await request(app).get('/api/v1/search').query({ q: 'chay', type: 'BLOG' });
     expect(res.status).toBe(200);
@@ -34,6 +39,7 @@ describe('Search API for Video and Blogs', () => {
     expect(res.body.data.results.videos).toHaveLength(0);
   });
 
+  // Lọc type=VIDEO chỉ trả video.
   it('filters results by type=VIDEO', async () => {
     const res = await request(app).get('/api/v1/search').query({ q: 'chay', type: 'VIDEO' });
     expect(res.status).toBe(200);
@@ -43,10 +49,11 @@ describe('Search API for Video and Blogs', () => {
     expect(Array.isArray(res.body.data.results.videos)).toBe(true);
   });
 
+  // Blog và video vừa tạo với từ khóa duy nhất phải tìm thấy được qua API tìm kiếm.
   it('finds created blog and video via search endpoint', async () => {
     const uniqueKeyword = `SearchTag_${Date.now()}`;
 
-    // Create a blog with the unique keyword
+    // Tạo blog chứa từ khóa duy nhất
     const blogRes = await request(app)
       .post('/api/v1/blogs')
       .set('Authorization', `Bearer ${authorToken}`)
@@ -58,7 +65,7 @@ describe('Search API for Video and Blogs', () => {
     expect(blogRes.status).toBe(201);
     const blogPostId = blogRes.body.data.blog.post_id;
 
-    // Create a video with the unique keyword
+    // Tạo video chứa từ khóa duy nhất
     const videoRes = await request(app)
       .post('/api/v1/videos')
       .set('Authorization', `Bearer ${authorToken}`)
@@ -71,7 +78,7 @@ describe('Search API for Video and Blogs', () => {
     expect(videoRes.status).toBe(201);
     const videoPostId = videoRes.body.data.video.post_id;
 
-    // Search globally with the unique keyword
+    // Tìm kiếm toàn cục với từ khóa duy nhất
     const searchRes = await request(app)
       .get('/api/v1/search')
       .query({ q: uniqueKeyword });
@@ -87,7 +94,7 @@ describe('Search API for Video and Blogs', () => {
     expect(foundVideo).toBeDefined();
     expect(foundVideo.title).toContain(uniqueKeyword);
 
-    // Clean up
+    // Dọn dẹp dữ liệu vừa tạo
     await request(app).delete(`/api/v1/blogs/${blogPostId}`).set('Authorization', `Bearer ${authorToken}`);
     await request(app).delete(`/api/v1/videos/${videoPostId}`).set('Authorization', `Bearer ${authorToken}`);
   });

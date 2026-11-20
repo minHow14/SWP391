@@ -1,11 +1,14 @@
 // d:\Projects\FPT\SWP391\server\src/repositories/guestQuotaRepository.js
+// Repository quản lý hạn mức lượt dùng AI theo ngày của khách (guest), xử lý an toàn khi có request đồng thời.
 import prisma from '../config/prisma.js';
 
 export const guestQuotaRepository = {
+  // Chạy thao tác trong transaction.
   runTransaction(operation, db = prisma) {
     return db.$transaction(operation);
   },
 
+  // Lấy số lượt khách đã dùng trong ngày hạn mức.
   findUsage({ guestId, quotaDate }, db = prisma) {
     return db.guestQuota.findUnique({
       where: { guestId_quotaDate: { guestId, quotaDate } },
@@ -13,6 +16,7 @@ export const guestQuotaRepository = {
     });
   },
 
+  // Giữ một lượt AI; trả về null khi đã chạm hạn mức (câu UPDATE không khớp điều kiện WHERE nên không trả dòng nào).
   async reserveTurn({ guestId, quotaDate, dailyLimit }, db = prisma) {
     // Kiểm tra và tăng lượt trong cùng câu lệnh để các request đồng thời không vượt hạn mức.
     const rows = await db.$queryRaw`
@@ -27,6 +31,7 @@ export const guestQuotaRepository = {
     return rows[0] ?? null;
   },
 
+  // Hoàn lại lượt khi gọi AI thất bại; chỉ hoàn khi reservationRevision còn khớp để không hoàn nhầm sau khi admin đã reset.
   releaseTurn({ guestId, quotaDate, reservationRevision }, db = prisma) {
     return db.guestQuota.updateMany({
       where: { guestId, quotaDate, reservationRevision, usedCount: { gt: 0 } },
@@ -34,6 +39,7 @@ export const guestQuotaRepository = {
     });
   },
 
+  // Reset số lượt về 0 và tăng reservation_revision (vô hiệu các lượt đang giữ); trả về số lượt trước khi reset để ghi log.
   async resetUsage({ guestId, quotaDate }, db = prisma) {
     const rows = await db.$queryRaw`
       WITH previous AS (

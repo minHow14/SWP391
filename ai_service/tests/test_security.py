@@ -1,5 +1,7 @@
 # D:/SWP391/SWP391/ai_service/tests/test_security.py
 # ai_service/tests/test_security.py
+# Kiểm thử lớp bảo mật của AI Service: xác thực khoá nội bộ, phân giải định danh người dùng/khách
+# do Back-end chuyển tiếp và đảm bảo thông tin xác thực của người dùng không thay thế được khoá nội bộ.
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -11,11 +13,13 @@ from main import app
 client = TestClient(app)
 
 
+# Khoá đúng -> xác thực thành công.
 def test_verify_internal_api_key_success():
     """Header X-Internal-Api-Key khớp với biến môi trường -> Xác thực thành công."""
     assert verify_internal_api_key(settings.INTERNAL_API_KEY) is True
 
 
+# Thiếu khoá -> 401 UNAUTHORIZED_INTERNAL.
 def test_verify_internal_api_key_missing_raises_401():
     """Thiếu header X-Internal-Api-Key -> Bị từ chối với HTTP 401."""
     with pytest.raises(HTTPException) as exc_info:
@@ -24,6 +28,7 @@ def test_verify_internal_api_key_missing_raises_401():
     assert exc_info.value.detail["code"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Sai khoá -> 401 UNAUTHORIZED_INTERNAL.
 def test_verify_internal_api_key_invalid_raises_401():
     """Header X-Internal-Api-Key sai giá trị -> Bị từ chối với HTTP 401."""
     with pytest.raises(HTTPException) as exc_info:
@@ -32,6 +37,8 @@ def test_verify_internal_api_key_invalid_raises_401():
     assert exc_info.value.detail["code"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Header sai định dạng (ngoài ASCII, xuống dòng, quá dài) -> 401 và không ghi khoá nhận được
+# hay khoá thật vào log.
 @pytest.mark.parametrize("key", ["A" * 32 + "é", "A" * 32 + "đ", "A" * 32 + "\n", "A" * 257])
 def test_malformed_header_returns_401_without_secret_in_logs(key, caplog):
     with pytest.raises(HTTPException) as caught:
@@ -41,6 +48,7 @@ def test_malformed_header_returns_401_without_secret_in_logs(key, caplog):
     assert settings.INTERNAL_API_KEY not in caplog.text
 
 
+# Header chứa byte ngoài ASCII phải trả 401 thay vì gây lỗi 500 khi giải mã.
 def test_non_ascii_http_header_is_rejected_without_a_server_error():
     response = client.post("/api/chat", json={"message": "Kiểm tra định dạng khóa"}, headers={
         b"X-Internal-Api-Key": b"A" * 32 + b"\xe9",
@@ -49,6 +57,7 @@ def test_non_ascii_http_header_is_rejected_without_a_server_error():
     assert response.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Endpoint /api/* thiếu khoá -> 401 theo envelope chuẩn.
 def test_api_endpoint_rejects_missing_internal_key():
     """Mọi endpoint nghiệp vụ /api/* từ chối nếu không có header X-Internal-Api-Key."""
     res = client.post("/api/chat", json={"message": "Xin chào"})
@@ -58,6 +67,7 @@ def test_api_endpoint_rejects_missing_internal_key():
     assert body["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Endpoint /api/* có khoá hợp lệ -> được xử lý bình thường.
 def test_api_endpoint_accepts_valid_internal_key(monkeypatch):
     """Có header X-Internal-Api-Key hợp lệ -> Được phép đi tiếp."""
     from unittest.mock import AsyncMock, patch
@@ -73,6 +83,7 @@ def test_api_endpoint_accepts_valid_internal_key(monkeypatch):
         assert res.json()["success"] is True
 
 
+# Có X-User-Id -> người dùng đã đăng nhập; AI Service không giữ vai trò/phân quyền (việc của Back-end).
 def test_resolve_identity_authenticated_user():
     """Chỉ dùng định danh từ BE, không giữ vai trò hay phân quyền trong AI."""
     identity = resolve_identity(
@@ -86,6 +97,7 @@ def test_resolve_identity_authenticated_user():
     assert "user_role" not in RequestIdentity.model_fields
 
 
+# Chỉ có X-Guest-Id -> khách vãng lai chưa đăng nhập.
 def test_resolve_identity_guest_user():
     """Khi không có X-User-Id nhưng có X-Guest-Id -> Phân giải thành khách vãng lai."""
     identity = resolve_identity(
@@ -98,6 +110,8 @@ def test_resolve_identity_guest_user():
     assert identity.guest_id == "guest_xyz"
 
 
+# JWT, X-User-Id hay X-User-Role (kể cả ADMIN) không thể thay khoá nội bộ ở bất kỳ endpoint nào;
+# chỉ khoá nội bộ hợp lệ mới mở được quyền truy cập.
 @pytest.mark.parametrize("internal_key", [None, "untrusted-client-key"])
 @pytest.mark.parametrize(("method", "path", "payload"), [
     ("GET", "/", None),
@@ -116,6 +130,7 @@ def test_user_credentials_cannot_replace_internal_authentication(internal_key, m
     assert response.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Thao tác xoá cache chỉ cần khoá nội bộ, bỏ qua JWT/vai trò người dùng gửi kèm.
 def test_internal_cache_action_does_not_require_user_role_or_jwt():
     from unittest.mock import patch
 
@@ -128,6 +143,7 @@ def test_internal_cache_action_does_not_require_user_role_or_jwt():
     clear.assert_called_once()
 
 
+# Tài liệu OpenAPI chỉ khai báo X-Internal-Api-Key, không có X-User-Role hay Authorization.
 def test_openapi_identity_contract_has_no_user_role_or_jwt():
     operation = app.openapi()["paths"]["/api/chat"]["post"]
     names = {parameter["name"].lower() for parameter in operation.get("parameters", [])}

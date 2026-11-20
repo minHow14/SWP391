@@ -1,6 +1,15 @@
 // client/src/features/admin/components/AdminCommentDeleteModal.jsx
+// Modal xác nhận ẩn (có thể khôi phục) hoặc xóa vĩnh viễn một bình luận.
 import { Modal, Button } from 'react-bootstrap';
 
+/**
+ * Hộp thoại xác nhận thao tác trên bình luận.
+ * @param {object} props
+ * @param {{ comment: object, permanent: boolean }|null} props.confirmDelete Bình luận đang chờ xác nhận
+ *   và cờ `permanent` (true = xóa vĩnh viễn, false = chỉ ẩn); null thì không render.
+ * @param {Function} props.onHide Đóng modal.
+ * @param {Function} props.onConfirm Thực hiện thao tác đã chọn.
+ */
 export default function AdminCommentDeleteModal({ confirmDelete, onHide, onConfirm }) {
   if (!confirmDelete) return null;
 

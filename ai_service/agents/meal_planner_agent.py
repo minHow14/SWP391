@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/agents/meal_planner_agent.py
+# Agent lập thực đơn chay cá nhân hóa: server tự tính chỉ tiêu dinh dưỡng, LLM chỉ chọn món,
+# mọi thực đơn sinh ra đều được hậu kiểm (dị ứng, chế độ ăn, calo, protein) và sinh lại kèm góp ý nếu chưa đạt.
 import logging
 from collections.abc import Awaitable, Callable
 from pathlib import Path
@@ -26,12 +28,14 @@ PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "meal_planner
 CALORIE_TOLERANCE = 0.10   # tổng calo mỗi ngày được lệch tối đa 10% so với mục tiêu
 PROTEIN_MIN_RATIO = 0.8    # protein trung bình mỗi ngày tối thiểu 80% mục tiêu
 PANTRY_MIN_USED_RATIO = 0.5  # cần dùng ít nhất một nửa số nguyên liệu người dùng đã có sẵn
+# Số lần gọi LLM tối đa; giới hạn để cân bằng giữa chất lượng và thời gian chờ/chi phí.
 MAX_ATTEMPTS = 3
 
 # Callback báo tiến độ: nhận một dict {stage, message, ...}
 ProgressCallback = Callable[[dict], Awaitable[None]]
 
 
+# Một món ăn trong thực đơn kèm nguyên liệu và các chỉ số dinh dưỡng ước tính.
 class MealItem(CamelModel):
     name: str = Field(..., description="Tên món ăn (tiếng Việt)")
     ingredients: list[str] = Field(..., description="Danh sách nguyên liệu chính kèm khối lượng ước lượng")
@@ -43,6 +47,7 @@ class MealItem(CamelModel):
     fat_g: float = Field(..., description="Lượng chất béo fat (g)")
 
 
+# Thực đơn của một ngày: ba bữa chính, bữa phụ tùy chọn và tổng dinh dưỡng do LLM điền.
 class DailyMealPlan(CamelModel):
     day: str = Field(..., description="Thứ trong tuần, ví dụ: Thứ Hai, Thứ Ba...")
     day_number: int = Field(..., description="Số thứ tự ngày (1-7)")
@@ -56,6 +61,7 @@ class DailyMealPlan(CamelModel):
     daily_fat_g: float = Field(..., description="Tổng chất béo fat (g)")
 
 
+# Tóm tắt hồ sơ người dùng hiển thị kèm thực đơn (các chỉ số sẽ bị server ghi đè trong _finalize).
 class MealPlanProfile(CamelModel):
     bmi: float
     bmi_category: str
@@ -65,6 +71,7 @@ class MealPlanProfile(CamelModel):
     used_available_ingredients: list[str]
 
 
+# Toàn bộ thực đơn LLM phải trả về; cũng là schema đầu ra có cấu trúc gửi cho LLM.
 class GeneratedMealPlan(CamelModel):
     title: str = Field(..., description="Tiêu đề thực đơn tuần")
     summary: str = Field(..., description="Tóm tắt định hướng dinh dưỡng và lý do thiết kế thực đơn")
@@ -74,6 +81,7 @@ class GeneratedMealPlan(CamelModel):
     nutritionist_tips: list[str] = Field(..., description="Lời khuyên dinh dưỡng, uống nước, bổ sung vi chất (B12, Sắt, Canxi)")
 
 
+# Liệt kê các bữa trong ngày kèm nhãn tiếng Việt, chỉ thêm bữa phụ khi có.
 def _day_meals(day: DailyMealPlan) -> list[tuple[str, MealItem]]:
     meals = [("Bữa sáng", day.breakfast), ("Bữa trưa", day.lunch), ("Bữa tối", day.dinner)]
     if day.snacks:
@@ -81,6 +89,7 @@ def _day_meals(day: DailyMealPlan) -> list[tuple[str, MealItem]]:
     return meals
 
 
+# Keto: từ chối ngày thiếu dữ liệu chất xơ, chất xơ vô lý hoặc carb thuần vượt ngưỡng (tính cả bữa phụ).
 def _keto_day_errors(day: DailyMealPlan) -> list[str]:
     """Reject unverified or excessive daily net carbs, including snacks."""
     meals = [meal for _, meal in _day_meals(day)]
@@ -94,6 +103,7 @@ def _keto_day_errors(day: DailyMealPlan) -> list[str]:
     return []
 
 
+# Hậu kiểm thực đơn, phân loại lỗi thành nghiêm trọng (phải sinh lại) và nhẹ (có thể chấp nhận).
 def validate_plan(
     plan: GeneratedMealPlan,
     targets: NutritionTargets,
@@ -145,6 +155,7 @@ def validate_plan(
 
     if available_ingredients:
         used = find_used_ingredients(available_ingredients, meals_for_allergy)
+        # Yêu cầu tận dụng ít nhất một nửa nguyên liệu sẵn có (tối thiểu 1).
         needed = max(1, round(len(available_ingredients) * PANTRY_MIN_USED_RATIO))
         if len(used) < needed:
             soft.append(
@@ -154,15 +165,19 @@ def validate_plan(
     return hard, soft
 
 
+# Agent sinh thực đơn chay có cấu trúc bằng AI tạo sinh. Chỉ tiêu calo và protein được tính tại đây
+# (BMR/TDEE), LLM chỉ chọn món, và mọi thực đơn đều được kiểm tra trước khi trả về.
 class MealPlannerAgent:
     """
     Agent responsible for generating structured vegetarian meal plans using Generative AI.
     Calorie and protein targets are calculated here (BMR/TDEE), the LLM only picks the dishes,
     and every generated plan is validated before it is returned.
     """
+    # Prompt mẫu được nạp lười ở lần dùng đầu.
     def __init__(self):
         self._prompt_template: str | None = None
 
+    # Nạp system prompt từ file (hoặc câu mặc định nếu thiếu file) và cache lại.
     def load_prompt(self) -> str:
         if self._prompt_template is None:
             if PROMPT_FILE.exists():
@@ -173,12 +188,15 @@ class MealPlannerAgent:
                 )
         return self._prompt_template
 
+    # Tính BMI kèm phân loại.
     @staticmethod
     def calculate_bmi_info(height_cm: float, weight_kg: float) -> tuple[float, str]:
         """Tính BMI và phân loại theo chuẩn châu Á - Thái Bình Dương."""
         bmi = calculate_bmi(height_cm, weight_kg)
         return bmi, bmi_category(bmi)
 
+    # Dựng prompt người dùng: hồ sơ, quy tắc chế độ ăn, dị ứng, nguyên liệu sẵn có và chỉ tiêu đã tính sẵn
+    # để LLM không tự ước lượng lại calo/protein.
     @staticmethod
     def _build_user_prompt(
         targets: NutritionTargets,
@@ -228,6 +246,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
 - nutritionistTips: các mẹo hữu ích cho chế độ ăn này
 """
 
+    # Chuẩn hóa thực đơn cuối cùng trước khi trả về.
     @staticmethod
     def _finalize(
         plan: GeneratedMealPlan,
@@ -246,6 +265,8 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         plan.profile_summary.used_available_ingredients = find_used_ingredients(available_ingredients, meals)
         return plan
 
+    # Sinh thực đơn: tính chỉ tiêu, gọi LLM, hậu kiểm và lặp lại tối đa MAX_ATTEMPTS lần kèm góp ý.
+    # on_progress (tùy chọn) nhận các sự kiện tiến độ để router phát qua SSE.
     async def generate_plan(
         self,
         height_cm: float,
@@ -261,6 +282,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         bmi: float | None = None,
         on_progress: ProgressCallback | None = None,
     ) -> GeneratedMealPlan:
+        # Gửi sự kiện tiến độ nếu caller có đăng ký callback.
         async def progress(stage: str, message: str, **extra) -> None:
             if on_progress is not None:
                 await on_progress({"stage": stage, "message": message, **extra})
@@ -301,6 +323,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         logger.info("Generating meal plan days=%s", days)
 
         last_error = None
+        # Giữ thực đơn chỉ lệch nhẹ ít lỗi nhất làm phương án dự phòng khi hết lượt thử.
         best_plan: GeneratedMealPlan | None = None
         best_soft = 0
         for attempt in range(1, MAX_ATTEMPTS + 1):
@@ -313,6 +336,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                 )
                 await progress("metadata", "Prompt prepared.", **prompt_trace(messages, get_json_model_name(), attempt))
                 result = await structured_llm.ainvoke(messages)
+                # Một số phiên bản LangChain trả dict thay vì đối tượng Pydantic nên validate lại cho chắc.
                 if isinstance(result, dict):
                     result = GeneratedMealPlan.model_validate(result)
                 if not isinstance(result, GeneratedMealPlan):
@@ -321,6 +345,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
 
                 await progress("validating", "Đang kiểm tra dị ứng, chế độ ăn và dinh dưỡng...", attempt=attempt)
                 hard, soft = validate_plan(result, targets, days, allergies, available_ingredients, dietary_type)
+                # Lỗi nghiêm trọng: bắt buộc sinh lại, không lưu làm phương án dự phòng.
                 if hard:
                     last_error = ValueError("; ".join(hard))
                     feedback = (
@@ -328,6 +353,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                         + " ".join(hard)
                         + " Hãy sinh lại toàn bộ thực đơn và sửa các lỗi này."
                     )
+                # Lỗi nhẹ: lưu lại nếu tốt hơn phương án hiện có rồi thử cải thiện ở lượt sau.
                 elif soft:
                     if best_plan is None or len(soft) < best_soft:
                         best_plan, best_soft = result, len(soft)
@@ -339,6 +365,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                     )
                 else:
                     return self._finalize(result, targets, available_ingredients)
+            # Thử lại cả lỗi nhà cung cấp lẫn lỗi validate, kèm góp ý cho lượt sau.
             except Exception as e:  # noqa: BLE001 -- Retry provider and validation failures with feedback.
                 last_error = e
                 feedback = (
@@ -348,6 +375,7 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
                 )
 
             logger.warning("Meal plan needs retry attempt=%s/%s", attempt, MAX_ATTEMPTS)
+            # Nối góp ý vào hội thoại để LLM sửa đúng lỗi ở lượt sinh tiếp theo.
             if attempt < MAX_ATTEMPTS:
                 messages.append(HumanMessage(content=feedback))
                 await progress("retrying", "Thực đơn chưa đạt yêu cầu, đang điều chỉnh...", attempt=attempt)
@@ -362,4 +390,5 @@ Yêu cầu xuất ra cấu trúc JSON thuần túy tuân thủ schema Pydantic:
         )
 
 
+# Thể hiện agent dùng chung toàn service.
 meal_planner_agent = MealPlannerAgent()

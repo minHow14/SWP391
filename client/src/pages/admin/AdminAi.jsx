@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/pages/admin/AdminAi.jsx
+// Tab Quản trị AI trong cổng admin: xem nhật ký AI, thống kê theo ngày/chức năng/model và can thiệp thủ công.
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { useDatabase } from '../../hooks/useDatabase.js';
@@ -11,9 +12,11 @@ import {
 } from '../../services/aiApi.js';
 import { friendlyAiError } from '../../utils/aiHelpers.js';
 
+// Mã khách hợp lệ có dạng guest:<UUID>; chặn gửi giá trị tùy ý lên API quản trị.
 const ADMIN_ROLE = 1;
 const GUEST_ID_PATTERN =
   /^guest:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Bộ lọc chức năng (giá trị gửi API, nhãn hiển thị) và nhãn/màu theo trạng thái log.
 const FEATURES = [
   ['', 'Tất cả chức năng'],
   ['chatbot', 'Chatbot'],
@@ -31,6 +34,7 @@ const LOG_STATUS = {
   RESOLVED_BY_ADMIN: ['text-bg-secondary', 'Đã xử lý'],
 };
 
+// Định dạng ngày giờ theo giờ Việt Nam.
 const dateTime = (value) =>
   value
     ? new Intl.DateTimeFormat('vi-VN', {
@@ -39,13 +43,17 @@ const dateTime = (value) =>
         timeStyle: 'medium',
       }).format(new Date(value))
     : '—';
+// Định dạng phần trăm theo kiểu Việt Nam.
 const percent = (value) =>
   value == null ? '—' : `${value.toLocaleString('vi-VN')}%`;
+// Lấy ngày YYYY-MM-DD theo giờ Việt Nam (UTC+7), lùi offset ngày so với hôm nay.
 const isoDay = (offset = 0) => {
   const date = new Date(Date.now() + 7 * 3600 * 1000 - offset * 86400000);
   return date.toISOString().slice(0, 10);
 };
 
+// Hook tải dữ liệu theo deps: hủy request cũ khi deps đổi, trả về [trạng thái, hàm tải lại].
+// key gộp deps và version để chỉ hiển thị kết quả của lần tải hiện tại.
 function useLoader(load, deps) {
   const [version, setVersion] = useState(0);
   const key = `${JSON.stringify(deps)}#${version}`;
@@ -73,6 +81,7 @@ function useLoader(load, deps) {
   ];
 }
 
+// Bộ chọn khoảng ngày kèm nút nhanh 7 ngày, 30 ngày và tất cả.
 function Range({ range, onChange }) {
   const set = (name) => (event) =>
     onChange({ ...range, [name]: event.target.value });
@@ -118,6 +127,7 @@ function Range({ range, onChange }) {
   );
 }
 
+// Tab nhật ký AI: lọc theo khoảng ngày, trạng thái, chức năng, từ khóa và phân trang 20 bản ghi.
 function LogsTab() {
   const [range, setRange] = useState({ dateFrom: '', dateTo: '' });
   const [filters, setFilters] = useState({
@@ -127,6 +137,7 @@ function LogsTab() {
   });
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(1);
+  // Trễ 350ms sau lần gõ cuối mới áp dụng từ khóa tìm kiếm.
   useEffect(() => {
     const timer = setTimeout(() => {
       setFilters((previous) => ({ ...previous, search: query.trim() }));
@@ -265,6 +276,7 @@ function LogsTab() {
   );
 }
 
+// Bảng đếm số yêu cầu, số lỗi và tỷ lệ thành công theo một tiêu chí.
 function CountsTable({ title, rows, label }) {
   return (
     <div>
@@ -300,6 +312,7 @@ function CountsTable({ title, rows, label }) {
   );
 }
 
+// Tab thống kê AI: mặc định 30 ngày gần nhất, biểu đồ cột theo ngày và bảng theo chức năng/model.
 function StatsTab() {
   const [range, setRange] = useState({
     dateFrom: isoDay(29),
@@ -395,11 +408,13 @@ function StatsTab() {
   );
 }
 
+// Tab can thiệp thủ công: xem/đặt lại hạn mức của khách và xóa bộ nhớ đệm chatbot.
 function InterventionTab() {
   const [guestId, setGuestId] = useState('');
   const [quota, setQuota] = useState(null);
   const [notice, setNotice] = useState({ text: '', error: false });
   const [busy, setBusy] = useState(false);
+  // Chạy một thao tác quản trị, hiển thị thông báo thành công hoặc lỗi thân thiện.
   const run = useCallback(async (action, success) => {
     setBusy(true);
     setNotice({ text: '', error: false });
@@ -416,6 +431,7 @@ function InterventionTab() {
   }, []);
   const id = guestId.trim();
   const validId = GUEST_ID_PATTERN.test(id);
+  // Chỉ cho đặt lại hạn mức sau khi đã xem hạn mức của đúng mã khách đang nhập.
   const inspectedId = quota?.guestId === id ? quota.guestId : '';
   return (
     <section aria-label="Can thiệp thủ công" className="cx-admin-intervene">
@@ -514,12 +530,14 @@ function InterventionTab() {
   );
 }
 
+// Danh sách tab (khóa, nhãn, component).
 const TABS = [
   ['logs', 'Nhật ký AI', LogsTab],
   ['stats', 'Thống kê', StatsTab],
   ['intervene', 'Can thiệp thủ công', InterventionTab],
 ];
 
+// Component Quản trị AI; kiểm tra lại quyền admin trước khi hiển thị.
 export default function AdminAi() {
   const { user } = useDatabase();
   const [tab, setTab] = useState('logs');

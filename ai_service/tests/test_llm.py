@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_llm.py
+# Kiểm thử lớp khởi tạo LLM (core.llm): chọn model chính/dự phòng từ cấu hình, cơ chế fallback
+# và cấu hình thinking/max_tokens cho từng loại client.
 import json
 
 import httpx
@@ -11,6 +13,7 @@ from langchain_core.runnables import RunnableLambda
 from pydantic import BaseModel
 
 
+# Fixture tự động áp dụng cho mọi test trong file để có key giả.
 @pytest.fixture(autouse=True)
 def mock_llm_credentials(monkeypatch):
     """Cấp key giả tự động cho mọi test trong file này để ChatOpenAI không báo lỗi thiếu key trên CI."""
@@ -18,10 +21,12 @@ def mock_llm_credentials(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", "test-deepseek-key", raising=False)
 
 
+# Tạo lỗi kết nối của provider (loại lỗi được phép kích hoạt fallback).
 def provider_error() -> Exception:
     return openai.APIConnectionError(request=httpx.Request("POST", "https://api.deepseek.com"))
 
 
+# Tên model chính và dự phòng lấy từ Settings, client trỏ tới endpoint DeepSeek.
 def test_primary_and_fallback_models_come_from_settings(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
     monkeypatch.setattr(settings, "DEEPSEEK_FALLBACK_MODEL", "deepseek-v4-pro")
@@ -31,6 +36,7 @@ def test_primary_and_fallback_models_come_from_settings(monkeypatch):
     assert llm.get_llm_json().model_name == "deepseek-chat"
 
 
+# Không bọc fallback khi model dự phòng rỗng hoặc trùng model chính (tránh gọi lặp vô ích).
 def test_no_fallback_when_disabled_or_same_as_primary(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
     for value in ("", "  ", "deepseek-chat"):
@@ -39,12 +45,14 @@ def test_no_fallback_when_disabled_or_same_as_primary(monkeypatch):
         assert type(llm.get_llm_text()).__name__ == "ChatOpenAI"  # không bọc fallback
 
 
+# Khi có model dự phòng, cả client chat và structured output đều được bọc fallback.
 def test_llms_with_fallback_are_built_for_chat_and_structured_output(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_FALLBACK_MODEL", "deepseek-v4-pro")
     assert type(llm.get_llm_text()).__name__ == "RunnableWithFallbacks"
     assert type(llm.get_structured_llm(GeneratedMealPlan)).__name__ == "RunnableWithFallbacks"
 
 
+# Lỗi provider (mất kết nối) -> chuyển sang model dự phòng.
 @pytest.mark.asyncio
 async def test_provider_error_switches_to_the_fallback_model():
     def failing(_):
@@ -54,6 +62,7 @@ async def test_provider_error_switches_to_the_fallback_model():
     assert await chain.ainvoke("hi") == "fallback:hi"
 
 
+# Lỗi định dạng (JSON bị cắt) không phải lỗi provider nên không được fallback che giấu.
 @pytest.mark.asyncio
 async def test_format_errors_are_not_swallowed_by_the_fallback():
     def bad_format(_):
@@ -64,6 +73,7 @@ async def test_format_errors_are_not_swallowed_by_the_fallback():
         await chain.ainvoke("hi")
 
 
+# Model chính hoạt động tốt thì không gọi model dự phòng.
 @pytest.mark.asyncio
 async def test_healthy_primary_does_not_call_the_fallback():
     calls = []
@@ -74,6 +84,7 @@ async def test_healthy_primary_does_not_call_the_fallback():
     assert calls == []
 
 
+# Model dự phòng tắt chế độ thinking để phản hồi nhanh khi model chính đã lỗi.
 def test_fallback_model_runs_with_thinking_disabled(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
     monkeypatch.setattr(settings, "DEEPSEEK_FALLBACK_MODEL", "deepseek-v4-pro")
@@ -83,6 +94,7 @@ def test_fallback_model_runs_with_thinking_disabled(monkeypatch):
     assert fallback.extra_body == {"thinking": {"type": "disabled"}}
 
 
+# Client JSON cần ngân sách token lớn hơn chat vì output cấu trúc (thực đơn) dài, dễ bị cắt.
 def test_json_clients_get_a_larger_token_budget_than_chat(monkeypatch):
     monkeypatch.setattr(settings, "DEEPSEEK_MODEL", "deepseek-chat")
     assert llm.get_llm_json().max_tokens == 8192
@@ -90,10 +102,12 @@ def test_json_clients_get_a_larger_token_budget_than_chat(monkeypatch):
     assert llm.JSON_MAX_TOKENS > llm.TEXT_MAX_TOKENS
 
 
+# Schema đơn giản dùng để kiểm thử structured output.
 class StructuredReply(BaseModel):
     text: str
 
 
+# Tạo response HTTP giả theo định dạng OpenAI có tool_call trả về StructuredReply.
 def structured_reply_response(model: str) -> httpx.Response:
     tool_call = {
         "id": "reply", "type": "function", "function": {
@@ -109,12 +123,15 @@ def structured_reply_response(model: str) -> httpx.Response:
     })
 
 
+# Structured output qua HTTP giả: model chính giữ nguyên thinking, model dự phòng (khi chính trả 503)
+# gửi kèm thinking disabled; kiểm tra thứ tự model được gọi.
 @pytest.mark.parametrize("use_fallback", [False, True])
 def test_structured_requests_preserve_primary_thinking_and_disable_fallback_thinking(
     monkeypatch: pytest.MonkeyPatch, use_fallback: bool,
 ) -> None:
     models: list[str] = []
 
+    # Transport giả: ghi lại model được gọi và trả 503 cho model chính khi cần mô phỏng fallback.
     def respond(request: httpx.Request) -> httpx.Response:
         payload = json.loads(request.content)
         models.append(payload["model"])
@@ -124,6 +141,7 @@ def test_structured_requests_preserve_primary_thinking_and_disable_fallback_thin
         assert payload.get("thinking") == ({"type": "disabled"} if use_fallback else None)
         return structured_reply_response(payload["model"])
 
+    # Bọc ChatOpenAI để dùng http client giả và tắt retry, giúp test xác định và nhanh.
     chat_open_ai = llm.ChatOpenAI
     with httpx.Client(transport=httpx.MockTransport(respond)) as client:
         monkeypatch.setattr(llm, "ChatOpenAI", lambda **kwargs: chat_open_ai(

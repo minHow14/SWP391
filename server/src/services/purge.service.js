@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\services\purge.service.js
+// Dọn dẹp dữ liệu đã xóa mềm: thống kê bản ghi chờ xóa và xóa cứng vĩnh viễn sau thời gian lưu giữ (mặc định 30 ngày).
 import prisma from '../config/prisma.js';
 import {
   userRepository,
@@ -6,6 +7,7 @@ import {
   commentRepository,
 } from '../repositories/index.js';
 
+// Số ngày giữ dữ liệu đã xóa mềm trước khi xóa vĩnh viễn, cho phép khôi phục trong khoảng này.
 export const RETENTION_DAYS = 30;
 
 /**
@@ -41,6 +43,7 @@ export const getRetentionStats = async ({ retentionDays = RETENTION_DAYS } = {})
     userRepository.findPendingPurgeUsers(10),
   ]);
 
+  // Tính số ngày còn lại trước khi từng người dùng bị xóa vĩnh viễn để admin kịp khôi phục.
   const items = pendingUsersList.map((u) => {
     const deletedTime = u.deleted_at ? new Date(u.deleted_at).getTime() : Date.now();
     const purgeTime = deletedTime + Number(retentionDays) * 24 * 60 * 60 * 1000;
@@ -86,6 +89,7 @@ export const getRetentionStats = async ({ retentionDays = RETENTION_DAYS } = {})
 export const purgeExpiredDeletedItems = async ({ retentionDays = RETENTION_DAYS } = {}) => {
   const threshold = calculatePurgeThreshold(retentionDays);
 
+  // Xóa theo thứ tự bình luận -> bài viết -> người dùng trong một transaction để không vi phạm khóa ngoại và không xóa dở dang.
   return prisma.$transaction(async (tx) => {
     // 1. Tìm và xóa cứng bình luận hết hạn qua repository
     const expiredComments = await commentRepository.findExpiredDeletedCommentIds(threshold, tx);

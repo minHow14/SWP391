@@ -1,7 +1,9 @@
 ﻿// client/src/features/community/components/CreatePostCard.jsx
+// Thẻ mời tạo bài viết ở đầu bảng tin; khách chưa đăng nhập sẽ thấy lời mời đăng nhập.
 import { Button, Card } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Component thẻ tạo bài; onCreate mở trình soạn bài viết.
 export default function CreatePostCard({ user, onCreate }) {
   return <Card className="cx-create-post mb-4">
     <Card.Body>

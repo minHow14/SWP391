@@ -1,5 +1,6 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/index.css */
-/* Keep the global cascade stable when routes load their JavaScript lazily. */
+/* Tệp CSS gốc gom toàn bộ stylesheet của ứng dụng theo thứ tự cố định. */
+/* Giữ thứ tự cascade toàn cục ổn định khi các route tải JavaScript theo kiểu lazy. */
 @import '../../features/mealPlan/styles/mealPlan.css';
 @import '../../features/chat/styles/chatAi.css';
 @import './home.css';

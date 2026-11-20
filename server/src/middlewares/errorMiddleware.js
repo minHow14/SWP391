@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/middlewares/errorMiddleware.js
+// Middleware xử lý 404 và lỗi tập trung, chuyển mọi lỗi về định dạng phản hồi thống nhất của API.
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 import logger from '../config/logger.js';
 
@@ -12,6 +13,7 @@ export const notFoundHandler = (req, res) => {
     message,
     errorCode: 'ENDPOINT_NOT_FOUND',
     errors: [{ field: 'url', message }],
+    // Trường error trùng message, giữ lại để tương thích với client/test cũ.
     error: message,
   });
 };
@@ -20,6 +22,7 @@ export const notFoundHandler = (req, res) => {
  * Middleware xử lý lỗi toàn cục (Global Error Handler) chuẩn API Contract
  */
 export const globalErrorHandler = (err, req, res, next) => {
+  // Ánh xạ mã lỗi Prisma sang HTTP: P2002 trùng khoá unique, P2025 không tìm thấy bản ghi, P2003 vi phạm khoá ngoại.
   const isUniqueViolation = err?.code === 'P2002';
   const isNotFoundPrisma = err?.code === 'P2025';
   const isForeignKeyViolation = err?.code === 'P2003';
@@ -29,6 +32,7 @@ export const globalErrorHandler = (err, req, res, next) => {
   let errorCode = err.errorCode || 'INTERNAL_SERVER_ERROR';
   let message = err.message || 'Lỗi máy chủ nội bộ';
 
+  // Lỗi body vượt giới hạn kích thước từ express.json.
   if (err.type === 'entity.too.large') {
     errorCode = 'PAYLOAD_TOO_LARGE';
     message = 'Dữ liệu gửi lên vượt quá dung lượng cho phép.';
@@ -64,6 +68,7 @@ export const globalErrorHandler = (err, req, res, next) => {
     errorCode = 'RESOURCE_NOT_FOUND';
   }
 
+  // Ẩn chi tiết lỗi 5xx không chủ đích để không lộ thông tin nội bộ cho client.
   if (statusCode >= HTTP_STATUS.INTERNAL_SERVER_ERROR && !err.statusCode) message = 'Lỗi máy chủ nội bộ';
 
   logger.error({
@@ -76,6 +81,7 @@ export const globalErrorHandler = (err, req, res, next) => {
     stack: err.stack,
   });
 
+  // Chuẩn hoá danh sách lỗi chi tiết về dạng mảng bất kể nguồn lỗi trả về dạng nào.
   const errorsList = Array.isArray(err.details)
     ? err.details
     : Array.isArray(err.errors)

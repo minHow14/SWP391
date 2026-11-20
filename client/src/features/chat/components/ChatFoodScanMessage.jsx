@@ -1,9 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/chat/components/ChatFoodScanMessage.jsx
+// Hiển thị kết quả quét ảnh món ăn ngay trong khung chat (nguyên liệu, thành phần cần lưu ý, dinh dưỡng ước tính).
 import { Alert } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Bảng ánh xạ khóa dinh dưỡng -> [nhãn hiển thị, đơn vị].
 const NUTRIENTS = { calories: ['Năng lượng', 'kcal'], protein: ['Đạm', 'g'], carbs: ['Tinh bột', 'g'], fat: ['Chất béo', 'g'] };
 
+// Component kết quả quét ảnh; màu Alert phụ thuộc trạng thái (warning = có thành phần không phù hợp, clear = an toàn).
 export default function ChatFoodScanMessage({ result }) {
   return <Alert variant={result.status === 'warning' ? 'warning' : result.status === 'clear' ? 'success' : 'secondary'} className="mb-0" aria-label="Kết quả quét ảnh trong chat">
     <strong className="d-block">{result.dishName}</strong>

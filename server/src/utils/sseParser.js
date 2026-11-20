@@ -1,7 +1,11 @@
 // d:\Projects\FPT\SWP391\server\src/utils/sseParser.js
+// Bộ phân tích luồng Server-Sent Events (SSE) nhận từ AI Service, tách thành từng sự kiện JSON.
+// Giới hạn bộ đệm 1MB để luồng bất thường không làm tràn bộ nhớ.
 const MAX_BUFFER_LENGTH = 1_048_576;
+// Ranh giới giữa các sự kiện SSE là một dòng trống (hỗ trợ cả CRLF, LF và CR).
 const EVENT_BOUNDARY = /\r\n\r\n|\n\n|\r\r/;
 
+// Phân tích một khối sự kiện: lấy tên event và ghép các dòng data rồi parse JSON.
 function parseBlock(block) {
   let name = 'message';
   const data = [];
@@ -12,6 +16,7 @@ function parseBlock(block) {
   return data.length ? { name, data: JSON.parse(data.join('\n')) } : null;
 }
 
+// Tạo parser có trạng thái; onEvent trả về false để dừng xử lý các sự kiện tiếp theo.
 export function createSseParser(onEvent) {
   let buffer = '';
   let stopped = false;
@@ -21,6 +26,7 @@ export function createSseParser(onEvent) {
   };
   return {
     get stopped() { return stopped; },
+    // Nhận thêm một đoạn dữ liệu, phát ra mọi sự kiện đã đủ và giữ phần còn dở trong bộ đệm.
     async push(chunk) {
       buffer += chunk;
       if (buffer.length > MAX_BUFFER_LENGTH) throw new Error('AI stream exceeds its buffer limit');
@@ -31,6 +37,7 @@ export function createSseParser(onEvent) {
         boundary = EVENT_BOUNDARY.exec(buffer);
       }
     },
+    // Khi luồng kết thúc, xử lý nốt sự kiện cuối không có dòng trống phía sau.
     async end() { if (!stopped && buffer.trim()) await emit(buffer); },
   };
 }

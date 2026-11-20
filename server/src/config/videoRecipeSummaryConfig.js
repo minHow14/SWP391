@@ -1,12 +1,15 @@
 // D:/SWP391/SWP391/server/src/config/videoRecipeSummaryConfig.js
+// Cấu hình worker tóm tắt công thức từ video: đường dẫn yt-dlp, các timeout, lease, chu kỳ poll và số lần thử.
 import { z } from 'zod';
 import './index.js';
 
+// Giới hạn trên bằng giá trị tối đa setTimeout chấp nhận (2^31 - 1 ms).
 const milliseconds = z.coerce.number().int().positive().max(2_147_483_647);
 export const videoRecipeEnvironmentSchema = z.object({
   YT_DLP_PATH: z.string().trim().min(1).default('yt-dlp'),
   VIDEO_METADATA_TIMEOUT_MS: milliseconds.default(30_000),
   VIDEO_AI_TIMEOUT_MS: milliseconds.default(600_000),
+  // Đặt giá trị tối thiểu để tránh cấu hình quá nhỏ khiến job bị nhận trùng hoặc poll dồn dập.
   VIDEO_JOB_LEASE_MS: milliseconds.min(30_000).default(90_000),
   VIDEO_JOB_POLL_MS: milliseconds.min(250).default(2_000),
   VIDEO_JOB_RETRY_MS: milliseconds.min(1_000).default(30_000),

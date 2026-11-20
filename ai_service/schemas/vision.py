@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/schemas/vision.py
+# Schema response cho tính năng nhận diện nguyên liệu và đánh giá độ tươi qua ảnh.
 from pydantic import Field
 from schemas.base import CamelModel
 

@@ -1,16 +1,20 @@
 ﻿// client/src/utils/journal.js
 
+// Tiện ích cho nhật ký ăn uống: nhóm bữa ăn, ngày hiện tại, các ngày trong tuần và tổng dinh dưỡng.
+// Các nhóm bữa ăn hiển thị trong nhật ký (id, tên, icon, tông màu).
 export const mealGroups = [
   { id: 'breakfast', name: 'Bữa Sáng', icon: 'sun-fill', tone: 'amber' },
   { id: 'lunch', name: 'Bữa Trưa', icon: 'basket-fill', tone: 'green' },
   { id: 'dinner', name: 'Bữa Tối', icon: 'moon-fill', tone: 'blue' },
   { id: 'snack', name: 'Bữa Phụ & Trái Cây', icon: 'apple', tone: 'purple' },
 ];
+// Lấy ngày hôm nay dạng YYYY-MM-DD theo giờ Việt Nam (locale en-CA cho sẵn định dạng ISO).
 export function todayKey(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Bangkok', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
   const part = (type) => parts.find((item) => item.type === type).value;
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
+// Trả về 7 ngày (thứ Hai đến Chủ nhật) của tuần chứa ngày đã cho; dùng 12:00 UTC để tránh lệch ngày do múi giờ.
 export function weekDates(date) {
   const anchor = new Date(`${date}T12:00:00Z`);
   const start = new Date(anchor);
@@ -21,6 +25,7 @@ export function weekDates(date) {
     return day.toISOString().slice(0, 10);
   });
 }
+// Cộng tổng calo, đạm, tinh bột, chất béo, chất xơ của các món; làm tròn 1 chữ số thập phân sau mỗi lần cộng.
 export function totals(entries = []) {
   return entries.reduce((sum, entry) => Object.fromEntries(Object.entries(sum).map(([key, value]) => [key, Math.round((value + entry[key]) * 10) / 10])), { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
 }

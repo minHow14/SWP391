@@ -1,8 +1,12 @@
 // D:/SWP391/SWP391/server/tests/serverLifecycle.test.js
+// Kiểm thử vòng đời tiến trình server: khởi động worker nền cùng API và tắt máy êm (graceful shutdown).
 import { afterEach, expect, it, vi } from 'vitest';
 
+// Trạng thái dùng chung giữa các mock (khai báo bằng vi.hoisted vì vi.mock được đưa lên đầu file trước import).
 const state = vi.hoisted(() => ({ handlers: {}, signals: [], order: [], releaseWorker: null, releaseModeration: null }));
 const disconnect = vi.hoisted(() => vi.fn(async () => { state.order.push('database disconnected'); }));
+// Mock app, config, Prisma, logger, cron và hai worker để quan sát thứ tự dừng mà không mở cổng mạng hay DB thật.
+// Mỗi worker trả về Promise chỉ hoàn tất khi test gọi hàm release tương ứng.
 vi.mock('../src/app.js', () => ({ default: { listen: (_port, ready) => {
   ready();
   return { close: (done) => done() };
@@ -20,8 +24,11 @@ vi.mock('../src/workers/contentModerationWorker.js', () => ({ runContentModerati
   return new Promise((resolve) => { state.releaseModeration = () => { state.order.push('moderation stopped'); resolve(); }; });
 } }));
 
+// Giải phóng worker còn treo và khôi phục spy sau mỗi test để tránh rò rỉ Promise.
 afterEach(() => { state.releaseWorker?.(); state.releaseModeration?.(); vi.restoreAllMocks(); });
 
+// Khi nhận SIGTERM, server phải phát tín hiệu abort cho cả hai worker, chờ chúng dừng hẳn rồi mới ngắt kết nối PostgreSQL
+// và thoát với mã 0 — tránh mất dữ liệu job đang xử lý dở.
 it('starts background workers with the API and awaits their shutdown before disconnecting PostgreSQL', async () => {
   vi.spyOn(console, 'log').mockImplementation(() => {});
   vi.spyOn(process, 'on').mockImplementation((event, handler) => { state.handlers[event] = handler; return process; });

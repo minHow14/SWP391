@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/pages/IngredientDictionary.jsx
+// Trang Từ điển nguyên liệu chay: tìm kiếm, lọc theo nhóm, tra cứu bằng ảnh AI và xem chi tiết dinh dưỡng.
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import IngredientPreview from '../features/ingredients/components/IngredientPreview.jsx';
@@ -7,6 +8,7 @@ import { normalizeSearch } from '../utils/recipeFilters.js';
 import ContentImage from '../components/common/ContentImage.jsx';
 import ContentDialog from '../components/common/ContentDialog.jsx';
 
+// Component trang từ điển; danh mục nhóm được sinh từ dữ liệu nguyên liệu thực tế trong catalog.
 export default function IngredientDictionary() {
   const { data, reload } = useDatabase();
   const { diet } = useOutletContext() || {};
@@ -29,6 +31,7 @@ export default function IngredientDictionary() {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('all');
   const [detail, setDetail] = useState(null);
+  // Sau khi AI tạo nguyên liệu mới: tải lại catalog, bỏ bộ lọc và mở chi tiết nguyên liệu vừa lưu.
   async function showSavedIngredient(ingredient, signal) {
     const catalog = await reload();
     if (signal.aborted) return;
@@ -36,6 +39,7 @@ export default function IngredientDictionary() {
     setQuery('');
     setDetail(catalog.ingredients.find((item) => String(item.id) === String(ingredient.id)) || ingredient);
   }
+  // Lọc theo nhóm và từ khóa (tên, nguồn gốc, tên gọi khác), không phân biệt dấu.
   const search = normalizeSearch(query.trim());
   const filtered = ingredients.filter(
     (item) =>
@@ -165,7 +169,7 @@ export default function IngredientDictionary() {
             </p>
             <p>{detail.description}</p>
 
-                      {/* Nutritional Information Section */}
+                      {/* Phần thông tin dinh dưỡng */}
                       {(detail.calories_per_100g || detail.protein || detail.fat || detail.carbs) && (
                           <div className="cx-ingredient-nutrition">
                               <h3>💪 Thông Tin Dinh Dưỡng</h3>

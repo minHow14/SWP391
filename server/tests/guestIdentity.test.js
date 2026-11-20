@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/tests/guestIdentity.test.js
+// Kiểm thử danh tính khách cho AI do server cấp qua cookie JWT ký HS256: bảo mật cookie, chống giả mạo, hết hạn theo ngày.
 import { randomUUID } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
@@ -11,6 +12,7 @@ import { guestQuotaRepository } from '../src/repositories/guestQuotaRepository.j
 import { guestIdentityService } from '../src/services/guestIdentityService.js';
 import { generateToken } from '../src/utils/jwt.js';
 
+// Bọc config thành object sửa được để từng test thay khóa ký hoặc bật chế độ production.
 vi.mock('../src/config/guestIdentityConfig.js', async (importOriginal) => {
   const original = await importOriginal();
   return { guestIdentityConfig: { ...original.guestIdentityConfig } };
@@ -21,9 +23,13 @@ vi.mock('../src/config/index.js', async (importOriginal) => {
   return { ...original, default: mutable, config: mutable };
 });
 
+// Giá trị gốc để khôi phục, và hàm dựng chuỗi cookie khách.
 const ORIGINAL_KEY = guestIdentityConfig.signingKey;
 const ORIGINAL_PRODUCTION = config.isProduction;
 const cookie = (token) => `${AI_GUEST_COOKIE_NAME}=${encodeURIComponent(token)}`;
+// Ký một token khách hợp lệ (có thể ghi đè claims/tùy chọn để tạo token sai).
+// @param claims claims ghi đè (exp: undefined để bỏ hạn)
+// @param options tùy chọn jwt.sign ghi đè
 function signedToken(claims = {}, options = {}) {
   const payload = { guestId: randomUUID(), exp: Math.floor(Date.now() / 1000) + 3600, ...claims };
   if (payload.exp === undefined) delete payload.exp;
@@ -32,6 +38,7 @@ function signedToken(claims = {}, options = {}) {
   });
 }
 
+// Mock truy vấn hạn mức để kiểm tra có/không chạm DB; khôi phục cấu hình sau mỗi test.
 beforeEach(() => { vi.spyOn(guestQuotaRepository, 'findUsage').mockResolvedValue(null); });
 afterEach(() => {
   guestIdentityConfig.signingKey = ORIGINAL_KEY;
@@ -39,7 +46,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// Nhóm test: danh tính khách AI do server cấp.
 describe('server-issued AI guest identity', () => {
+  // Cấp cookie HttpOnly, SameSite=Lax, Path=/api mà không tin header X-Guest-Id và không tạo bản ghi hạn mức; không Secure khi chạy local.
   it('issues a cookie without trusting the client header or creating a quota record', async () => {
     const response = await request(app).get('/api/ai/usage').set('X-Guest-Id', randomUUID());
     expect(response.status).toBe(200);
@@ -56,6 +65,7 @@ describe('server-issued AI guest identity', () => {
     expect(header).not.toContain('Secure');
   });
 
+  // Môi trường production phải đặt cờ Secure cho cookie.
   it('sets Secure when the application runs in production', async () => {
     config.isProduction = true;
     const response = await request(app).get('/api/ai/usage');
@@ -63,6 +73,7 @@ describe('server-issued AI guest identity', () => {
     expect(response.headers['set-cookie'][0]).toContain('Secure');
   });
 
+  // Danh tính giữ nguyên khi client đổi header X-Guest-Id.
   it('retains the same identity when the caller changes X-Guest-Id', async () => {
     const agent = request.agent(app);
     const first = await agent.get('/api/ai/usage');
@@ -72,6 +83,7 @@ describe('server-issued AI guest identity', () => {
     expect(second.headers['set-cookie'][1].split(';')[0]).toBe(first.headers['set-cookie'][1].split(';')[0]);
   });
 
+  // Danh tính khách dùng chung giữa route /api/ai và /api/v1/ai.
   it.each([
     ['/api/ai/usage', '/api/v1/ai/usage'],
     ['/api/v1/ai/usage', '/api/ai/usage'],
@@ -85,6 +97,7 @@ describe('server-issued AI guest identity', () => {
     expect(third.body.data.guestId).toBe(first.body.data.guestId);
   });
 
+  // Cookie cũ có Path hẹp (/api/ai) được chuyển sang Path=/api: xóa cookie cũ và giữ nguyên guestId, tránh trùng cookie.
   it.each(['/api/ai/usage', '/api/v1/ai/usage'])('migrates a narrow cookie without duplicate-cookie failures via %s', async (firstPath) => {
     const agent = request.agent(app);
     const guestId = randomUUID();
@@ -105,6 +118,7 @@ describe('server-issued AI guest identity', () => {
     }
   });
 
+  // Payload bị sửa (chữ ký không khớp) bị 401 mà không truy vấn hạn mức.
   it('rejects a modified payload without querying quota', async () => {
     const session = guestIdentityService.resolve();
     const parts = session.token.split('.');
@@ -116,6 +130,7 @@ describe('server-issued AI guest identity', () => {
     expect(response.headers['set-cookie']).toBeUndefined();
   });
 
+  // Cookie hết hạn, sai định danh, thiếu hạn, sai audience/issuer/thuật toán hoặc là access token thành viên đều bị 401.
   it.each([
     ['expired', () => signedToken({ exp: 1 })],
     ['invalid identity', () => signedToken({ guestId: 'untrusted-id' })],
@@ -130,6 +145,7 @@ describe('server-issued AI guest identity', () => {
     expect(guestQuotaRepository.findUsage).not.toHaveBeenCalled();
   });
 
+  // Cookie rỗng, mã hóa hỏng, bị lặp (mơ hồ) hoặc quá dài bị từ chối.
   it.each([
     `${AI_GUEST_COOKIE_NAME}=`, `${AI_GUEST_COOKIE_NAME}=%E0%A4%A`,
     `${AI_GUEST_COOKIE_NAME}=first; ${AI_GUEST_COOKIE_NAME}=second`,
@@ -140,6 +156,7 @@ describe('server-issued AI guest identity', () => {
     expect(guestQuotaRepository.findUsage).not.toHaveBeenCalled();
   });
 
+  // Cookie hết hạn đúng thời điểm reset hạn mức theo giờ Việt Nam (17:00 UTC).
   it('expires at the next quota reset in Vietnam time', () => {
     const now = new Date('2026-10-22T16:59:59Z');
     const session = guestIdentityService.resolve({ now });
@@ -149,6 +166,7 @@ describe('server-issued AI guest identity', () => {
       now: new Date('2026-10-22T17:00:00Z') })).toThrow();
   });
 
+  // Cookie khách không được dùng làm access token thành viên.
   it('does not accept a guest cookie as a member access token', async () => {
     const session = guestIdentityService.resolve();
     const response = await request(app).get('/api/ai/usage').set('Authorization', `Bearer ${session.token}`);
@@ -157,6 +175,7 @@ describe('server-issued AI guest identity', () => {
     expect(guestQuotaRepository.findUsage).not.toHaveBeenCalled();
   });
 
+  // Thiếu khóa ký thì fail closed với 503 thay vì cấp cookie không ký.
   it('fails closed when no configured signing key is available', async () => {
     guestIdentityConfig.signingKey = null;
     const response = await request(app).get('/api/ai/usage');

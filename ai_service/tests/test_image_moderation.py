@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_image_moderation.py
+# Kiểm thử API kiểm duyệt ảnh bằng AI (/api/v1/image-moderations): xác thực, validate ảnh,
+# kiểm tra kết luận của LLM, xử lý lỗi/timeout và đối chiếu hợp đồng với tài liệu OpenAPI.
 import asyncio
 import base64
 import json
@@ -16,8 +18,10 @@ from schemas.image_moderation import ImageModerationRequest, ImageModerationResp
 from services import image_moderation as service
 
 PATH = "/api/v1/image-moderations"
+# Tài liệu OpenAPI dùng chung với Back-end; test đảm bảo tài liệu không lệch khỏi schema thực tế.
 OPENAPI_PATH = Path(__file__).resolve().parents[2] / "docs" / "content-moderation-openapi.json"
 REF_TEMPLATE = "#/components/schemas/{model}"
+# Chuỗi byte giả có chữ ký (magic bytes) đúng của từng định dạng để qua bước nhận diện loại ảnh.
 PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
 IMAGES = {
     "image/png": PNG,
@@ -27,10 +31,12 @@ IMAGES = {
 }
 
 
+# Mã hoá bytes ảnh sang chuỗi base64 ASCII.
 def encode(image: bytes) -> str:
     return base64.b64encode(image).decode("ascii")
 
 
+# Tạo payload kiểm duyệt ảnh hợp lệ; tham số changes ghi đè từng trường cần kiểm thử.
 def payload(**changes: object) -> dict:
     return {
         "jobId": str(uuid4()),
@@ -45,6 +51,7 @@ def payload(**changes: object) -> dict:
     }
 
 
+# Giả lập kết quả structured output của LLM với verdict tuỳ chỉnh.
 def packet(**changes: object) -> dict:
     verdict = {
         "decision": "ALLOW",
@@ -60,6 +67,7 @@ def packet(**changes: object) -> dict:
     }
 
 
+# Fixture: thay model kiểm duyệt ảnh bằng AsyncMock và đặt key provider giả.
 @pytest.fixture
 def model(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     chain = AsyncMock()
@@ -71,6 +79,7 @@ def model(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return chain
 
 
+# Thiếu hoặc sai khoá nội bộ -> 401 và không gọi LLM.
 def test_internal_authentication_is_required(client: TestClient, model: AsyncMock) -> None:
     assert client.post(PATH, json=payload()).status_code == 401
     assert (
@@ -80,6 +89,8 @@ def test_internal_authentication_is_required(client: TestClient, model: AsyncMoc
     model.ainvoke.assert_not_called()
 
 
+# Ảnh và văn bản bài viết được gửi trong HumanMessage như dữ liệu không tin cậy, không lọt vào
+# SystemMessage để chống prompt injection; response dùng camelCase kèm modelName/policyVersion.
 def test_sends_the_image_with_text_as_untrusted_context(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -111,6 +122,7 @@ def test_sends_the_image_with_text_as_untrusted_context(
     }
 
 
+# Mọi định dạng ảnh người dùng được phép tải lên đều được chấp nhận.
 @pytest.mark.parametrize("mime_type", list(IMAGES))
 def test_accepts_every_uploadable_image_format(
     client: TestClient, internal_headers: dict, model: AsyncMock, mime_type: str
@@ -119,6 +131,8 @@ def test_accepts_every_uploadable_image_format(
     assert client.post(PATH, json=body, headers=internal_headers).status_code == 200
 
 
+# Prompt chính sách phải: ưu tiên REVIEW khi không chắc, coi chữ trong ảnh là dữ liệu không tin cậy
+# và xử lý món chay giả mặn để không gắn cờ nhầm.
 def test_policy_covers_hidden_text_and_vegetarian_look_alikes() -> None:
     prompt = service._image_moderation_prompt()
     assert "When uncertain between `ALLOW` and `REVIEW`, always choose `REVIEW`." in prompt
@@ -126,6 +140,8 @@ def test_policy_covers_hidden_text_and_vegetarian_look_alikes() -> None:
     assert "Plant-Based Look-Alikes" in prompt
 
 
+# Payload sai hợp đồng (imageIndex ngoài phạm vi, SVG, base64 hỏng, MIME không khớp nội dung,
+# trường lạ...) -> 422 và không gọi LLM.
 @pytest.mark.parametrize(
     "changes",
     [
@@ -150,6 +166,7 @@ def test_validates_the_backend_contract(
     model.ainvoke.assert_not_called()
 
 
+# Ảnh vượt giới hạn dung lượng -> 422 trước khi gọi LLM.
 def test_rejects_an_image_over_ten_megabytes(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -159,6 +176,8 @@ def test_rejects_an_image_over_ten_megabytes(
     model.ainvoke.assert_not_called()
 
 
+# Kết luận LLM không hợp lệ (REVIEW thiếu category/observation, category lạ, ALLOW kèm category,
+# quyết định không tồn tại, lý do rỗng...) -> 502 và không trả data.
 @pytest.mark.parametrize(
     "verdict",
     [
@@ -181,6 +200,7 @@ def test_rejects_invalid_conclusions(
     assert "data" not in response.json()
 
 
+# Kết quả REVIEW hợp lệ được trả về, danh sách observation bị cắt còn tối đa 5 mục.
 def test_returns_review_and_trims_extra_observations(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -199,6 +219,7 @@ def test_returns_review_and_trims_extra_observations(
     assert data["observations"] == observations[:5]
 
 
+# Chưa cấu hình key provider -> 503 MODERATION_AI_NOT_READY.
 def test_missing_key_is_an_explicit_service_error(
     client: TestClient,
     internal_headers: dict,
@@ -212,6 +233,7 @@ def test_missing_key_is_an_explicit_service_error(
     model.ainvoke.assert_not_called()
 
 
+# Provider lỗi -> 503 MODERATION_AI_UNAVAILABLE và không lộ chi tiết lỗi.
 def test_provider_failures_do_not_expose_details(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -222,22 +244,25 @@ def test_provider_failures_do_not_expose_details(
     assert response.json()["errorCode"] == "MODERATION_AI_UNAVAILABLE"
 
 
+# Schema trong tài liệu OpenAPI phải khớp với schema Pydantic sinh ra (bỏ qua trường description).
 @pytest.mark.parametrize("schema", [ImageModerationRequest, ImageModerationResponse])
 def test_documented_contract_matches_the_pydantic_schema(schema: type) -> None:
     document = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
     documented = document["components"]["schemas"]
     generated = schema.model_json_schema(by_alias=True, ref_template=REF_TEMPLATE)
     for name, definition in {**generated.pop("$defs", {}), schema.__name__: generated}.items():
-        # Descriptions are documentation-only additions on top of the generated schema.
+        # Trường description chỉ là phần bổ sung cho tài liệu, nằm ngoài schema sinh tự động.
         assert {**documented[name], "description": None} == {**definition, "description": None}
 
 
+# Suy luận vượt thời hạn tổng -> 503 MODERATION_AI_TIMEOUT để request không treo.
 def test_inference_has_a_total_deadline(
     client: TestClient,
     internal_headers: dict,
     model: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Giả lập LLM phản hồi chậm hơn timeout đã cấu hình.
     async def delayed(_: object) -> dict:
         await asyncio.sleep(1)
         return packet()

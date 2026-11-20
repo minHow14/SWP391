@@ -1,6 +1,8 @@
 ﻿// client/src/components/common/SiteStatus.jsx
+// Màn hình trạng thái toàn trang: đang tải dữ liệu ban đầu hoặc lỗi kết nối kèm nút thử lại.
 import { Alert, Button, Spinner } from 'react-bootstrap';
 
+// Component trạng thái: có error thì hiện thông báo lỗi và nút thử lại, ngược lại hiện spinner đang tải.
 export default function SiteStatus({ error, onRetry }) {
   return (
     <main id="main-content" className="cx-site-status" tabIndex={-1}>

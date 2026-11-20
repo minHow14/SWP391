@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\prisma\seed.js
+// Script nạp dữ liệu ban đầu: chạy seed.sql trong một transaction, sửa chi tiết nguyên liệu, nạp ảnh nguyên liệu
+// rồi in thống kê và kiểm tra mật khẩu các tài khoản mẫu.
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -7,6 +9,7 @@ import prisma from '../src/config/prisma.js';
 import { repairIngredientDetails } from '../scripts/repair-ingredients.js';
 import { importIngredientImages } from '../scripts/import-ingredient-images.js';
 
+// ESM không có sẵn __dirname nên phải tự suy ra từ import.meta.url.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -26,6 +29,7 @@ function splitSqlStatements(sql) {
     const char = sql[i];
     const nextChar = sql[i + 1];
 
+    // Bỏ qua mọi ký tự trong comment dòng cho tới khi xuống dòng.
     if (inLineComment) {
       if (char === '\n') {
         inLineComment = false;
@@ -33,6 +37,7 @@ function splitSqlStatements(sql) {
       continue;
     }
 
+    // Bỏ qua comment khối cho tới khi gặp ký tự đóng.
     if (inBlockComment) {
       if (char === '*' && nextChar === '/') {
         inBlockComment = false;
@@ -41,6 +46,7 @@ function splitSqlStatements(sql) {
       continue;
     }
 
+    // Trong chuỗi SQL, hai dấu nháy đơn liên tiếp là ký tự nháy đã escape, không phải kết thúc chuỗi.
     if (inString) {
       current += char;
       if (char === "'") {
@@ -72,6 +78,7 @@ function splitSqlStatements(sql) {
       continue;
     }
 
+    // Gặp dấu chấm phẩy ngoài chuỗi/comment thì kết thúc một câu lệnh; bỏ BEGIN/COMMIT vì đã có $transaction của Prisma bao ngoài.
     if (char === ';') {
       const trimmed = current.trim();
       if (trimmed && trimmed.toUpperCase() !== 'BEGIN' && trimmed.toUpperCase() !== 'COMMIT') {
@@ -84,6 +91,7 @@ function splitSqlStatements(sql) {
     current += char;
   }
 
+  // Câu lệnh cuối có thể không kết thúc bằng dấu chấm phẩy.
   const trimmed = current.trim();
   if (trimmed && trimmed.toUpperCase() !== 'BEGIN' && trimmed.toUpperCase() !== 'COMMIT') {
     statements.push(trimmed);
@@ -92,6 +100,7 @@ function splitSqlStatements(sql) {
   return statements;
 }
 
+// Hàm chính của quy trình seed: nạp SQL, hậu xử lý nguyên liệu và xác thực dữ liệu sau khi nạp.
 async function main() {
   const seedSqlPath = path.join(__dirname, 'seed.sql');
 
@@ -118,6 +127,7 @@ async function main() {
   );
 
   await repairIngredientDetails();
+  // Ảnh nguyên liệu không bắt buộc nên lỗi nạp ảnh chỉ cảnh báo, không làm hỏng toàn bộ quá trình seed.
   try {
     await importIngredientImages();
   } catch (imageErr) {
@@ -127,6 +137,7 @@ async function main() {
   console.log('----------------------------------------------------');
   console.log('📋 Thống kê số lượng dữ liệu đã nạp & xác thực:');
 
+  // Đếm số bản ghi các bảng chính để xác nhận dữ liệu đã nạp đủ.
   const [
     usersCount,
     postsCount,
@@ -155,6 +166,7 @@ async function main() {
     prisma.mealPlan.count(),
     prisma.mealPlanDetail.count(),
     prisma.foodDiary.count(),
+    // Bảng ingredient_alternatives được truy vấn thô vì không cần dùng client model ở đây.
     prisma.$queryRaw`SELECT COUNT(*)::int AS count FROM ingredient_alternatives`,
     prisma.comment.count(),
     prisma.report.count(),
@@ -180,6 +192,7 @@ async function main() {
   console.log(`   - Nhật ký giám sát AI (ai_logs):    ${aiLogsCount}`);
   console.log('----------------------------------------------------');
 
+  // Đảm bảo hash mật khẩu trong seed.sql khớp với mật khẩu tài liệu hoá, tránh tài khoản mẫu không đăng nhập được.
   // Xác thực mật khẩu tài khoản mẫu
   const adminUser = await prisma.user.findUnique({ where: { email: 'admin@swp391.com' } });
   const normalUser = await prisma.user.findUnique({ where: { email: 'user@swp391.com' } });
@@ -204,6 +217,7 @@ async function main() {
   console.log('🎉 Toàn bộ cơ sở dữ liệu đã sẵn sàng cho ứng dụng ChayXanh!');
 }
 
+// Lỗi thì thoát với mã 1 để lệnh seed báo thất bại; luôn ngắt kết nối Prisma khi kết thúc.
 main()
   .catch((err) => {
     console.error('❌ Lỗi khi import dữ liệu mẫu:', err);

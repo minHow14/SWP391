@@ -1,15 +1,18 @@
 // client/test/searchService.test.js
+// Kiểm thử (node:test) searchService: tìm kiếm bài viết/video và gợi ý theo từ khóa gửi đúng route và tham số.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { searchService } from '../src/services/searchService.js';
 import apiClient from '../src/services/apiClient.js';
 
+// Lưu apiClient.get gốc vì các test ghi đè trực tiếp; afterEach khôi phục lại.
 const originalGet = apiClient.get;
 
 afterEach(() => {
   apiClient.get = originalGet;
 });
 
+// searchPosts gửi GET đến /v1/search với đầy đủ tham số và trả về phần data.
 test('searchService.searchPosts sends GET request with params to /v1/search', async () => {
   let calledUrl = '';
   let calledOptions = null;
@@ -35,6 +38,7 @@ test('searchService.searchPosts sends GET request with params to /v1/search', as
   assert.deepEqual(result.results.videos, []);
 });
 
+// searchPosts mặc định cắt khoảng trắng ở từ khóa và dùng loại ALL.
 test('searchService.searchPosts defaults to trimmed query and ALL type', async () => {
   let calledOptions = null;
 
@@ -48,6 +52,7 @@ test('searchService.searchPosts defaults to trimmed query and ALL type', async (
   assert.equal(calledOptions.params.type, 'ALL');
 });
 
+// suggestByKeyword gửi GET đến /v1/recommendations kèm từ khóa.
 test('searchService.suggestByKeyword sends GET request to /v1/recommendations', async () => {
   let calledUrl = '';
   let calledOptions = null;

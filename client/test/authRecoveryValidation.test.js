@@ -1,8 +1,10 @@
 // D:/SWP391/SWP391/client/test/authRecoveryValidation.test.js
+// Kiểm thử (node:test) các schema validate của luồng khôi phục mật khẩu: token trong URL, mật khẩu mới và mã OTP.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getPasswordResetToken, passwordResetSchema, passwordResetOtpSchema } from '../src/features/auth/utils/authValidation.js';
 
+// Token chỉ được lấy từ đúng một tham số token hợp lệ (64 hex) trong fragment URL; query string hoặc token trùng lặp đều bị bỏ.
 test('reset token comes only from one valid64hex token in the URL fragment', () => {
   const token = 'a'.repeat(64);
   assert.equal(getPasswordResetToken(`#token=${token}`), token);
@@ -11,6 +13,7 @@ test('reset token comes only from one valid64hex token in the URL fragment', () 
   }
 });
 
+// Mật khẩu mới phải khớp xác nhận và không vượt 72 byte UTF-8 (giới hạn bcrypt), kể cả với ký tự nhiều byte hay emoji.
 test('password reset validates confirmation and the actual bcrypt72UTF8byte boundary', () => {
   const valid = 'đ'.repeat(36);
   assert.equal(passwordResetSchema.safeParse({ newPassword: valid, confirmNewPassword: valid }).success, true);
@@ -22,6 +25,7 @@ test('password reset validates confirmation and the actual bcrypt72UTF8byte boun
   assert.equal(mismatch.error.issues[0].path[0], 'confirmNewPassword');
 });
 
+// OTP giữ nguyên số 0 ở đầu và chấp nhận khoảng trắng khi dán, nhưng từ chối mã thiếu/thừa chữ số hoặc có ký tự khác.
 test('OTP preserves leading zeroes and accepts pasted spacing, but rejects incomplete or non-digit codes', () => {
   assert.deepEqual(passwordResetOtpSchema.parse({ otp: ' 012 345 ' }), { otp: '012345' });
   for (const otp of ['', '12345', '1234567', '12a345', 123456]) {

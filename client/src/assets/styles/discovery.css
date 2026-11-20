@@ -1,4 +1,5 @@
 /* D:/SWP391/SWP391/client/src/assets/styles/discovery.css */
+/* Giao diện các trang khám phá: Từ điển nguyên liệu (tìm kiếm, tra cứu ảnh, thẻ nguyên liệu) và Quán chay (bộ lọc, danh sách, bản đồ, đề xuất quán). */
 .cx-discovery-page { padding: 46px 28px 110px; background: #f8fafc; }
 .cx-dictionary-card, .cx-restaurant-toolbar { max-width: 1380px; margin: 0 auto; padding: 32px; border: 1px solid #f0f4f8; border-radius: 28px; background: #fff; }
 .cx-discovery-page h1 { display: flex; align-items: center; gap: 11px; margin: 0 0 7px; color: #243448; font-size: 27px; font-weight: 800; letter-spacing: -.6px; line-height: 1.35; }
@@ -144,6 +145,7 @@
 .cx-proposal-form input:not([type="checkbox"]):not([type="radio"]), .cx-proposal-form select { display: block; width: 100%; margin-top: 7px; padding: 11px 13px; border: 1px solid #e6edf5; border-radius: 12px; background: #f8fafc; color: #43536a; font: inherit; font-size: 13px; }
 .cx-proposal-form > div { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .cx-proposal-form > button { width: 100%; padding: 12px; border: 0; border-radius: 12px; background: #009671; color: #fff; font-size: 14px; font-weight: 750; }
+/* Màn hình vừa: thu gọn lưới bộ lọc, danh sách quán và thẻ nguyên liệu. */
 @media (max-width: 1100px) {
   .cx-restaurant-heading { flex-wrap: wrap; }
   .cx-propose-button { margin-left: 0; }
@@ -151,6 +153,7 @@
   .cx-restaurant-workspace { grid-template-columns: minmax(310px, 1fr) minmax(0, 1.5fr); gap: 18px; }
   .cx-ingredient-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+/* Màn hình di động: giảm khoảng cách, bo góc và cỡ chữ. */
 @media (max-width: 767px) {
   .cx-discovery-page { padding: 23px 14px 80px; }
   .cx-dictionary-card, .cx-restaurant-toolbar { padding: 22px 18px; border-radius: 21px; }

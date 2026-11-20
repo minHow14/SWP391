@@ -1,16 +1,19 @@
 // D:/SWP391/SWP391/client/test/foodScannerSwap.test.jsx
+// Kiểm thử luồng từ kết quả quét sang trang đổi món chay: mang theo món, thành phần vi phạm và gợi ý thay thế thật.
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import FoodScannerResults from '../src/features/foodScanner/components/FoodScannerResults.jsx';
 import FoodSwap from '../src/pages/FoodSwap.jsx';
 
+// Mock useDatabase với hai mục đổi món để kiểm tra trang chỉ lọc đúng thành phần cần thay.
 vi.mock('../src/hooks/useDatabase.js', () => ({ useDatabase: () => ({ data: { swaps: [
   { id: 1, original: 'Nước mắm', role: 'Gia vị', alternatives: ['Nước tương'], keywords: 'nước mắm cá', description: 'Gia vị thực vật' },
   { id: 2, original: 'Trứng', role: 'Kết dính', alternatives: ['Bột hạt lanh'], keywords: 'trứng', description: 'Kết dính thực vật' },
 ] } }) }));
 afterEach(cleanup);
 
+// Bấm "Tìm món chay thay thế" phải chuyển sang trang đổi món với từ khóa, tên món và gợi ý AI tương ứng; mục không liên quan bị lọc bỏ.
 it('carries the scanned dish, finding and actual suggestions into the swap page', () => {
   render(<MemoryRouter><Routes>
     <Route path="/" element={<FoodScannerResults result={{ status: 'warning', dishName: 'Canh rau',

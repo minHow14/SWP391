@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/api/ingredient_lookup.py
+# Router tra cứu thông tin nguyên liệu bằng LLM cho Backend.
 from fastapi import APIRouter, Depends
 
 from core.security import verify_internal_api_key
@@ -12,6 +13,7 @@ router = APIRouter(
 )
 
 
+# POST /api/ingredient-lookups: trả thông tin nguyên liệu để Backend kiểm tra và lưu trữ.
 @router.post("", response_model=IngredientLookupResponse)
 async def create_ingredient_lookup(
     body: IngredientLookupRequest,

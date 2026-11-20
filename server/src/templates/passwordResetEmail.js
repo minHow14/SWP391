@@ -1,6 +1,8 @@
 // D:/SWP391/SWP391/server/src/templates/passwordResetEmail.js
+// Mẫu email gửi mã OTP đặt lại mật khẩu (bản HTML và bản văn bản thuần).
 import { PASSWORD_RESET_OTP_DIGITS, PASSWORD_RESET_OTP_TTL_MINUTES } from '../constants/passwordReset.js';
 
+// HTML dùng bảng và style inline vì nhiều trình đọc email không hỗ trợ CSS hiện đại; {{otp}} được thay khi tạo email.
 const EMAIL_HTML = `<!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light"><title>Xác minh email | ChayXanh</title>
 <style>@media only screen and (max-width:600px){.email-shell{padding:20px 12px!important}.email-body{padding:28px 24px!important}.otp-code{font-size:30px!important;letter-spacing:8px!important}}</style></head>
@@ -25,6 +27,7 @@ const EMAIL_HTML = `<!doctype html>
 <p style="max-width:480px;margin:20px auto 0;color:#65736a;font-size:12px;line-height:1.7">Email được gửi tự động từ ChayXanh. Vui lòng không trả lời email này.</p>
 </td></tr></table></body></html>`;
 
+// Tạo nội dung email đặt lại mật khẩu từ mã OTP; chặn mã sai định dạng để không chèn nội dung lạ vào HTML.
 export function createPasswordResetEmail({ otp }) {
   if (typeof otp !== 'string' || !new RegExp(`^\\d{${PASSWORD_RESET_OTP_DIGITS}}$`).test(otp)) {
     throw new TypeError('OTP phải gồm đúng sáu chữ số.');

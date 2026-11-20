@@ -1,5 +1,6 @@
 # D:/SWP391/SWP391/ai_service/core/security.py
 # ai_service/core/security.py
+# Bảo mật nội bộ: xác thực khóa X-Internal-Api-Key từ Backend và xác định danh tính người dùng/khách.
 import logging
 import secrets
 
@@ -12,12 +13,15 @@ from core.internal_api_key import is_valid_internal_api_key
 logger = logging.getLogger(__name__)
 
 
+# Danh tính của request: người dùng đã đăng nhập (user_id) hoặc khách vãng lai (guest_id).
 class RequestIdentity(BaseModel):
     is_authenticated: bool
     user_id: str | None = None
     guest_id: str | None = None
 
 
+# Dependency FastAPI kiểm tra khóa nội bộ; dùng secrets.compare_digest để so sánh thời gian hằng,
+# tránh tấn công dò khóa theo thời gian phản hồi.
 def verify_internal_api_key(
     x_internal_api_key: str | None = Header(None, alias="X-Internal-Api-Key")
 ) -> bool:
@@ -38,6 +42,7 @@ def verify_internal_api_key(
     return True
 
 
+# Dependency FastAPI xác định danh tính từ header do Backend gửi kèm.
 def resolve_identity(
     request: Request,
     x_user_id: str | None = Header(None, alias="X-User-Id"),
@@ -55,6 +60,7 @@ def resolve_identity(
         )
 
     guest_id = (x_guest_id or "").strip()
+    # Khách không gửi X-Guest-Id thì dùng IP làm định danh dự phòng để vẫn giới hạn/gom được phiên.
     if not guest_id:
         guest_id = f"ip:{request.client.host if request.client else 'unknown'}"
 

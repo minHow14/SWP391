@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/schemas/video_recipe.py
+# Schema request/response cho tính năng chép lời video YouTube và trích xuất công thức nấu ăn.
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
@@ -7,6 +8,7 @@ from pydantic import Field, StringConstraints, model_validator
 from core.video_recipe_config import MAX_VIDEO_DURATION_SECONDS
 from schemas.base import CamelModel
 
+# videoId YouTube gồm đúng 11 ký tự; thời điểm tính bằng giây trong giới hạn thời lượng video.
 VideoId = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_-]{11}$")]
 Seconds = Annotated[
     float, Field(ge=0, le=MAX_VIDEO_DURATION_SECONDS, allow_inf_nan=False)
@@ -14,10 +16,12 @@ Seconds = Annotated[
 ShortText = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
+# Chỉ số đoạn phụ đề làm nguồn; mỗi nguyên liệu/bước phải dẫn chứng ít nhất một đoạn để chống LLM bịa.
 SourceIndex = Annotated[int, Field(strict=True, ge=0)]
 SourceIndexes = Annotated[list[SourceIndex], Field(min_length=1, max_length=2000)]
 
 
+# Yêu cầu chép lời một video YouTube tiếng Việt.
 class VideoTranscriptionRequest(CamelModel):
     job_id: UUID
     video_id: VideoId
@@ -26,6 +30,7 @@ class VideoTranscriptionRequest(CamelModel):
     duration_seconds: Seconds = Field(gt=0)
     language: Literal["vi"] = "vi"
 
+    # Chỉ chấp nhận URL YouTube dạng chuẩn khớp videoId, tránh bị lợi dụng để tải URL tùy ý.
     @model_validator(mode="after")
     def canonical_source(self) -> Self:
         if self.video_url != f"https://www.youtube.com/watch?v={self.video_id}":
@@ -33,6 +38,7 @@ class VideoTranscriptionRequest(CamelModel):
         return self
 
 
+# Một đoạn lời nói với thời điểm bắt đầu/kết thúc.
 class VideoSegment(CamelModel):
     start_seconds: Seconds
     end_seconds: Seconds
@@ -41,11 +47,13 @@ class VideoSegment(CamelModel):
     ]
 
 
+# Bản chép lời đầy đủ của video.
 class VideoTranscript(CamelModel):
     language: Literal["vi"] = "vi"
     duration_seconds: Seconds = Field(gt=0)
     segments: list[VideoSegment] = Field(min_length=1, max_length=2000)
 
+    # Kiểm tra dòng thời gian: các đoạn không chồng lấn, nằm trong thời lượng và tổng độ dài văn bản có giới hạn.
     @model_validator(mode="after")
     def valid_timeline(self) -> Self:
         previous_end = 0.0
@@ -63,6 +71,7 @@ class VideoTranscript(CamelModel):
         return self
 
 
+# Nguyên liệu trích xuất từ video; số lượng/đơn vị có thể null khi video không nói rõ.
 class VideoIngredient(CamelModel):
     name: ShortText
     quantity: (
@@ -80,6 +89,7 @@ class VideoIngredient(CamelModel):
     source_segment_indexes: SourceIndexes
 
 
+# Một bước nấu trích xuất từ video.
 class VideoRecipeStep(CamelModel):
     instruction: Annotated[
         str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
@@ -87,17 +97,20 @@ class VideoRecipeStep(CamelModel):
     source_segment_indexes: SourceIndexes
 
 
+# Công thức nấu ăn hoàn chỉnh trích xuất được.
 class VideoRecipe(CamelModel):
     title: ShortText | None
     ingredients: list[VideoIngredient] = Field(max_length=100)
     steps: list[VideoRecipeStep] = Field(min_length=1, max_length=100)
 
 
+# Kết quả trích xuất: video có phải công thức nấu ăn không, kèm công thức nếu có.
 class VideoRecipeExtraction(CamelModel):
     is_recipe: bool
     recipe: VideoRecipe | None
 
 
+# Yêu cầu tóm tắt công thức từ bản chép lời đã có.
 class VideoSummaryRequest(CamelModel):
     job_id: UUID
     video_id: VideoId

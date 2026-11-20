@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/auth/components/RecoveryEmailStep.jsx
+// Bước 1 của khôi phục mật khẩu: nhập email để nhận OTP, sau đó hiển thị bước nhập OTP bên dưới.
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,11 +7,13 @@ import { Button, Form, Spinner } from 'react-bootstrap';
 import { forgotPasswordSchema } from '../utils/authValidation.js';
 import RecoveryOtpStep from './RecoveryOtpStep.jsx';
 
+// Form nhập email nhận OTP; khi đã gửi OTP thì khóa ô email và hiển thị RecoveryOtpStep.
 export default function RecoveryEmailStep({ recovery }) {
   const { step, email, busy, resendAt, sendOtp, restart } = recovery;
   const emailForm = useForm({ resolver: zodResolver(forgotPasswordSchema), defaultValues: { email } });
   const { setFocus: focusEmail } = emailForm;
   const isOtp = step === 'otp';
+  // Tự focus lại ô email khi quay về bước nhập email để hỗ trợ người dùng bàn phím / trình đọc màn hình.
   useEffect(() => {
     if (!isOtp && !busy) focusEmail('email');
   }, [isOtp, busy, focusEmail]);

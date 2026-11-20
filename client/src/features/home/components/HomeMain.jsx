@@ -1,4 +1,5 @@
 // d:/Projects/FPT/SWP391/client/src/features/home/components/HomeMain.jsx
+// Nội dung trang chủ: hero, công thức gợi ý, video, bài chia sẻ cộng đồng và quán chay nổi bật.
 import { useState } from 'react';
 import { Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -11,6 +12,7 @@ import RestaurantImage from '../../restaurants/components/RestaurantImage.jsx';
 import { isVegetarianPlace } from '../../restaurants/utils/nearbyHelpers.js';
 import heroPhoto from '../../../assets/images/chayxanh-bowl.webp';
 
+// Component trang chủ; dữ liệu lấy từ catalog dùng chung trong DatabaseContext.
 export default function HomeMain() {
   const { data } = useDatabase();
   const [detail, setDetail] = useState(null);
@@ -18,6 +20,7 @@ export default function HomeMain() {
   const articles = data.posts.filter(post => post.post_type === 'BLOG');
   const openDetail = (kind, item) => setDetail({ kind, item });
 
+  // Ưu tiên 4 quán chay có ảnh; nếu chưa đủ 4 thì hiển thị 4 quán chay đầu tiên bất kể có ảnh hay không.
   const vegetarianRestaurants = (data.restaurants || []).filter(isVegetarianPlace);
   const featuredRestaurants = vegetarianRestaurants
     .filter((place) => place.image)

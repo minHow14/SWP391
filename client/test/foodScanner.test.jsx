@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/foodScanner.test.jsx
+// Kiểm thử trang kiểm tra món ăn bằng ảnh (FoodScanner): chế độ ăn áp dụng, dị ứng, lưu vào nhật ký và xử lý kết quả đến muộn.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router';
@@ -6,19 +7,24 @@ import FoodScanner from '../src/pages/FoodScanner.jsx';
 import { analyzeFoodImage, fileToBase64 } from '../src/services/foodScannerService.js';
 import { workspaceService } from '../src/services/workspaceService.js';
 
+// Ngữ cảnh giả (hoist để vi.mock dùng chung) gồm người dùng, kiểu ăn toàn cục và danh sách kiểu ăn; từng test có thể thay đổi.
 const context = vi.hoisted(() => ({ user: { user_id: 7 }, diet: { diet_type_id: 1 }, data: { diets: [
   { diet_type_id: 1, name: 'Thuần chay' }, { diet_type_id: 4, name: 'Chay trứng sữa' },
 ] } }));
+// Mock router, useDatabase, dịch vụ quét, workspaceService và lịch sử AI để trang chạy độc lập với API thật.
 vi.mock('react-router', async (original) => ({ ...await original(), useOutletContext: () => ({ diet: context.diet }) }));
 vi.mock('../src/hooks/useDatabase.js', () => ({ useDatabase: () => context }));
 vi.mock('../src/services/foodScannerService.js', () => ({ analyzeFoodImage: vi.fn(), fileToBase64: vi.fn() }));
 vi.mock('../src/services/workspaceService.js', () => ({ workspaceService: { addDiaryEntry: vi.fn() } }));
 vi.mock('../src/features/aiHistory/components/AiGenerationHistory.jsx', () => ({ default: () => null }));
 
+// Kết quả phân tích ảnh mẫu có dinh dưỡng ước tính.
 const result = { dishName: 'Sườn chay', detectedScanType: 'DISH', status: 'clear', summary: 'Nhận diện từ ảnh tải lên.',
   findings: [], identifiedIngredients: ['Đậu nành'], restaurantChecklist: [], swapSuggestions: [],
   nutritionEstimate: { calories: 180, protein: 12, carbs: 18, fat: 6 } };
+// Hàm tạo phần tử render trang trong router, dùng lại khi rerender.
 const draw = () => <MemoryRouter><FoodScanner /></MemoryRouter>;
+// Reset dữ liệu và mặc định đọc ảnh, phân tích và lưu nhật ký đều thành công.
 beforeEach(() => {
   vi.clearAllMocks(); context.user = { user_id: 7 }; context.diet = { diet_type_id: 1 };
   fileToBase64.mockResolvedValue({ base64: 'cmVhbC1pbWFnZQ==', mimeType: 'image/png', dataUrl: 'data:image/png;base64,cmVhbC1pbWFnZQ==' });
@@ -27,6 +33,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+// Kiểu ăn của trang theo kiểu ăn toàn cục cho đến khi người dùng chủ động chọn kiểu khác cho trang quét.
 it('follows global diet changes until the member explicitly overrides the scanner diet', async () => {
   const view = render(draw());
   context.diet = { diet_type_id: 4 }; view.rerender(draw());
@@ -39,6 +46,7 @@ it('follows global diet changes until the member explicitly overrides the scanne
   expect(screen.getByLabelText('Chế độ ăn chay áp dụng').value).toBe('1');
 });
 
+// Tên dị ứng lồng trong dữ liệu thành viên phải được tra ra trước khi gửi yêu cầu quét.
 it('resolves saved nested member allergy names before sending the scan', async () => {
   context.user = { user_id: 7, allergies: [{ ingredient_id: 91, ingredient: { name: 'Đậu phộng' } }] };
   render(draw());
@@ -46,6 +54,7 @@ it('resolves saved nested member allergy names before sending the scan', async (
   expect(analyzeFoodImage.mock.calls[0][0].allergies).toEqual(['Đậu phộng']);
 });
 
+// Dị ứng đã lưu không tra được tên thì chặn phân tích, thay vì bỏ qua dị ứng đó.
 it('blocks analysis when a saved allergy cannot be resolved instead of omitting it', async () => {
   context.user = { user_id: 7, allergies: [{ ingredient_id: 999 }] };
   render(draw());
@@ -55,6 +64,7 @@ it('blocks analysis when a saved allergy cannot be resolved instead of omitting 
   expect(screen.getByRole('button', { name: 'Phân tích' }).disabled).toBe(true);
 });
 
+// Chọn ảnh, bấm "Phân tích" và chờ kết quả hiển thị.
 async function scan() {
   const fileInput = document.querySelector('input[type="file"]');
   fireEvent.change(fileInput, { target: { files: [new File(['real-image'], 'meal.png', { type: 'image/png' })] } });
@@ -63,12 +73,14 @@ async function scan() {
   await screen.findByRole('button', { name: /Lưu vào Nhật ký ăn uống/ });
 }
 
+// Điền các trường bắt buộc trong hộp thoại lưu nhật ký.
 function completeDiary() {
   fireEvent.change(screen.getByLabelText('Khẩu phần'), { target: { value: '1 đĩa 150 g' } });
   fireEvent.change(screen.getByLabelText('Bữa ăn'), { target: { value: 'LUNCH' } });
   fireEvent.change(screen.getByLabelText('Chất xơ (g)'), { target: { value: '4' } });
 }
 
+// Gửi đúng ảnh đã tải lên, không còn nút ảnh mẫu giả, và chỉ lưu nhật ký sau khi người dùng xác nhận; phân tích lại thì ẩn thông báo đã lưu cũ.
 it('sends the uploaded image, removes fake demo scans, and saves only after explicit confirmation', async () => {
   render(draw());
   expect(screen.queryByRole('button', { name: /Thử ảnh mẫu/ })).toBeNull();
@@ -91,8 +103,10 @@ it('sends the uploaded image, removes fake demo scans, and saves only after expl
   expect(screen.queryByText(/Đã lưu món ăn vào nhật ký/)).toBeNull();
 });
 
+// Lưu thất bại thì giữ dữ liệu đã nhập, chặn gửi trùng và cho phép thử lại.
 it('keeps the form and user data when saving fails and prevents duplicate requests', async () => {
   let reject;
+  // Request lưu bị treo rồi bị từ chối để kiểm tra trạng thái nút trong lúc chờ.
   workspaceService.addDiaryEntry.mockImplementationOnce(() => new Promise((_, fail) => { reject = fail; }));
   render(draw()); await scan();
   fireEvent.click(screen.getByRole('button', { name: /Lưu vào Nhật ký ăn uống/ }));
@@ -109,6 +123,7 @@ it('keeps the form and user data when saving fails and prevents duplicate reques
   await screen.findByText(/Đã lưu món ăn vào nhật ký/);
 });
 
+// Thiếu dinh dưỡng ước tính thì bắt người dùng nhập, không tự điền số 0.
 it('requires missing nutrition to be entered rather than silently inventing zeros', async () => {
   analyzeFoodImage.mockResolvedValue({ success: true, data: { ...result, nutritionEstimate: null } });
   render(draw()); await scan();
@@ -120,6 +135,7 @@ it('requires missing nutrition to be entered rather than silently inventing zero
   expect(workspaceService.addDiaryEntry).not.toHaveBeenCalled();
 });
 
+// Đổi kiểu ăn phải đóng bản nháp nhật ký cũ và yêu cầu thao tác lưu mới.
 it('closes the old diary draft when the diet changes and requires a new save action', async () => {
   render(draw()); await scan();
   fireEvent.click(screen.getByRole('button', { name: /Lưu vào Nhật ký ăn uống/ }));
@@ -132,6 +148,7 @@ it('closes the old diary draft when the diet changes and requires a new save act
   expect(screen.queryByRole('dialog')).toBeNull();
 });
 
+// Đổi tài khoản phải xóa kết quả quét riêng tư và bỏ qua response phân tích đến muộn.
 it('clears private scan results on account change and ignores late analysis responses', async () => {
   let resolve;
   analyzeFoodImage.mockImplementationOnce(() => new Promise((done) => { resolve = done; }));

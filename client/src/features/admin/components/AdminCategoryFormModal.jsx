@@ -1,6 +1,15 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminCategoryFormModal.jsx
+// Modal form nhập tên danh mục, dùng chung cho cả tạo mới và chỉnh sửa.
 import { Modal, Form, Button } from 'react-bootstrap';
 
+/**
+ * Form thêm/sửa danh mục (component điều khiển, state nằm ở tab cha).
+ * @param {object} props
+ * @param {'CREATE'|'EDIT'} props.modalMode Chế độ của modal, quyết định tiêu đề và nhãn nút.
+ * @param {string} props.categoryName Giá trị ô nhập tên.
+ * @param {Function} props.setCategoryName Cập nhật tên danh mục.
+ * @param {Function} props.onSubmit Xử lý submit form.
+ */
 export default function AdminCategoryFormModal({
   show,
   onHide,

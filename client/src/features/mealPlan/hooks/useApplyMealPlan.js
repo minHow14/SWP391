@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/mealPlan/hooks/useApplyMealPlan.js
+// Hook áp dụng thực đơn AI vào kế hoạch tuần của nhật ký.
 import { useState } from 'react';
 import { workspaceService } from '../../../services/workspaceService.js';
 import { emitSyncEvent } from '../../../utils/syncEvents.js';
@@ -10,6 +11,7 @@ export function useApplyMealPlan(generationId) {
   const [error, setError] = useState('');
   const week = weekDates(todayKey());
 
+  // Gửi yêu cầu áp dụng rồi phát sự kiện đồng bộ để trang Nhật ký tự tải lại.
   async function confirm() {
     setStatus('saving');
     setError('');

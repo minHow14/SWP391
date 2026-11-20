@@ -1,11 +1,12 @@
 // server/src/services/ingredient.service.js
+// Nghiệp vụ quản lý khối lượng riêng (density) của nguyên liệu lỏng, dùng để quy đổi thể tích sang khối lượng khi tính dinh dưỡng.
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 
 export const ingredientService = {
   /**
-   * Get all liquid ingredient densities
-   * Returns array of liquid densities with ingredient details
+   * Lấy khối lượng riêng của tất cả nguyên liệu lỏng.
+   * Trả về mảng gồm khối lượng riêng kèm thông tin nguyên liệu.
    */
   async getLiquidIngredientDensities() {
     try {
@@ -22,6 +23,7 @@ export const ingredientService = {
         },
       });
 
+      // Giữ cấu trúc cũ (density_id) dù density nay lưu ngay trên bảng nguyên liệu, để FE không phải đổi.
       return liquidIngredients.map((item) => ({
         density_id: item.ingredient_id,
         ingredient_id: item.ingredient_id,
@@ -42,7 +44,7 @@ export const ingredientService = {
   },
 
   /**
-   * Get liquid density by ingredient ID
+   * Lấy khối lượng riêng theo ID nguyên liệu (null nếu không phải nguyên liệu lỏng).
    */
   async getLiquidDensityByIngredientId(ingredientId) {
     try {
@@ -83,14 +85,14 @@ export const ingredientService = {
   },
 
   /**
-   * Create a new liquid ingredient density (Admin only)
+   * Thêm khối lượng riêng cho nguyên liệu (chỉ Admin).
    */
   async createLiquidIngredientDensity(data) {
     try {
       const { ingredient_id, density } = data;
       const parsedId = parseInt(ingredient_id, 10);
 
-      // Verify ingredient exists
+      // Kiểm tra nguyên liệu tồn tại
       const ingredient = await prisma.ingredient.findUnique({
         where: { ingredient_id: parsedId },
       });
@@ -99,7 +101,7 @@ export const ingredientService = {
         throw new ApiError(404, 'Ingredient not found');
       }
 
-      // Check if density already exists
+      // Kiểm tra nguyên liệu đã có khối lượng riêng chưa
       if (ingredient.density !== null && ingredient.density !== undefined) {
         throw new ApiError(409, 'Liquid density for this ingredient already exists');
       }
@@ -140,7 +142,7 @@ export const ingredientService = {
   },
 
   /**
-   * Update liquid ingredient density (Admin only)
+   * Cập nhật khối lượng riêng của nguyên liệu lỏng (chỉ Admin).
    */
   async updateLiquidIngredientDensity(ingredientId, data) {
     try {
@@ -191,7 +193,7 @@ export const ingredientService = {
   },
 
   /**
-   * Delete liquid ingredient density (Admin only)
+   * Xóa khối lượng riêng của nguyên liệu (chỉ Admin).
    */
   async deleteLiquidIngredientDensity(ingredientId) {
     try {
@@ -205,6 +207,7 @@ export const ingredientService = {
         throw new ApiError(404, 'Liquid ingredient density not found');
       }
 
+      // "Xóa" chỉ đặt density về null vì đây là thuộc tính trên bảng nguyên liệu, không xóa nguyên liệu.
       await prisma.ingredient.update({
         where: { ingredient_id: parsedId },
         data: { density: null },

@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/services/content_moderation.py
+# Dịch vụ kiểm duyệt nội dung văn bản bằng LLM: phân loại ALLOW/REVIEW và chỉ chấp nhận bằng chứng
+# trích nguyên văn từ nội dung gốc; mọi lỗi đều trả về lỗi an toàn chung.
 import asyncio
 import json
 import logging
@@ -19,11 +21,14 @@ from schemas.content_moderation import (
     ContentModerationVerdict,
 )
 
+# Phiên bản chính sách kiểm duyệt, trả kèm kết quả để Backend biết kết luận dựa trên bộ quy tắc nào.
 MODERATION_POLICY_VERSION = "vegetarian-community-v2"
+# Giới hạn token đầu ra cho kết luận kiểm duyệt (đủ cho lý do và bằng chứng ngắn).
 MODERATION_MAX_TOKENS = 1_500
 logger = logging.getLogger(__name__)
 
 
+# Đọc prompt kiểm duyệt từ file một lần rồi cache.
 @lru_cache(maxsize=1)
 def _moderation_prompt() -> str:
     return (
@@ -31,6 +36,7 @@ def _moderation_prompt() -> str:
     ).read_text(encoding="utf-8")
 
 
+# Tạo model kiểm duyệt một lần: temperature 0 để kết luận ổn định; include_raw để lấy tên model thật từ metadata.
 @lru_cache(maxsize=1)
 def _moderation_model() -> tuple[Runnable, str]:
     model = get_llm_json(
@@ -41,6 +47,7 @@ def _moderation_model() -> tuple[Runnable, str]:
     ), model.model_name
 
 
+# Khởi tạo khi service khởi động: nạp prompt và client một lần; không bắt buộc có khóa API để các tính năng khác vẫn chạy.
 def initialize_content_moderation() -> None:
     """Load the prompt and provider client once without requiring credentials for other features."""
     _moderation_prompt()
@@ -48,6 +55,7 @@ def initialize_content_moderation() -> None:
         _moderation_model()
 
 
+# Dựng message gửi LLM: nội dung người dùng được gửi dưới dạng JSON để tách bạch với chỉ thị trong system prompt.
 def _messages(body: ContentModerationRequest) -> list[SystemMessage | HumanMessage]:
     content = {
         "contentType": body.content_type,
@@ -60,12 +68,14 @@ def _messages(body: ContentModerationRequest) -> list[SystemMessage | HumanMessa
     ]
 
 
+# Validate kết quả của LLM và gắn tên model, phiên bản chính sách.
 def _validated_result(
     packet: dict[str, Any], body: ContentModerationRequest, configured_model: str
 ) -> ContentModerationResult:
     if packet.get("parsing_error"):
         raise ValueError("Invalid structured moderation output.")
     verdict = ContentModerationVerdict.model_validate(packet.get("parsed"))
+    # Mọi bằng chứng phải xuất hiện nguyên văn trong nội dung gửi lên, chống LLM bịa trích dẫn.
     source = f"{body.title or ''}\n{body.content}"
     if any(evidence not in source for evidence in verdict.evidence):
         raise ValueError("Moderation evidence is not in the supplied content.")
@@ -77,6 +87,7 @@ def _validated_result(
     )
 
 
+# Dựng lỗi kiểm duyệt đã làm sạch, dùng chung cho endpoint văn bản và ảnh.
 def moderation_failure(code: str, status: int = 503) -> HTTPException:
     """Build the sanitized moderation error shared by the text and image endpoints."""
     return HTTPException(
@@ -88,7 +99,9 @@ def moderation_failure(code: str, status: int = 503) -> HTTPException:
     )
 
 
+# Phân loại văn bản bằng một lượt suy luận thật có giới hạn thời gian, chỉ chấp nhận bằng chứng có căn cứ.
 async def moderate_content(body: ContentModerationRequest) -> ContentModerationResult:
+    # Timeout trả 503, đầu ra sai định dạng trả 502, lỗi khác trả 503; nội dung vẫn ở trạng thái chờ xử lý.
     """Classify submitted text with bounded real inference and grounded evidence only."""
     if not settings.DEEPSEEK_API_KEY:
         raise moderation_failure("MODERATION_AI_NOT_READY")

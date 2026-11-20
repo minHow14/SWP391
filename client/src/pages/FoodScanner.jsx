@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/pages/FoodScanner.jsx
+// Trang Kiểm tra món: quét ảnh/nhập thành phần để kiểm tra theo chế độ ăn, lưu nhật ký và xem lịch sử quét.
 import { useState } from 'react';
 import { Alert, Card, Container } from 'react-bootstrap';
 import { Link, useOutletContext } from 'react-router';
@@ -10,14 +11,17 @@ import ScanDiaryDialog from '../features/foodScanner/components/ScanDiaryDialog.
 import { useFoodScanner } from '../features/foodScanner/hooks/useFoodScanner.js';
 import { resolveScannerAllergies } from '../utils/foodScanner.js';
 
+// Không gian làm việc của trang; cho phép tạm đổi chế độ ăn so với chế độ đang chọn chung.
 function FoodScannerWorkspace({ data, user, userId, defaultDietId }) {
   const [dietOverride, setDietOverride] = useState(null);
   const dietId = dietOverride ?? defaultDietId;
   const [savingResult, setSavingResult] = useState(null);
   const [savedResult, setSavedResult] = useState(null);
+  // Dị ứng chưa xác định đầy đủ thì chặn quét ảnh để tránh kết luận "phù hợp" sai.
   const allergies = resolveScannerAllergies(user, data?.ingredients);
   const allergyError = allergies.incomplete ? 'Không thể xác định đầy đủ dị ứng đã lưu. Vui lòng tải lại hồ sơ trước khi quét ảnh.' : '';
   const scanner = useFoodScanner(dietId, allergies.names, allergyError);
+  // Khôi phục kết quả từ lịch sử và ẩn thông báo đã lưu của kết quả cũ.
   function restore(record) {
     scanner.restore(record); setSavedResult(null);
   }
@@ -35,6 +39,7 @@ function FoodScannerWorkspace({ data, user, userId, defaultDietId }) {
   </Container>;
 }
 
+// Component trang; key theo userId để reset toàn bộ trạng thái khi đổi tài khoản.
 export default function FoodScanner() {
   const { data, user } = useDatabase();
   const { diet } = useOutletContext() || {};

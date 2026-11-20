@@ -1,7 +1,9 @@
 // d:\Projects\FPT\SWP391\server\src\repositories\vote.repository.js
+// Repository truy cập bảng bình chọn (upvote/downvote) bài viết; mỗi người dùng chỉ có một phiếu cho mỗi bài.
 import prisma from '../config/prisma.js';
 
 export const voteRepository = {
+  // Tìm phiếu của người dùng cho bài viết.
   async findVote(userId, postId, db = prisma) {
     return db.postVote.findUnique({
       where: {
@@ -13,6 +15,7 @@ export const voteRepository = {
     });
   },
 
+  // Tạo phiếu mới hoặc đổi loại phiếu nếu đã bình chọn (dựa trên khóa duy nhất user_id + post_id).
   async upsertVote(userId, postId, voteType, db = prisma) {
     const numericUserId = Number(userId);
     const numericPostId = Number(postId);
@@ -34,6 +37,7 @@ export const voteRepository = {
     });
   },
 
+  // Xóa phiếu (bỏ bình chọn).
   async deleteVote(userId, postId, db = prisma) {
     return db.postVote.delete({
       where: {
@@ -45,6 +49,7 @@ export const voteRepository = {
     });
   },
 
+  // Đếm số phiếu theo loại của một bài viết.
   async countVotes(postId, voteType, db = prisma) {
     return db.postVote.count({
       where: {

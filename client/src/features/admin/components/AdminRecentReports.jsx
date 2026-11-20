@@ -1,7 +1,14 @@
 // client/src/features/admin/components/AdminRecentReports.jsx
+// Khối "Báo cáo vi phạm gần nhất" trên dashboard: số báo cáo chờ duyệt và danh sách báo cáo mới.
 import { Col, Table, Badge, Button } from 'react-bootstrap';
 import { formatCreatedAt } from '../../../utils/formatters.js';
 
+/**
+ * Danh sách báo cáo vi phạm gần đây.
+ * @param {object} props
+ * @param {{ pending: number, recent: Array }} props.reports Khối số liệu báo cáo từ API dashboard.
+ * @param {Function} props.onNavigateTab Chuyển sang tab báo cáo khi bấm.
+ */
 export default function AdminRecentReports({ reports, onNavigateTab }) {
   const pendingCount = reports?.pending || 0;
   const recentList = reports?.recent || [];

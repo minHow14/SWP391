@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/api/video_recipe.py
+# Router trích xuất công thức từ video YouTube: chép lời (SSE có tiến độ) và tóm tắt công thức.
 import asyncio
 import json
 import logging
@@ -24,10 +25,12 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 
+# Đóng gói một sự kiện SSE với payload JSON (giữ nguyên ký tự tiếng Việt).
 def _event(name: str, payload: dict) -> dict:
     return {"event": name, "data": json.dumps(payload, ensure_ascii=False)}
 
 
+# Sự kiện tiến độ cho một giai đoạn xử lý.
 def _progress_event(stage: str) -> dict:
     return _event(
         "progress",
@@ -40,6 +43,7 @@ def _progress_event(stage: str) -> dict:
     )
 
 
+# Sự kiện hoàn tất kèm bản chép lời.
 def _done_event(transcript: VideoTranscript) -> dict:
     return _event(
         "done",
@@ -51,6 +55,7 @@ def _done_event(transcript: VideoTranscript) -> dict:
     )
 
 
+# Task sản xuất: chép lời video và đẩy sự kiện tiến độ/kết quả/lỗi vào hàng đợi.
 async def _produce(body: VideoTranscriptionRequest, queue: asyncio.Queue) -> None:
     async def progress(stage: str) -> None:
         await queue.put(_progress_event(stage))
@@ -60,6 +65,7 @@ async def _produce(body: VideoTranscriptionRequest, queue: asyncio.Queue) -> Non
         await queue.put(_done_event(transcript))
     except VideoRecipeError as failure:
         await queue.put(_event("error", failure.envelope()))
+    # Luôn kết thúc giao thức SSE an toàn bằng sự kiện error chung, không lộ chi tiết lỗi gốc.
     except Exception as failure:  # noqa: BLE001 -- Always terminate the SSE protocol safely.
         logger.error(
             "Video transcription failed exceptionType=%s", type(failure).__name__
@@ -76,6 +82,7 @@ async def _produce(body: VideoTranscriptionRequest, queue: asyncio.Queue) -> Non
         )
 
 
+# Generator SSE: phát sự kiện từ hàng đợi cho tới done/error; hàng đợi có giới hạn để tạo áp lực ngược.
 async def _transcription_events(body: VideoTranscriptionRequest) -> AsyncIterator[dict]:
     queue: asyncio.Queue = asyncio.Queue(maxsize=8)
     producer = asyncio.create_task(_produce(body, queue))
@@ -85,11 +92,14 @@ async def _transcription_events(body: VideoTranscriptionRequest) -> AsyncIterato
             yield event
             if event["event"] in {"done", "error"}:
                 break
+    # Hủy và chờ task sản xuất khi client ngắt kết nối hoặc stream kết thúc, tránh task mồ côi.
     finally:
         producer.cancel()
         await asyncio.gather(producer, return_exceptions=True)
 
 
+# POST /api/video-recipe-transcriptions/stream: chép lời video, gửi tiến độ thật và sự kiện kết thúc đã làm sạch;
+# ping 15 giây để giữ kết nối không bị proxy cắt khi xử lý lâu.
 @router.post("/video-recipe-transcriptions/stream")
 async def transcribe_recipe_video(
     body: VideoTranscriptionRequest,
@@ -98,6 +108,7 @@ async def transcribe_recipe_video(
     return EventSourceResponse(_transcription_events(body), ping=15)
 
 
+# POST /api/video-recipe-summaries: tóm tắt công thức từ bản chép lời đã hoàn chỉnh.
 @router.post("/video-recipe-summaries")
 async def create_video_recipe_summary(body: VideoSummaryRequest) -> dict:
     """Return the schema-validated recipe for the already complete transcript."""
@@ -109,6 +120,7 @@ async def create_video_recipe_summary(body: VideoSummaryRequest) -> dict:
     }
 
 
+# Handler toàn cục cho VideoRecipeError: trả body lỗi an toàn kèm header Retry-After (làm tròn lên theo giây).
 async def video_recipe_error_handler(
     request: Request, failure: VideoRecipeError
 ) -> JSONResponse:

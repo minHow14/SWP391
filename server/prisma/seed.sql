@@ -409,61 +409,61 @@ INSERT INTO "recipes" ("recipe_id", "post_id", "category_id", "diet_type_id", "r
 -- 17. NGUYÊN LIỆU CHO CÔNG THỨC (RECIPE INGREDIENTS) (38 liên kết chi tiết)
 -- ------------------------------------------------------------------------
 INSERT INTO "recipe_ingredients" ("recipe_id", "ingredient_id", "quantity", "unit") VALUES
-  -- Recipe 1: Đậu Hũ Kho Nấm Rơm & Hạt Sen
+  -- Công thức 1: Đậu Hũ Kho Nấm Rơm & Hạt Sen
   (1, 2, 200, 'gram'),
   (1, 4, 150, 'gram'),
   (1, 7, 80, 'gram'),
   (1, 18, 20, 'gram'),
-  -- Recipe 2: Salad Bơ Táo Hạt Óc Chó Sốt Tỏi Olive
+  -- Công thức 2: Salad Bơ Táo Hạt Óc Chó Sốt Tỏi Olive
   (2, 8, 1, 'trái'),
   (2, 9, 80, 'gram'),
   (2, 11, 30, 'gram'),
   (2, 19, 15, 'ml'),
-  -- Recipe 3: Súp Nấm Mỡ & Váng Sữa Phô Mai
+  -- Công thức 3: Súp Nấm Mỡ & Váng Sữa Phô Mai
   (3, 6, 150, 'gram'),
   (3, 15, 150, 'ml'),
   (3, 16, 40, 'gram'),
   (3, 18, 15, 'gram'),
-  -- Recipe 4: Bánh Mì Kẹp Trứng Ốp La & Nấm Đùi Gà
+  -- Công thức 4: Bánh Mì Kẹp Trứng Ốp La & Nấm Đùi Gà
   (4, 20, 1, 'ổ'),
   (4, 17, 1, 'quả'),
   (4, 5, 80, 'gram'),
   (4, 9, 30, 'gram'),
-  -- Recipe 5: Bánh Nướng Phô Mai Mozzarella & Trứng
+  -- Công thức 5: Bánh Nướng Phô Mai Mozzarella & Trứng
   (5, 20, 1, 'ổ'),
   (5, 17, 1, 'quả'),
   (5, 16, 50, 'gram'),
-  -- Recipe 6: Đậu Hũ Sốt Cà Chua & Hành Boa-rô
+  -- Công thức 6: Đậu Hũ Sốt Cà Chua & Hành Boa-rô
   (6, 2, 200, 'gram'),
   (6, 10, 150, 'gram'),
   (6, 18, 20, 'gram'),
   (6, 19, 10, 'ml'),
-  -- Recipe 7: Canh Rong Biển Đậu Hũ Non Hạt Sen
+  -- Công thức 7: Canh Rong Biển Đậu Hũ Non Hạt Sen
   (7, 21, 20, 'gram'),
   (7, 1, 150, 'gram'),
   (7, 7, 50, 'gram'),
-  -- Recipe 8: Cơm Chiên Gạo Lứt Nấm & Củ Quả
+  -- Công thức 8: Cơm Chiên Gạo Lứt Nấm & Củ Quả
   (8, 22, 150, 'gram'),
   (8, 3, 60, 'gram'),
   (8, 28, 50, 'gram'),
   (8, 27, 60, 'gram'),
-  -- Recipe 9: Salad Ngũ Sắc Sốt Tương Đậu Phộng
+  -- Công thức 9: Salad Ngũ Sắc Sốt Tương Đậu Phộng
   (9, 9, 100, 'gram'),
   (9, 27, 60, 'gram'),
   (9, 10, 50, 'gram'),
   (9, 2, 80, 'gram'),
   (9, 26, 30, 'gram'),
-  -- Recipe 10: Cơm Gạo Lứt Trộn Rau Củ & Hạt Điều
+  -- Công thức 10: Cơm Gạo Lứt Trộn Rau Củ & Hạt Điều
   (10, 22, 150, 'gram'),
   (10, 25, 40, 'gram'),
   (10, 28, 60, 'gram'),
   (10, 27, 60, 'gram'),
-  -- Recipe 11: Salad Bơ Quả Đậu Lăng Đỏ Sốt Dầu Olive
+  -- Công thức 11: Salad Bơ Quả Đậu Lăng Đỏ Sốt Dầu Olive
   (11, 8, 1, 'trái'),
   (11, 24, 80, 'gram'),
   (11, 10, 50, 'gram'),
   (11, 19, 15, 'ml'),
-  -- Recipe 12: Bông Cải Xanh Xào Nấm Đùi Gà Dầu Hào Chay
+  -- Công thức 12: Bông Cải Xanh Xào Nấm Đùi Gà Dầu Hào Chay
   (12, 27, 200, 'gram'),
   (12, 5, 120, 'gram'),
   (12, 19, 10, 'ml');
@@ -522,37 +522,37 @@ INSERT INTO "meal_plans" ("plan_id", "user_id", "title", "start_date", "end_date
 -- 22. CHI TIẾT KẾ HOẠCH THEO BỮA (MEAL PLAN DETAILS) (28 bữa trọn vẹn 7 ngày)
 -- ------------------------------------------------------------------------
 INSERT INTO "meal_plan_details" ("plan_detail_id", "plan_id", "day_of_week", "meal_type", "recipe_id") VALUES
-  -- Thứ Hai (Day 1)
+  -- Thứ Hai (Ngày 1)
   (1, 1, 1, 'BREAKFAST', 2),
   (2, 1, 1, 'LUNCH', 1),
   (3, 1, 1, 'DINNER', 7),
   (4, 1, 1, 'SNACK', 11),
-  -- Thứ Ba (Day 2)
+  -- Thứ Ba (Ngày 2)
   (5, 1, 2, 'BREAKFAST', 4),
   (6, 1, 2, 'LUNCH', 6),
   (7, 1, 2, 'DINNER', 8),
   (8, 1, 2, 'SNACK', 2),
-  -- Thứ Tư (Day 3)
+  -- Thứ Tư (Ngày 3)
   (9, 1, 3, 'BREAKFAST', 10),
   (10, 1, 3, 'LUNCH', 1),
   (11, 1, 3, 'DINNER', 12),
   (12, 1, 3, 'SNACK', 9),
-  -- Thứ Năm (Day 4)
+  -- Thứ Năm (Ngày 4)
   (13, 1, 4, 'BREAKFAST', 2),
   (14, 1, 4, 'LUNCH', 8),
   (15, 1, 4, 'DINNER', 7),
   (16, 1, 4, 'SNACK', 11),
-  -- Thứ Sáu (Day 5)
+  -- Thứ Sáu (Ngày 5)
   (17, 1, 5, 'BREAKFAST', 4),
   (18, 1, 5, 'LUNCH', 6),
   (19, 1, 5, 'DINNER', 1),
   (20, 1, 5, 'SNACK', 9),
-  -- Thứ Bảy (Day 6)
+  -- Thứ Bảy (Ngày 6)
   (21, 1, 6, 'BREAKFAST', 10),
   (22, 1, 6, 'LUNCH', 12),
   (23, 1, 6, 'DINNER', 7),
   (24, 1, 6, 'SNACK', 2),
-  -- Chủ Nhật (Day 7)
+  -- Chủ Nhật (Ngày 7)
   (25, 1, 7, 'BREAKFAST', 5),
   (26, 1, 7, 'LUNCH', 1),
   (27, 1, 7, 'DINNER', 8),
@@ -628,6 +628,7 @@ INSERT INTO "guest_quota" ("guest_id", "quota_date", "used_count", "updated_at")
 
 -- ------------------------------------------------------------------------
 -- 32. RESET CÁC CHUỖI TỰ TĂNG (SEQUENCES) TRONG POSTGRESQL
+-- Cần đặt lại sequence vì các INSERT ở trên chèn ID tường minh; nếu không, bản ghi tạo mới sẽ trùng khoá chính.
 -- ------------------------------------------------------------------------
 SELECT setval(pg_get_serial_sequence('users', 'user_id'), COALESCE((SELECT MAX(user_id) FROM "users"), 1));
 SELECT setval(pg_get_serial_sequence('posts', 'post_id'), COALESCE((SELECT MAX(post_id) FROM "posts"), 1));

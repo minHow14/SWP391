@@ -1,5 +1,6 @@
 # D:/SWP391/SWP391/ai_service/api/chat.py
 # ai_service/api/chat.py
+# Router chatbot tư vấn dinh dưỡng chay: trả lời một lần (JSON) hoặc truyền từng token qua SSE.
 import json
 import logging
 from typing import Annotated, Any
@@ -29,15 +30,18 @@ router = APIRouter(
     dependencies=[Depends(verify_internal_api_key)],
 )
 
+# Giới hạn độ dài ngữ cảnh thực đơn gửi kèm để không làm phình prompt và tăng chi phí LLM.
 MAX_MENU_CONTEXT_CHARS = 8000
 
 
-# Pydantic Schemas
+# Các schema Pydantic
+# Một tin nhắn trong lịch sử hội thoại.
 class ChatMessage(CamelModel):
     role: str = Field(..., description="Vai trò: 'user' hoặc 'assistant'")
     content: str = Field(..., description="Nội dung tin nhắn")
 
 
+# Body yêu cầu chat: câu hỏi, lịch sử, chế độ ăn và thực đơn (tùy chọn) làm ngữ cảnh.
 class ChatRequest(CamelModel):
     message: str = Field(..., description="Nội dung câu hỏi hoặc yêu cầu tư vấn dinh dưỡng chay")
     history: list[ChatMessage] | None = Field(
@@ -53,6 +57,7 @@ class ChatRequest(CamelModel):
         description="Thực đơn người dùng vừa được tạo (JSON hoặc văn bản) để chatbot giải thích",
     )
 
+    # Chuẩn hóa menu_context về chuỗi: object JSON được serialize, chuỗi rỗng coi như không có.
     @field_validator("menu_context")
     @classmethod
     def menu_context_to_text(cls, value: Any) -> str | None:
@@ -67,10 +72,12 @@ class ChatRequest(CamelModel):
         return text
 
 
+# Dữ liệu trả lời của chatbot.
 class ChatData(CamelModel):
     reply: str
 
 
+# Response chat theo API Contract.
 class ChatResponse(CamelModel):
     success: bool = True
     message: str = "Xử lý yêu cầu AI thành công."
@@ -78,6 +85,7 @@ class ChatResponse(CamelModel):
     meta: dict
 
 
+# POST /api/chat: gửi câu hỏi tới chatbot và nhận câu trả lời đầy đủ (có giới hạn tần suất).
 @router.post("", response_model=ChatResponse)
 @rate_limit()
 async def send_chat_message(
@@ -103,6 +111,7 @@ async def send_chat_message(
             menu_context=body.menu_context,
         )
 
+        # Gắn nhãn người dùng/khách vào action để thống kê log theo đối tượng.
         user_tag = f"USER_{identity.user_id}" if identity.is_authenticated else f"GUEST_{identity.guest_id}"
         await record_ai_log(
             model_name=settings.DEEPSEEK_MODEL,
@@ -116,6 +125,7 @@ async def send_chat_message(
             meta={"requestId": request.state.request_id, "modelName": settings.DEEPSEEK_MODEL},
         )
 
+    # Mọi lỗi nhà cung cấp đều trả về 502 theo hợp đồng API công khai, không lộ chi tiết lỗi gốc.
     except Exception as e:  # noqa: BLE001 -- Provider failures must use the public API error contract.
         logger.error("AI request failed exceptionType=%s", type(e).__name__)
         await record_ai_log(
@@ -133,6 +143,7 @@ async def send_chat_message(
         )
 
 
+# POST /api/chat/stream: trả lời theo từng token qua Server-Sent Events.
 @router.post("/stream")
 @rate_limit()
 async def stream_chat_message(
@@ -150,8 +161,10 @@ async def stream_chat_message(
             detail={"code": "INVALID_INPUT", "message": "Nội dung câu hỏi không được để trống."},
         )
 
+    # Sinh chuỗi sự kiện SSE: metadata (vết prompt) -> token... -> done, hoặc error nếu thất bại.
     async def event_generator():
         try:
+            # Dựng message một lần rồi dùng lại cho cả vết prompt lẫn lời gọi LLM để hai bên khớp nhau.
             messages = chatbot_agent.build_messages(
                 clean_message, history=body.history, dietary_type=body.dietary_type,
                 menu_context=body.menu_context,
@@ -189,6 +202,7 @@ async def stream_chat_message(
                 }, ensure_ascii=False),
             }
 
+        # Stream đã bắt đầu thì không thể đổi HTTP status, nên phải gửi một sự kiện error kết thúc.
         except Exception as e:  # noqa: BLE001 -- An active SSE stream needs a terminal error event.
             logger.error("AI stream failed exceptionType=%s", type(e).__name__)
             await record_ai_log(

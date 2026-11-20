@@ -1,13 +1,18 @@
 // D:/SWP391/SWP391/server/src/validators/passwordResetValidator.js
+// Schema cho luồng quên/đặt lại mật khẩu bằng OTP.
 import { z } from 'zod';
 import { PASSWORD_RESET_OTP_DIGITS } from '../constants/passwordReset.js';
 
+// bcrypt chỉ dùng 72 byte đầu, mật khẩu dài hơn sẽ bị cắt ngầm nên chặn ngay từ validate.
 const MAX_BCRYPT_PASSWORD_BYTES = 72;
 
+// Yêu cầu OTP: chỉ cần email hợp lệ.
 export const forgotPasswordSchema = z.object({ email: z.string().trim().email().max(255) }).strict();
+// Xác minh OTP: email + OTP gồm đúng số chữ số quy định.
 export const verifyPasswordResetOtpSchema = forgotPasswordSchema.extend({
   otp: z.string().regex(new RegExp(`^\\d{${PASSWORD_RESET_OTP_DIGITS}}$`), 'Mã xác minh phải gồm đúng 6 chữ số.'),
 }).strict();
+// Đặt mật khẩu mới: token là chuỗi hex 64 ký tự, mật khẩu ≥ 8 ký tự và ≤ 72 byte UTF-8.
 export const resetPasswordSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/, 'Liên kết đặt lại mật khẩu không hợp lệ.'),
   newPassword: z.string().min(8, 'Mật khẩu phải có ít nhất 8 ký tự.').max(128)

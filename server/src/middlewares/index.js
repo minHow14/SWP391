@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\middlewares\index.js
+// Gom và export lại toàn bộ middleware để import từ một nơi.
 export * from './errorMiddleware.js';
 export * from './asyncMiddleware.js';
 export * from './authMiddleware.js';

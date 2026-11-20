@@ -1,4 +1,5 @@
 // D:/Projects/FPT/SWP391/client/src/pages/admin/AdminPortal.jsx
+// Cổng quản trị: kiểm tra quyền admin, điều hướng giữa các tab quản lý và ghi nhớ tab đang mở.
 import { useState, useEffect } from 'react';
 import { Container, Row, Col } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';
@@ -16,6 +17,7 @@ import AdminAiMonitorTab from '../../features/admin/components/AdminAiMonitorTab
 import AdminAi from './AdminAi.jsx';
 import AdminReportsTab from '../../features/admin/components/AdminReportsTab.jsx';
 
+// Danh sách tab hợp lệ; giá trị lạ từ URL hoặc storage sẽ bị bỏ qua.
 const VALID_TABS = [
   'dashboard',
   'members',
@@ -28,6 +30,7 @@ const VALID_TABS = [
   'reports',
 ];
 
+// Component cổng quản trị gồm header, sidebar và nội dung tab tương ứng.
 export default function AdminPortal() {
   const { user } = useDatabase();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -128,14 +131,14 @@ export default function AdminPortal() {
   return (
     <div className="admin-portal-shell py-2.5">
       <Container fluid className="px-lg-4 admin-container-shell">
-        {/* Top Header điều hướng toàn trang */}
+        {/* Thanh header điều hướng toàn trang */}
         <AdminHeader
           activeTab={activeTab}
           onSelectTab={handleSelectTab}
           onToggleMobile={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
 
-        {/* Backdrop cho mobile sidebar */}
+        {/* Lớp nền mờ khi mở sidebar trên di động */}
         {isMobileSidebarOpen && (
           <div
             className="admin-sidebar-backdrop d-lg-none"

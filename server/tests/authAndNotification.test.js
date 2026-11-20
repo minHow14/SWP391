@@ -1,10 +1,13 @@
 // d:\Projects\FPT\SWP391\server\tests/authAndNotification.test.js
+// Kiểm thử tích hợp (cần DB test) đổi mật khẩu, lịch sử cân nặng/BMI và hệ thống thông báo.
+// Các test chạy tuần tự và phụ thuộc nhau: test đầu tạo user/bài viết dùng cho các test sau.
 import './loadTestEnvironment.js';
 import { describe, test, expect } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 
+// Nhóm test: đổi mật khẩu, lịch sử cân nặng và thông báo (dùng chung trạng thái giữa các test).
 describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & Hệ thống Thông báo', () => {
   let userToken;
   let testUserId;
@@ -12,6 +15,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
   let anotherUserId;
   let testPostId;
 
+  // Chuẩn bị: đăng ký hai user, đặt chiều cao cho user 1 để tính BMI và tạo một bài blog của user 1.
   test('setup test users and tokens', async () => {
     // 1. Đăng ký user chính
     const regUser1 = await request(app)
@@ -61,6 +65,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
   });
 
   // --- KIỂM THỬ ĐỔI MẬT KHẨU ---
+  // Mật khẩu cũ sai phải bị 400.
   test('rejects change password when old password is wrong', async () => {
     const res = await request(app)
       .post('/api/v1/auth/change-password')
@@ -73,6 +78,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.success).toBe(false);
   });
 
+  // Mật khẩu mới quá ngắn phải bị 400.
   test('rejects change password when new password is too short', async () => {
     const res = await request(app)
       .post('/api/v1/auth/change-password')
@@ -84,6 +90,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.status).toBe(400);
   });
 
+  // Mật khẩu mới trùng mật khẩu cũ phải bị 400.
   test('rejects change password when new password is same as old password', async () => {
     const res = await request(app)
       .post('/api/v1/auth/change-password')
@@ -95,6 +102,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.status).toBe(400);
   });
 
+  // Đổi mật khẩu thành công trả token mới và đăng nhập lại được bằng mật khẩu mới.
   test('successfully changes password and allows login with new password', async () => {
     const res = await request(app)
       .post('/api/v1/auth/change-password')
@@ -125,6 +133,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
   });
 
   // --- KIỂM THỬ LỊCH SỬ CÂN NẶNG & BMI ---
+  // Ghi cân nặng tự tính BMI theo chiều cao đã lưu.
   test('records weight and calculates BMI automatically based on user height', async () => {
     const res = await request(app)
       .post('/api/v1/auth/me/weight')
@@ -139,6 +148,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.data.record.weight).toBe(68.5);
   });
 
+  // Ngày ghi nhận sai định dạng phải bị 400.
   test('rejects recording weight with invalid date format', async () => {
     const res = await request(app)
       .post('/api/v1/auth/me/weight')
@@ -151,6 +161,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.success).toBe(false);
   });
 
+  // Ghi cân nặng trong quá khứ không được ghi đè cân nặng hiện tại của hồ sơ.
   test('does not overwrite current health profile weight when logging past weight', async () => {
     // Log cân nặng trong quá khứ (năm 2020)
     const pastRes = await request(app)
@@ -170,6 +181,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(profileRes.body.data.currentProfile.weight).toBe(68.5);
   });
 
+  // Lấy lịch sử sức khỏe và hồ sơ hiện tại.
   test('retrieves health history and current profile', async () => {
     const res = await request(app)
       .get('/api/v1/auth/me/health-history')
@@ -181,6 +193,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
     expect(res.body.data.currentProfile.weight).toBe(68.5);
   });
 
+  // Cập nhật hồ sơ có cân nặng mới phải đồng bộ thêm bản ghi lịch sử kèm BMI.
   test('syncs weight history when profile is updated with weight', async () => {
     // Cập nhật profile với cân nặng mới 72kg
     const patchRes = await request(app)
@@ -204,6 +217,7 @@ describe('Giai đoạn 1 & 2: Đổi mật khẩu, Lịch sử cân nặng & H�
   });
 
   // --- KIỂM THỬ HỆ THỐNG THÔNG BÁO ---
+  // Bình luận của người khác tự động tạo thông báo cho chủ bài; kiểm tra đánh dấu đã đọc, đọc tất cả và xóa thông báo.
   test('auto-triggers notification when another user comments on post', async () => {
     // User 2 bình luận vào bài viết của User 1
     const commentRes = await request(app)

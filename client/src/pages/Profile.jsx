@@ -1,9 +1,11 @@
 ﻿// client/src/pages/Profile.jsx
+// Trang hồ sơ cá nhân: yêu cầu đăng nhập, chuyển quản trị viên sang trang admin và hiển thị form hồ sơ.
 import { Link, Navigate, useSearchParams } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
 import ProfileForm from '../features/profile/components/ProfileForm.jsx';
 import ProfileSetupNotice from '../features/profile/components/ProfileSetupNotice.jsx';
 
+// Component trang hồ sơ; ?setup=1 hiển thị thông báo hướng dẫn hoàn thiện hồ sơ.
 export default function Profile() {
   const { user, data } = useDatabase();
   const [searchParams] = useSearchParams();

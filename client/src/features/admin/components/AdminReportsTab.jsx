@@ -1,4 +1,5 @@
 // client/src/features/admin/components/AdminReportsTab.jsx
+// Tab "Quản lý báo cáo vi phạm": lọc báo cáo theo trạng thái, ẩn nội dung bị báo cáo hoặc bỏ qua báo cáo.
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -6,6 +7,7 @@ import AdminPagination from './AdminPagination.jsx';
 import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
+// Component tab quản lý báo cáo vi phạm.
 export default function AdminReportsTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [actionMsg, setActionMsg] = useState('');
@@ -22,6 +24,12 @@ export default function AdminReportsTab() {
     return unsubscribe;
   }, [fetchReports]);
 
+  /**
+   * Giải quyết báo cáo, có thể kèm ẩn nội dung bị báo cáo.
+   * @param {number} reportId Mã báo cáo.
+   * @param {string} resolutionAction Hành động xử lý (vd. `HIDE_CONTENT`).
+   * @param {boolean} isCommentReport true nếu báo cáo nhắm vào bình luận: chỉ ẩn bình luận, giữ bài viết gốc.
+   */
   const handleResolve = async (reportId, resolutionAction, isCommentReport) => {
     try {
       await adminService.updateReportStatus(reportId, {
@@ -36,6 +44,7 @@ export default function AdminReportsTab() {
           : 'Đã giải quyết báo cáo thành công';
       setActionMsg(actionText);
       emitSyncEvent('REPORT_CHANGED', { reportId });
+      // Ẩn bài viết kéo theo bình luận của bài cũng không còn hiển thị, nên phải báo cả hai loại sự kiện.
       if (resolutionAction === 'HIDE_CONTENT') {
         if (isCommentReport) {
           emitSyncEvent('COMMENT_CHANGED');
@@ -50,6 +59,7 @@ export default function AdminReportsTab() {
     }
   };
 
+  // Bỏ qua báo cáo (không vi phạm), nội dung giữ nguyên.
   const handleDismiss = async (reportId) => {
     try {
       await adminService.updateReportStatus(reportId, { status: 'DISMISSED' });
@@ -125,6 +135,7 @@ export default function AdminReportsTab() {
             </thead>
             <tbody>
               {reports.map((rep) => {
+                // Báo cáo có comment thì nhắm vào bình luận, ngược lại nhắm vào bài viết.
                 const isCommentReport = Boolean(rep.comment_id || rep.comment);
                 const postTitle = rep.post?.blog?.title || rep.post?.video?.title || (rep.post_id ? `Bài #${rep.post_id}` : '');
                 const commentText = rep.comment?.content || (rep.comment_id ? `Bình luận #${rep.comment_id}` : '');

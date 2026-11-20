@@ -1,5 +1,7 @@
 # D:/SWP391/SWP391/ai_service/main.py
 # ai_service/main.py
+# Điểm khởi chạy AI Microservice (FastAPI): khởi tạo app, middleware, xử lý lỗi thống nhất
+# theo API Contract và gắn các router nghiệp vụ dưới tiền tố /api.
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -33,6 +35,8 @@ from services.ingredient_lookup import initialize_ingredient_lookup
 logger = logging.getLogger(__name__)
 
 
+# Vòng đời ứng dụng: nạp trước tài nguyên (prompt, cấu hình) của các dịch vụ kiểm duyệt
+# và tra cứu nguyên liệu khi khởi động để lỗi cấu hình lộ ra sớm thay vì ở request đầu tiên.
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Dịch vụ AI chạy ở chế độ Stateless (không kết nối PostgreSQL)
@@ -56,7 +60,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(VideoRecipeError, video_recipe_error_handler)
 
-# CORS Configuration
+# Cấu hình CORS: chỉ cho phép các origin khai báo trong ALLOWED_ORIGINS.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -66,6 +70,7 @@ app.add_middleware(
 )
 
 
+# Gắn mã X-Request-Id cho mọi request (dùng lại mã từ Backend nếu có) để truy vết log xuyên dịch vụ.
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-Id") or f"req_{uuid4().hex[:12]}"
@@ -79,6 +84,8 @@ async def request_id_middleware(request: Request, call_next):
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=settings.TRUSTED_PROXIES)
 
 
+# Dựng JSONResponse lỗi chuẩn { success, message, errorCode, errors, meta.requestId }.
+# details có thể là list, một object đơn lẻ hoặc None; luôn chuẩn hóa thành list.
 def error_response(
     request: Request, status_code: int, code: str, message: str, details=None
 ):
@@ -100,6 +107,8 @@ def error_response(
     )
 
 
+# Chuyển lỗi validate của FastAPI/Pydantic thành danh sách { field, message }.
+# Bỏ phần tử đầu của loc ("body"/"query") để field khớp tên trường phía client.
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     errors = [
@@ -114,6 +123,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     )
 
 
+# Trả 429 khi vượt giới hạn tần suất của slowapi.
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_error_handler(request: Request, exc: RateLimitExceeded):
     return error_response(
@@ -125,6 +135,7 @@ async def rate_limit_error_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
+# Chuẩn hóa HTTPException: nếu detail là dict thì lấy code/message/details do router đặt sẵn.
 @app.exception_handler(StarletteHTTPException)
 async def http_error_handler(request: Request, exc: StarletteHTTPException):
     if isinstance(exc.detail, dict):
@@ -138,6 +149,8 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException):
     return error_response(request, exc.status_code, "HTTP_ERROR", str(exc.detail))
 
 
+# Bắt mọi lỗi chưa xử lý: chỉ log tên loại lỗi (không log nội dung) để tránh rò rỉ prompt
+# hoặc dữ liệu người dùng, đồng thời trả thông báo chung cho client.
 @app.exception_handler(Exception)
 async def unexpected_error_handler(request: Request, exc: Exception):
     logger.error("Unhandled AI error exceptionType=%s", type(exc).__name__)
@@ -146,7 +159,7 @@ async def unexpected_error_handler(request: Request, exc: Exception):
     )
 
 
-# Root Endpoint
+# Endpoint gốc: yêu cầu khóa nội bộ để không lộ thông tin dịch vụ ra ngoài.
 @app.get("/", tags=["Root"], dependencies=[Depends(verify_internal_api_key)])
 async def root():
     return {
@@ -160,7 +173,7 @@ async def root():
     }
 
 
-# Health Check Endpoint
+# Endpoint kiểm tra sức khỏe: không cần khóa nội bộ để công cụ giám sát gọi được.
 @app.get("/health", tags=["Health"])
 async def health_check():
     return {
@@ -170,7 +183,7 @@ async def health_check():
     }
 
 
-# Include Routers under /api
+# Gắn các router nghiệp vụ dưới tiền tố /api.
 app.include_router(chat_router, prefix="/api")
 app.include_router(meal_planner_router, prefix="/api")
 app.include_router(admin_actions_router, prefix="/api")
@@ -181,6 +194,7 @@ app.include_router(image_moderation_router, prefix="/api")
 app.include_router(ingredient_lookup_router, prefix="/api")
 
 
+# Chạy trực tiếp bằng `python main.py` khi phát triển local (cổng mặc định 8000).
 if __name__ == "__main__":
     import uvicorn
 

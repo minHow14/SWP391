@@ -1,5 +1,7 @@
 # D:/SWP391/SWP391/ai_service/tests/test_meal_planner.py
 # ai_service/tests/test_meal_planner.py
+# Kiểm thử API lập thực đơn (/api/meal-planner/generate): xác thực, tính BMI, validate input
+# và xử lý lỗi LLM. Agent sinh thực đơn được mock nên không gọi provider thật.
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -18,6 +20,7 @@ client = TestClient(app)
 INTERNAL_HEADERS = {"X-Internal-Api-Key": settings.INTERNAL_API_KEY}
 
 
+# Tạo thực đơn 1 ngày mẫu đúng schema GeneratedMealPlan để làm giá trị trả về của agent mock.
 def sample_meal_plan():
     return GeneratedMealPlan(
         title="Thực đơn chay mẫu (1 ngày) tăng cơ giảm mỡ",
@@ -81,6 +84,7 @@ def sample_meal_plan():
     )
 
 
+# Chặn request thiếu khoá nội bộ.
 def test_meal_planner_rejects_missing_internal_key():
     """Từ chối request nếu thiếu header X-Internal-Api-Key."""
     res = client.post("/api/meal-planner/generate", json={"heightCm": 170, "weightKg": 65})
@@ -88,6 +92,7 @@ def test_meal_planner_rejects_missing_internal_key():
     assert res.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# BMI và phân loại theo ngưỡng châu Á (thiếu cân/bình thường/thừa cân-béo phì).
 def test_calculate_bmi_info():
     """Kiểm tra logic tính BMI chuẩn Châu Á trong meal planner agent."""
     bmi, category = meal_planner_agent.calculate_bmi_info(height_cm=170, weight_kg=65)
@@ -101,6 +106,7 @@ def test_calculate_bmi_info():
     assert "Béo phì" in cat_high or "Thừa cân" in cat_high
 
 
+# Chiều cao/cân nặng ngoài phạm vi -> 422 INVALID_INPUT.
 def test_meal_planner_validation_error():
     """Kiểm tra validation khi chiều cao hoặc cân nặng ngoài phạm vi hợp lệ."""
     res = client.post(
@@ -112,6 +118,7 @@ def test_meal_planner_validation_error():
     assert res.json()["errorCode"] == "INVALID_INPUT"
 
 
+# Thành công: trả về thực đơn dạng camelCase kèm khối chat (title/text) để hiển thị bong bóng chat.
 @patch("api.meal_planner.meal_planner_agent.generate_plan", new_callable=AsyncMock)
 def test_generate_meal_plan_success(mock_generate):
     """Tạo thực đơn thành công kèm chat bubble."""
@@ -144,6 +151,7 @@ def test_generate_meal_plan_success(mock_generate):
     assert "text" in data["chat"]
 
 
+# Lỗi provider -> 502 AI_PROVIDER_ERROR.
 @patch("api.meal_planner.meal_planner_agent.generate_plan", new_callable=AsyncMock)
 def test_generate_meal_plan_llm_failure_returns_502(mock_generate):
     """Khi AI provider gặp sự cố -> Trả về lỗi 502 AI_PROVIDER_ERROR."""

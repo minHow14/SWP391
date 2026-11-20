@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/restaurants/styles/restaurantDetail.css */
+/* Style cho dialog chi tiết quán chay: ảnh hero, thông số, địa chỉ, thực đơn, đánh giá và form gửi đánh giá. */
 .cx-content-dialog.cx-restaurant-detail-dialog { width: min(620px, calc(100vw - 28px)); padding: 0; border: 0; border-radius: 24px; max-height: 92dvh; }
 .cx-restaurant-detail-dialog::backdrop { background: #0009; backdrop-filter: blur(4px); }
 .cx-restaurant-detail-hero { position: relative; overflow: hidden; }
@@ -59,6 +60,7 @@
 .cx-photo-contrib-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: #d1fae5; color: #059669; font-size: 16px; flex-shrink: 0; }
 .cx-photo-contrib-text strong { display: block; font-size: 12px; color: #065f46; font-weight: 750; }
 .cx-photo-contrib-text p { margin: 3px 0 0; font-size: 11px; color: #334155; line-height: 1.5; }
+/* Responsive cho màn hình nhỏ (điện thoại). */
 @media (max-width: 575px) {
   .cx-restaurant-detail-body { padding: 17px; }
   .cx-restaurant-detail-hero h2 { font-size: 20px; }

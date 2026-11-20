@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/schemas/food_scanner.py
+# Schema request/response cho tính năng quét món ăn/nhãn sản phẩm bằng ảnh để kiểm tra phù hợp chế độ chay.
 import base64
 import binascii
 from typing import Annotated, Literal, Self
@@ -7,6 +8,7 @@ from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from schemas.base import CamelModel
 
+# Giới hạn ảnh 10 MiB; độ dài base64 tối đa tương ứng (mỗi 3 byte thành 4 ký tự).
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 MAX_BASE64_LENGTH = ((MAX_IMAGE_BYTES + 2) // 3) * 4
 MAX_DISH_NAME_LENGTH = 150
@@ -17,6 +19,8 @@ NutrientValue = Annotated[float, Field(strict=True, ge=0, allow_inf_nan=False)]
 AllergyText = Annotated[ScanText, Field(max_length=MAX_ALLERGY_LENGTH)]
 
 
+# Kiểm tra chữ ký nhị phân (magic bytes) của ảnh có khớp mime_type khai báo không,
+# để chặn file giả mạo đuôi ảnh trước khi gửi lên nhà cung cấp AI.
 def _image_matches_mime(image: bytes, mime_type: str) -> bool:
     if mime_type == "image/png":
         return image.startswith(b"\x89PNG\r\n\x1a\n") and image[12:16] == b"IHDR"
@@ -31,6 +35,7 @@ def _image_matches_mime(image: bytes, mime_type: str) -> bool:
     )
 
 
+# Một phát hiện về nguyên liệu: lý do, tầng kiểm tra (1-5) và mức độ nghiêm trọng.
 class FindingItem(CamelModel):
     ingredient: ScanText
     reason: ScanText
@@ -38,6 +43,7 @@ class FindingItem(CamelModel):
     severity: Literal["violation", "warning", "info"]
 
 
+# Ước tính dinh dưỡng của món (calo, đạm, carb, chất béo); strict để từ chối số dạng chuỗi.
 class NutritionEstimate(CamelModel):
     calories: NutrientValue
     protein: NutrientValue
@@ -45,6 +51,7 @@ class NutritionEstimate(CamelModel):
     fat: NutrientValue
 
 
+# Yêu cầu quét ảnh: ảnh base64, loại quét, chế độ ăn và danh sách dị ứng của người dùng.
 class FoodScanRequest(CamelModel):
     image_base64: str = Field(min_length=1, max_length=MAX_BASE64_LENGTH)
     mime_type: Literal["image/jpeg", "image/png", "image/webp"] = "image/jpeg"
@@ -55,11 +62,13 @@ class FoodScanRequest(CamelModel):
         default_factory=list, max_length=MAX_ALLERGIES_COUNT
     )
 
+    # Bỏ khoảng trắng/xuống dòng thừa quanh chuỗi base64 trước khi validate.
     @field_validator("image_base64", mode="before")
     @classmethod
     def strip_base64(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
+    # Giải mã base64 và kiểm tra kích thước, tính chuẩn tắc (mã hóa lại phải khớp) và định dạng ảnh.
     @model_validator(mode="after")
     def validate_image(self) -> Self:
         """Validate decoded size and image container before sending data upstream."""
@@ -78,6 +87,7 @@ class FoodScanRequest(CamelModel):
         return self
 
 
+# Kết quả quét ảnh trả về Backend.
 class FoodScanResult(CamelModel):
     dish_name: ScanText
     detected_scan_type: Literal["LABEL", "DISH"]
@@ -89,6 +99,7 @@ class FoodScanResult(CamelModel):
     swap_suggestions: list[ScanText]
     nutrition_estimate: NutritionEstimate | None = None
 
+    # Kết quả "clear" (phù hợp) không được chứa phát hiện mức vi phạm.
     @model_validator(mode="after")
     def validate_status(self) -> Self:
         if self.status == "clear" and any(

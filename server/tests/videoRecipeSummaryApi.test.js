@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/tests/videoRecipeSummaryApi.test.js
+// Kiểm thử tích hợp (cần DB test) API job tóm tắt công thức từ video: xác thực, chống trùng, quyền sở hữu và thử lại.
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import request from 'supertest';
@@ -7,10 +8,12 @@ import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { videoRecipeSummaryJobRepository as jobs } from '../src/repositories/videoRecipeSummaryJobRepository.js';
 
+// Đường dẫn API, URL video chuẩn, hai user test với token và hàm gửi yêu cầu tạo job.
 const BASE = '/api/v1/video-recipe-summary-jobs';
 const VIDEO_URL = 'https://www.youtube.com/watch?v=AbCdEfGhI12';
 let owner, other, token, otherToken;
 const create = (videoUrl = VIDEO_URL) => request(app).post(BASE).set('Authorization', `Bearer ${token}`).send({ videoUrl });
+// Tạo hai user (chủ và người khác) cùng JWT tương ứng.
 beforeAll(async () => {
   const user = (name) => ({ email: `video-api-${name}-${randomUUID()}@example.invalid`, full_name: name, password_hash: 'unused-test-hash' });
   owner = await prisma.user.create({ data: user('owner') });
@@ -18,18 +21,23 @@ beforeAll(async () => {
   token = generateToken({ user_id: owner.user_id });
   otherToken = generateToken({ user_id: other.user_id });
 });
+// Xóa job của chủ trước mỗi test để test độc lập.
 beforeEach(async () => { await prisma.videoRecipeSummaryJob.deleteMany({ where: { userId: owner.user_id } }); });
+// Dọn user test và đóng kết nối DB.
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: [owner?.user_id, other?.user_id].filter(Boolean) } } });
   await prisma.$disconnect();
 });
 
+// Nhóm test: API job video yêu cầu đăng nhập.
 describe('authenticated video recipe job API', () => {
+  // Thiếu hoặc sai token phải bị 401 trước cả bước validate và không tạo job nào.
   it('rejects missing or invalid credentials before input validation and job creation', async () => {
     expect((await request(app).post(BASE).send({ videoUrl: 'invalid' })).status).toBe(401);
     expect((await request(app).post(BASE).set('Authorization', 'Bearer invalid').send({ videoUrl: VIDEO_URL })).status).toBe(401);
     expect(await prisma.videoRecipeSummaryJob.count({ where: { userId: owner.user_id } })).toBe(0);
   });
+  // Tạo job trả 202 PENDING với URL đã chuẩn hóa, không lộ transcript, lease hay userId.
   it('creates a pending job with safe fields and canonical URL', async () => {
     const response = await create('https://youtu.be/AbCdEfGhI12');
     expect(response.status).toBe(202);
@@ -39,6 +47,7 @@ describe('authenticated video recipe job API', () => {
     expect(response.body.data).not.toHaveProperty('leaseToken');
     expect(response.body.data).not.toHaveProperty('userId');
   });
+  // Gửi đồng thời cùng video chỉ tạo một job; mỗi tài khoản chỉ có một job đang chạy nên video khác bị 409.
   it('deduplicates concurrent submissions and blocks a different active video', async () => {
     const responses = await Promise.all(Array.from({ length: 4 }, () => create()));
     expect(responses.every((response) => response.status === 202)).toBe(true);
@@ -47,6 +56,7 @@ describe('authenticated video recipe job API', () => {
     expect(busy.status).toBe(409);
     expect(busy.body.errorCode).toBe('VIDEO_JOB_ALREADY_ACTIVE');
   });
+  // Từ chối URL không an toàn, giả mạo userId trong body/query và phân trang vượt giới hạn.
   it('rejects unsafe URLs, forged ownership and invalid pagination', async () => {
     expect((await create('https://youtube.com.attacker.invalid/watch?v=AbCdEfGhI12')).status).toBe(400);
     const forged = await request(app).post(BASE).set('Authorization', `Bearer ${token}`).send({ videoUrl: VIDEO_URL, userId: other.user_id });
@@ -54,6 +64,8 @@ describe('authenticated video recipe job API', () => {
     expect((await request(app).get(`${BASE}?limit=101`).set('Authorization', `Bearer ${token}`)).status).toBe(400);
     expect((await request(app).get(`${BASE}?userId=${other.user_id}`).set('Authorization', `Bearer ${token}`)).status).toBe(400);
   });
+  // Chỉ chủ sở hữu được xem/thử lại job và đọc bản tóm tắt (người khác nhận 404);
+  // tạo lại video đã có tóm tắt trả 200 (dùng lại kết quả).
   it('allows only owners to read/retry jobs and read summaries', async () => {
     const { body } = await create();
     const id = body.data.jobId;
@@ -67,6 +79,7 @@ describe('authenticated video recipe job API', () => {
     expect((await request(app).get(path).set('Authorization', `Bearer ${token}`)).body.data.recipe.steps).toHaveLength(1);
     expect((await create()).status).toBe(200);
   });
+  // Danh sách job phân trang để FE tải lại; thử lại job thất bại phải giữ transcript đã lấy (không tốn chi phí lấy lại).
   it('lists owned jobs for reload and retries a failed job without discarding transcript', async () => {
     const { body } = await create();
     const transcript = { language: 'vi', durationSeconds: 1, segments: [{ startSeconds: 0, endSeconds: 1, text: 'Xào nấm.' }] };

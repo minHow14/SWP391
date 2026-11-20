@@ -1,10 +1,12 @@
 # D:/SWP391/SWP391/ai_service/core/activity_log.py
 """Log vận hành cục bộ; backend sở hữu việc lưu nhật ký nghiệp vụ vào database."""
+# Ghi nhật ký hoạt động AI ra log cục bộ (không lưu DB vì AI Service không kết nối PostgreSQL).
 import logging
 
 logger = logging.getLogger(__name__)
 
 
+# Ghi một dòng log hoạt động AI: tên model, hành động, trạng thái và cờ có lỗi hay không.
 async def record_ai_log(
     model_name: str | None, action: str, status: str,
     error_feedback: str | None = None,

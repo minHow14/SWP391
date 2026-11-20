@@ -1,10 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/auth/components/RecoveryPasswordStep.jsx
+// Bước 3 của khôi phục mật khẩu: nhập và xác nhận mật khẩu mới.
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button, Form, Spinner } from 'react-bootstrap';
 import { passwordResetSchema } from '../utils/authValidation.js';
 
+// Form đặt mật khẩu mới sau khi OTP đã được xác minh thành công.
 export default function RecoveryPasswordStep({ recovery }) {
   const { register, handleSubmit, setFocus, formState: { errors } } = useForm({
     resolver: zodResolver(passwordResetSchema), defaultValues: { newPassword: '', confirmNewPassword: '' },

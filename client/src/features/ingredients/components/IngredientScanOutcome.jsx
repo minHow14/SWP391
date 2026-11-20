@@ -1,8 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/ingredients/components/IngredientScanOutcome.jsx
+// Hiển thị kết quả nhận diện ảnh nguyên liệu: các nguyên liệu khớp từ điển hoặc gợi ý tạo mới bằng AI.
 import { Button, Spinner } from 'react-bootstrap';
 
+// Chỉ gợi ý tối đa 3 tên để giao diện gọn và hạn chế số lần gọi AI.
 const MAX_SUGGESTED_NAMES = 3;
 
+// Component kết quả; có khớp thì cho chọn nguyên liệu, không khớp thì cho tra cứu tên AI nhận ra.
 export default function IngredientScanOutcome({ scanner, onSelect, lookup, onLookup }) {
   if (scanner.matches.length) {
     return (

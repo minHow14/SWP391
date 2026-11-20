@@ -1,18 +1,26 @@
 // D:/SWP391/SWP391/server/src/services/report.service.js
+// Nghiệp vụ người dùng báo cáo bài viết hoặc bình luận vi phạm.
 import { reportRepository } from '../repositories/report.repository.js';
 import { commentRepository } from '../repositories/comment.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { ApiError } from '../utils/apiError.js';
 import { REPORT_STATUS, POST_STATUS, COMMENT_STATUS } from '../constants/status.js';
 
+/**
+ * Tạo báo cáo vi phạm. Có commentId thì báo cáo bình luận, ngược lại báo cáo bài viết.
+ * @param {number} userId - Người gửi báo cáo.
+ * @param {{postId?: number, commentId?: number, reason: string}} payload - Đối tượng bị báo cáo và lý do.
+ */
 export const createReport = async (userId, { postId, commentId, reason }) => {
   // ƯU TIÊN 1: BÁO CÁO BÌNH LUẬN (nếu có commentId)
   if (commentId) {
+    // Chỉ cho báo cáo bình luận đang hiển thị thuộc bài viết đã đăng, để không lộ nội dung đã ẩn/xóa.
     const comment = await commentRepository.findById(commentId, { post: true });
     if (!comment || comment.status !== COMMENT_STATUS.ACTIVE || comment.deleted_at ||
       comment.post?.status !== POST_STATUS.PUBLISHED || comment.post?.deleted_at) {
       throw ApiError.notFound('Bình luận không tồn tại hoặc đã bị xóa');
     }
+    // Không cho tự báo cáo để tránh lạm dụng.
     if (comment.user_id === userId) {
       throw ApiError.badRequest('Bạn không thể tự báo cáo bình luận của chính mình');
     }
@@ -31,6 +39,7 @@ export const createReport = async (userId, { postId, commentId, reason }) => {
       {
         reporter_id: userId,
         comment_id: commentId,
+        // Lưu kèm post_id để admin xem được ngữ cảnh bài viết chứa bình luận.
         post_id: comment.post_id,
         reason,
         status: REPORT_STATUS.PENDING,
@@ -68,6 +77,7 @@ export const createReport = async (userId, { postId, commentId, reason }) => {
     const existing = await reportRepository.findFirstReport({
       reporter_id: userId,
       post_id: postId,
+      // comment_id null để phân biệt báo cáo bài viết với báo cáo bình luận trong cùng bài.
       comment_id: null,
       status: REPORT_STATUS.PENDING,
     });

@@ -1,12 +1,15 @@
 // D:/SWP391/SWP391/client/src/features/ingredients/hooks/useIngredientLookup.js
+// Hook tạo thông tin nguyên liệu mới bằng AI qua job bất đồng bộ (tạo job rồi hỏi trạng thái định kỳ).
 import { useEffect, useRef, useState } from 'react';
 import { ingredientLookupService } from '../../../services/ingredientLookupService.js';
 import { fileToBase64 } from '../../../services/foodScannerService.js';
 
+// Hỏi trạng thái mỗi giây, tối đa 4 phút trước khi báo người dùng thử lại sau.
 const POLL_INTERVAL_MS = 1_000;
 const MAX_WAIT_MS = 240_000;
 const IDLE = Object.freeze({ status: 'idle', name: '', error: '' });
 
+// Chờ một chu kỳ hỏi trạng thái; dừng ngay khi request bị hủy.
 function pause(signal) {
   return new Promise((resolve, reject) => {
     signal.throwIfAborted();
@@ -16,6 +19,7 @@ function pause(signal) {
   });
 }
 
+// Tạo job tra cứu (kèm ảnh nếu có) rồi hỏi trạng thái tới khi hoàn tất, thất bại hoặc quá thời gian chờ.
 async function generateIngredient({ name, photo, signal }) {
   const image = photo?.file ? await fileToBase64(photo.file) : null;
   signal.throwIfAborted();
@@ -32,12 +36,15 @@ async function generateIngredient({ name, photo, signal }) {
   return job.ingredient;
 }
 
+// Hook trả về trạng thái tra cứu cùng hàm lookup và clear; onSaved được gọi sau khi nguyên liệu đã lưu.
 export function useIngredientLookup({ onSaved }) {
   const [state, setState] = useState(IDLE);
   const request = useRef(null);
+  // Nhớ nguyên liệu vừa tạo để khi thử lại (do bước tải lại từ điển lỗi) không phải gọi AI lần nữa.
   const saved = useRef(null);
   useEffect(() => () => request.current?.abort(), []);
 
+  // Tra cứu một tên nguyên liệu; bỏ qua nếu đang có request khác chạy.
   async function lookup(name, photo) {
     if (request.current) return;
     const controller = new AbortController();
@@ -60,6 +67,7 @@ export function useIngredientLookup({ onSaved }) {
     }
   }
 
+  // Hủy request đang chạy và đưa trạng thái về ban đầu.
   function clear() {
     request.current?.abort();
     request.current = null;

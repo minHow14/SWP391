@@ -1,14 +1,18 @@
 // d:\Projects\FPT\SWP391\server\src/repositories/aiLogRepository.js
+// Repository nhật ký gọi AI: lọc, phân trang và thống kê theo tính năng/mô hình/ngày bằng SQL GROUPING SETS.
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { AI_LOG_FEATURE, AI_LOG_LIMITS } from '../constants/aiLogs.js';
 import { getAiLogDateRange } from '../utils/aiLogDate.js';
 
+// Các cột trả về của log AI.
 const AI_LOG_SELECT = Object.freeze({
   logId: true, modelName: true, action: true, status: true, errorFeedback: true, createdAt: true,
 });
+// Mới nhất trước; log thiếu createdAt xếp cuối; thêm logId để thứ tự ổn định.
 const AI_LOG_ORDER = [{ createdAt: { sort: 'desc', nulls: 'last' } }, { logId: 'desc' }];
 
+// Tính năng được suy ra từ tiền tố của action (CHAT*, MEAL_PLANNER*); còn lại thuộc nhóm "khác".
 function featureFilter(feature) {
   const chatbot = { action: { startsWith: 'CHAT' } };
   const mealPlanner = { action: { startsWith: 'MEAL_PLANNER' } };
@@ -17,6 +21,7 @@ function featureFilter(feature) {
   return { NOT: { OR: [chatbot, mealPlanner] } };
 }
 
+// Dựng điều kiện where từ bộ lọc của admin (khoảng ngày, trạng thái, mô hình, action, tính năng, từ khóa).
 function logWhere(query) {
   const where = {};
   const createdAt = getAiLogDateRange(query);
@@ -32,6 +37,7 @@ function logWhere(query) {
   return where;
 }
 
+// Điều kiện khoảng ngày cho truy vấn SQL thô; dùng Prisma.sql để tham số hóa, chống SQL injection.
 function statsDateFilter(query) {
   const range = getAiLogDateRange(query);
   const conditions = [Prisma.sql`TRUE`];
@@ -41,18 +47,22 @@ function statsDateFilter(query) {
 }
 
 export const aiLogRepository = {
+  // Tạo log AI.
   create(data, db = prisma) {
     return db.aiLog.create({ data, select: AI_LOG_SELECT });
   },
 
+  // Cập nhật log AI (vd. admin đánh dấu đã xử lý).
   update({ logId, data }, db = prisma) {
     return db.aiLog.update({ where: { logId }, data, select: AI_LOG_SELECT });
   },
 
+  // Đếm log theo bộ lọc.
   count(query = {}, db = prisma) {
     return db.aiLog.count({ where: logWhere(query) });
   },
 
+  // Lấy một trang log theo bộ lọc.
   findPage(query, db = prisma) {
     return db.aiLog.findMany({
       where: logWhere(query), select: AI_LOG_SELECT, orderBy: AI_LOG_ORDER,
@@ -60,10 +70,12 @@ export const aiLogRepository = {
     });
   },
 
+  // Lấy các log gần nhất.
   findRecent(limit = AI_LOG_LIMITS.MAX_PAGE_SIZE, db = prisma) {
     return db.aiLog.findMany({ select: AI_LOG_SELECT, orderBy: AI_LOG_ORDER, take: limit });
   },
 
+  // Thống kê số log theo trạng thái cho tổng thể và từng chiều trong một truy vấn; ngày tính theo giờ Việt Nam.
   findStats(query, db = prisma) {
     return db.$queryRaw`
       WITH filtered AS (

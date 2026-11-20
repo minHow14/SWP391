@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/chat/hooks/useChatBox.js
+// Hook trung tâm của hộp chat: quản lý tin nhắn, trạng thái mở/đóng, lượt dùng AI, thực đơn tuần, quét ảnh và tóm tắt video.
 import { useEffect, useRef, useState } from 'react';
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import { getChatUsage } from '../../../services/aiApi.js';
@@ -10,6 +11,7 @@ import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
 import { bmiCategory, calcBmi, formatBmi } from '../../../utils/aiHelpers.js';
 import { useChatPhoto } from './useChatPhoto.js';
 
+// Hook hộp chat; nhận dietTypeId để gửi chế độ ăn hiện tại kèm câu hỏi cho AI.
 export function useChatBox({ dietTypeId }) {
   const { data: catalog, user, refreshUser } = useDatabase();
   const [open, setOpen] = useState(false);
@@ -40,10 +42,13 @@ export function useChatBox({ dietTypeId }) {
   const userId = user?.user_id || null;
   const video = useVideoRecipeSummary({ userId, enabled: open, setMessages, nextId });
 
+  // Đồng bộ ref lịch sử (chỉ tin của người dùng hiện tại) để request AI luôn đọc được bản mới nhất mà không cần re-render.
   useEffect(() => {
     messagesRef.current = messages.filter((message) => message.kind === 'welcome' || message.ownerId === userId);
   });
+  // Hủy request đang chạy khi component unmount.
   useEffect(() => () => controller.current?.abort(), []);
+  // Đổi tài khoản (đăng nhập/đăng xuất) -> hủy request và xóa toàn bộ hội thoại để không lộ dữ liệu của người trước.
   useEffect(() => {
     controller.current?.abort();
     controller.current = null;
@@ -58,6 +63,7 @@ export function useChatBox({ dietTypeId }) {
     setPlanDialog(false);
     setHistoryOpen(false);
   }, [userId]);
+  // Mỗi lần mở hộp chat thì lấy lại số lượt AI còn lại trong ngày.
   useEffect(() => {
     if (!open) return undefined;
     const request = new AbortController();
@@ -69,6 +75,7 @@ export function useChatBox({ dietTypeId }) {
     if ((open || planDialog) && userId && !hasBodyMeasurements(user.health_profile)) refreshUser?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, planDialog, userId]);
+  // Khi mở chat: focus ô nhập và cho phép đóng bằng Escape (trừ khi đang có dialog khác mở).
   useEffect(() => {
     if (!open) return;
     input.current?.focus();
@@ -81,11 +88,13 @@ export function useChatBox({ dietTypeId }) {
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [open]);
+  // Tự cuộn xuống tin nhắn mới nhất.
   useEffect(() => {
     if (open && messageList.current)
       messageList.current.scrollTop = messageList.current.scrollHeight;
   }, [open, messages]);
 
+  // Thêm một cặp câu hỏi người dùng + câu trả lời trợ lý (không gọi AI) vào hội thoại.
   function addExchange(question, reply, image) {
     const questionId = nextId.current++;
     const replyId = nextId.current++;
@@ -100,10 +109,12 @@ export function useChatBox({ dietTypeId }) {
   const ask = useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId });
   const photo = useChatPhoto({ user, ingredients: catalog?.ingredients, dietTypeId, controller, nextId, setMessages, setBusy, setError, blocked: busy || video.busy });
 
+  // Dừng câu trả lời đang được stream.
   function stopAnswer() {
     controller.current?.abort();
   }
 
+  // Gửi tin nhắn: link YouTube -> tóm tắt video, chế độ summary bắt buộc phải có link, còn lại -> hỏi AI.
   function sendMessage(text = draft, forcedMode) {
     const question = text.trim();
     if (!question || busy || video.busy || (controller.current && !controller.current.signal.aborted)) return;
@@ -121,11 +132,13 @@ export function useChatBox({ dietTypeId }) {
     input.current?.focus();
   }
 
+  // Mở dialog thực đơn tuần (tạo mới hoặc xem lại plan đã có).
   function openMealPlan(plan = null) {
     setDialogPlan(plan);
     setPlanDialog(true);
   }
 
+  // Đẩy thực đơn vừa tạo vào khung chat; bỏ qua nếu phiên đã đổi sang người dùng khác trong lúc chờ.
   function showPlanInChat(plan) {
     if ((getSession()?.user?.user_id || null) !== userId) return;
     const id = nextId.current++;
@@ -133,6 +146,7 @@ export function useChatBox({ dietTypeId }) {
     getChatUsage().then((result) => { if ((getSession()?.user?.user_id || null) === userId) setUsage(result); }).catch(() => {});
   }
 
+  // Khôi phục một bản ghi lịch sử AI (chat hoặc thực đơn) vào hội thoại, không thêm trùng nếu đã có.
   function restoreHistory(record) {
     if ((getSession()?.user?.user_id || null) !== userId) return;
     const common = { ownerId: userId, generationId: record.id };
@@ -151,13 +165,16 @@ export function useChatBox({ dietTypeId }) {
     setHistoryOpen(false);
   }
 
+  // Chuyển sang hỏi AI về một thực đơn cụ thể (đính kèm thực đơn làm ngữ cảnh).
   function askAboutPlan(plan) {
     setContextPlan(plan);
     setOpen(true);
     setDraft('Giải thích vì sao thực đơn này phù hợp với mục tiêu của tôi.');
+    // setTimeout 0 để focus sau khi React render xong ô nhập.
     setTimeout(() => input.current?.focus(), 0);
   }
 
+  // Bật chế độ tạo công thức từ video YouTube (chỉ dành cho người đã đăng nhập).
   function selectSummary() {
     if (!user) { setError('Vui lòng đăng nhập để tạo công thức từ video.'); return; }
     setError('');
@@ -166,6 +183,7 @@ export function useChatBox({ dietTypeId }) {
     input.current?.focus();
   }
 
+  // Tính BMI từ chiều cao/cân nặng trong hồ sơ ngay trên client, không tốn lượt AI.
   function showBmi() {
     if (busy || video.busy || (controller.current && !controller.current.signal.aborted)) return;
     if (!hasBodyMeasurements(user?.health_profile)) { setError('Vui lòng đăng nhập và bổ sung chiều cao, cân nặng trong hồ sơ để xem BMI.'); return; }
@@ -174,6 +192,7 @@ export function useChatBox({ dietTypeId }) {
     addExchange('Xem BMI từ số đo hồ sơ', { kind: 'bmi', text: `Theo hồ sơ: chiều cao ${height} cm, cân nặng ${weight} kg. BMI: ${formatBmi(bmi)} (${bmiCategory(bmi)}).` });
   }
 
+  // Chỉ hiển thị tin của người dùng hiện tại và kết quả quét ảnh thuộc đúng ngữ cảnh (chế độ ăn, dị ứng) hiện tại.
   const visibleMessages = messages.filter((message) => (message.kind === 'welcome' || message.ownerId === userId) && (!message.scanContext || message.scanContext === photo.contextKey));
   return { catalog, user, open, setOpen, draft, setDraft, mode, error, busy: busy || video.busy, videoBusy: video.busy, retryVideo: video.retry, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages: visibleMessages, input, launcher, messageList, fileInput, ask, stopAnswer, sendMessage, showBmi, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto: photo.attachPhoto, historyOpen, setHistoryOpen, restoreHistory };
 }

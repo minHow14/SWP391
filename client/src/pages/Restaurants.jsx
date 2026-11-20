@@ -1,4 +1,6 @@
 // client/src/pages/Restaurants.jsx
+// Trang Quán chay: danh sách và bản đồ quán chay (catalog + tìm kiếm gần đây + tìm kiếm từ server),
+// lọc/sắp xếp, xem chi tiết, chỉ đường, đánh giá và đề xuất quán mới.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { restaurantTypes } from '../constants/restaurantLabels.js';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -16,12 +18,14 @@ import { hasCoordinates, restaurantDirections } from '../utils/restaurantDirecti
 import { resolveRestaurantPhoto, isVegetarianPlace } from '../features/restaurants/utils/nearbyHelpers.js';
 import { compareRestaurantPrices } from '../features/restaurants/utils/restaurantSort.js';
 
+// Nhãn loại quán; quán lấy từ nguồn ngoài hiển thị tên nguồn.
 const typeName = (type) =>
   type === 'external'
     ? 'Quán từ ZIOMAP'
     : restaurantTypes.find((item) => item.id === type)?.name || type;
 const directions = restaurantDirections;
 
+// Component trang quán chay.
 export default function Restaurants() {
   const { data, user, reload } = useDatabase();
   const catalogPlaces = useMemo(
@@ -44,8 +48,9 @@ export default function Restaurants() {
   const map = useRef(null);
   const list = useRef(null);
 
-  // Debounced fuzzy search từ Backend khi người dùng nhập từ khoá
+  // Tìm kiếm mờ từ Back-end có trễ (debounce) khi người dùng nhập từ khóa
   useEffect(() => {
+    // Chỉ gọi server khi từ khóa có ít nhất 2 ký tự; đợi 350ms sau lần gõ cuối để tránh gửi quá nhiều request.
     const trimmed = query.trim();
     if (!trimmed || trimmed.length < 2) {
       setServerSearchResults([]);
@@ -77,6 +82,7 @@ export default function Restaurants() {
     const seenIds = new Set(list.map((p) => p.restaurant_id || p.id));
     const seenPlaceIds = new Set(list.map((p) => p.place_id).filter(Boolean));
 
+    // Loại trùng theo ID, place_id hoặc cặp tên + địa chỉ giống nhau.
     const candidates = [...nearbyPlaces, ...serverSearchResults];
     for (const item of candidates) {
       if (!isVegetarianPlace(item)) continue;
@@ -99,6 +105,7 @@ export default function Restaurants() {
     return list;
   }, [catalogPlaces, nearbyPlaces, serverSearchResults]);
 
+  // Lọc theo loại, khu vực và từ khóa (tên, địa chỉ, món ăn), rồi sắp xếp theo tiêu chí đã chọn (mặc định đánh giá cao nhất).
   const search = normalizeSearch(query.trim());
   const sorted = useMemo(() => {
     return allPlaces
@@ -132,6 +139,7 @@ export default function Restaurants() {
   const pinned = sorted.find((place) => place.id === selectedId || place.restaurant_id === selectedId);
   const filtered = pinned ? [pinned, ...sorted.filter((place) => place !== pinned)] : sorted;
 
+  // Bản đồ hiển thị kết quả lọc, nếu không có kết quả thì hiển thị toàn bộ địa điểm.
   const mapPlaces = filtered.length > 0 ? filtered : allPlaces;
   const selected = mapPlaces.find((p) => p.id === selectedId || p.restaurant_id === selectedId) || mapPlaces[0];
   const hasLocation = mapPlaces.some(hasCoordinates);
@@ -145,6 +153,7 @@ export default function Restaurants() {
     map.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  // Gửi đề xuất quán mới, tải lại catalog rồi chọn quán vừa thêm.
   async function addProposal(proposal) {
     const place = await workspaceService.suggestRestaurant(proposal);
     await reload();
@@ -153,6 +162,7 @@ export default function Restaurants() {
     setNotice('Đã thêm địa điểm mới vào danh mục quán chay.');
   }
 
+  // Danh sách khu vực có trong dữ liệu để dùng cho bộ lọc.
   const distinctCities = Array.from(new Set(allPlaces.map((p) => p.city).filter(Boolean)));
 
   return (

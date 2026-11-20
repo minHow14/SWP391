@@ -1,5 +1,6 @@
 # D:/SWP391/SWP391/ai_service/api/meal_planner.py
 # ai_service/api/meal_planner.py
+# Router lập thực đơn chay cá nhân hóa: trả kết quả một lần hoặc qua SSE kèm tiến độ.
 import asyncio
 import json
 import logging
@@ -35,6 +36,7 @@ router = APIRouter(
 )
 
 
+# Body yêu cầu lập thực đơn: chỉ số cơ thể, mục tiêu, mức vận động, chế độ ăn, dị ứng và nguyên liệu sẵn có.
 class MealPlanRequest(CamelModel):
     height_cm: float = Field(..., gt=50, lt=260, description="Chiều cao (cm), ví dụ 170")
     weight_kg: float = Field(..., gt=20, lt=300, description="Cân nặng (kg), ví dụ 65")
@@ -72,6 +74,7 @@ class MealPlanData(GeneratedMealPlan):
     chat: ChatBubble
 
 
+# Response lập thực đơn theo API Contract.
 class MealPlanResponse(CamelModel):
     success: bool = True
     message: str = "Tạo thực đơn thành công."
@@ -79,6 +82,7 @@ class MealPlanResponse(CamelModel):
     meta: dict
 
 
+# Gọi agent sinh thực đơn, ghi log thành công/thất bại rồi gắn thêm bubble chat; lỗi được ném lại cho caller.
 async def _generate(
     body: MealPlanRequest,
     identity: RequestIdentity,
@@ -121,6 +125,7 @@ async def _generate(
     return MealPlanData(**plan.model_dump(), chat=plan_to_chat_bubble(plan))
 
 
+# Body lỗi chung khi nhà cung cấp AI thất bại; không đưa chi tiết lỗi gốc ra ngoài.
 def _provider_error(e: Exception) -> dict:
     return {
         "code": "AI_PROVIDER_ERROR",
@@ -128,6 +133,7 @@ def _provider_error(e: Exception) -> dict:
     }
 
 
+# POST /api/meal-planner/generate: lập thực đơn và trả kết quả đầy đủ trong một response.
 @router.post("/generate", response_model=MealPlanResponse)
 @rate_limit()
 async def generate_meal_plan(
@@ -140,11 +146,13 @@ async def generate_meal_plan(
     """
     try:
         data = await _generate(body, identity)
+    # Mọi lỗi nhà cung cấp đều trả 502 theo hợp đồng API công khai.
     except Exception as e:  # noqa: BLE001 -- Provider failures must use the public API error contract.
         raise HTTPException(status.HTTP_502_BAD_GATEWAY, detail=_provider_error(e))
     return MealPlanResponse(success=True, data=data, meta={"requestId": request.state.request_id, "modelName": get_json_model_name()})
 
 
+# POST /api/meal-planner/generate/stream: lập thực đơn và gửi tiến độ qua SSE.
 @router.post("/generate/stream")
 @rate_limit()
 async def generate_meal_plan_stream(
@@ -157,18 +165,22 @@ async def generate_meal_plan_stream(
     """
     request_id = request.state.request_id
 
+    # Chạy việc sinh thực đơn trong task nền, đẩy sự kiện qua hàng đợi để generator SSE phát dần ra client.
     async def event_generator():
         queue: asyncio.Queue = asyncio.Queue()
 
+        # Callback tiến độ: sự kiện metadata (vết prompt) tách riêng, còn lại là sự kiện progress.
         async def on_progress(event: dict) -> None:
             if event.get("stage") == "metadata":
                 await queue.put(("metadata", {key: value for key, value in event.items() if key not in {"stage", "message"}}))
             else:
                 await queue.put(("progress", event))
 
+        # Task nền: đẩy kết quả "done" hoặc lỗi "error" vào hàng đợi để vòng lặp SSE luôn kết thúc.
         async def runner() -> None:
             try:
                 await queue.put(("done", await _generate(body, identity, on_progress)))
+            # Đánh thức consumer SSE khi task suy luận thất bại.
             except Exception as e:  # noqa: BLE001 -- Wake the SSE consumer when its inference task fails.
                 await queue.put(("error", e))
 
@@ -189,9 +201,11 @@ async def generate_meal_plan_stream(
                         "meta": {"requestId": request_id, "modelName": get_json_model_name()},
                     }
                 yield {"event": kind, "data": json.dumps(envelope, ensure_ascii=False)}
+                # Dừng sau sự kiện kết thúc (done/error).
                 if kind not in {"progress", "metadata"}:
                     break
         finally:
+            # Client ngắt kết nối giữa chừng thì hủy task để không tốn lượt gọi LLM vô ích.
             if not task.done():
                 task.cancel()
 

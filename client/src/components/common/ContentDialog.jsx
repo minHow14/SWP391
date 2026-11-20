@@ -1,12 +1,17 @@
 ﻿// client/src/components/common/ContentDialog.jsx
+// Hộp thoại nội dung dùng thẻ <dialog> gốc của trình duyệt (modal, khóa cuộn trang, trả focus khi đóng).
 import { useEffect, useRef } from 'react';
 
+// Component hộp thoại: hiển thị tiêu đề + nút đóng (trừ khi hideHeader), gọi onClose khi người dùng đóng.
 export default function ContentDialog({ title, children, onClose, className = '', hideHeader = false }) {
   const dialog = useRef(null);
+  // Giữ onClose mới nhất trong ref để effect mở dialog chỉ chạy một lần mà vẫn gọi đúng handler hiện tại.
   const closeHandler = useRef(onClose);
   useEffect(() => {
     closeHandler.current = onClose;
   }, [onClose]);
+  // Mở modal khi mount; chặn sự kiện cancel (phím Esc) để React điều khiển việc đóng qua onClose,
+  // đồng thời khôi phục overflow của body và focus trước đó khi unmount.
   useEffect(() => {
     const element = dialog.current;
     const previousFocus = document.activeElement;

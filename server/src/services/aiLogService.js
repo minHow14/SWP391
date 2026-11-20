@@ -1,13 +1,16 @@
 // d:\Projects\FPT\SWP391\server\src/services/aiLogService.js
+// Nghiệp vụ nhật ký gọi AI: ghi log, admin đánh dấu đã xử lý lỗi, liệt kê và thống kê tỉ lệ thành công.
 import { AI_LOG_STATUS } from '../constants/aiLogs.js';
 import { aiLogRepository } from '../repositories/aiLogRepository.js';
 import {
   aiLogQuerySchema, aiLogRecordSchema, aiLogResolutionSchema, aiLogStatsQuerySchema, parseAiLogInput,
 } from '../validators/aiLogValidator.js';
 
+// Tỉ lệ thành công tính theo phần trăm, làm tròn 1 chữ số thập phân.
 const PERCENTAGE_SCALE = 100;
 const SUCCESS_RATE_DECIMALS = 1;
 
+// Đếm số log theo trạng thái từ các dòng đã group sẵn và tính tỉ lệ thành công (null khi chưa có log nào).
 function countStatuses(rows) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
   const count = (status) => rows.filter((row) => row.status === status).reduce((sum, row) => sum + row.count, 0);
@@ -18,6 +21,7 @@ function countStatuses(rows) {
   };
 }
 
+// Gom các dòng thống kê theo một chiều (feature/model/day), sắp theo khóa để biểu đồ hiển thị ổn định.
 function groupStatuses(rows, dimension, keyName) {
   const groups = new Map();
   for (const row of rows.filter((item) => item.dimension === dimension && item.groupKey !== null)) {
@@ -30,21 +34,25 @@ function groupStatuses(rows, dimension, keyName) {
 }
 
 export const aiLogService = {
+  // Ghi một log gọi AI (validate input trước khi lưu); nhận `db` để ghi cùng transaction với nghiệp vụ.
   recordLog(input, db) {
     return aiLogRepository.create(parseAiLogInput(aiLogRecordSchema, input), db);
   },
 
+  // Admin đánh dấu log lỗi đã được xử lý kèm phản hồi.
   resolveLog(input, db) {
     const { logId, errorFeedback } = parseAiLogInput(aiLogResolutionSchema, input);
     return aiLogRepository.update({ logId, data: { errorFeedback, status: AI_LOG_STATUS.RESOLVED_BY_ADMIN } }, db);
   },
 
+  // Liệt kê log có phân trang và bộ lọc.
   async listLogs(input = {}) {
     const query = parseAiLogInput(aiLogQuerySchema, input);
     const [total, items] = await Promise.all([aiLogRepository.count(query), aiLogRepository.findPage(query)]);
     return { items, page: query.page, limit: query.limit, total, totalPages: Math.ceil(total / query.limit) };
   },
 
+  // Thống kê log tổng thể và theo tính năng, mô hình, ngày.
   async getStats(input = {}) {
     const query = parseAiLogInput(aiLogStatsQuerySchema, input);
     const rows = await aiLogRepository.findStats(query);

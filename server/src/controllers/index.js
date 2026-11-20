@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\index.js
+// Gom và re-export toàn bộ controller theo namespace để import tập trung.
+// recommendationController trỏ cùng search.controller vì gợi ý theo từ khóa nằm chung module tìm kiếm.
 export * as authController from './auth.controller.js';
 export * as blogController from './blog.controller.js';
 export * as videoController from './video.controller.js';

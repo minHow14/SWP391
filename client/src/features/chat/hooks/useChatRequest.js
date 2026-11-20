@@ -1,15 +1,19 @@
 // D:/SWP391/SWP391/client/src/features/chat/hooks/useChatRequest.js
 // client/src/features/chat/hooks/useChatRequest.js
+// Hook gửi câu hỏi tới AI và nhận câu trả lời dạng stream, có cơ chế dự phòng tra cứu công thức khi AI lỗi.
 import { getChatUsage, streamChat } from '../../../services/aiApi.js';
 import { getDatabaseReply } from '../../../utils/chatReplies.js';
 import { chatHistory, dietTypeToAi, friendlyAiError, isQuotaError, planToMenuContext } from '../../../utils/aiHelpers.js';
 import { getSession } from '../../../utils/session.js';
 
+// Hook trả về hàm ask(question, { retry }) dùng chung state của useChatBox.
 export function useChatRequest({ controller, messagesRef, nextId, setMessages, setBusy, setError, setUsage, dietTypeId, contextPlan, userId }) {
+  // Gửi câu hỏi; bỏ qua nếu đang có request khác chạy.
   async function ask(question, { retry = false } = {}) {
     if (controller.current && !controller.current.signal.aborted) return;
     const current = new AbortController();
     controller.current = current;
+    // owned(): request vẫn là request hiện hành và người dùng chưa đổi; active(): thêm điều kiện chưa bị hủy.
     const owned = () => controller.current === current && (getSession()?.user?.user_id || null) === userId;
     const active = () => owned() && !current.signal.aborted;
     // Bỏ bong bóng lỗi cũ; khi thử lại thì bỏ cả tin hỏi cuối để không bị lặp trong lịch sử
@@ -50,6 +54,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
             : message
         )
       );
+      // Server trả về số lượt còn lại sau khi stream xong; cập nhật tại chỗ để không phải gọi thêm API.
       setUsage((previous) => (previous && !previous.unlimited ? { ...previous, remaining: remaining } : previous));
     } catch (failure) {
       if (!owned()) return;
@@ -81,6 +86,7 @@ export function useChatRequest({ controller, messagesRef, nextId, setMessages, s
             retryQuestion: question,
           });
         }
+        // Hết lượt thì đồng bộ lại thông tin lượt dùng từ server để hiển thị chính xác.
         if (isQuotaError(failure)) getChatUsage(current.signal).then((result) => { if (active()) setUsage(result); }).catch(() => {});
       }
     } finally {

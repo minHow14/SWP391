@@ -1,10 +1,19 @@
 // D:/Projects/FPT/SWP391/client/src/features/admin/components/AdminHeader.jsx
+// Thanh tiêu đề trang quản trị: breadcrumb theo tab hiện tại, đồng hồ giờ Việt Nam,
+// nút đồng bộ toàn hệ thống và các phím tắt tới tab báo cáo/kiểm duyệt.
 import { useEffect, useState, useMemo } from 'react';
 import { Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 import { ADMIN_NAV_SECTIONS } from './AdminSidebar.jsx';
 import { emitSyncEvent } from '../../../utils/syncEvents.js';
 
+/**
+ * Header của khu vực quản trị.
+ * @param {object} props
+ * @param {string} props.activeTab Khóa tab đang hiển thị.
+ * @param {Function} props.onSelectTab Chuyển sang tab khác.
+ * @param {Function} props.onToggleMobile Mở/đóng sidebar trên màn hình nhỏ.
+ */
 export default function AdminHeader({ activeTab, onSelectTab, onToggleMobile }) {
   const [timeString, setTimeString] = useState('');
 
@@ -41,6 +50,7 @@ export default function AdminHeader({ activeTab, onSelectTab, onToggleMobile }) 
     };
   }, [activeTab]);
 
+  // Phát sự kiện '*' để mọi tab/thành phần đang lắng nghe tự tải lại dữ liệu.
   const handleGlobalRefresh = () => {
     emitSyncEvent('*');
   };

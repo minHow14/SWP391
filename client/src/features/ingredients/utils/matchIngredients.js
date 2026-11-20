@@ -1,6 +1,8 @@
 // D:/SWP391/SWP391/client/src/features/ingredients/utils/matchIngredients.js
+// Ghép tên nguyên liệu do AI nhận diện với nguyên liệu trong từ điển theo điểm khớp.
 import { normalizeSearch } from '../../../utils/recipeFilters.js';
 
+// Từ quá ngắn dễ khớp nhầm nên bị bỏ qua; điểm: trùng khớp > chứa tên > khớp tên gọi khác.
 const MIN_TERM_LENGTH = 3;
 const SCORE = Object.freeze({ EXACT: 3, NAME: 2, ALIAS: 1 });
 const PARENTHESES = /\([^)]*\)/g;
@@ -12,6 +14,7 @@ const cleanTerm = (value) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+// Chấm điểm mức khớp giữa một từ khóa và một nguyên liệu; trả null nếu không khớp.
 function scoreIngredient(term, ingredient) {
   const name = normalizeSearch(ingredient.name);
   if (term === name) return { score: SCORE.EXACT, length: name.length };
@@ -23,6 +26,7 @@ function scoreIngredient(term, ingredient) {
   return null;
 }
 
+// Chọn nguyên liệu điểm cao nhất; cùng điểm thì ưu tiên chuỗi khớp dài hơn (cụ thể hơn).
 function bestIngredient(term, ingredients) {
   let best = null;
   for (const ingredient of ingredients) {

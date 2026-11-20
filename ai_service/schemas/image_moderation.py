@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/schemas/image_moderation.py
+# Schema request/response cho tính năng kiểm duyệt ảnh đính kèm bài viết bằng AI thị giác.
 import base64
 import binascii
 from typing import Annotated, Literal, Self
@@ -10,16 +11,18 @@ from schemas.base import CamelModel
 from schemas.content_moderation import ContentText, ModerationCategory
 from schemas.food_scanner import MAX_BASE64_LENGTH, MAX_IMAGE_BYTES
 
-# Six post attachments plus one uploaded video thumbnail, indexed from zero.
+# Tối đa sáu ảnh đính kèm bài viết cộng một ảnh thumbnail video đã tải lên, đánh chỉ số từ 0.
 MAX_IMAGE_INDEX = 6
 MAX_RESULT_OBSERVATIONS = 5
-# The model sometimes lists more details than the contract keeps; extras are trimmed, not rejected.
+# Model đôi khi liệt kê nhiều chi tiết hơn hợp đồng cho phép; phần dư bị cắt bớt chứ không bị từ chối.
 MAX_MODEL_OBSERVATIONS = 10
+# Các định dạng ảnh được hỗ trợ kiểm duyệt.
 ModerationImageMimeType = Literal["image/jpeg", "image/png", "image/webp", "image/gif"]
 Observation = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
 ]
 
+# Chữ ký nhị phân đầu file của từng định dạng (WEBP kiểm tra riêng vì có 4 byte kích thước ở giữa).
 _SIGNATURES: dict[str, tuple[bytes, ...]] = {
     "image/png": (b"\x89PNG\r\n\x1a\n",),
     "image/jpeg": (b"\xff\xd8\xff",),
@@ -27,6 +30,7 @@ _SIGNATURES: dict[str, tuple[bytes, ...]] = {
 }
 
 
+# Kiểm tra phần đầu file để nhà cung cấp không bao giờ nhận file bị gán sai định dạng.
 def _has_signature(image: bytes, mime_type: str) -> bool:
     """Check the container header so the provider never receives a mislabelled file."""
     if mime_type == "image/webp":
@@ -34,6 +38,7 @@ def _has_signature(image: bytes, mime_type: str) -> bool:
     return image.startswith(_SIGNATURES[mime_type])
 
 
+# Yêu cầu kiểm duyệt một ảnh của bài viết, kèm tiêu đề/nội dung bài để AI có ngữ cảnh.
 class ImageModerationRequest(CamelModel):
     job_id: UUID
     content_type: Literal["POST"]
@@ -44,11 +49,13 @@ class ImageModerationRequest(CamelModel):
     mime_type: ModerationImageMimeType
     image_base64: str = Field(min_length=1, max_length=MAX_BASE64_LENGTH)
 
+    # Bỏ khoảng trắng thừa quanh chuỗi base64 trước khi validate.
     @field_validator("image_base64", mode="before")
     @classmethod
     def strip_base64(cls, value: object) -> object:
         return value.strip() if isinstance(value, str) else value
 
+    # Giải mã base64, kiểm tra kích thước và định dạng trước khi gọi nhà cung cấp.
     @model_validator(mode="after")
     def validate_image(self) -> Self:
         """Validate decoded size and format before any provider call."""
@@ -63,12 +70,14 @@ class ImageModerationRequest(CamelModel):
         return self
 
 
+# Kết luận của model cho một ảnh, kèm các quan sát nhìn thấy được.
 class ImageModerationVerdict(CamelModel):
     decision: Literal["ALLOW", "REVIEW"]
     reason: str = Field(min_length=1, max_length=2_000)
     categories: list[ModerationCategory] = Field(max_length=10)
     observations: list[Observation] = Field(max_length=MAX_MODEL_OBSERVATIONS)
 
+    # Đảm bảo kết luận nhất quán: REVIEW cần nhóm vi phạm và quan sát; ALLOW không được có nhóm vi phạm.
     @model_validator(mode="after")
     def validate_decision(self) -> Self:
         if not self.reason.strip():
@@ -80,12 +89,14 @@ class ImageModerationVerdict(CamelModel):
         return self
 
 
+# Kết quả trả về Backend: giới hạn số quan sát chặt hơn và kèm tên model, phiên bản chính sách.
 class ImageModerationResult(ImageModerationVerdict):
     observations: list[Observation] = Field(max_length=MAX_RESULT_OBSERVATIONS)
     model_name: str = Field(min_length=1, max_length=100)
     policy_version: str = Field(min_length=1, max_length=100)
 
 
+# Response thành công theo API Contract.
 class ImageModerationResponse(CamelModel):
     success: Literal[True] = True
     message: str = "Đã kiểm tra ảnh."

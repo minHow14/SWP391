@@ -1,7 +1,16 @@
 // client/src/features/admin/components/AdminQuickActions.jsx
+// Thanh phím tắt trên dashboard giúp chuyển nhanh giữa các tab quản trị, kèm badge số việc đang chờ.
 import { Button, Badge } from 'react-bootstrap';
 
+/**
+ * Các nút chuyển tab nhanh.
+ * @param {object} props
+ * @param {Function} props.onNavigateTab Chuyển tab theo khóa.
+ * @param {number} [props.pendingReports] Số báo cáo chờ xử lý (hiện badge trên nút Báo cáo).
+ * @param {number} [props.flaggedItems] Số nội dung AI gắn cờ (hiện badge trên nút Kiểm duyệt AI).
+ */
 export default function AdminQuickActions({ onNavigateTab, pendingReports = 0, flaggedItems = 0 }) {
+  // Badge chỉ hiển thị khi có việc cần xử lý (giá trị > 0).
   const actions = [
     { key: 'members', label: 'Thành viên', icon: 'bi-people', badge: null },
     { key: 'posts', label: 'Bài viết & Video', icon: 'bi-journal-richtext', badge: null },

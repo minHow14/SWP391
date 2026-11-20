@@ -1,4 +1,5 @@
 // client/src/services/notificationService.js
+// Dịch vụ thông báo của người dùng: lấy danh sách, đánh dấu đã đọc và xóa.
 import apiClient from './apiClient.js';
 
 export const notificationService = {

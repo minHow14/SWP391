@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/mealPlanJournal.test.jsx
+// Kiểm thử áp dụng thực đơn AI vào nhật ký (ApplyToJournal) và thẻ gợi ý món AI trong nhật ký (AiSuggestedMeal).
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,11 +9,14 @@ import { workspaceService } from '../src/services/workspaceService.js';
 import { aiMealsOf, todayKey, totals } from '../src/utils/journal.js';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+// Render ApplyToJournal với một mã thực đơn AI đã tạo.
 const mount = (onOpenJournal = vi.fn()) => render(
   <MemoryRouter><ApplyToJournal generationId="generation-1" onOpenJournal={onOpenJournal} /></MemoryRouter>,
 );
 
+// Nhóm test áp dụng thực đơn AI vào nhật ký.
 describe('applying an AI meal plan to the journal', () => {
+  // Phải hỏi xác nhận trước khi ghi đè cả tuần, lưu xong thì hiển thị liên kết mở nhật ký.
   it('asks before replacing the week, then links to the journal once saved', async () => {
     const apply = vi.spyOn(workspaceService, 'applyAiMealPlan').mockResolvedValue({ appliedMeals: 22 });
     const onOpenJournal = vi.fn();
@@ -27,6 +31,7 @@ describe('applying an AI meal plan to the journal', () => {
     expect(onOpenJournal).toHaveBeenCalled();
   });
 
+  // Lưu thất bại thì giữ phần xác nhận mở và hiển thị thông báo từ server.
   it('keeps the confirmation open and shows the server message when saving fails', async () => {
     vi.spyOn(workspaceService, 'applyAiMealPlan').mockRejectedValue(new Error('Không tìm thấy thực đơn AI để áp dụng.'));
     mount();
@@ -36,6 +41,7 @@ describe('applying an AI meal plan to the journal', () => {
     expect(screen.getByRole('button', { name: /Xác nhận áp dụng/ }).disabled).toBe(false);
   });
 
+  // Bấm hủy thì không gọi API.
   it('cancels without calling the API', () => {
     const apply = vi.spyOn(workspaceService, 'applyAiMealPlan');
     mount();
@@ -46,9 +52,12 @@ describe('applying an AI meal plan to the journal', () => {
   });
 });
 
+// Nhóm test gợi ý món AI trong nhật ký.
 describe('AI suggestions in the journal', () => {
+  // Món gợi ý mẫu (không có chất xơ) để kiểm tra việc cộng tổng dinh dưỡng.
   const meal = { name: 'Cháo yến mạch', calories: 400, protein: 16, carbs: 60, fat: 10 };
 
+  // Món gợi ý phải được bổ sung trường chất xơ để cộng tổng được cùng các món thật; ngày không có dữ liệu trả mảng rỗng.
   it('adds fiber so suggested meals can be summed with real entries', () => {
     const planned = aiMealsOf({ '2026-10-26': { breakfast: meal, lunch: { ...meal, calories: 500 } } }, '2026-10-26');
     expect(totals(planned).calories).toBe(900);
@@ -56,6 +65,7 @@ describe('AI suggestions in the journal', () => {
     expect(aiMealsOf(undefined, '2026-10-26')).toEqual([]);
   });
 
+  // Hiển thị tên món và dinh dưỡng, khi chấp nhận thì trả món gợi ý về cho nơi gọi.
   it('shows the dish and nutrition, and hands the suggestion back when accepted', () => {
     const onAccept = vi.fn();
     render(<AiSuggestedMeal meal={meal} onAccept={onAccept} />);

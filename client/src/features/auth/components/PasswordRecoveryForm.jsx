@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/auth/components/PasswordRecoveryForm.jsx
+// Trang khôi phục mật khẩu: điều phối các bước nhập email -> xác minh OTP -> đặt mật khẩu mới.
 import { Alert, Button, Card, Col, Container, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
 import usePasswordRecovery from '../hooks/usePasswordRecovery.js';
@@ -6,6 +7,7 @@ import RecoveryEmailStep from './RecoveryEmailStep.jsx';
 import RecoveryPasswordStep from './RecoveryPasswordStep.jsx';
 import '../passwordRecovery.css';
 
+// Component khung khôi phục mật khẩu; isReset/token dùng khi người dùng mở từ liên kết đặt lại mật khẩu.
 export default function PasswordRecoveryForm({ isReset = false, token = '' }) {
   const recovery = usePasswordRecovery({ isReset, token });
   const isPassword = recovery.step === 'password';

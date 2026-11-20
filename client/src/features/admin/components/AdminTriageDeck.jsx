@@ -1,9 +1,19 @@
 // client/src/features/admin/components/AdminTriageDeck.jsx
+// "Sàn xử lý khẩn cấp" trên dashboard: nổi bật số báo cáo chờ duyệt và nội dung AI gắn cờ,
+// kèm nút dẫn thẳng tới tab xử lý; hiển thị trạng thái an toàn khi không có việc gấp.
 import { Button, Badge } from 'react-bootstrap';
 
+/**
+ * Khối việc cần xử lý gấp.
+ * @param {object} props
+ * @param {number} [props.pendingReports] Số báo cáo vi phạm đang chờ.
+ * @param {number} [props.flaggedItems] Số nội dung bị AI gắn cờ.
+ * @param {Function} props.onNavigateTab Chuyển tab theo khóa.
+ */
 export default function AdminTriageDeck({ pendingReports = 0, flaggedItems = 0, onNavigateTab }) {
   const urgentTotal = pendingReports + flaggedItems;
 
+  // Không có việc gấp: hiển thị trạng thái an toàn thay vì khối cảnh báo.
   if (urgentTotal === 0) {
     return (
       <div className="cx-triage-deck cx-triage-deck-calm mb-4 p-3 p-md-4">

@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/client/src/pages/Journal.jsx
+// Trang Nhật ký ăn uống: theo dõi BMI, năng lượng và dinh dưỡng trong ngày, ghi món ăn,
+// xem biểu đồ calo theo tuần và lập kế hoạch bữa ăn (kể cả món do thực đơn AI gợi ý).
 import { useEffect, useRef, useState } from 'react';
 import { Spinner } from 'react-bootstrap';
 import ContentDialog from '../components/common/ContentDialog.jsx';
@@ -13,14 +15,18 @@ import HealthProfileNotice from '../features/profile/components/HealthProfileNot
 import { hasBodyMeasurements } from '../features/profile/utils/healthProfile.js';
 import { calculateTotalCalories, calculateTotalCarbs, calculateTotalFat, calculateTotalFiber, calculateTotalProtein } from '../utils/recipeCalculator.js';
 
+// Định dạng số tối đa 1 chữ số thập phân.
 const number = (value) => value.toLocaleString('en-US', { maximumFractionDigits: 1 });
+// Định dạng ngày YYYY-MM-DD theo giờ Việt Nam; dùng 12:00 UTC để không bị lùi/tiến ngày do múi giờ.
 const displayDate = (date, options = { day: '2-digit', month: '2-digit' }) =>
     new Intl.DateTimeFormat('vi-VN', { timeZone: 'Asia/Bangkok', ...options }).format(
         new Date(`${date}T12:00:00Z`)
     );
 
+// Component trang nhật ký; dữ liệu nhật ký gắn ownerId để không hiển thị dữ liệu của tài khoản trước khi đổi tài khoản.
 export default function Journal() {
     const { data: catalog, user, refreshUser } = useDatabase();
+    // Danh sách món mẫu từ catalog công thức dùng cho lập kế hoạch tuần.
     const mealSamples = catalog.recipes.map((r) => ({
         id: String(r.recipe_id),
         recipe_id: r.recipe_id,
@@ -39,10 +45,12 @@ export default function Journal() {
     const [selectedDish, setSelectedDish] = useState(null);
     const [nutritionValues, setNutritionValues] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 });
     const [servings, setServings] = useState(1);
+    // Khóa đồng bộ chặn lưu hồ sơ trùng khi người dùng bấm liên tục.
     const profileSaveLock = useRef(false);
     const saveStatus = 'Nhật ký cá nhân';
     const [notice, setNotice] = useState('');
 
+    // Tải nhật ký khi có người dùng và tự tải lại khi nơi khác báo nhật ký thay đổi (ví dụ áp dụng thực đơn AI).
     useEffect(() => {
         let active = true;
         if (user) {
@@ -66,6 +74,7 @@ export default function Journal() {
         };
     }, [user]);
 
+    // Tải lại nhật ký; bỏ qua kết quả nếu người dùng đã đổi trong lúc chờ.
     async function refresh() {
         const result = await workspaceService.getJournal();
         if (getSession()?.user?.user_id === user.user_id) {
@@ -73,6 +82,7 @@ export default function Journal() {
         }
     }
 
+    // Đổi món trong kế hoạch tuần cho một bữa của một ngày (recipe rỗng để bỏ chọn).
     async function changePlan(day, group, recipe) {
         try {
             await workspaceService.setMealPlan({
@@ -86,6 +96,7 @@ export default function Journal() {
         }
     }
 
+    // Chọn món trong form thêm món: lấy dinh dưỡng có sẵn của công thức, ưu tiên số liệu tính lại từ nguyên liệu nếu có.
     function handleDishSelect(event) {
         const dishId = event.target.value;
         if (!dishId) {
@@ -106,7 +117,7 @@ export default function Journal() {
 
             const liquidDensities = catalog.liquidIngredientDensities || [];
 
-            // Try to get values from nutrition object first
+            // Thử lấy giá trị từ đối tượng nutrition trước
             let calories = dish.nutrition?.calories || dish.total_calories || 0;
             let protein = dish.nutrition?.protein || 0;
             let carbs = dish.nutrition?.carbs || 0;
@@ -115,7 +126,7 @@ export default function Journal() {
 
             console.log('Initial values:', { calories, protein, carbs, fat, fiber });
 
-            // If recipe has recipeIngredients, try to calculate
+            // Nếu công thức có danh sách nguyên liệu thì thử tính lại từ nguyên liệu
             if (dish.recipeIngredients?.length > 0) {
                 try {
                     const calTotal = calculateTotalCalories(dish, liquidDensities);
@@ -146,9 +157,10 @@ export default function Journal() {
         }
     }
 
+    // Đổi số khẩu phần; ô trống được coi là 1 phần.
     function handleServingChange(event) {
         const newServings = event.target.value.trim() ? Number(event.target.value) : 1;
-        setServings(Math.max(0.1, newServings)); // Prevent negative or zero values
+        setServings(Math.max(0.1, newServings)); // Không cho phép giá trị âm hoặc bằng 0
     }
 
     if (!user) {
@@ -176,6 +188,7 @@ export default function Journal() {
         );
     }
 
+    // Các số liệu tổng hợp cho ngày đang chọn và tuần chứa ngày đó.
     const entries = data.days[date] || [];
     const suggestions = data.customPlans?.[date] || {};
     const sum = totals(entries);
@@ -194,8 +207,10 @@ export default function Journal() {
     const average = recorded.length
         ? Math.round(recorded.reduce((total, day) => total + day.calories, 0) / recorded.length)
         : 0;
+    // Giá trị lớn nhất của biểu đồ để quy đổi chiều cao cột (tối thiểu 1 để tránh chia cho 0).
     const chartMax = Math.max(profile.calorieGoal, ...history.map((day) => day.calories), 1);
 
+    // Thêm món từ form vào nhật ký của ngày đang chọn.
     async function addMeal(event) {
         event.preventDefault();
         const form = new FormData(event.currentTarget);
@@ -220,6 +235,7 @@ export default function Journal() {
         }
     }
 
+    // Ghi món AI gợi ý vào nhật ký của bữa tương ứng.
     async function acceptSuggestion(group, meal) {
         try {
             await workspaceService.addDiaryEntry({
@@ -240,6 +256,7 @@ export default function Journal() {
         }
     }
 
+    // Xóa một món khỏi nhật ký.
     async function removeMeal(id) {
         try {
             await workspaceService.deleteDiaryEntry(id);
@@ -250,6 +267,7 @@ export default function Journal() {
         }
     }
 
+    // Cập nhật chỉ số cơ thể và mục tiêu; sau mỗi bước bất đồng bộ đều kiểm tra phiên chưa đổi để không cập nhật nhầm tài khoản.
     async function updateProfile(event) {
         event.preventDefault();
         const session = getSession();
@@ -280,6 +298,7 @@ export default function Journal() {
         }
     }
 
+    // Ghi kế hoạch của một ngày vào nhật ký thực tế; bỏ qua nếu ngày đó đã có nhật ký hoặc không có món nào.
     async function recordPlan(day) {
         if (data.days[day]?.length) return;
         const planned = mealGroups.flatMap((group) => {

@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/app.css */
+/* Style nền tảng của site: body, thanh điều hướng, khu vực tài khoản, bố cục responsive và chuông thông báo. */
 body {
   margin: 0;
   font-family: Arial, sans-serif;
@@ -178,7 +179,7 @@ body {
 }
 
 
-/* Notification Bell & Dropdown Styles */
+/* Style chuông thông báo và menu thả xuống */
 .cx-notification-dropdown .dropdown-toggle::after {
   display: none !important;
 }

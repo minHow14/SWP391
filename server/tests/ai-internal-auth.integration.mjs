@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/ai-internal-auth.integration.mjs
+// Script tích hợp thật BE → FastAPI (cần DB test và venv Python của AI Service): chạy AI Service con
+// với khóa nội bộ lệch rồi khớp để xác minh từ chối, hoàn hạn mức, lưu FAILED và khôi phục. Không gọi nhà cung cấp AI.
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -10,15 +12,18 @@ import { setTimeout as delay } from 'node:timers/promises';
 import request from 'supertest';
 import { createGuestSession } from './helpers/guestSession.js';
 
+// Đường dẫn thư mục AI Service và Python trong venv (có thể ghi đè bằng AI_TEST_PYTHON).
 const AI_DIRECTORY = fileURLToPath(new URL('../../ai_service/', import.meta.url));
 const PYTHON = process.env.AI_TEST_PYTHON || path.join(AI_DIRECTORY, 'venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
 const BE_KEY = process.env.INTERNAL_API_KEY;
 const GUEST_ID = `internal-http-${randomUUID()}`;
-// Image bytes are a test fixture; inference credentials are disabled in the child runtime.
+// Byte ảnh chỉ là dữ liệu test; thông tin xác thực gọi mô hình bị vô hiệu trong tiến trình con.
 const SCAN_INPUT = { imageBase64: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   mimeType: 'image/png', dietTypeId: 1 };
 let child, prisma, member, admin, guestSession;
 
+// Chờ endpoint /health của AI Service sẵn sàng (tối đa 50 lần × 100ms).
+// @param url địa chỉ gốc của AI Service
 async function waitUntilHealthy(url) {
   for (let attempt = 0; attempt < 50; attempt++) {
     if (await fetch(`${url}/health`, { signal: AbortSignal.timeout(500) }).then((response) => response.ok).catch(() => false)) return;
@@ -27,13 +32,17 @@ async function waitUntilHealthy(url) {
   throw new Error('AI test runtime did not become healthy.');
 }
 
+// Khởi động AI Service con với khóa nội bộ cho trước; chờ dòng AI_TEST_READY để biết cổng thật.
+// @param key khóa nội bộ AI Service dùng
+// @param port cổng mong muốn (0 = ngẫu nhiên)
+// @returns {{ port, url }}
 async function startAi(key, port = 0) {
   child = spawn(PYTHON, ['-u', '-m', 'tests.serve_internal_auth'], {
     cwd: AI_DIRECTORY, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, INTERNAL_API_KEY: key, AI_TEST_PORT: String(port),
       DEEPSEEK_API_KEY: '', OPENAI_API_KEY: '', PYTHONDONTWRITEBYTECODE: '1' },
   });
-  // Output from the child is deliberately not echoed because it may contain configuration diagnostics.
+  // Cố ý không in output của tiến trình con vì có thể chứa thông tin chẩn đoán cấu hình.
   child.stderr.resume();
   const ready = new Promise((resolve, reject) => {
     let output = '';
@@ -45,6 +54,7 @@ async function startAi(key, port = 0) {
     child.once('error', () => reject(new Error('Cannot start AI test runtime; set AI_TEST_PYTHON.')));
     child.once('exit', () => reject(new Error('AI test runtime stopped before readiness.')));
   });
+  // Giết tiến trình con nếu quá 15 giây chưa sẵn sàng.
   const timer = setTimeout(() => child.kill(), 15_000);
   try {
     const actualPort = await ready;
@@ -54,6 +64,7 @@ async function startAi(key, port = 0) {
   } finally { clearTimeout(timer); }
 }
 
+// Dừng AI Service con nếu còn chạy và chờ tiến trình thoát hẳn.
 async function stopAi() {
   if (!child?.pid || child.exitCode !== null || child.signalCode !== null) return;
   const exited = once(child, 'exit');
@@ -62,6 +73,8 @@ async function stopAi() {
 }
 
 try {
+  // Giai đoạn 1: AI dùng khóa ngẫu nhiên (lệch với BE) — mọi lời gọi phải bị từ chối AI_INTERNAL_AUTH_FAILED,
+  // không lộ khóa và không trừ hạn mức khách.
   const target = await startAi(randomBytes(32).toString('hex'));
   process.env.AI_SERVICE_URL = target.url;
   process.env.AI_TIMEOUT_MS = '10000';
@@ -84,6 +97,7 @@ try {
     assert.ok(!JSON.stringify(response.body).includes(BE_KEY));
     assert.equal((await prisma.guestQuota.findFirst({ where: { guestId: guestSession.guestId } })).usedCount, 0);
   }
+  // Thành viên gặp lỗi xác thực nội bộ: bản ghi generation phải là FAILED, không có log thành công mới.
   const failed = await request(app).post('/api/ai/chat/stream')
     .set('Authorization', `Bearer ${generateToken({ user_id: member.user_id })}`).send({ message: 'Kiểm tra lịch sử thất bại' });
   assert.equal(failed.status, 503);
@@ -94,6 +108,8 @@ try {
   const clear = () => request(app).post('/api/admin/ai/chatbot-cache/clear')
     .set('Authorization', `Bearer ${generateToken({ user_id: admin.user_id })}`);
   assert.equal((await clear()).body.errorCode, 'AI_INTERNAL_AUTH_FAILED');
+  // Giai đoạn 2: khởi động lại AI với khóa khớp — xóa cache thành công; quét món ăn khi không có nhà cung cấp
+  // phải trả 502 mà không bịa kết quả và không trừ hạn mức.
   await stopAi();
   await startAi(BE_KEY, target.port);
   const recovered = await clear();
@@ -116,6 +132,7 @@ try {
   assert.equal(await prisma.aiLog.count({ where: { status: 'SUCCESS', action: `FOOD_SCAN_USER_${member.user_id}` } }), 0);
   process.stdout.write('PASS: real BE → FastAPI HTTP rejects mismatched keys, refunds quota, saves FAILED, recovers synchronized keys and rejects unavailable scans without fabricated results. No provider calls.\n');
 } finally {
+  // Luôn dừng AI con, dọn user và hạn mức khách, rồi đóng DB.
   await stopAi();
   if (prisma) {
     const ids = [member?.user_id, admin?.user_id].filter(Boolean);

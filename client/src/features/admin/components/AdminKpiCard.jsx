@@ -1,6 +1,18 @@
 // client/src/features/admin/components/AdminKpiCard.jsx
+// Thẻ chỉ số KPI trên dashboard: tiêu đề, giá trị, badge, thanh tiến độ và điều hướng khi bấm.
 import { ProgressBar, Badge } from 'react-bootstrap';
 
+/**
+ * Thẻ KPI.
+ * @param {object} props
+ * @param {string} props.title Tên chỉ số.
+ * @param {string|number} props.value Giá trị hiển thị chính.
+ * @param {string} [props.subtext] Dòng mô tả phụ.
+ * @param {string} props.icon Lớp icon Bootstrap Icons (vd. `bi-people-fill`).
+ * @param {string} [props.colorClass] Biến thể màu của icon (green, blue, amber, rose).
+ * @param {number|null} [props.progressPercent] Phần trăm thanh tiến độ; null thì ẩn thanh.
+ * @param {Function|null} [props.onClick] Khi có thì thẻ trở thành nút bấm truy cập phân hệ.
+ */
 export default function AdminKpiCard({
   title,
   value,
@@ -13,6 +25,7 @@ export default function AdminKpiCard({
   badgeVariant = 'success',
   onClick = null,
 }) {
+  // Khi thẻ bấm được thì gán role/tabIndex/Enter để người dùng bàn phím cũng truy cập được.
   const isClickable = typeof onClick === 'function';
 
   return (

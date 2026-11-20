@@ -2,6 +2,7 @@
 // client/src/utils/aiHelpers.js
 // Hàm thuần (không phụ thuộc React) để nối dữ liệu của web với API AI.
 
+// Bỏ dấu tiếng Việt và chuẩn hóa chữ thường để so khớp văn bản người dùng nhập tự do.
 const strip = (text) =>
   String(text ?? '')
     .normalize('NFD')
@@ -13,9 +14,11 @@ const strip = (text) =>
 
 /** Giữ nguyên danh tính chế độ ăn đã lưu khi gửi tới AI. */
 export function dietTypeToAi(dietTypeId) {
+  // ID 6, 7 ánh xạ sang keto/eat_clean theo danh sách chế độ ăn mà AI Service hỗ trợ.
   return { 1: 'vegan', 2: 'lacto', 3: 'ovo', 4: 'lacto_ovo', 5: 'buddhist', 6: 'keto', 7: 'eat_clean' }[Number(dietTypeId)];
 }
 
+// Chuẩn hóa giới tính nhập tự do (tiếng Việt/Anh) sang giá trị male | female | other mà API AI chấp nhận.
 export function genderToAi(gender) {
   const value = strip(gender);
   if (['male', 'nam', 'm'].includes(value)) return 'male';
@@ -31,6 +34,7 @@ export function goalToAi(text) {
   return 'maintenance';
 }
 
+// Tính BMI (làm tròn 1 chữ số thập phân); trả về null nếu chiều cao/cân nặng không hợp lệ.
 export function calcBmi(heightCm, weightKg) {
   const height = Number(heightCm) / 100;
   const weight = Number(weightKg);
@@ -50,6 +54,7 @@ export function bmiCategory(bmi) {
 /** BMI hiển thị một chữ số thập phân kiểu Việt Nam: 22 -> "22,0". */
 export const formatBmi = (bmi) => (bmi == null || bmi === '' || !Number.isFinite(Number(bmi)) ? '' : Number(bmi).toFixed(1).replace('.', ','));
 
+// Tính tuổi từ ngày sinh theo UTC; chỉ chấp nhận 10–120 tuổi, giống ràng buộc phía API thực đơn.
 export function ageFromDob(dob, now = new Date()) {
   const birth = new Date(`${String(dob).slice(0, 10)}T00:00:00Z`);
   if (Number.isNaN(birth.getTime())) return null;
@@ -102,6 +107,7 @@ export function buildMealPlanRequest(values) {
 
 /** Kiểm tra form phía client; trả về { field: thông báo }. */
 export function validateMealPlanValues(values) {
+  // Ngưỡng chiều cao/cân nặng/số ngày khớp với validate của API AI để báo lỗi sớm ngay trên form.
   const errors = {};
   const height = Number(values.heightCm);
   const weight = Number(values.weightKg);
@@ -112,9 +118,11 @@ export function validateMealPlanValues(values) {
   return errors;
 }
 
+// Giới hạn độ dài menuContext mà API chatbot chấp nhận.
 export const MAX_MENU_CONTEXT = 8000;
 
 /** Thực đơn rút gọn để chatbot giải thích (API giới hạn 8000 ký tự). */
+// Chừa 400 ký tự dự phòng cho phần câu hỏi đi kèm; nếu vẫn quá dài thì bỏ nguyên liệu, cuối cùng cắt chuỗi.
 export function planToMenuContext(plan, limit = MAX_MENU_CONTEXT - 400) {
   const profile = plan.profileSummary || {};
   const header = `${plan.title}. Mục tiêu ${profile.targetDailyCalories} kcal/ngày, BMI ${profile.bmi} (${profile.bmiCategory}), chế độ ${profile.dietaryType}.`;
@@ -145,6 +153,7 @@ export function chatHistory(messages, max = 10) {
     .map((message) => ({ role: message.role, content: message.text }));
 }
 
+// Định dạng thời điểm reset hạn mức theo giờ Việt Nam (dd/MM HH:mm).
 export function formatReset(resetAt) {
   const date = new Date(resetAt);
   if (Number.isNaN(date.getTime())) return '';
@@ -184,6 +193,7 @@ export function stagePercent(stage) {
   return { calculating: 15, generating: 55, validating: 85, retrying: 40 }[stage] ?? 5;
 }
 
+// Định dạng khoảng cách: dưới 1 km hiển thị mét, từ 1 km trở lên hiển thị km với dấu phẩy thập phân.
 export function formatDistance(meters) {
   if (!Number.isFinite(meters)) return '';
   return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1).replace('.', ',')} km`;

@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/auth.service.js
+// Nghiệp vụ xác thực và tài khoản: đăng ký, đăng nhập, làm mới token, xác thực JWT, hồ sơ, đổi mật khẩu và theo dõi cân nặng.
 import { z } from 'zod';
 import prisma from '../config/prisma.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -15,12 +16,15 @@ import { ROLES } from '../constants/roles.js';
 import { USER_STATUS } from '../constants/status.js';
 import { syncHealthProfileWeightHistory } from './healthProfileService.js';
 
+// Giới hạn trên của kiểu INTEGER trong PostgreSQL, chặn user_id giả mạo vượt phạm vi cột.
 const MAX_USER_ID = 2_147_483_647;
+// Schema claims bắt buộc của token; token cũ chưa có tokenVersion được coi là phiên bản 0.
 const tokenClaimsSchema = z.object({
   user_id: z.number().int().positive().max(MAX_USER_ID),
   tokenVersion: z.number().int().nonnegative().default(0),
 });
 
+// Tách và xác minh Bearer token, trả về claims đã validate; phân biệt token hết hạn với token bị sửa để báo lỗi rõ ràng.
 function verifiedUserIdentity(authorization) {
   const match = typeof authorization === 'string' && /^Bearer\s+(\S+)$/i.exec(authorization);
   if (!match) throw ApiError.unauthorized('Token xác thực không hợp lệ');
@@ -36,6 +40,7 @@ function verifiedUserIdentity(authorization) {
   return result.data;
 }
 
+// Chuẩn hóa giới tính từ nhiều cách nhập (tiếng Việt có/không dấu, tiếng Anh, viết tắt) về MALE/FEMALE/OTHER.
 export function normalizeGender(val) {
   if (val === null || val === undefined) return null;
   const s = String(val).trim().toUpperCase();
@@ -46,6 +51,7 @@ export function normalizeGender(val) {
   throw ApiError.badRequest('Giới tính không hợp lệ (chấp nhận: Nam, Nữ, Khác hoặc MALE, FEMALE, OTHER)');
 }
 
+// Đổi mật khẩu chỉ khi hash cũ chưa bị thay đổi (chống đổi đồng thời), rồi trả về danh tính mới kèm tokenVersion đã tăng.
 async function replaceUnchangedPassword(user, passwordHash) {
   return prisma.$transaction(async (tx) => {
     const updated = await userRepository.updatePassword(user.user_id, { expectedHash: user.password_hash, passwordHash }, tx);
@@ -66,6 +72,7 @@ export const authService = {
       throw ApiError.badRequest('Email, mật khẩu và họ tên là bắt buộc');
     }
 
+    // Kiểm tra định dạng email cơ bản: có ký tự @ và phần tên miền có dấu chấm.
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(cleanEmail)) {
       throw ApiError.badRequest('Định dạng email không hợp lệ');
@@ -135,6 +142,7 @@ export const authService = {
 
     const user = await userRepository.findByEmailWithPassword(cleanEmail);
 
+    // Dùng cùng một thông báo cho email không tồn tại và sai mật khẩu để chống dò tìm tài khoản.
     if (!user) {
       throw ApiError.unauthorized('Email hoặc mật khẩu không chính xác');
     }
@@ -148,6 +156,7 @@ export const authService = {
       throw ApiError.unauthorized('Email hoặc mật khẩu không chính xác');
     }
 
+    // Gắn tokenVersion vào token để có thể thu hồi toàn bộ phiên khi đổi/đặt lại mật khẩu.
     const token = generateToken({
       user_id: user.user_id,
       email: user.email,
@@ -191,6 +200,7 @@ export const authService = {
     }
     const claims = tokenClaimsSchema.safeParse(decoded);
     if (!claims.success) throw ApiError.unauthorized('Phiên đăng nhập không hợp lệ.');
+    // Luôn đọc lại trạng thái tài khoản từ DB: tài khoản bị khóa/xóa hoặc đã đổi mật khẩu không được làm mới token.
     const user = await userRepository.findAuthIdentityById(claims.data.user_id);
     if (!user || user.status !== USER_STATUS.ACTIVE || user.deleted_at) {
       throw ApiError.unauthorized('Tài khoản không hợp lệ hoặc đã bị khóa');
@@ -244,6 +254,7 @@ export const authService = {
   async updateMe(userId, { full_name, health_profile, allergy_ids }) {
     const user_id = Number(userId);
 
+    // Gộp mọi thay đổi hồ sơ trong một transaction để không bị cập nhật dở dang khi một bước lỗi.
     await prisma.$transaction(async (tx) => {
       if (health_profile?.diet_type_id != null) {
         const diet = await userRepository.findDietTypeById(health_profile.diet_type_id, tx);
@@ -252,6 +263,7 @@ export const authService = {
         }
       }
 
+      // Mọi ID dị ứng phải tồn tại trong bảng nguyên liệu.
       if (allergy_ids !== undefined) {
         const count = await userRepository.countIngredients(allergy_ids, tx);
         if (count !== allergy_ids.length) {
@@ -277,6 +289,7 @@ export const authService = {
           await userRepository.upsertProfilePreference(user_id, profile.health_goal, tx);
         }
 
+        // Đổi cân nặng thì ghi thêm lịch sử để theo dõi tiến trình.
         if (profile.weight !== undefined) await syncHealthProfileWeightHistory(user_id, savedProfile, tx);
       }
 
@@ -296,6 +309,7 @@ export const authService = {
     const claims = verifiedUserIdentity(authorization);
     const user = await userRepository.findAuthIdentityById(claims.user_id);
     if (!user) throw ApiError.unauthorized('Tài khoản không tồn tại trên hệ thống');
+    // tokenVersion không khớp nghĩa là phiên đã bị thu hồi (đổi/đặt lại mật khẩu).
     if (claims.tokenVersion !== user.tokenVersion) throw ApiError.unauthorized('Phiên đăng nhập đã bị thu hồi.');
     if (user.status !== USER_STATUS.ACTIVE || user.deleted_at) {
       throw ApiError.forbidden('Tài khoản của bạn đã bị khóa hoặc ngừng hoạt động');
@@ -315,6 +329,7 @@ export const authService = {
    */
   async changePassword(userId, { old_password, oldPassword, current_password, currentPassword, new_password, newPassword }) {
     const user_id = Number(userId);
+    // Chấp nhận nhiều tên trường (camelCase và snake_case) để tương thích các client khác nhau.
     const oldPass = currentPassword || current_password || oldPassword || old_password;
     const newPass = newPassword || new_password;
 
@@ -341,6 +356,7 @@ export const authService = {
     }
 
     const newHash = await hashPassword(newPass);
+    // Cấp token mới theo tokenVersion vừa tăng để phiên hiện tại vẫn tiếp tục, còn các phiên khác bị đăng xuất.
     const updated = await replaceUnchangedPassword(user, newHash);
     const claims = { user_id, email: updated.email, role: updated.role, tokenVersion: updated.tokenVersion };
     return { message: 'Đổi mật khẩu thành công', token: generateToken(claims), refreshToken: generateRefreshToken(claims) };
@@ -352,6 +368,7 @@ export const authService = {
   async recordWeight(userId, { weight, recorded_date, recordedDate }) {
     const user_id = Number(userId);
     const numericWeight = Number(weight);
+    // Giới hạn cân nặng hợp lý 20-350 kg để chặn dữ liệu nhập sai.
     if (!numericWeight || numericWeight < 20 || numericWeight > 350) {
       throw ApiError.badRequest('Cân nặng phải từ 20kg đến 350kg');
     }
@@ -419,4 +436,5 @@ export const authService = {
   },
 };
 
+// Bí danh tương thích ngược cho các nơi còn import authenticationService.
 export const authenticationService = authService;

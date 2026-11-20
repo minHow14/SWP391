@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_ingredient_lookup.py
+# Kiểm thử API tra cứu nguyên liệu bằng AI (/api/ingredient-lookups): xác thực, chuẩn hoá và
+# validate tên nguyên liệu, kiểm tra chặt output của LLM (kể cả dinh dưỡng/100g) và xử lý lỗi/timeout.
 import asyncio
 import json
 from collections.abc import Iterator
@@ -13,12 +15,14 @@ from core.config import settings
 PATH = "/api/ingredient-lookups"
 
 
+# Thiếu khoá nội bộ -> 401 UNAUTHORIZED_INTERNAL.
 def test_internal_authentication_is_required(client: TestClient) -> None:
     response = client.post(PATH, json={"ingredientName": "Nấm hương"})
     assert response.status_code == 401
     assert response.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Kết quả tra cứu hợp lệ mẫu đúng hợp đồng với Back-end (camelCase, có dinh dưỡng trên 100g).
 def ingredient_result() -> dict[str, object]:
     return {
         "isIngredient": True,
@@ -39,6 +43,8 @@ def ingredient_result() -> dict[str, object]:
     }
 
 
+# Fixture: thay LLM bằng AsyncMock và xoá cache model trước/sau test,
+# vì model được cache theo tiến trình nên nếu không xoá các test sẽ dùng chung mock cũ.
 @pytest.fixture
 def provider(monkeypatch: pytest.MonkeyPatch) -> Iterator[AsyncMock]:
     from services import ingredient_lookup as service
@@ -52,6 +58,8 @@ def provider(monkeypatch: pytest.MonkeyPatch) -> Iterator[AsyncMock]:
     service._lookup_model.cache_clear()
 
 
+# Trả về đúng kết quả camelCase; tên nguyên liệu (đã trim) chỉ nằm trong HumanMessage dạng JSON,
+# không lọt vào SystemMessage để chống prompt injection.
 def test_returns_exact_camel_case_result_and_separates_untrusted_input(
     client: TestClient, internal_headers: dict[str, str], provider: AsyncMock
 ) -> None:
@@ -71,6 +79,7 @@ def test_returns_exact_camel_case_result_and_separates_untrusted_input(
     }
 
 
+# Chuẩn hoá Unicode (NFKC, ký tự full-width) và gộp khoảng trắng trước khi gửi LLM.
 def test_normalizes_unicode_names_before_inference(
     client: TestClient, internal_headers: dict[str, str], provider: AsyncMock
 ) -> None:
@@ -82,6 +91,8 @@ def test_normalizes_unicode_names_before_inference(
     assert json.loads(messages[1].content) == {"ingredientName": "Nấm hương"}
 
 
+# Input không hợp lệ (rỗng, quá dài kể cả sau chuẩn hoá, ký tự điều khiển, sai kiểu, sai tên trường,
+# trường lạ) -> 422 và không gọi LLM.
 @pytest.mark.parametrize(
     "payload",
     [
@@ -107,6 +118,7 @@ def test_rejects_invalid_input_before_inference(
     provider.ainvoke.assert_not_called()
 
 
+# Kết luận 'không phải nguyên liệu' hợp lệ được trả về nguyên vẹn.
 def test_preserves_real_noningredient_verdict(
     client: TestClient, internal_headers: dict[str, str], provider: AsyncMock
 ) -> None:
@@ -118,6 +130,7 @@ def test_preserves_real_noningredient_verdict(
     assert response.json()["data"] == {"isIngredient": False, "ingredient": None}
 
 
+# Kết luận sai cấu trúc hoặc mâu thuẫn -> 502, không trả dữ liệu dự phòng.
 @pytest.mark.parametrize(
     "result",
     [
@@ -144,6 +157,8 @@ def test_rejects_malformed_verdicts_without_fallback_data(
     assert "data" not in response.json()
 
 
+# Chi tiết nguyên liệu do LLM sinh vượt hợp đồng (category lạ, chuỗi rỗng/quá dài, sai kiểu,
+# trường thừa) -> 502.
 @pytest.mark.parametrize(
     "changes",
     [
@@ -174,6 +189,7 @@ def test_rejects_generated_details_outside_backend_contract(
     assert response.status_code == 502
 
 
+# Cho phép plant = None (chưa rõ nguồn gốc) và aliases rỗng.
 def test_accepts_unknown_plant_status_and_empty_aliases(
     client: TestClient, internal_headers: dict[str, str], provider: AsyncMock
 ) -> None:
@@ -188,6 +204,7 @@ def test_accepts_unknown_plant_status_and_empty_aliases(
     assert response.json()["data"]["ingredient"]["aliases"] == ""
 
 
+# Chưa cấu hình key provider -> 503 và không gọi LLM.
 def test_missing_configuration_returns_503_without_inference(
     client: TestClient,
     internal_headers: dict[str, str],
@@ -203,6 +220,7 @@ def test_missing_configuration_returns_503_without_inference(
     provider.ainvoke.assert_not_called()
 
 
+# Lỗi provider -> 503 đã làm sạch, không lộ chi tiết và không trả data.
 def test_provider_errors_are_sanitized(
     client: TestClient, internal_headers: dict[str, str], provider: AsyncMock
 ) -> None:
@@ -216,6 +234,7 @@ def test_provider_errors_are_sanitized(
     assert "data" not in response.json()
 
 
+# Suy luận vượt thời hạn tổng -> 504 INGREDIENT_LOOKUP_AI_TIMEOUT.
 def test_total_deadline_cancels_slow_inference(
     client: TestClient,
     internal_headers: dict[str, str],
@@ -224,6 +243,7 @@ def test_total_deadline_cancels_slow_inference(
 ) -> None:
     from services import ingredient_lookup as service
 
+    # Giả lập LLM phản hồi chậm hơn timeout.
     async def delayed(_: object) -> dict[str, object]:
         await asyncio.sleep(1)
         return ingredient_result()
@@ -237,6 +257,8 @@ def test_total_deadline_cancels_slow_inference(
     assert response.json()["errorCode"] == "INGREDIENT_LOOKUP_AI_TIMEOUT"
 
 
+# Model được khởi tạo một lần trong lifespan của app và tái sử dụng cho mọi request
+# (tránh tạo client mới mỗi lần), với timeout không quá 90 giây.
 def test_lifespan_initializes_provider_once_across_requests(
     internal_headers: dict[str, str],
     provider: AsyncMock,
@@ -258,6 +280,7 @@ def test_lifespan_initializes_provider_once_across_requests(
     assert factory.call_args.kwargs["timeout"] <= 90
 
 
+# Hàm hỗ trợ: gửi request tra cứu với giá trị nutritionPer100g tuỳ ý do LLM trả về.
 def lookup_with_nutrition(
     client: TestClient,
     internal_headers: dict[str, str],
@@ -270,6 +293,7 @@ def lookup_with_nutrition(
     return client.post(PATH, json={"ingredientName": "Nấm"}, headers=internal_headers)
 
 
+# Dinh dưỡng null hoặc nhất quán (calo khớp với đạm/béo/carb) được chấp nhận và trả về dạng float.
 @pytest.mark.parametrize(
     "nutrition",
     [
@@ -293,6 +317,7 @@ def test_keeps_a_null_or_consistent_nutrition_profile(
     )
 
 
+# Dinh dưỡng phi lý (calo lệch so với macro, tổng macro > 100g, số âm) hoặc sai định dạng -> 502.
 @pytest.mark.parametrize(
     "nutrition",
     [
@@ -316,6 +341,8 @@ def test_rejects_impossible_or_malformed_nutrition(
     assert response.json()["errorCode"] == "INGREDIENT_LOOKUP_AI_INVALID_OUTPUT"
 
 
+# Bắt buộc có quyết định dinh dưỡng rõ ràng dưới đúng khoá hợp đồng 'nutritionPer100g'
+# (thiếu khoá hoặc sai chữ hoa/thường đều bị từ chối).
 @pytest.mark.parametrize("missing_key", ["nutritionPer100g", "nutritionPer100G"])
 def test_requires_an_explicit_nutrition_decision_under_the_contract_key(
     client: TestClient,
@@ -332,6 +359,7 @@ def test_requires_an_explicit_nutrition_decision_under_the_contract_key(
     assert response.status_code == 502
 
 
+# Prompt yêu cầu ước tính trên 100g phần ăn được và trả null khi không có giá trị đáng tin cậy.
 def test_prompt_asks_for_honest_per_100_g_estimates() -> None:
     from services import ingredient_lookup as service
 
@@ -341,6 +369,7 @@ def test_prompt_asks_for_honest_per_100_g_estimates() -> None:
     assert "This schema contains no nutrition fields" not in prompt
 
 
+# Schema trong tài liệu OpenAPI phải khớp với schema Pydantic sinh ra (bỏ qua description).
 @pytest.mark.parametrize("model_name", ["IngredientLookupRequest", "IngredientLookupResponse"])
 def test_documented_ai_contract_matches_the_pydantic_schema(model_name: str) -> None:
     from pathlib import Path
@@ -353,5 +382,5 @@ def test_documented_ai_contract_matches_the_pydantic_schema(model_name: str) -> 
         by_alias=True, ref_template="#/components/schemas/{model}"
     )
     for name, definition in {**generated.pop("$defs", {}), model_name: generated}.items():
-        # Descriptions are documentation-only additions on top of the generated schema.
+        # Trường description chỉ là phần bổ sung cho tài liệu, nằm ngoài schema sinh tự động.
         assert {**documented[name], "description": None} == {**definition, "description": None}

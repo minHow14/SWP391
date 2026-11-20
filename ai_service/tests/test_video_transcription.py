@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_video_transcription.py
+# Kiểm thử dịch vụ lấy phụ đề YouTube cho tính năng công thức từ video: thứ tự chọn track phụ đề,
+# chuẩn hoá mốc thời gian, giới hạn kích thước, phân loại lỗi và chống SSRF. Mọi request HTTP đều bị giả lập.
 import asyncio
 import json
 import threading
@@ -17,6 +19,7 @@ from services.video_transcription import transcribe_video
 from tests.test_video_recipe_schemas import request_payload
 
 
+# Tạo mô tả một track phụ đề YouTube; generated=True là phụ đề tự động (kind 'asr').
 def caption_track(language: str = "vi", *, generated: bool = False) -> dict:
     name = "automatic" if generated else "manual"
     return {
@@ -28,6 +31,7 @@ def caption_track(language: str = "vi", *, generated: bool = False) -> dict:
     }
 
 
+# Tạo requests.Response giả với nội dung cho trước, đọc dạng stream như response thật.
 def response_for(
     request: requests.PreparedRequest, content: bytes
 ) -> requests.Response:
@@ -40,9 +44,12 @@ def response_for(
     return response
 
 
+# Giả lập toàn bộ luồng gọi YouTube (trang watch -> player API -> timedtext) và trả về danh sách
+# lời gọi để test kiểm tra URL, timeout và luồng thực thi; options tuỳ chỉnh track, XML, trạng thái phát.
 def youtube_responses(monkeypatch: pytest.MonkeyPatch, **options) -> list:
     calls = []
 
+    # Thay HTTPAdapter.send: định tuyến theo path và ghi lại (request, kwargs, thread id).
     def send(adapter, request, **kwargs):
         calls.append((request, kwargs, threading.get_ident()))
         path = urlsplit(request.url).path
@@ -58,6 +65,7 @@ def youtube_responses(monkeypatch: pytest.MonkeyPatch, **options) -> list:
                 }
             content = json.dumps(data).encode()
         else:
+            # Bất kỳ request nào ngoài 3 path trên đều là lỗi: dịch vụ chỉ được gọi tới endpoint phụ đề YouTube.
             assert path == "/api/timedtext", "Only YouTube captions may be requested"
             track = parse_qs(urlsplit(request.url).query)["track"][0]
             content = options.get(
@@ -73,6 +81,7 @@ def youtube_responses(monkeypatch: pytest.MonkeyPatch, **options) -> list:
     return calls
 
 
+# Fixture tự động: cấm tạo subprocess, đảm bảo luồng lấy phụ đề không âm thầm tải audio để chạy STT.
 @pytest.fixture(autouse=True)
 def forbid_audio_processes(monkeypatch: pytest.MonkeyPatch) -> None:
     async def forbidden(*args, **kwargs):
@@ -81,6 +90,7 @@ def forbid_audio_processes(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(asyncio, "create_subprocess_exec", forbidden)
 
 
+# Gọi transcribe_video với request mẫu, trả về (transcript, danh sách giai đoạn tiến độ).
 async def retrieve() -> tuple:
     stages = []
 
@@ -93,6 +103,8 @@ async def retrieve() -> tuple:
     return result, stages
 
 
+# Ưu tiên phụ đề tiếng Việt thủ công trước phụ đề tự động; request HTTP chạy ngoài event loop
+# (thread khác) để không chặn server, mỗi request có timeout trong khoảng (0, 5] giây.
 @pytest.mark.asyncio
 @pytest.mark.parametrize("manual", [True, False])
 async def test_fetches_vietnamese_manual_before_automatic_off_the_event_loop(
@@ -113,6 +125,7 @@ async def test_fetches_vietnamese_manual_before_automatic_off_the_event_loop(
     assert all(0 < options["timeout"] <= 5 for _, options, _ in calls)
 
 
+# Track thủ công không có văn bản dùng được -> chuyển sang track tự động tiếng Việt.
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "manual_xml",
@@ -136,6 +149,8 @@ async def test_tries_automatic_vietnamese_when_manual_track_has_no_usable_text(
     ] == ["manual", "automatic"]
 
 
+# Không có phụ đề hoặc chỉ có tiếng nước ngoài -> VIDEO_CAPTIONS_UNAVAILABLE, không dùng bản dịch tự động
+# và không tải timedtext nào.
 @pytest.mark.asyncio
 @pytest.mark.parametrize("tracks", [None, [], [caption_track("en")]])
 async def test_missing_or_foreign_only_captions_fail_without_translation(
@@ -150,6 +165,8 @@ async def test_missing_or_foreign_only_captions_fail_without_translation(
     assert all("/api/timedtext" not in call[0].url for call in calls)
 
 
+# Đoạn chồng lấn được cắt cho liền mạch, đoạn trùng thời điểm bắt đầu được gộp mà không mất chữ,
+# đoạn cuối bị cắt theo thời lượng video.
 @pytest.mark.asyncio
 async def test_normalizes_overlap_and_equal_starts_without_dropping_caption_text(
     monkeypatch: pytest.MonkeyPatch,
@@ -168,6 +185,7 @@ async def test_normalizes_overlap_and_equal_starts_without_dropping_caption_text
     ]
 
 
+# Mốc thời gian không hợp lệ (NaN, vô cực, âm, ngoài thời lượng, độ dài <= 0) -> VIDEO_AI_INVALID_OUTPUT.
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "start,duration",
@@ -196,6 +214,8 @@ async def test_rejects_invalid_caption_timestamps(
     assert failure.value.code == "VIDEO_AI_INVALID_OUTPUT"
 
 
+# Phụ đề rỗng -> không có phụ đề; sai thứ tự, đoạn quá dài, quá nhiều đoạn hoặc tổng quá dài -> dữ liệu
+# không hợp lệ (giới hạn để bảo vệ chi phí và bộ nhớ khi gửi cho LLM).
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "xml,code",
@@ -251,6 +271,8 @@ async def test_rejects_empty_disordered_or_oversized_caption_content(
     assert failure.value.code == code
 
 
+# Phân biệt video bị YouTube chặn (yêu cầu đăng nhập/chống bot) với video không tồn tại,
+# và không trả nguyên văn lý do của YouTube cho client.
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "failure_case",
@@ -275,6 +297,7 @@ async def test_distinguishes_blocking_from_unavailable_videos(
     assert reason not in failure.value.message
 
 
+# Timeout mạng -> VIDEO_CAPTIONS_TIMEOUT, không lộ chi tiết lỗi nội bộ.
 @pytest.mark.asyncio
 async def test_network_timeout_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> None:
     def timeout(*args, **kwargs):
@@ -287,6 +310,7 @@ async def test_network_timeout_is_sanitized(monkeypatch: pytest.MonkeyPatch) -> 
     assert "PRIVATE_PROVIDER_DETAIL" not in failure.value.message
 
 
+# Response vượt 4 MiB bị chặn trước khi parse để tránh tốn bộ nhớ.
 @pytest.mark.asyncio
 async def test_bounds_response_bytes_before_parsing(
     monkeypatch: pytest.MonkeyPatch,
@@ -301,6 +325,7 @@ async def test_bounds_response_bytes_before_parsing(
     assert failure.value.code == "VIDEO_AI_INVALID_OUTPUT"
 
 
+# URL phụ đề trỏ ra ngoài www.youtube.com (vd 127.0.0.1) bị từ chối trước khi gửi để chống SSRF.
 @pytest.mark.asyncio
 async def test_rejects_caption_urls_outside_youtube_before_sending(
     monkeypatch: pytest.MonkeyPatch,
@@ -314,6 +339,7 @@ async def test_rejects_caption_urls_outside_youtube_before_sending(
     assert all(urlsplit(call[0].url).hostname == "www.youtube.com" for call in calls)
 
 
+# Fixture: bọc CaptionSession.__init__ để thu thập các phiên được tạo, giúp test truy cập cờ cancelled.
 @pytest.fixture
 def caption_sessions(monkeypatch: pytest.MonkeyPatch) -> list[CaptionSession]:
     sessions: list[CaptionSession] = []
@@ -327,6 +353,7 @@ def caption_sessions(monkeypatch: pytest.MonkeyPatch) -> list[CaptionSession]:
     return sessions
 
 
+# Huỷ tác vụ phải đóng response đang mở và dừng trước request kế tiếp (không rò rỉ kết nối).
 @pytest.mark.asyncio
 async def test_cancellation_closes_owned_requests_and_stops_before_next_request(
     monkeypatch: pytest.MonkeyPatch,
@@ -335,6 +362,7 @@ async def test_cancellation_closes_owned_requests_and_stops_before_next_request(
     entered, release = threading.Event(), threading.Event()
     responses = []
 
+    # Chặn request đầu tiên cho tới khi test cho phép, để có thể huỷ đúng lúc request đang chạy.
     def send(adapter, request, **kwargs):
         entered.set()
         assert release.wait(2)
@@ -347,7 +375,7 @@ async def test_cancellation_closes_owned_requests_and_stops_before_next_request(
     reached_request = await asyncio.to_thread(entered.wait, 2)
     task.cancel()
     try:
-        # Task.cancel() schedules cancellation; wait until the HTTP worker sees it.
+        # Task.cancel() chỉ lên lịch huỷ; chờ đến khi worker HTTP thực sự nhận được tín hiệu huỷ.
         cancellation_delivered = await asyncio.to_thread(
             caption_sessions[0].cancelled.wait, 2
         )

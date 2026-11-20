@@ -1,6 +1,8 @@
 // client/src/features/community/components/CommunitySearchBar.jsx
+// Thanh tìm kiếm và bộ lọc loại nội dung (Tất cả / Bài viết / Video) của trang cộng đồng.
 import { Button, Form } from 'react-bootstrap';
 
+// Component tìm kiếm có kiểm soát: giá trị và bộ lọc do trang cha quản lý, kèm số lượng kết quả theo từng loại.
 export default function CommunitySearchBar({
   searchQuery = '',
   onSearchChange,

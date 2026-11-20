@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/community/components/PostComposer.jsx
+// Modal tạo / chỉnh sửa bài đăng cộng đồng (Blog có ảnh đính kèm hoặc Video).
 import { Alert, Button, Form, Modal, ProgressBar, Spinner } from 'react-bootstrap';
 import { usePostComposer } from '../hooks/usePostComposer.js';
 import { POST_MEDIA_ACCEPT, MAX_POST_ATTACHMENTS } from '../../../utils/postAttachments.js';
@@ -6,6 +7,7 @@ import PostMedia from './PostMedia.jsx';
 import PostVideoFields from './PostVideoFields.jsx';
 import '../styles/community.css';
 
+// Component soạn bài; logic form và upload nằm trong hook usePostComposer.
 export default function PostComposer({ post, user, categories = [], onClose, onSaved }) {
   const composer = usePostComposer({ post, onSaved });
   const {

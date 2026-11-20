@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/pages/Recipes.jsx
+// Trang Kho công thức chay: tìm kiếm, lọc theo loại món và chế độ ăn, xem chi tiết cách chế biến.
 import { useState } from 'react';
 import { useOutletContext } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
@@ -9,15 +10,16 @@ import RecipeInstructions from '../components/common/RecipeInstructions.jsx';
 import { formatIngredientDisplay, calculateTotalCalories } from '../utils/recipeCalculator.js';
 
 /**
- * Calculate calories for a recipe ingredient based on unit and quantity
+ * Tính calo của một nguyên liệu trong công thức theo đơn vị và số lượng (đã chuyển sang utils/recipeCalculator.js).
  */
 
 
 /**
- * Format ingredient display with unit normalization
+ * Định dạng chuỗi hiển thị nguyên liệu kèm đơn vị (đã chuyển sang utils/recipeCalculator.js).
  */
 
 
+// Component trang công thức; tổng calo được tính lại từ nguyên liệu và khối lượng riêng của chất lỏng.
 export default function Recipes() {
     const { data } = useDatabase();
     const recipes = data.recipes || [];
@@ -43,7 +45,7 @@ export default function Recipes() {
     });
 
     /**
-     * Calculate total calories for a recipe
+     * Tính tổng calo của công thức (dùng calculateTotalCalories từ utils/recipeCalculator.js).
      */
 
     return (

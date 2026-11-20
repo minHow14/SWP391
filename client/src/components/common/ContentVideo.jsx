@@ -1,4 +1,5 @@
 // client/src/components/common/ContentVideo.jsx
+// Trình phát video nội dung: hỗ trợ link YouTube (nhúng iframe) và tệp video trực tiếp (thẻ <video>).
 import { useState, useMemo } from 'react';
 import ContentImage from './ContentImage.jsx';
 
@@ -45,6 +46,7 @@ function getYouTubeEmbedUrl(url) {
   return null;
 }
 
+// Component video: chọn cách phát theo loại URL, hiển thị ảnh poster khi video không khả dụng.
 export default function ContentVideo({ src, poster, title }) {
   const [failedSrc, setFailedSrc] = useState(null);
 

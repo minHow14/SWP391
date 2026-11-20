@@ -1,12 +1,15 @@
 // D:/SWP391/SWP391/client/src/features/videoRecipeSummary/hooks/useVideoRecipeSummary.js
+// Hook điều phối tóm tắt công thức từ video trong chatbot: gửi link, theo dõi job, khôi phục lịch sử và thử lại.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getSession } from '../../../utils/session.js';
 import { VideoRecipeOperation } from '../utils/videoRecipeOperation.js';
 import { clearSavedVideoJob } from '../utils/videoRecipeJobs.js';
 import { discoverVideoHistory } from '../utils/videoRecipeHistory.js';
 
+// Kiểm tra tin nhắn có thuộc luồng công thức video hay không.
 export const isVideoRecipeMessage = (message) => ['videoRecipe', 'videoRecipeRequest'].includes(message.kind);
 
+// Bắt đầu một thao tác xử lý video; mỗi lúc chỉ chạy một thao tác và bắt buộc phải đăng nhập đúng tài khoản.
 function beginOperation(context, request) {
   if (context.operation.current) return;
   if (!context.userId || getSession()?.user?.user_id !== context.userId) {
@@ -21,6 +24,7 @@ function beginOperation(context, request) {
   void operation.run(request);
 }
 
+// Hiển thị lỗi khi khôi phục lịch sử thất bại: gắn vào tin nhắn đang chờ nếu có, ngược lại thêm tin nhắn lỗi mới.
 function showDiscoveryFailure(context, error, signal) {
   if (signal.aborted || context.operation.current || getSession()?.user?.user_id !== context.userId) return;
   context.setMessages((previous) => {
@@ -32,6 +36,8 @@ function showDiscoveryFailure(context, error, signal) {
   });
 }
 
+// Gắn luồng video với người dùng hiện tại: khi đổi tài khoản thì dừng thao tác cũ, ẩn tin nhắn của tài khoản khác
+// và khôi phục lịch sử/job đang chạy của tài khoản mới; xóa job đã lưu nếu người dùng đã đăng xuất.
 function useVideoRecipeOwner(context, enabled, reload) {
   const { operation: operationRef } = context;
   useEffect(() => {
@@ -53,6 +59,7 @@ function useVideoRecipeOwner(context, enabled, reload) {
   }, [context, enabled, operationRef, reload]);
 }
 
+// Hook công khai; trả về trạng thái busy, hàm send (gửi link video) và retry (thử lại tin nhắn lỗi).
 export function useVideoRecipeSummary({ userId, enabled, setMessages, nextId }) {
   const [busy, setBusy] = useState(false);
   const operation = useRef(null);
@@ -60,6 +67,7 @@ export function useVideoRecipeSummary({ userId, enabled, setMessages, nextId }) 
   const context = useMemo(() => ({ userId, setMessages, nextId, setBusy, operation }), [userId, setMessages, nextId]);
   useVideoRecipeOwner(context, enabled, reload);
   const send = useCallback((source, question) => beginOperation(context, { source, question }), [context]);
+  // Lỗi tải lịch sử thì tải lại lịch sử; các lỗi khác thì tạo lại hoặc tiếp tục theo dõi job.
   const retry = useCallback((message) => {
     if (message.ownerId !== context.userId) return;
     if (message.historyError) { setReload((value) => value + 1); return; }

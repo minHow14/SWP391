@@ -1,7 +1,9 @@
 ﻿// client/src/features/profile/components/ProfileSetupNotice.jsx
+// Thông báo hướng dẫn người mới đăng ký hoàn thiện hồ sơ cá nhân (có thể bỏ qua).
 import { Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Component thông báo thiết lập hồ sơ hiển thị ở trang hồ sơ khi vừa đăng ký.
 export default function ProfileSetupNotice() {
   return (
     <Alert variant="info">

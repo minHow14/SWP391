@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src/controllers/ai.controller.js
+// Controller AI: chuyển yêu cầu chatbot, lập thực đơn, quét ảnh món ăn sang aiService
+// kèm danh tính AI (thành viên hoặc khách) để áp hạn mức.
 import { aiService } from '../services/ai.service.js';
 import { sendSuccess } from '../utils/apiResponse.js';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';

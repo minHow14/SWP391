@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/chat/components/ChatBox.jsx
+// Widget chat nổi của Trợ lý ChayXanh: khung hội thoại, công cụ nhanh (quét ảnh, thực đơn tuần, tóm tắt video) và nút mở/đóng.
 import ChatMessage from './ChatMessage.jsx';
 import ChatComposer from './ChatComposer.jsx';
 import MealPlanDialog from '../../mealPlan/components/MealPlanDialog.jsx';
@@ -7,6 +8,7 @@ import { Link } from 'react-router';
 import { hasBodyMeasurements } from '../../profile/utils/healthProfile.js';
 import AiGenerationHistory from '../../aiHistory/components/AiGenerationHistory.jsx';
 
+// Các chủ đề gợi ý nhanh; mục requiresProfile cần hồ sơ có chiều cao/cân nặng nên được xử lý riêng (tính BMI tại chỗ).
 const suggestions = [
   {
     label: 'Nguồn đạm chay',
@@ -21,9 +23,11 @@ const suggestions = [
   { label: 'Chỉ số BMI', icon: 'bar-chart', requiresProfile: true },
 ];
 
+// Component hộp chat; toàn bộ state và hành động lấy từ hook useChatBox để giữ component chỉ lo hiển thị.
 export default function ChatBox({ dietTypeId }) {
   const chat = useChatBox({ dietTypeId });
   const { catalog, user, open, setOpen, error, busy, usage, planDialog, setPlanDialog, dialogPlan, contextPlan, setContextPlan, messages, launcher, messageList, fileInput, ask, retryVideo, sendMessage, openMealPlan, showPlanInChat, askAboutPlan, selectSummary, attachPhoto } = chat;
+  // Người dùng đã đăng nhập nhưng thiếu số đo cơ thể -> hiển thị liên kết bổ sung hồ sơ thay vì nút BMI.
   const needsProfile = Boolean(user) && !hasBodyMeasurements(user.health_profile);
 
   return (

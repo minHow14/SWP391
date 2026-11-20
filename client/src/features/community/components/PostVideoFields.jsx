@@ -1,6 +1,8 @@
 // client/src/features/community/components/PostVideoFields.jsx
+// Nhóm trường nhập liệu riêng cho bài đăng dạng Video: link video, ảnh bìa và mô tả nội dung.
 import { Form, Row, Col } from 'react-bootstrap';
 
+// Component trường video; các handler upload/đổi link lấy từ composer (usePostComposer).
 export default function PostVideoFields({
   composer,
   register,

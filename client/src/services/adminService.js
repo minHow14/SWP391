@@ -1,6 +1,8 @@
 // D:/SWP391/SWP391/client/src/services/adminService.js
+// Tập hợp các hàm gọi API quản trị (thành viên, bài viết, bình luận, danh mục, kiểm duyệt, AI, báo cáo).
 import apiClient from './apiClient.js';
 
+// Mỗi hàm trả về Promise dữ liệu đã được apiClient bóc từ response; nhóm theo mã chức năng FE-xx.
 export const adminService = {
   // FE-10: Dashboard tổng quan
   getDashboardStats: () => apiClient.get('/admin/dashboard/stats'),
@@ -17,6 +19,7 @@ export const adminService = {
   getPosts: (params = {}) => apiClient.get('/admin/posts', { params }),
   updatePostStatus: (postId, status) => apiClient.patch(`/admin/posts/${postId}/status`, { status }),
   updatePost: (postId, data) => apiClient.put(`/admin/posts/${postId}`, data),
+  // Mặc định xóa vĩnh viễn; truyền { permanent: false } để chỉ xóa mềm.
   deletePost: (postId, { permanent = true } = {}) =>
     apiClient.delete(`/admin/posts/${postId}${permanent ? '?permanent=true' : ''}`),
 

@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\tests/aiQuota.test.js
+// Kiểm thử tích hợp (cần DB test) hạn mức lượt dùng AI của khách: chống vượt hạn mức khi đồng thời,
+// hoàn lượt đúng ngày và reset bởi admin có ghi audit.
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it, vi } from 'vitest';
 import prisma from '../src/config/prisma.js';
@@ -6,13 +8,17 @@ import { guestQuotaService } from '../src/services/guestQuotaService.js';
 import { guestQuotaAdminService } from '../src/services/guestQuotaAdminService.js';
 import { aiLogService } from '../src/services/aiLogService.js';
 
+// Tiền tố ngẫu nhiên cho guestId để dữ liệu test không đụng nhau và dễ dọn dẹp.
 const PREFIX = `quota-${randomUUID()}`;
+// Xóa các bản ghi hạn mức đã tạo và đóng kết nối DB.
 afterAll(async () => {
   await prisma.guestQuota.deleteMany({ where: { guestId: { startsWith: PREFIX } } });
   await prisma.$disconnect();
 });
 
+// Nhóm test: transaction hạn mức khách và xử lý ranh giới ngày.
 describe('Guest quota transaction and date regression tests', () => {
+  // 8 yêu cầu đồng thời chỉ được giữ đúng 3 lượt (hạn mức ngày), các yêu cầu còn lại nhận 429 — chống race condition.
   it('never reserves more than three turns under concurrency', async () => {
     const guestId = `${PREFIX}-concurrent`;
     const results = await Promise.allSettled(Array.from({ length: 8 }, () => guestQuotaService.reserveTurn({ guestId })));
@@ -21,6 +27,7 @@ describe('Guest quota transaction and date regression tests', () => {
     expect((await guestQuotaService.getUsage({ guestId })).used).toBe(3);
   });
 
+  // Hoàn lượt phải trừ vào đúng ngày đã giữ lượt; 17:00 UTC là nửa đêm giờ Việt Nam (UTC+7) nên hai lượt thuộc hai ngày khác nhau.
   it('refunds the original date without reducing a new day reservation', async () => {
     const guestId = `${PREFIX}-midnight`;
     const beforeMidnight = new Date('2026-10-22T16:59:59Z');
@@ -32,6 +39,7 @@ describe('Guest quota transaction and date regression tests', () => {
     expect((await guestQuotaService.getUsage({ guestId, now: afterMidnight })).used).toBe(1);
   });
 
+  // Nếu ghi log audit thất bại thì thao tác reset hạn mức phải được rollback, không reset "lặng lẽ".
   it('rolls back a reset when audit persistence fails', async () => {
     const guestId = `${PREFIX}-rollback`;
     const reservation = await guestQuotaService.reserveTurn({ guestId });
@@ -44,6 +52,7 @@ describe('Guest quota transaction and date regression tests', () => {
     expect((await guestQuotaService.getUsage({ guestId })).used).toBe(0);
   });
 
+  // Reset thành công phải trả số lượt trước đó và ghi log kèm ID admin thực hiện.
   it('records the previous usage and actor when resetting successfully', async () => {
     const guestId = `${PREFIX}-reset`;
     await guestQuotaService.reserveTurn({ guestId });
@@ -54,6 +63,7 @@ describe('Guest quota transaction and date regression tests', () => {
     expect(log.action).toBe('ADMIN_RESET_GUEST_QUOTA_BY_1');
   });
 
+  // Lượt giữ trước khi admin reset nếu thất bại không được hoàn trừ vào lượt mới sau reset.
   it('does not refund a new request when a request reserved before admin reset fails', async () => {
     const guestId = `${PREFIX}-reset-during-inference`;
     const oldReservation = await guestQuotaService.reserveTurn({ guestId });

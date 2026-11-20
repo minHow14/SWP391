@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/tests/adminAccountRestore.test.js
+// Kiểm thử tích hợp (cần DB test) xóa và khôi phục tài khoản thành viên bởi admin, kèm khôi phục nội dung đúng trạng thái gốc.
 import './loadTestEnvironment.js';
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -8,6 +9,7 @@ import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 
+// Admin, thành viên, header đăng nhập và các hàm gọi API đổi trạng thái / xóa thành viên.
 let admin;
 let member;
 let authorization;
@@ -20,11 +22,13 @@ const changeStatus = (status) => request(app).patch(`/api/admin/users/${member.u
 const deleteMember = () => request(app).delete(`/api/admin/users/${member.user_id}`)
   .set('Authorization', authorization);
 
+// Tạo admin một lần; tạo thành viên mới cho mỗi test.
 beforeAll(async () => {
   admin = await createAccount(1);
   authorization = `Bearer ${generateToken({ user_id: admin.user_id, role: 1 })}`;
 });
 beforeEach(async () => { member = await createAccount(); });
+// Khôi phục đồng hồ thật và xóa thành viên sau mỗi test; xóa admin và đóng DB khi xong.
 afterEach(async () => {
   vi.useRealTimers();
   if (member) await prisma.user.delete({ where: { user_id: member.user_id } });
@@ -34,7 +38,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+// Nhóm test: xóa và khôi phục tài khoản bởi admin.
 describe('admin account deletion and restoration', () => {
+  // Khóa rồi mở khóa thành viên qua endpoint đổi trạng thái.
   it('locks and unlocks an existing member through the status endpoint', async () => {
     const locked = await changeStatus('LOCKED');
     expect(locked.status).toBe(200);
@@ -44,6 +50,7 @@ describe('admin account deletion and restoration', () => {
     expect(unlocked.body.data).toMatchObject({ status: 'ACTIVE', deleted_at: null });
   });
 
+  // Tài khoản đã xóa không được "hồi sinh" qua API đổi trạng thái chung (409), giữ nguyên thời điểm xóa.
   it.each(['ACTIVE', 'LOCKED'])('preserves deletion metadata when generic status update requests %s', async (status) => {
     expect((await deleteMember()).status).toBe(200);
     const deleted = await prisma.user.findUnique({ where: { user_id: member.user_id } });
@@ -54,6 +61,7 @@ describe('admin account deletion and restoration', () => {
     expect(unchanged.deleted_at).toEqual(deleted.deleted_at);
   });
 
+  // Gọi DELETE lặp lại giữ nguyên thời điểm xóa gốc; khôi phục đưa nội dung về trạng thái trước đó.
   it('preserves the original deletion timestamp and content through repeated DELETE requests', async () => {
     const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG' } });
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -68,6 +76,7 @@ describe('admin account deletion and restoration', () => {
     expect(await prisma.post.findUnique({ where: { post_id: post.post_id } })).toMatchObject({ status: 'PUBLISHED', deleted_at: null });
   });
 
+  // PATCH với DELETED phải chạy cùng cơ chế xóa dây chuyền bài viết và bình luận như DELETE.
   it('uses the account deletion cascade when DELETED is requested through PATCH', async () => {
     const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG' } });
     const comment = await prisma.comment.create({ data: { user_id: member.user_id, post_id: post.post_id, content: 'Cascade regression' } });
@@ -77,6 +86,8 @@ describe('admin account deletion and restoration', () => {
     expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: 'DELETED', deleted_at: deleted.deleted_at });
   });
 
+  // Race condition: PATCH ACTIVE đang chờ khóa hàng trong khi giao dịch khác xóa tài khoản —
+  // sau khi xóa commit, PATCH phải trả 409 chứ không kích hoạt lại tài khoản.
   it('cannot reactivate an account when deletion commits while PATCH is waiting to write', async () => {
     const lockingDb = new PrismaClient();
     let pending;
@@ -99,6 +110,7 @@ describe('admin account deletion and restoration', () => {
     expect(await prisma.user.findUnique({ where: { user_id: member.user_id } })).toMatchObject({ status: 'DELETED', deleted_at: deletedAt });
   });
 
+  // Khôi phục chỉ phục hồi nội dung bị xóa cùng tài khoản; nội dung đã bị xóa từ trước vẫn giữ nguyên.
   it('restores only content deleted with the account through the dedicated endpoint', async () => {
     const previousDeletion = new Date('2026-01-01T00:00:00.000Z');
     const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG', status: 'PUBLISHED' } });
@@ -120,6 +132,7 @@ describe('admin account deletion and restoration', () => {
   });
 });
 
+// Khôi phục chính xác mọi trạng thái gốc của bài viết và bình luận (kể cả trạng thái kiểm duyệt) và báo số lượng.
 it('restores every original post and comment moderation status exactly', async () => {
   const postStatuses = ['DRAFT', 'PENDING', 'PUBLISHED', 'PENDING_MODERATION', 'HIDDEN_BY_AI', 'HIDDEN'];
   const commentStatuses = ['ACTIVE', 'PENDING_MODERATION', 'HIDDEN_BY_AI', 'HIDDEN'];
@@ -141,6 +154,7 @@ it('restores every original post and comment moderation status exactly', async (
   expect(restored.body.data.restoration).toEqual({ restoredPosts: 6, restoredComments: 4, skippedPosts: 0, skippedComments: 0 });
 });
 
+// Dữ liệu cũ không có trạng thái gốc thì giữ ở trạng thái xóa và trả cảnh báo cho admin.
 it('keeps legacy content deleted and warns when its original status is unavailable', async () => {
   const deletedAt = new Date();
   await prisma.user.update({ where: { user_id: member.user_id }, data: { status: 'DELETED', deleted_at: deletedAt } });
@@ -154,6 +168,7 @@ it('keeps legacy content deleted and warns when its original status is unavailab
   expect(await prisma.comment.findUnique({ where: { comment_id: comment.comment_id } })).toMatchObject({ status: 'DELETED', deleted_at: deletedAt });
 });
 
+// Xóa đồng thời và lặp lại không làm mất bản ghi trạng thái gốc (snapshot) dùng để khôi phục.
 it('preserves the status snapshot across simultaneous and repeated deletion', async () => {
   const post = await prisma.post.create({ data: { author_id: member.user_id, post_type: 'BLOG', status: 'HIDDEN_BY_AI' } });
   const comment = await prisma.comment.create({ data: { user_id: member.user_id, post_id: post.post_id, content: 'Pending moderation', status: 'PENDING_MODERATION' } });

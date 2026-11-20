@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/vote.service.js
+// Nghiệp vụ bình chọn (upvote/downvote) bài viết: bình chọn, đổi phiếu, hủy phiếu và tổng hợp điểm.
 import { voteRepository } from '../repositories/vote.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -65,6 +66,7 @@ export const voteService = {
       throw ApiError.notFound('Vote not found');
     }
 
+    // Xóa sau khi đã xác nhận phiếu tồn tại để trả 404 rõ ràng thay vì lỗi Prisma.
     await voteRepository.deleteVote(numericUserId, numericPostId);
 
     return { message: 'Vote removed successfully' };
@@ -84,6 +86,7 @@ export const voteService = {
       throw ApiError.notFound('Post not found or has been deleted');
     }
 
+    // Đếm song song hai loại phiếu; điểm = upvote - downvote.
     const [upvotes, downvotes] = await Promise.all([
       voteRepository.countVotes(numericPostId, VOTE_TYPE.UPVOTE),
       voteRepository.countVotes(numericPostId, VOTE_TYPE.DOWNVOTE),

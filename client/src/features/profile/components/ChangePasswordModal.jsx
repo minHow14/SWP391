@@ -1,4 +1,5 @@
 // client/src/features/profile/components/ChangePasswordModal.jsx
+// Modal đổi mật khẩu cho người dùng đã đăng nhập, validate bằng zod trước khi gọi API.
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +7,7 @@ import { z } from 'zod';
 import { Modal, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { authService } from '../../../services/authService.js';
 
+// Schema đổi mật khẩu: mật khẩu mới tối thiểu 8 ký tự, khác mật khẩu cũ và phải khớp ô xác nhận.
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại.'),
@@ -21,6 +23,7 @@ const changePasswordSchema = z
     path: ['confirmNewPassword'],
   });
 
+// Component modal đổi mật khẩu; show/onHide do trang hồ sơ điều khiển.
 export default function ChangePasswordModal({ show, onHide }) {
   const [serverError, setServerError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -39,6 +42,7 @@ export default function ChangePasswordModal({ show, onHide }) {
     },
   });
 
+  // Đóng modal và xóa sạch form, thông báo để lần mở sau bắt đầu lại từ đầu.
   const handleClose = () => {
     reset();
     setServerError('');
@@ -46,6 +50,7 @@ export default function ChangePasswordModal({ show, onHide }) {
     onHide();
   };
 
+  // Gửi yêu cầu đổi mật khẩu; thành công thì hiển thị thông báo rồi tự đóng sau 1,5 giây.
   const onSubmit = async (data) => {
     setServerError('');
     setSuccessMessage('');

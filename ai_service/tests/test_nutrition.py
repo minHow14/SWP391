@@ -1,3 +1,5 @@
+# Kiểm thử module core.nutrition: tính BMI/BMR/chỉ tiêu dinh dưỡng và nhận diện chất gây dị ứng,
+# vi phạm chế độ ăn trong thực đơn (kể cả các trường hợp nhận nhầm đã gặp khi chạy thật).
 from core.nutrition import (
     bmi_category,
     calculate_bmi,
@@ -7,6 +9,7 @@ from core.nutrition import (
 )
 
 
+# Phân loại BMI theo ngưỡng châu Á (23 là thừa cân, 25 là béo phì).
 def test_bmi_and_category_asian_thresholds():
     assert calculate_bmi(170, 65) == 22.5
     assert "Thiếu cân" in bmi_category(18.4)
@@ -15,6 +18,7 @@ def test_bmi_and_category_asian_thresholds():
     assert "Béo phì" in bmi_category(25.0)
 
 
+# BMR theo công thức Mifflin-St Jeor cho nữ và nam.
 def test_bmr_mifflin_st_jeor():
     # Nữ 25 tuổi, 165 cm, 60 kg: 10*60 + 6.25*165 - 5*25 - 161 = 1345.25
     assert round(calculate_bmr(60, 165, 25, "female")) == 1345
@@ -22,6 +26,7 @@ def test_bmr_mifflin_st_jeor():
     assert round(calculate_bmr(60, 165, 25, "male")) == 1511
 
 
+# Ví dụ giảm cân: TDEE = BMR x hệ số vận động, calo mục tiêu giảm 15%, protein 1,4 g/kg.
 def test_targets_weight_loss_example():
     t = calculate_targets(165, 60, 25, "female", "weight_loss", "light")
     assert t.bmr == 1345
@@ -31,6 +36,7 @@ def test_targets_weight_loss_example():
     assert t.note is None
 
 
+# Mục tiêu giảm cân < duy trì < tăng cơ về calo; tăng cơ cần nhiều protein hơn.
 def test_targets_goal_adjustments():
     base = calculate_targets(170, 65, 30, "male", "maintenance", "moderate")
     loss = calculate_targets(170, 65, 30, "male", "weight_loss", "moderate")
@@ -39,23 +45,27 @@ def test_targets_goal_adjustments():
     assert gain.protein_g > base.protein_g
 
 
+# Ưu tiên BMI do web gửi lên thay vì tự tính lại.
 def test_targets_use_bmi_sent_by_web():
     t = calculate_targets(170, 65, bmi=27.3)
     assert t.bmi == 27.3
     assert "Béo phì" in t.bmi_category
 
 
+# Người thiếu cân không bị cắt giảm calo dù chọn giảm cân, kèm ghi chú cảnh báo.
 def test_underweight_does_not_get_calorie_deficit():
     t = calculate_targets(170, 45, 25, "female", "weight_loss", "sedentary")
     assert t.target_calories == t.tdee
     assert t.note and "thiếu cân" in t.note
 
 
+# Calo mục tiêu không bao giờ thấp hơn mức an toàn tối thiểu 1200 kcal.
 def test_target_never_below_safe_minimum():
     t = calculate_targets(150, 40, 70, "female", "weight_loss", "sedentary", bmi=20.0)
     assert t.target_calories >= 1200
 
 
+# Nhận diện dị ứng qua tên tiếng Việt/tiếng Anh mà không bắt nhầm (hạt chia, sữa đậu nành).
 def test_allergen_aliases_vietnamese_and_english():
     meals = [
         ("Bữa sáng", "Cháo yến mạch", ["Yến mạch 50g", "Sữa đậu nành 200ml"]),
@@ -71,6 +81,7 @@ def test_allergen_aliases_vietnamese_and_english():
     assert not find_allergen_violations(meals, [""])
 
 
+# Tên món ghi 'không đậu phộng' không bị coi là vi phạm, nhưng nguyên liệu thật thì vẫn bị bắt.
 def test_negated_allergen_in_dish_name_is_not_a_violation():
     meals = [
         ("Bữa trưa", "Bún gạo lứt trộn đậu hũ (không đậu phộng)", ["Bún gạo lứt 100g", "Rau củ 150g"]),
@@ -82,6 +93,7 @@ def test_negated_allergen_in_dish_name_is_not_a_violation():
     assert find_allergen_violations(meals, ["peanuts"])
 
 
+# So khớp nguyên liệu có sẵn không phân biệt dấu; bỏ qua chuỗi quá ngắn (vd 'ab') để tránh khớp bừa.
 def test_find_used_ingredients_is_fuzzy_and_accent_insensitive():
     from core.nutrition import find_used_ingredients
 
@@ -93,7 +105,9 @@ def test_find_used_ingredients_is_fuzzy_and_accent_insensitive():
     assert used == ["cà chua", "dau hu", "bí đao"]
 
 
+# Bắt được các dạng ẩn phổ biến của chất gây dị ứng (tofu, xì dầu, mì, đạm lúa mì...).
 def test_allergen_aliases_cover_common_hidden_forms():
+    # Trả về True nếu nguyên liệu bị coi là vi phạm dị ứng đã cho.
     def hit(allergy, ingredient):
         return bool(find_allergen_violations([("Bữa trưa", "Món", [ingredient])], [allergy]))
 
@@ -113,6 +127,7 @@ def test_allergen_aliases_cover_common_hidden_forms():
     assert not hit("gluten", "Gạo lứt 100g")
 
 
+# Chuẩn hoá các cách viết chế độ ăn về mã chuẩn; None mặc định là lacto_ovo.
 def test_diet_key_normalizes_common_spellings():
     from core.nutrition import diet_key
 
@@ -125,6 +140,7 @@ def test_diet_key_normalizes_common_spellings():
     assert diet_key(None) == "lacto_ovo"
 
 
+# Vi phạm theo từng chế độ: vegan cấm trứng/sữa/mật ong, lacto cấm trứng, ovo cấm sữa.
 def test_diet_violations_by_dietary_type():
     from core.nutrition import find_diet_violations
 
@@ -141,6 +157,7 @@ def test_diet_violations_by_dietary_type():
     assert not find_diet_violations(egg + milk + honey, "lacto_ovo")
 
 
+# Thịt và nước mắm bị cấm ở mọi chế độ chay, nhưng đồ chay giả mặn ('thịt chay') được phép.
 def test_animal_products_rejected_for_every_diet_but_vegan_substitutes_allowed():
     from core.nutrition import find_diet_violations
 
@@ -153,7 +170,9 @@ def test_animal_products_rejected_for_every_diet_but_vegan_substitutes_allowed()
         assert not find_diet_violations(fake, diet)
 
 
+# So khớp có xét dấu tiếng Việt để tránh báo nhầm giữa các từ trùng khi bỏ dấu.
 def test_accent_aware_matching_avoids_false_alarms():
+    # Trả về True nếu món/nguyên liệu bị coi là vi phạm dị ứng đã cho.
     def hit(allergy, name, ingredient="Rau củ 100g"):
         return bool(find_allergen_violations([("Bữa trưa", name, [ingredient])], [allergy]))
 
@@ -171,6 +190,7 @@ def test_accent_aware_matching_avoids_false_alarms():
     assert hit("peanuts", "Goi", "dau phong rang 10g")
 
 
+# Từ khoá động vật không bắt nhầm trứng/sữa (với lacto_ovo), đậu gà hay đồ chay giả mặn.
 def test_animal_terms_ignore_egg_milk_chickpea_and_vegan_substitutes():
     from core.nutrition import find_diet_violations
 
@@ -184,6 +204,7 @@ def test_animal_terms_ignore_egg_milk_chickpea_and_vegan_substitutes():
     assert len(find_diet_violations(bad, "lacto_ovo")) == 2
 
 
+# Các trường hợp nhận nhầm đã gặp khi chạy LLM thật phải được chấp nhận.
 def test_real_llm_false_alarms_are_accepted():
     """Ba trường hợp nhận nhầm gặp khi chạy thật."""
     from core.nutrition import find_diet_violations
@@ -198,6 +219,7 @@ def test_real_llm_false_alarms_are_accepted():
     assert not find_diet_violations(meals, "vegan")
 
 
+# Quy tắc phủ định và nhãn 'chay' không được che giấu vi phạm thật.
 def test_negation_and_plant_based_rules_do_not_hide_real_violations():
     from core.nutrition import find_diet_violations
 
@@ -215,6 +237,7 @@ def test_negation_and_plant_based_rules_do_not_hide_real_violations():
     assert find_allergen_violations([("Trưa", "Canh", ["Nấm gà 50g"])], ["mushroom"])
 
 
+# Tên tiếng Anh của sản phẩm thực vật (coconut yogurt, almond milk...) được coi là thuần chay.
 def test_english_plant_based_names_are_vegan():
     from core.nutrition import find_diet_violations
 
@@ -223,6 +246,8 @@ def test_english_plant_based_names_are_vegan():
     assert find_diet_violations([("Phụ", "Snack", ["Greek yogurt 100g"])], "vegan")
 
 
+# Bơ hạt hướng dương, coconut aminos không bị báo nhầm, nhưng nước tương thường, bánh mì hạt,
+# bơ đậu phộng vẫn bị bắt.
 def test_seed_butter_and_soy_free_sauce_false_alarms_and_their_limits():
     from core.nutrition import find_diet_violations
 

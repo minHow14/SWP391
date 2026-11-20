@@ -1,9 +1,19 @@
 ﻿// client/src/features/admin/components/AdminAiInterveneModal.jsx
+// Modal cho Admin ghi nhận can thiệp thủ công khi kết quả AI sai lệch
+// (spam nhầm, sai dinh dưỡng, gợi ý sai chế độ ăn...) để làm dữ liệu phản hồi cho mô hình.
 import { useState } from 'react';
 import { Modal, Button, Form, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
 import { emitSyncEvent } from '../../../utils/syncEvents.js';
 
+/**
+ * Form can thiệp kết quả AI.
+ * @param {object} props
+ * @param {boolean} props.show Hiển thị modal hay không.
+ * @param {Function} props.onHide Đóng modal.
+ * @param {Function} [props.onSuccess] Gọi kèm thông báo khi lưu thành công.
+ * @param {object|null} [props.defaultLog] Bản ghi log AI được chọn để điền sẵn mô hình/tác vụ.
+ */
 export default function AdminAiInterveneModal({ show, onHide, onSuccess, defaultLog = null }) {
   const [modelName, setModelName] = useState(defaultLog?.model_name || 'deepseek-chat');
   const [action, setAction] = useState(defaultLog?.action || 'SPAM_DETECTION');
@@ -12,6 +22,7 @@ export default function AdminAiInterveneModal({ show, onHide, onSuccess, default
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  // Gửi thông tin can thiệp lên server, phát sự kiện đồng bộ để các màn hình AI khác tải lại.
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!feedback.trim()) return;

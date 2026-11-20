@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/journal/styles/journal.css */
+/* Giao diện trang Nhật ký: thanh công cụ, tổng quan BMI/năng lượng, dinh dưỡng, bữa ăn, biểu đồ tuần và kế hoạch. */
 .cx-journal-page { padding: 30px 28px 100px; background: #f8fafc; }
 .cx-journal-shell { max-width: 1380px; margin: 0 auto; }
 .cx-journal-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px; padding: 13px; border: 1px solid #edf2f7; border-radius: 19px; background: #fff; }
@@ -37,6 +38,7 @@
 .cx-journal-energy > p { margin: 13px 0 0; color: #94a3b8; font-size: 11px; line-height: 1.7; }
 .cx-journal-energy > p .bi { color: #36d3a5; margin-right: 5px; }
 .cx-journal-macros { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+/* Bảng màu theo nhóm (tone-*) cấp biến CSS cho thẻ bữa ăn và thanh dinh dưỡng. */
 .tone-red { --journal-tone: #ef4444; --journal-soft: #fff1f2; }
 .tone-amber { --journal-tone: #f59e0b; --journal-soft: #fffbeb; }
 .tone-blue { --journal-tone: #3b82f6; --journal-soft: #eff6ff; }
@@ -107,6 +109,7 @@
 .cx-journal-plan-grid p { margin: 15px 0; color: #64748b; font-size: 12px; }
 .cx-journal-plan-grid button { width: 100%; padding: 10px; border: 0; border-radius: 11px; background: #16a34a; color: #fff; font-size: 11px; font-weight: 750; }
 .cx-journal-plan-grid button:disabled { background: #e2e8f0; color: #8191a7; }
+/* Màn hình vừa: dinh dưỡng và kế hoạch chuyển còn 2 cột. */
 @media (max-width: 1100px) {
   .cx-journal-macros { grid-template-columns: 1fr 1fr; }
   .cx-journal-overview { gap: 22px; padding: 24px; }
@@ -114,6 +117,7 @@
   .cx-journal-big-number { font-size: 42px; }
   .cx-journal-plan-grid { grid-template-columns: 1fr 1fr; }
 }
+/* Màn hình di động: một cột, thu nhỏ khoảng cách và cỡ chữ. */
 @media (max-width: 767px) {
   .cx-journal-page { padding: 22px 14px 80px; }
   .cx-journal-toolbar { padding: 10px; }
@@ -141,6 +145,7 @@
   .cx-journal-meal-items > div > span { font-size: 10px; }
   .cx-journal-planner { padding: 18px; }
 }
+/* Thẻ món ăn do AI gợi ý trong nhật ký. */
 .cx-journal-ai-meal { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; padding: 12px 14px; border: 1px dashed #86d5a4; border-radius: 15px; background: #f0fdf4; }
 .cx-journal-ai-meal > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cx-journal-ai-meal strong { color: #14532d; font-size: 13px; overflow-wrap: anywhere; }

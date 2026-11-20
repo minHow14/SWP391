@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/journalProfile.test.jsx
+// Kiểm thử lưu số đo hồ sơ từ trang Nhật ký: đồng bộ hồ sơ dùng chung và phiên, phát sự kiện cập nhật và chống ghi đè khi đổi phiên.
 import { useContext } from 'react';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
@@ -11,18 +12,23 @@ import { authService } from '../src/services/authService.js';
 import { getSession, setSession } from '../src/utils/session.js';
 import { subscribeSyncEvent } from '../src/utils/syncEvents.js';
 
+// Hồ sơ trước và sau khi người dùng chỉnh số đo.
 const originalUser = { user_id: 10, health_profile: { height: 165, weight: 60 } };
 const updatedUser = { user_id: 10, health_profile: { height: 170, weight: 65 } };
+// Tạo dữ liệu nhật ký với cân nặng truyền vào.
 const journal = (weight = 60) => ({ days: {}, plans: {}, profile: { height: 165, weight, calorieGoal: 1800, goal: 'Duy trì' } });
+// Component phụ hiển thị cân nặng trong hồ sơ dùng chung của DatabaseContext.
 function SharedProfile() {
   const { user } = useContext(DatabaseContext);
   return <output aria-label="Cân nặng hồ sơ dùng chung">{user?.health_profile?.weight}</output>;
 }
+// Mở form chỉnh hồ sơ và nhập chiều cao, cân nặng mới.
 async function editProfile() {
   fireEvent.click(await screen.findByRole('button', { name: /Chỉnh hồ sơ/ }));
   fireEvent.change(screen.getByLabelText('Chiều cao (cm)'), { target: { value: '170' } });
   fireEvent.change(screen.getByLabelText('Cân nặng (kg)'), { target: { value: '65' } });
 }
+// Mỗi test bắt đầu với phiên của chủ hồ sơ; giả lập catalog, nhật ký, getMe và <dialog> (jsdom chưa hỗ trợ).
 beforeEach(() => {
   setSession({ token: 'owner-session', user: originalUser });
   vi.spyOn(workspaceService, 'getCatalog').mockResolvedValue({ recipes: [] });
@@ -32,12 +38,14 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close = function () { this.open = false; };
 });
 afterEach(() => { cleanup(); setSession(null); vi.restoreAllMocks(); });
+// Chỉ render trang khi DatabaseProvider đã có dữ liệu catalog.
 function View() {
   const { data } = useContext(DatabaseContext);
   return data && <><Journal /><SharedProfile /></>;
 }
 const mount = () => render(<MemoryRouter><DatabaseProvider><View /></DatabaseProvider></MemoryRouter>);
 
+// Lưu số đo xong phải làm mới hồ sơ dùng chung và phiên, đồng thời phát sự kiện USER_CHANGED để lịch sử cân nặng cập nhật.
 it('refreshes the shared profile and session and notifies weight history after saving measurements', async () => {
   vi.spyOn(workspaceService, 'updateProfile').mockImplementation(async () => {
     authService.getMe.mockResolvedValue({ data: { user: updatedUser } });
@@ -55,6 +63,7 @@ it('refreshes the shared profile and session and notifies weight history after s
   unsubscribe();
 });
 
+// Lưu hoàn tất sau khi đã chuyển sang phiên mới (khác hoặc cùng tài khoản) thì không áp dụng và không phát sự kiện.
 it.each([11, 10])('does not apply or broadcast a completed save after switching to a new session for user %s', async (userId) => {
   let resolveSave;
   vi.spyOn(workspaceService, 'updateProfile').mockImplementation(() => new Promise((resolve) => { resolveSave = resolve; }));
@@ -73,6 +82,7 @@ it.each([11, 10])('does not apply or broadcast a completed save after switching 
   unsubscribe();
 });
 
+// Chặn lưu trùng khi đang chờ, và cho phép thử lại sau khi lưu thất bại.
 it('blocks duplicate profile saves while pending and allows retry after failure', async () => {
   let rejectSave;
   vi.spyOn(workspaceService, 'updateProfile').mockImplementation(() => new Promise((_, reject) => { rejectSave = reject; }));
@@ -91,6 +101,7 @@ it('blocks duplicate profile saves while pending and allows retry after failure'
   await waitFor(() => expect(screen.queryByRole('button', { name: 'Lưu Hồ Sơ' })).toBeNull());
 });
 
+// Token bị xoay vòng trong lúc lưu (refresh) vẫn phải hoàn tất lưu và giữ token mới.
 it('finishes a profile save when the access token rotates during the request', async () => {
   vi.spyOn(workspaceService, 'updateProfile').mockImplementation(async () => {
     setSession({ ...getSession(), token: 'refreshed-access' });

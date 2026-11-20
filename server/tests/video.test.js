@@ -1,15 +1,18 @@
 // d:\Projects\FPT\SWP391\server\tests\video.test.js
+// Kiểm thử API video: xác thực, validate, CRUD, quyền sở hữu và ẩn video chưa được duyệt (cần DB test có seed).
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 
+// Nhóm test: API video và quy trình tạo video.
 describe('Video API & Video Creation Workflow', () => {
   const authorToken = generateToken({ user_id: 1, role: 2 });
   const otherUserToken = generateToken({ user_id: 2, role: 2 });
   const adminToken = generateToken({ user_id: 1, role: 1 });
 
+  // Tạo video khi chưa đăng nhập phải bị 401.
   it('rejects unauthenticated video creation with 401', async () => {
     const res = await request(app)
       .post('/api/videos')
@@ -18,6 +21,7 @@ describe('Video API & Video Creation Workflow', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Thiếu tiêu đề hoặc video_url phải bị 400.
   it('validates video payload: rejects missing title or video_url with 400', async () => {
     const res = await request(app)
       .post('/api/videos')
@@ -27,8 +31,9 @@ describe('Video API & Video Creation Workflow', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Luồng CRUD đầy đủ của tác giả, kèm kiểm tra người khác không được sửa (403) và video xóa mềm không còn trong danh sách.
   it('creates, retrieves, updates, and deletes a video post successfully', async () => {
-    // 1. Create a video post with category
+    // 1. Tạo bài video kèm danh mục
     const createRes = await request(app)
       .post('/api/videos')
       .set('Authorization', `Bearer ${authorToken}`)
@@ -49,7 +54,7 @@ describe('Video API & Video Creation Workflow', () => {
 
     const createdPostId = createRes.body.data.video.post_id;
 
-    // 2. Fetch all videos and verify newly created video is present
+    // 2. Lấy danh sách video và xác nhận video vừa tạo có mặt
     const allRes = await request(app).get('/api/videos');
     expect(allRes.status).toBe(200);
     expect(allRes.body.success).toBe(true);
@@ -57,19 +62,19 @@ describe('Video API & Video Creation Workflow', () => {
     expect(found).toBeDefined();
     expect(found.title).toBe('Hướng dẫn làm súp bí đỏ hạt sen thực dưỡng');
 
-    // 3. Fetch video by ID
+    // 3. Lấy video theo ID
     const getRes = await request(app).get(`/api/videos/${createdPostId}`);
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.video.post_id).toBe(createdPostId);
 
-    // 4. Test ownership protection: another user should receive 403
+    // 4. Kiểm tra bảo vệ quyền sở hữu: người dùng khác phải nhận 403
     const forbiddenRes = await request(app)
       .put(`/api/videos/${createdPostId}`)
       .set('Authorization', `Bearer ${otherUserToken}`)
       .send({ title: 'Người khác sửa video' });
     expect(forbiddenRes.status).toBe(403);
 
-    // 5. Author updates video successfully
+    // 5. Tác giả cập nhật video thành công
     const updateRes = await request(app)
       .put(`/api/videos/${createdPostId}`)
       .set('Authorization', `Bearer ${authorToken}`)
@@ -81,23 +86,24 @@ describe('Video API & Video Creation Workflow', () => {
     expect(updateRes.body.data.video.title).toBe('Hướng dẫn làm súp bí đỏ hạt sen (Đã chỉnh sửa)');
     expect(updateRes.body.data.video.category_id).toBe(2);
 
-    // 6. Delete video post
+    // 6. Xóa bài video
     const deleteRes = await request(app)
       .delete(`/api/videos/${createdPostId}`)
       .set('Authorization', `Bearer ${authorToken}`);
     expect(deleteRes.status).toBe(200);
 
-    // 7. Verify video is soft-deleted from active list
+    // 7. Xác nhận video đã bị xóa mềm khỏi danh sách đang hoạt động
     const afterDeleteRes = await request(app).get('/api/videos');
     const stillPresent = afterDeleteRes.body.data.videos.find((v) => v.post_id === createdPostId);
     expect(stillPresent).toBeUndefined();
 
-    // Clean up post record from database
+    // Dọn bản ghi bài viết khỏi database
     await prisma.video.deleteMany({ where: { post_id: createdPostId } });
     await prisma.postCategory.deleteMany({ where: { post_id: createdPostId } });
     await prisma.post.deleteMany({ where: { post_id: createdPostId } });
   });
 
+  // Video chưa duyệt chỉ tác giả và admin xem trước được; khách và người khác nhận 404 (không lộ sự tồn tại).
   it('hides pending or unpublished videos from anonymous and other users while allowing author/admin', async () => {
     // Tạo video với trạng thái PENDING_MODERATION
     const createRes = await request(app)

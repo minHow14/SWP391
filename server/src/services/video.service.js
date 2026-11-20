@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/video.service.js
+// Nghiệp vụ bài viết dạng video: tạo, liệt kê, xem chi tiết, cập nhật và xóa mềm, kèm kiểm duyệt nội dung tự động.
 import prisma from '../config/prisma.js';
 import { POST_TYPE, POST_STATUS, COMMENT_STATUS } from '../constants/index.js';
 import { ROLES } from '../constants/roles.js';
@@ -34,6 +35,7 @@ export const videoService = {
       throw ApiError.notFound('Author user not found');
     }
 
+    // Chấp nhận cả categoryId (camelCase) lẫn category_id để tương thích các client cũ.
     const rawCategoryId = categoryId !== undefined ? categoryId : category_id;
     const numericCategoryId = rawCategoryId ? Number(rawCategoryId) : null;
     if (numericCategoryId) {
@@ -43,6 +45,7 @@ export const videoService = {
       }
     }
 
+    // Tạo post, video, danh mục và đưa vào hàng đợi kiểm duyệt trong một transaction để không có bài nửa vời.
     return await prisma.$transaction(async (tx) => {
       const newPost = await tx.post.create({
         data: {
@@ -76,6 +79,7 @@ export const videoService = {
         });
       }
 
+      // Kiểm duyệt cả transcript (hoặc tiêu đề nếu không có transcript) và ảnh thumbnail.
       const moderation = await contentModerationService.queuePost(
         {
           post: newPost,
@@ -129,6 +133,7 @@ export const videoService = {
       ];
     }
 
+    // Có page/limit thì trả dạng phân trang, không thì trả toàn bộ để tương thích client cũ; tối đa 100 mục mỗi trang.
     const hasPagination = query.page !== undefined || query.limit !== undefined;
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
@@ -158,6 +163,7 @@ export const videoService = {
       },
     };
 
+    // Làm phẳng post vào video và bỏ object post lồng nhau để FE dùng trực tiếp.
     const formatVideo = (v) => {
       const firstCat = v.post?.post_categories?.[0];
       return {
@@ -236,6 +242,7 @@ export const videoService = {
       throw ApiError.notFound('Video not found');
     }
 
+    // Bài chưa công khai (chờ kiểm duyệt, bị AI ẩn...) chỉ tác giả hoặc admin xem trước được; người khác nhận 404 để không lộ sự tồn tại.
     const canPreview = currentUser && (currentUser.role === ROLES.ADMIN || currentUser.user_id === video.post.author_id);
     if (video.post.status !== POST_STATUS.PUBLISHED && !canPreview) {
       throw ApiError.notFound('Video not found');
@@ -285,6 +292,7 @@ export const videoService = {
       }
     }
 
+    // undefined = không đổi danh mục; null/rỗng = bỏ danh mục.
     const rawCat = categoryId !== undefined ? categoryId : category_id;
     let numericCategoryId = undefined;
     if (rawCat !== undefined) {
@@ -297,6 +305,7 @@ export const videoService = {
       }
     }
 
+    // Chỉ cập nhật các trường được gửi lên.
     const updateData = {};
     if (title !== undefined) updateData.title = title.trim();
     if (video_url !== undefined) updateData.video_url = video_url.trim();
@@ -304,6 +313,7 @@ export const videoService = {
     if (duration !== undefined) updateData.duration = Number(duration);
     if (transcript !== undefined) updateData.transcript = transcript;
 
+    // Chỉ kiểm duyệt lại khi nội dung chữ hoặc thumbnail thực sự thay đổi, tránh tốn lượt AI.
     const textChanged = ['title', 'transcript'].some(
       (field) => updateData[field] !== undefined && updateData[field] !== existingVideo[field]
     );
@@ -394,6 +404,7 @@ export const videoService = {
       return { message: 'Video is already deleted' };
     }
 
+    // Xóa mềm bình luận cùng lúc với bài để có cùng deleted_at, phục vụ khôi phục và dọn dẹp sau 30 ngày.
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       await tx.comment.updateMany({
@@ -407,6 +418,7 @@ export const videoService = {
           deleted_at: now,
         },
       });
+      // Admin xóa bài của người khác thì thông báo cho tác giả.
       if (currentUser?.role === ROLES.ADMIN && currentUser.user_id !== post.author_id) {
         await notificationService.notifyPostRemoval({ userId: post.author_id, postId }, tx);
       }

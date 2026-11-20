@@ -1,1 +1,1 @@
-# ai_service package
+# Gói api: các router FastAPI của AI Service.

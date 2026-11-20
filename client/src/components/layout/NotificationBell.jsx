@@ -1,9 +1,11 @@
 // D:/SWP391/SWP391/client/src/components/layout/NotificationBell.jsx
+// Chuông thông báo trên header: tải danh sách thông báo định kỳ, đánh dấu đã đọc và điều hướng theo link.
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dropdown, Badge, Button, Spinner, Alert } from 'react-bootstrap';
 import { useNavigate } from 'react-router';
 import { notificationService } from '../../services/notificationService.js';
 
+// Chọn icon Bootstrap theo loại thông báo.
 function getNotificationIcon(type) {
   switch (type) {
     case 'COMMENT':
@@ -18,15 +20,18 @@ function getNotificationIcon(type) {
   }
 }
 
+// Component chuông thông báo dạng dropdown.
 export default function NotificationBell() {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [markingAll, setMarkingAll] = useState(false);
+  // Tập ID thông báo đang được đánh dấu đã đọc, chặn gửi trùng request khi người dùng bấm liên tục.
   const pendingReads = useRef(new Set());
   const navigate = useNavigate();
 
+  // Tải 10 thông báo mới nhất; chấp nhận nhiều dạng response khác nhau từ API để tương thích ngược.
   const loadNotifications = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -57,12 +62,14 @@ export default function NotificationBell() {
     }
   }, []);
 
+  // Tải ngay khi mount rồi làm mới mỗi 60 giây để cập nhật số chưa đọc mà không cần realtime.
   useEffect(() => {
     loadNotifications();
     const interval = setInterval(loadNotifications, 60000);
     return () => clearInterval(interval);
   }, [loadNotifications]);
 
+  // Đánh dấu tất cả đã đọc; stopPropagation để dropdown không bị đóng khi bấm nút.
   const handleMarkAllRead = async (e) => {
     e.stopPropagation();
     if (unreadCount === 0 || markingAll) return;
@@ -80,6 +87,7 @@ export default function NotificationBell() {
     }
   };
 
+  // Bấm vào một thông báo: đánh dấu đã đọc (nếu chưa) rồi điều hướng tới link liên quan.
   const handleItemClick = async (item) => {
     if (pendingReads.current.has(item.notification_id)) return;
     if (!item.is_read) {
@@ -107,6 +115,7 @@ export default function NotificationBell() {
 
   const hasNotifications = Array.isArray(notifications) && notifications.length > 0;
 
+  // Hiển thị thời gian theo múi giờ Việt Nam (Asia/Bangkok, UTC+7).
   return (
     <Dropdown align="end" className="cx-notification-dropdown">
       <Dropdown.Toggle

@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/restaurants/components/RestaurantImage.jsx
+// Component ảnh quán chay, tự hiển thị đồ họa thay thế theo loại quán khi không có ảnh thật hoặc ảnh lỗi.
 import { useState } from 'react';
 import '../styles/restaurantImage.css';
 import {
@@ -154,6 +155,7 @@ export default function RestaurantImage({
   const firstLetter = getRestaurantInitial(restaurantName, alt);
   const category = resolveRestaurantCategory({ type, dietTypeId, isShop });
 
+  // Ảnh thật tải lỗi (link hỏng) thì chuyển sang fallback thay vì hiển thị ảnh vỡ.
   if (src && !hasError) {
     return (
       <div className={`cx-rest-img-frame is-${variant} ${className}`}>

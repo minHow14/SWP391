@@ -1,4 +1,5 @@
 // client/src/features/community/components/ReportDialog.jsx
+// Modal báo cáo vi phạm cho bài viết hoặc bình luận cộng đồng.
 import { useState } from 'react';
 import { Alert, Button, Modal, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -6,13 +7,16 @@ import ReportForm from './ReportForm.jsx';
 import { createReport } from '../../../services/communityService.js';
 import { emitSyncEvent } from '../../../utils/syncEvents.js';
 
+// Tiêu đề modal theo loại đối tượng bị báo cáo.
 const REPORT_TITLES = { post: 'Báo cáo bài viết', comment: 'Báo cáo bình luận' };
 
+// Component modal báo cáo; target chứa thông tin bài viết/bình luận cần báo cáo.
 export default function ReportDialog({ target, user, onClose, onReportSuccess }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
 
+  // Gửi báo cáo lên server; chỉ gửi commentId khi đối tượng là bình luận để server phân biệt loại báo cáo.
   const handleSubmit = async (values) => {
     setSubmitting(true);
     setError('');
@@ -23,10 +27,12 @@ export default function ReportDialog({ target, user, onClose, onReportSuccess })
         reason: values.reason,
       });
       setSuccess(true);
+      // Phát sự kiện đồng bộ để các màn hình khác (ví dụ trang admin) tải lại danh sách báo cáo.
       emitSyncEvent('REPORT_CHANGED');
       if (onReportSuccess) {
         onReportSuccess('Báo cáo của bạn đã được gửi thành công đến ban quản trị.');
       }
+      // Đợi một chút để người dùng kịp đọc thông báo thành công trước khi tự đóng modal.
       setTimeout(() => {
         onClose();
       }, 1200);

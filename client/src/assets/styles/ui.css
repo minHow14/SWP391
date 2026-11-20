@@ -1,4 +1,5 @@
 /* client/src/assets/styles/ui.css */
+/* Lớp tinh chỉnh giao diện chung (nạp sau cùng): biến màu, nút, header, footer, trang xác thực và responsive. */
 :root {
   --cx-ui-green: #176b48;
   --cx-ui-green-dark: #105236;
@@ -190,9 +191,11 @@ body {
 .cx-auth-page .form-control:focus { box-shadow: none; }
 .cx-auth-page .card > footer { background: #f0f5ed !important; padding: 20px !important; }
 .cx-auth-page .btn-success { background-image: none !important; }
+/* Chuyển màu mượt cho nút và link khi người dùng không yêu cầu giảm chuyển động. */
 @media (prefers-reduced-motion: no-preference) {
   .home-page .btn, .home-page .nav-link, .home-page .cx-home-section-link { transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease; }
 }
+/* Dưới 1400px: menu dạng lưới 4 cột trong navbar thu gọn, có thể cuộn. */
 @media (max-width: 1399px) {
   .home-page .home-navbar { padding: 12px 20px; }
   .home-page .main-menu { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 18px 0; padding: 12px; }
@@ -201,6 +204,7 @@ body {
   .home-page .diet-label { max-width: 260px; }
   .home-page .navbar-collapse { max-height: calc(100dvh - 90px); overflow-y: auto; overscroll-behavior: contain; }
 }
+/* Màn hình di động: giảm khoảng đệm nội dung và footer. */
 @media (max-width: 767px) {
   .home-page .cx-home-shell, .home-page .cx-explore-shell { padding: 24px 18px 0; }
   .home-page .cx-hero-copy { padding: 32px 26px; }
@@ -211,6 +215,7 @@ body {
   .cx-footer-links { width: 100%; gap: 4px; }
   .cx-footer-links .nav-link { padding: 10px 12px 10px 0; margin-right: 8px; }
 }
+/* Màn hình nhỏ: menu 2 cột, các nút tài khoản giãn toàn chiều rộng. */
 @media (max-width: 575px) {
   .home-page .home-navbar { padding: 10px 8px; }
   .home-page .main-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }

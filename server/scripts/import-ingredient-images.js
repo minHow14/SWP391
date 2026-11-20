@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/scripts/import-ingredient-images.js
+// Nạp ảnh nguyên liệu (kèm thông tin ghi công và giấy phép) vào bảng ingredient_images trong PostgreSQL.
+// Ưu tiên ảnh local trong client/public/ingredient-assets, thiếu thì thử tải từ Wikimedia Commons.
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,11 +9,15 @@ import { ingredientCatalog } from './ingredient-catalog.js';
 import { ingredientImageUrl } from '../src/services/workspace.service.js';
 
 const assetDirectory = new URL('../../client/public/ingredient-assets/', import.meta.url);
+// Chuẩn hoá tên file Wikimedia để so khớp (gạch dưới tương đương khoảng trắng, không phân biệt hoa thường).
 const normalize = (value) => value.replaceAll('_', ' ').toLowerCase();
+// Loại bỏ thẻ HTML trong metadata Wikimedia để lưu văn bản thuần.
 const plain = (value) => (value || '').replace(/<[^>]*>/g, '').replaceAll('&amp;', '&').replace(/\s+/g, ' ').trim();
 
+// Wikimedia yêu cầu User-Agent định danh rõ ràng, nếu không có thể bị chặn.
 const WIKIMEDIA_USER_AGENT = 'ChayXanh-SWP391/1.0 (https://github.com/swp391; contact: support@chayxanh.local)';
 
+// Gọi API Wikimedia Commons để lấy URL ảnh và metadata (tác giả, giấy phép) của một nguyên liệu.
 async function photoInfo(entry) {
   const params = new URLSearchParams({
     action: 'query',
@@ -31,10 +37,11 @@ async function photoInfo(entry) {
   return info;
 }
 
+// Nạp ảnh cho toàn bộ nguyên liệu trong catalog; trả về số ảnh đã lưu. Nhận db để test có thể truyền client riêng.
 export async function importIngredientImages(db = prisma) {
   const sources = await readFile(new URL('sources.json', assetDirectory), 'utf8').then(JSON.parse).catch(() => []);
   let licenseText = await readFile(new URL('GFDL-1.2.html', assetDirectory), 'utf8').catch(() => null);
-  // Read all files first so missing photos cannot leave a partial import.
+  // Đọc toàn bộ file trước để ảnh bị thiếu không thể gây ra việc nạp dở dang.
   const assets = [];
   for (const entry of ingredientCatalog) {
     const filename = entry.image_url.split('/').at(-1);
@@ -66,13 +73,15 @@ export async function importIngredientImages(db = prisma) {
       }
     }
 
-    // A failed download must not overwrite a real stored photo with placeholder bytes.
+    // Tải ảnh thất bại không được ghi đè ảnh thật đã lưu bằng dữ liệu giữ chỗ.
     if (!image_data) {
       console.warn(`[seed] Chưa có ảnh thực tế cho "${entry.name}"; giữ nguyên ảnh trong DB.`);
       continue;
     }
 
+    // Không có metadata giấy phép nghĩa là ảnh minh hoạ do dự án tự vẽ.
     const license = plain(info?.extmetadata?.LicenseShortName?.value) || 'Original project illustration';
+    // Giấy phép GFDL bắt buộc kèm toàn văn giấy phép nên cần tải nội dung nếu chưa có bản local.
     if (/GFDL/.test(license) && !licenseText) {
       try {
         const params = new URLSearchParams({
@@ -103,8 +112,10 @@ export async function importIngredientImages(db = prisma) {
   }
   if (!assets.length) return 0;
   let imported = 0;
+  // Ghi tất cả trong một transaction để không bị trạng thái nạp một phần.
   await db.$transaction(
     async (tx) => {
+      // Tạo bảng nếu chưa có để script chạy được cả trên DB cũ chưa có bảng này.
       await tx.$executeRaw`CREATE TABLE IF NOT EXISTS ingredient_images (
       ingredient_id INTEGER PRIMARY KEY REFERENCES ingredients(ingredient_id) ON DELETE CASCADE,
       mime_type VARCHAR(50) NOT NULL, image_data BYTEA NOT NULL,
@@ -119,6 +130,7 @@ export async function importIngredientImages(db = prisma) {
         VALUES (${ingredient.ingredient_id}, ${mime_type}, ${image_data}, ${attribution}, ${source_url}, ${license}, ${text})
         ON CONFLICT (ingredient_id) DO UPDATE SET mime_type = EXCLUDED.mime_type, image_data = EXCLUDED.image_data,
           attribution = EXCLUDED.attribution, source_url = EXCLUDED.source_url, license = EXCLUDED.license, license_text = EXCLUDED.license_text`;
+        // Chỉ trỏ image_url sang ảnh trong DB khi đang để trống hoặc đang dùng ảnh mặc định, giữ nguyên ảnh người dùng tự cập nhật.
         const details = await tx.ingredientDetails.findUnique({ where: { ingredient_id: ingredient.ingredient_id } });
         if (
           details &&
@@ -139,6 +151,7 @@ export async function importIngredientImages(db = prisma) {
   return imported;
 }
 
+// Chạy độc lập khi gọi trực tiếp bằng node.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     console.log(`Đã lưu ${await importIngredientImages()} ảnh nguyên liệu trực tiếp trong PostgreSQL.`);

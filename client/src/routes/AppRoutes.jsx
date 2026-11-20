@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/routes/AppRoutes.jsx
+// Khai báo toàn bộ route của ứng dụng; các trang được lazy-load để giảm kích thước bundle ban đầu.
 
 import { lazy, Suspense } from 'react';
 import { Spinner } from 'react-bootstrap';
@@ -20,6 +21,8 @@ const Journal = lazy(() => import('../pages/Journal.jsx'));
 const Profile = lazy(() => import('../pages/Profile.jsx'));
 const AdminPortal = lazy(() => import('../pages/admin/AdminPortal.jsx'));
 
+// Cây route: các trang người dùng nằm trong SiteLayout (header/footer); trang admin và xác thực có giao diện riêng;
+// đường dẫn không tồn tại được chuyển về trang chủ, /admin/ai cũ được chuyển sang tab quản lý AI.
 export default function AppRoutes() {
     return (
         <Suspense fallback={<div className="d-flex justify-content-center p-5" role="status"><Spinner animation="border" variant="success" /><span className="visually-hidden">Đang tải trang…</span></div>}>

@@ -1,7 +1,17 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminCategoryRow.jsx
+// Một dòng trong bảng danh mục: STT có thể mở rộng, tên, phạm vi sử dụng, số liên kết và nút sửa/xóa.
 import { Button, Badge } from 'react-bootstrap';
 import AdminCategoryDetailRow from './AdminCategoryDetailRow.jsx';
 
+/**
+ * Dòng danh mục kèm dòng chi tiết khi được mở rộng.
+ * @param {object} props
+ * @param {object} props.cat Danh mục.
+ * @param {number} props.index Vị trí trong danh sách đã lọc (dùng để hiển thị STT).
+ * @param {boolean} props.isExpanded Dòng chi tiết đang mở hay không.
+ * @param {number} props.recipeTotal Số công thức liên kết.
+ * @param {number} props.postTotal Số bài viết liên kết.
+ */
 export default function AdminCategoryRow({
   cat,
   index,
@@ -13,6 +23,7 @@ export default function AdminCategoryRow({
   onDelete,
   onPreview,
 }) {
+  // Nút xóa bị vô hiệu khi danh mục còn liên kết, tránh để lại công thức/bài viết mồ côi danh mục.
   return (
     <>
       <tr className={isExpanded ? 'table-light' : ''}>

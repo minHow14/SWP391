@@ -1,4 +1,5 @@
 /* D:/SWP391/SWP391/client/src/features/restaurants/styles/restaurantProposal.css */
+/* Style cho form đề xuất quán chay: các phần nhập liệu, hộp lấy GPS và thẻ checkbox bếp chay riêng. */
 
 .cx-proposal-form {
   display: flex;
@@ -120,6 +121,7 @@
   box-shadow: 0 1px 3px rgba(16, 185, 129, 0.08);
 }
 
+/* Dùng !important để ghi đè style mặc định của Bootstrap .form-check trong thẻ checkbox tùy biến. */
 .cx-proposal-form .cx-proposal-check-card .form-check {
   display: flex;
   align-items: center;

@@ -1,16 +1,24 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminSystemHealthBanner.jsx
+// Băng trạng thái hạ tầng trên dashboard: hiển thị kết nối tới cơ sở dữ liệu và dịch vụ AI, cho phép kiểm tra lại.
 import { Alert, Button, Col, Row, Spinner } from 'react-bootstrap';
 import { useSystemHealth } from '../hooks/useSystemHealth.js';
 
+// Danh sách dịch vụ cố định cần hiển thị; dịch vụ thiếu trong kết quả API sẽ được đánh dấu "Chưa xác định".
 const SERVICES = [{ id: 'database', label: 'Cơ sở dữ liệu' }, { id: 'aiService', label: 'Dịch vụ AI' }];
 const STATUS_LABELS = { UP: 'Kết nối được', DOWN: 'Không kết nối được', UNKNOWN: 'Chưa xác định' };
 
+/**
+ * Tạo câu tóm tắt tình trạng chung từ trạng thái từng dịch vụ.
+ * @param {Array<{ status: string }>} nodes Danh sách dịch vụ đã chuẩn hóa trạng thái.
+ * @returns {string} Câu tóm tắt.
+ */
 function healthSummary(nodes) {
   if (nodes.some((node) => node.status === 'DOWN')) return 'Có dịch vụ chưa kết nối được';
   if (nodes.every((node) => node.status === 'UP')) return 'Tất cả kết nối đều sẵn sàng';
   return 'Chưa xác định đầy đủ trạng thái kết nối';
 }
 
+// Hiển thị kết quả kiểm tra; trạng thái ngoài UP/DOWN được quy về UNKNOWN để không báo sai là "kết nối được".
 function HealthResults({ data }) {
   if (!data.services.length) return <Alert variant="secondary" className="mb-0">Chưa có kết quả kiểm tra kết nối.</Alert>;
   const nodes = SERVICES.map((service) => {
@@ -34,6 +42,7 @@ function HealthResults({ data }) {
   </>;
 }
 
+// Khối kết nối dịch vụ, gồm trạng thái đang tải, lỗi và kết quả.
 export default function AdminSystemHealthBanner() {
   const { data, loading, error, refresh } = useSystemHealth();
   return <section className="cx-health-banner p-3 mt-4" aria-label="Kết nối dịch vụ" aria-busy={loading}>

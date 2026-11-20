@@ -1,6 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminAiModerationTable.jsx
+// Bảng liệt kê bài viết hoặc bình luận đang chờ kiểm duyệt, kèm kết quả AI và nút quyết định.
 import { Badge, Button, Table } from 'react-bootstrap';
 
+/**
+ * Suy ra nhãn trạng thái kiểm duyệt từ job AI của nội dung.
+ * @param {object} item Bài viết hoặc bình luận có trường `moderation`.
+ * @returns {string} Nhãn hiển thị.
+ */
 function statusLabel(item) {
   const job = item.moderation;
   if (job?.status === 'FAILED') return 'Kiểm tra gặp lỗi';
@@ -9,8 +15,16 @@ function statusLabel(item) {
   return 'Cần Admin xem xét';
 }
 
+/**
+ * Bảng kiểm duyệt cho một loại nội dung.
+ * @param {object} props
+ * @param {Array} props.items Danh sách bài viết/bình luận.
+ * @param {'POST'|'COMMENT'} props.entityType Loại nội dung của bảng.
+ * @param {Function} props.onAction Gọi khi Admin chọn cho phép hoặc gỡ nội dung.
+ */
 export default function AdminAiModerationTable({ items, entityType, onAction }) {
   const isPost = entityType === 'POST';
+  // Chuẩn hóa dữ liệu bài viết/bình luận về cùng một dạng trước khi mở modal xác nhận.
   const act = (item, action) => onAction({ type: entityType, id: isPost ? item.post_id : item.comment_id,
     action, title: isPost ? item.blog?.title || item.video?.title : item.content, contentVersion: item.moderationVersion });
   return (

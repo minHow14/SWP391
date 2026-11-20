@@ -1,7 +1,9 @@
 // d:\Projects\FPT\SWP391\server\src/controllers/aiLogController.js
+// Controller nhật ký AI cho ADMIN: danh sách log và thống kê.
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { aiLogService } from '../services/aiLogService.js';
 
+// Danh sách nhật ký AI có phân trang, meta kèm requestId để truy vết.
 export const listAiLogs = asyncHandler(async (req, res) => {
   const result = await aiLogService.listLogs(res.locals.aiLogQuery);
   const { page, limit, total, totalPages } = result;
@@ -11,6 +13,7 @@ export const listAiLogs = asyncHandler(async (req, res) => {
   });
 });
 
+// Thống kê nhật ký AI theo bộ lọc đã validate.
 export const getAiLogStats = asyncHandler(async (req, res) => {
   const data = await aiLogService.getStats(res.locals.aiLogQuery);
   return res.json({

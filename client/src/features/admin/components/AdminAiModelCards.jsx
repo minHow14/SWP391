@@ -1,13 +1,18 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminAiModelCards.jsx
+// Hiển thị các thẻ tóm tắt trạng thái hoạt động của từng mô hình AI (lượt gọi, tỷ lệ thành công).
 import { Alert, Badge, Col, Row } from 'react-bootstrap';
 
+// Ánh xạ trạng thái mô hình sang nhãn tiếng Việt và màu Badge.
 const STATUS_PRESENTATION = {
   HEALTHY: { label: 'Hoạt động tốt', background: 'success' },
   DEGRADED: { label: 'Cảnh báo sự cố', background: 'warning' },
   UNKNOWN: { label: 'Chưa có dữ liệu', background: 'secondary' },
 };
 
+// Thẻ của một mô hình AI.
 function ModelCard({ model }) {
+  // Chỉ tin trạng thái/tỷ lệ khi đã có lượt gọi thực tế và số liệu hợp lệ (0–100),
+  // tránh hiển thị "Hoạt động tốt" cho mô hình chưa từng được gọi.
   const observed = Number.isFinite(model.totalCalls) && model.totalCalls > 0;
   const status = (observed && STATUS_PRESENTATION[model.status]) || STATUS_PRESENTATION.UNKNOWN;
   const hasRate = observed && ['HEALTHY', 'DEGRADED'].includes(model.status) && Number.isFinite(model.successRate)
@@ -27,6 +32,7 @@ function ModelCard({ model }) {
   </Col>;
 }
 
+// Danh sách thẻ mô hình AI; hiện thông báo khi chưa có dữ liệu giám sát.
 export default function AdminAiModelCards({ models }) {
   if (!models.length) return <Alert variant="secondary">Chưa có dữ liệu giám sát mô hình AI.</Alert>;
   return <Row className="g-3 mb-4">{models.map((model) => <ModelCard key={model.id} model={model} />)}</Row>;

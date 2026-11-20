@@ -1,9 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/community/components/CommunityPost.jsx
+// Thẻ hiển thị một bài đăng cộng đồng (blog hoặc video): tác giả, trạng thái, nội dung, media và các nút Thích / Bình luận / Báo cáo.
 import { Button, Card, Spinner, Badge } from 'react-bootstrap';
 import { formatCreatedAt } from '../../../utils/formatters.js';
 import PostMedia from './PostMedia.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
 
+// Nhãn tiếng Việt cho trạng thái bài đăng trả về từ server.
 const POST_STATUS_LABELS = {
   PUBLISHED: 'Công khai',
   DRAFT: 'Bản nháp',
@@ -13,6 +15,7 @@ const POST_STATUS_LABELS = {
   HIDDEN: 'Đã ẩn',
 };
 
+// Component bài đăng; các callback onEdit/onDelete/onVote/onComment/onReport do trang cha xử lý.
 export default function CommunityPost({
   post,
   user,
@@ -26,8 +29,10 @@ export default function CommunityPost({
   const liked = post.post_votes?.some((vote) => vote.user_id === user?.user_id);
   const isAuthor = user && post.author_id === user.user_id;
   const isVideo = post.post_type === 'VIDEO' || Boolean(post.video_url);
+  // Chỉ bài đã công khai mới cho thích, bình luận, báo cáo (bài nháp/chờ duyệt thì khóa các nút này).
   const isPublic = post.status === 'PUBLISHED';
 
+  // Hỏi xác nhận trước khi xóa vì thao tác xóa là vĩnh viễn, không thể hoàn tác.
   const handleDelete = () => {
     const itemLabel = isVideo ? 'video' : 'bài viết';
     if (window.confirm(`Bạn có chắc chắn muốn xóa vĩnh viễn ${itemLabel} "${post.title}"? Hành động này không thể hoàn tác.`)) {

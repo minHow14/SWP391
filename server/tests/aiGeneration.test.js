@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/tests/aiGeneration.test.js
+// Kiểm thử tích hợp (cần DB test) lưu lịch sử AI generation của thành viên: prompt, kết quả, trạng thái và quyền xem.
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
@@ -8,30 +9,37 @@ import { generateToken } from '../src/utils/jwt.js';
 import { aiLogService } from '../src/services/aiLogService.js';
 import { createGuestSession } from './helpers/guestSession.js';
 
+// Dấu vết prompt mẫu; `stream` dựng luồng SSE giả (CRLF), `metadata`/`done` tạo sự kiện tương ứng.
 const trace = { modelName: 'generation-test-model', attempt: 1, messages: [
   { role: 'system', content: 'INTERNAL_PROMPT_FOR_PERSISTENCE_TEST' }, { role: 'user', content: 'Thực đơn chay' },
 ] };
 const stream = (events) => new Response(events.map(([name, data]) => `event: ${name}\r\ndata: ${JSON.stringify(data)}\r\n\r\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
 const metadata = (data = trace) => ['metadata', { success: true, data }];
 const done = (data) => ['done', { success: true, ...(data && { data }), meta: { modelName: trace.modelName } }];
+// User chủ, user khác, token chủ và danh sách guestId cần dọn.
 let owner, other, token;
 const guestIds = [];
+// Tạo hai user test và token của chủ.
 beforeAll(async () => {
   const data = (name) => ({ email: `ai-generation-${name}-${randomUUID()}@example.invalid`, full_name: name, password_hash: 'unused-test-hash' });
   owner = await prisma.user.create({ data: data('owner') });
   other = await prisma.user.create({ data: data('other') });
   token = generateToken({ user_id: owner.user_id, role: owner.role });
 });
+// Khôi phục mock/fetch sau mỗi test; dọn user, hạn mức khách và đóng DB khi xong.
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 afterAll(async () => {
   await prisma.user.deleteMany({ where: { user_id: { in: [owner.user_id, other.user_id] } } });
   await prisma.guestQuota.deleteMany({ where: { guestId: { in: guestIds } } });
   await prisma.$disconnect();
 });
+// Gọi API AI với tư cách chủ, và lấy bản ghi generation mới nhất của chủ.
 const generate = (payload, path = 'chat/stream') => request(app).post(`/api/ai/${path}`).set('Authorization', `Bearer ${token}`).send(payload);
 const latest = () => prisma.aiGeneration.findFirst({ where: { userId: owner.user_id }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
 
+// Nhóm test: lưu AI generation với PostgreSQL thật.
 describe('persisted AI generations with real PostgreSQL', () => {
+  // Lọc lịch sử quét món theo FOOD_SCAN: danh sách ẩn prompt và ảnh base64 (chỉ có ở chi tiết), người khác không thấy.
   it('filters scan history by FOOD_SCAN while preserving owner isolation and internal prompt privacy', async () => {
     const record = await prisma.aiGeneration.create({ data: { userId: owner.user_id, type: 'FOOD_SCAN', status: 'COMPLETED',
       modelName: 'history-test-model', requestPayload: { dishName: 'Nấm', imageBase64: 'SCAN_IMAGE_BYTES' }, promptMessages: trace.messages,
@@ -49,6 +57,8 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(stranger.status).toBe(200);
     expect(stranger.body.data).toEqual([]);
   });
+  // Lưu input đã validate, toàn bộ prompt thật (kể cả lần thử lại) và câu trả lời trước khi gửi done;
+  // response chứa generationId nhưng không lộ prompt hệ thống hay sự kiện metadata.
   it('saves validated input, actual prompts including retries, reply and completion before done', async () => {
     const payload = { message: 'Thực đơn chay', dietaryType: 'vegan' };
     const second = { ...trace, attempt: 2, messages: [...trace.messages, { role: 'user', content: 'Điều chỉnh' }] };
@@ -64,6 +74,7 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(response.text).not.toContain('INTERNAL_PROMPT_FOR_PERSISTENCE_TEST');
     expect(response.text).not.toContain('event: metadata');
   });
+  // Lưu đủ thực đơn 7 ngày, không cắt bớt.
   it('stores the complete seven-day result without truncating days', async () => {
     const weeklyPlan = Array.from({ length: 7 }, (_, index) => ({ day: index + 1, meals: [{ name: `Test meal ${index + 1}` }] }));
     const result = { title: 'Test weekly plan', weeklyPlan };
@@ -74,6 +85,7 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(record.type).toBe('MEAL_PLAN');
     expect(record.responsePayload).toEqual(result);
   });
+  // Lỗi upstream: giữ prompt đã lưu, trạng thái FAILED, không lộ chi tiết lỗi và không gửi done.
   it('keeps saved prompts and FAILED status on an upstream error', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => stream([metadata(), ['error', { errorCode: 'AI_PROVIDER_ERROR', message: 'PRIVATE_DETAIL' }]])));
     const response = await generate({ message: 'Test failure' });
@@ -85,6 +97,7 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(record.errorMessage).not.toContain('PRIVATE_DETAIL');
     expect(response.text).not.toContain('event: done');
   });
+  // Ghi audit thất bại thì rollback trạng thái hoàn tất (FAILED, không lưu kết quả).
   it('rolls back completion when audit persistence fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => stream([metadata(), done()])));
     vi.spyOn(aiLogService, 'recordLog').mockRejectedValueOnce(new Error('audit unavailable'));
@@ -94,12 +107,14 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(record.responsePayload).toBeNull();
     expect(response.text).not.toContain('event: done');
   });
+  // Thiếu sự kiện metadata (không ghi được prompt) thì không được báo hoàn tất cho thành viên.
   it('requires prompt capture before reporting a member generation as completed', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => stream([done()])));
     const response = await generate({ message: 'Test missing prompt' });
     expect(response.text).toContain('AI_PROMPT_MISSING');
     expect((await latest()).status).toBe('FAILED');
   });
+  // Chỉ chủ xem được lịch sử, prompt hệ thống luôn ẩn; chặn chưa đăng nhập, người khác và tham số userId giả mạo.
   it('restricts history to its owner and keeps system prompts internal', async () => {
     const record = await latest();
     const own = await request(app).get(`/api/v1/ai-generations/${record.id}`).set('Authorization', `Bearer ${token}`);
@@ -114,6 +129,7 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(page.body.meta.total).toBeGreaterThan(1);
     expect((await request(app).get('/api/v1/ai-generations?userId=1').set('Authorization', `Bearer ${token}`)).status).toBe(400);
   });
+  // Khách không có lịch sử generation.
   it('does not create histories for guests', async () => {
     const session = await createGuestSession(app);
     guestIds.push(session.guestId);
@@ -124,6 +140,7 @@ describe('persisted AI generations with real PostgreSQL', () => {
     expect(await prisma.aiGeneration.count()).toBe(count);
   });
 
+  // Thành viên không bị áp hạn mức ngày của khách, kể cả khi gửi header X-Guest-Id.
   it('does not apply guest daily quota to authenticated chat and meal requests', async () => {
     const guestId = `member-quota-${randomUUID()}`;
     vi.stubGlobal('fetch', vi.fn(async (url) => stream([

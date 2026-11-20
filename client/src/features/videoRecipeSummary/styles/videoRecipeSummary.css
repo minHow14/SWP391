@@ -1,4 +1,5 @@
 /* D:/SWP391/SWP391/client/src/features/videoRecipeSummary/styles/videoRecipeSummary.css */
+/* Giao diện tin nhắn công thức từ video trong chatbot; nút và link cao tối thiểu 44px để dễ bấm trên di động. */
 .cx-video-recipe { min-width: 0; overflow-wrap: anywhere; }
 .cx-video-recipe-progress { display: flex; align-items: center; gap: 10px; color: var(--cx-forest, #166534); }
 .cx-video-recipe-progress .spinner-border { flex-shrink: 0; }
@@ -11,4 +12,5 @@
 .cx-video-recipe .btn { min-height: 44px; }
 .cx-video-recipe a:focus-visible, .cx-video-recipe button:focus-visible { outline: 2px solid #166534; outline-offset: 3px; }
 .cx-chat-composer .cx-chat-input-group { flex: 1; min-width: 0; }
+/* Làm chậm spinner cho người dùng bật giảm chuyển động. */
 @media (prefers-reduced-motion: reduce) { .cx-video-recipe .spinner-border { animation-duration: 2s; } }

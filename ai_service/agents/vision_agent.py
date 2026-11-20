@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/agents/vision_agent.py
+# Agent thị giác máy tính: nhận diện nguyên liệu và đánh giá độ tươi từ ảnh bằng LLM có đầu ra cấu trúc.
 import base64
 import logging
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -11,6 +12,7 @@ from schemas.vision import (
 
 logger = logging.getLogger(__name__)
 
+# System prompt mô tả nhiệm vụ nhận diện và thang đánh giá độ tươi cho model.
 VISION_SYSTEM_PROMPT = """Bạn là Chuyên gia Thị giác Máy tính & Dinh dưỡng Chay (Computer Vision AI) của nền tảng Chay Xanh.
 Nhiệm vụ của bạn là quan sát kỹ lưỡng ảnh chụp các loại nguyên liệu hoặc ảnh chụp bên trong tủ lạnh để:
 1. Nhận diện chính xác tên từng nguyên liệu thực vật/chay (rau củ, hoa quả, nấm, đậu hũ, ngũ cốc, gia vị...).
@@ -30,14 +32,17 @@ LƯU Ý: Phải sử dụng tiếng Việt chuẩn mực, tên món và nguyên 
 class VisionAgent:
     """Agent phân tích thị giác máy tính cho nguyên liệu và tủ lạnh."""
 
+    # Model được khởi tạo lười để không gọi cấu hình LLM khi import module.
     def __init__(self):
         self._llm = None
 
+    # Lấy (hoặc tạo lần đầu) LLM có đầu ra cấu trúc theo VisionRecognitionResponseData; timeout dài vì xử lý ảnh chậm.
     def _get_model(self):
         if self._llm is None:
             self._llm = get_structured_llm(VisionRecognitionResponseData, timeout=120.0)
         return self._llm
 
+    # Mã hóa ảnh thành data URI base64 rồi gửi kèm hướng dẫn cho model.
     async def analyze_image(
         self,
         image_bytes: bytes,
@@ -70,4 +75,5 @@ class VisionAgent:
         return result
 
 
+# Thể hiện agent dùng chung toàn service.
 vision_agent = VisionAgent()

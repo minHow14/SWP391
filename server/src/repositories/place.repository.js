@@ -1,9 +1,14 @@
 // d:/Projects/FPT/SWP391/server/src/repositories/place.repository.js
+// Repository truy cập bảng nhà hàng/quán chay: tìm quanh vị trí, lưu cache dữ liệu từ nguồn ngoài (ZIOMAP) và cập nhật ảnh.
 import { Prisma } from '@prisma/client';
 import prisma from '../config/prisma.js';
 import { isVegetarianPlace } from '../utils/vegetarianFilter.js';
 
 export const placeRepository = {
+  /**
+   * Cập nhật hàng loạt URL ảnh nhà hàng trong một câu SQL.
+   * Chỉ ghi khi ảnh hiện tại vẫn bằng `previousImageUrl` (khóa lạc quan) để không ghi đè thay đổi xảy ra song song.
+   */
   replaceImageUrls(records, db = prisma) {
     if (!records.length) return Promise.resolve([]);
     const rows = Prisma.join(records.map((record) => Prisma.sql`
@@ -37,6 +42,7 @@ export const placeRepository = {
     }
 
     if (lat !== undefined && lng !== undefined && radiusKm !== undefined) {
+      // Quy đổi bán kính km sang độ: 1 độ vĩ ≈ 111 km; độ kinh co lại theo cos(vĩ độ), chặn cos gần 0 (vùng cực) để tránh chia cho 0.
       const deltaLat = radiusKm / 111.0;
       const cosLat = Math.cos((Number(lat) * Math.PI) / 180.0);
       const deltaLng = radiusKm / (111.0 * (Math.abs(cosLat) > 0.001 ? Math.abs(cosLat) : 1));
@@ -72,11 +78,13 @@ export const placeRepository = {
     if (!Array.isArray(places) || places.length === 0) return [];
     const saved = [];
     for (const p of places) {
+      // Chỉ lưu quán có place_id, tọa độ và được xác định là quán chay, tránh làm bẩn dữ liệu.
       if (!p.place_id || p.latitude == null || p.longitude == null || !isVegetarianPlace(p)) continue;
       try {
         const record = await db.restaurant.upsert({
           where: { place_id: p.place_id },
           update: {
+            // Chỉ cập nhật các trường hay thay đổi; giữ nguyên tên và dữ liệu đã được chỉnh sửa trong hệ thống.
             rating: p.rating != null ? Number(p.rating) : undefined,
             address: p.address || undefined,
             image_url: p.image_url || undefined,
@@ -92,6 +100,7 @@ export const placeRepository = {
             source: 'ziomap',
             status: 'APPROVED',
             place_id: p.place_id,
+            // Suy ra thành phố từ địa chỉ khi nguồn ngoài không cung cấp.
             city: p.city || (p.address?.includes('Hà Nội') ? 'Hà Nội' : p.address?.includes('Hồ Chí Minh') || p.address?.includes('TP.HCM') ? 'Hồ Chí Minh' : 'Chưa xác định'),
             hours: p.hours || 'Chưa cập nhật',
             priceRange: p.price_range || 'Theo thời giá',
@@ -100,16 +109,19 @@ export const placeRepository = {
         });
         saved.push(record);
       } catch (err) {
+        // Lỗi lưu một quán không được làm hỏng cả lượt tìm kiếm, nên chỉ cảnh báo và bỏ qua.
         console.warn(`[placeRepository] Bỏ qua lỗi lưu cache quán ${p.place_id}:`, err.message);
       }
     }
     return saved;
   },
 
+  // Lấy danh sách nhà hàng theo tham số Prisma.
   async findRestaurants(args = {}, db = prisma) {
     return db.restaurant.findMany(args);
   },
 
+  // Tìm nhà hàng theo ID kèm chế độ ăn.
   async findById(restaurantId, db = prisma) {
     return db.restaurant.findUnique({
       where: { restaurant_id: Number(restaurantId) },
@@ -119,10 +131,12 @@ export const placeRepository = {
     });
   },
 
+  // Tạo nhà hàng mới.
   async create(data, db = prisma) {
     return db.restaurant.create({ data });
   },
 
+  // Cập nhật nhà hàng theo ID.
   async update(restaurantId, data, db = prisma) {
     return db.restaurant.update({
       where: { restaurant_id: Number(restaurantId) },

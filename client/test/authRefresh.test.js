@@ -1,17 +1,22 @@
 // D:/SWP391/SWP391/client/test/authRefresh.test.js
+// Kiểm thử (node:test) interceptor làm mới token của apiClient: thử lại request, gộp refresh đồng thời và các trường hợp không được ghi đè phiên.
 import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
 import apiClient from '../src/services/apiClient.js';
 import { getSession, setSession } from '../src/utils/session.js';
 
+// Lưu adapter và các biến toàn cục gốc để khôi phục sau mỗi test.
 const originalAdapter = apiClient.defaults.adapter;
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window');
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'sessionStorage');
+// Tạo response thành công theo envelope chuẩn.
 const success = (config, data) => ({ config, data: { success: true, data }, status: 200, statusText: 'OK', headers: {} });
+// Tạo lỗi 401 giống axios để kích hoạt nhánh làm mới token trong interceptor.
 const unauthorized = (config) => new axios.AxiosError('Expired', 'ERR_BAD_REQUEST', config, undefined,
   { status: 401, data: { success: false, message: 'Phiên hết hạn', errorCode: 'UNAUTHORIZED' }, headers: {}, config });
 
+// Cookie refresh thuộc tài khoản khác (tab khác đã đăng nhập) thì phải từ chối, xóa phiên và không thử lại thao tác ghi.
 test('rejects a refresh cookie belonging to a different tab account without retrying the write', async () => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => {
@@ -24,6 +29,7 @@ test('rejects a refresh cookie belonging to a different tab account without retr
   assert.deepEqual(calls, ['/auth/me', '/auth/refresh']);
   assert.equal(getSession(), null);
 });
+// Mỗi test bắt đầu với phiên có token hết hạn của người dùng 7.
 beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { dispatchEvent() {} } });
   Object.defineProperty(globalThis, 'sessionStorage', { configurable: true, value: { getItem: () => null, setItem() {}, removeItem() {} } });
@@ -36,6 +42,7 @@ afterEach(() => {
   if (originalStorage) Object.defineProperty(globalThis, 'sessionStorage', originalStorage); else delete globalThis.sessionStorage;
 });
 
+// Token hết hạn thì refresh một lần rồi thử lại request gốc với body giữ nguyên và token mới.
 test('refreshes an expired token and retries the original request with its body intact', async () => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => {
@@ -52,11 +59,13 @@ test('refreshes an expired token and retries the original request with its body 
   assert.deepEqual(JSON.parse(calls.at(-1).data), { full_name: 'Updated profile' });
 });
 
+// Nhiều request cùng bị 401 phải dùng chung một lần refresh, tránh gọi refresh trùng lặp.
 test('coalesces simultaneous unauthorized requests into one refresh', async () => {
   let release;
   let started;
   let refreshCount = 0;
   const refreshStarted = new Promise((resolve) => { started = resolve; });
+  // Giữ request refresh ở trạng thái chờ để cả hai request kịp bị 401 trước khi refresh hoàn tất.
   apiClient.defaults.adapter = async (config) => {
     if (config.url === '/auth/refresh') {
       refreshCount += 1; started('refresh');
@@ -72,6 +81,7 @@ test('coalesces simultaneous unauthorized requests into one refresh', async () =
   assert.equal(refreshCount, 1);
 });
 
+// Cookie refresh bị từ chối thì xóa phiên và không lặp refresh vô hạn.
 test('clears the expired session if the refresh cookie is rejected without looping', async () => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => { calls.push(config.url); throw unauthorized(config); };
@@ -80,6 +90,7 @@ test('clears the expired session if the refresh cookie is rejected without loopi
   assert.deepEqual(calls, ['/auth/me', '/auth/refresh']);
 });
 
+// Refresh lỗi mạng tạm thời thì giữ nguyên phiên, vì người dùng chưa chắc đã hết quyền.
 test('keeps the session when refreshing fails with a transient network error', async () => {
   apiClient.defaults.adapter = async (config) => {
     if (config.url === '/auth/refresh') throw new axios.AxiosError('Offline', 'ERR_NETWORK', config);
@@ -89,6 +100,7 @@ test('keeps the session when refreshing fails with a transient network error', a
   assert.equal(getSession().token, 'expired');
 });
 
+// Refresh cũ hoàn tất sau khi người dùng đã đăng nhập tài khoản mới thì không được ghi đè hay thử lại bằng phiên mới.
 test('does not overwrite or retry a newer login when an old refresh completes', async () => {
   let release;
   let started;
@@ -111,6 +123,7 @@ test('does not overwrite or retry a newer login when an old refresh completes', 
   assert.deepEqual(calls, ['/workspace/journal', '/auth/refresh']);
 });
 
+// Refresh hoàn tất sau khi người dùng đã đăng xuất thì không được khôi phục lại phiên.
 test('does not restore a locally logged out session when refresh completes', async () => {
   let release;
   let started;
@@ -130,6 +143,7 @@ test('does not restore a locally logged out session when refresh completes', asy
   assert.equal(getSession(), null);
 });
 
+// Đăng nhập sai (401 từ /auth/login) không được kích hoạt refresh hay xóa phiên hiện có.
 test('does not refresh or clear an existing session for rejected login credentials', async () => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => { calls.push(config.url); throw unauthorized(config); };
@@ -138,6 +152,7 @@ test('does not refresh or clear an existing session for rejected login credentia
   assert.deepEqual(calls, ['/auth/login']);
 });
 
+// Nếu token sau refresh vẫn bị từ chối thì chỉ thử lại đúng một lần rồi xóa phiên.
 test('retries a protected request only once when the refreshed token is also rejected', async () => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => {

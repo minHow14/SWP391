@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\tests\blog.test.js
+// Kiểm thử API blog: xác thực, validate, CRUD, quyền sở hữu, xóa mềm và an toàn tệp đính kèm (cần DB test có seed).
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import app from '../src/app.js';
@@ -6,11 +7,13 @@ import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { postRepository } from '../src/repositories/post.repository.js';
 
+// Nhóm test: API blog và quy trình tạo bài viết.
 describe('Blog API & Post Creation Workflow', () => {
   const authorToken = generateToken({ user_id: 1, role: 2 });
   const otherUserToken = generateToken({ user_id: 2, role: 2 });
   const adminToken = generateToken({ user_id: 1, role: 1 });
 
+  // Tạo blog khi chưa đăng nhập phải bị 401.
   it('rejects unauthenticated blog creation with 401', async () => {
     const res = await request(app)
       .post('/api/blogs')
@@ -19,6 +22,7 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Thiếu tiêu đề hoặc nội dung phải bị 400.
   it('validates blog payload: rejects missing title or content with 400', async () => {
     const res = await request(app)
       .post('/api/blogs')
@@ -28,6 +32,7 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Chuyên mục không tồn tại bị 400 kèm thông báo tiếng Việt rõ ràng.
   it('rejects non-existent categoryId with 400', async () => {
     const res = await request(app)
       .post('/api/blogs')
@@ -42,8 +47,9 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(res.body.message).toContain('Chuyên mục bài viết không tồn tại');
   });
 
+  // Luồng CRUD đầy đủ: tác giả tạo/sửa/xóa, người khác bị 403, admin được sửa, bài xóa mềm vẫn còn trong DB.
   it('creates, retrieves, updates, and deletes a blog post successfully', async () => {
-    // 1. Create a blog post with category and attachments
+    // 1. Tạo bài blog kèm chuyên mục và tệp đính kèm
     const res = await request(app)
       .post('/api/blogs')
       .set('Authorization', `Bearer ${authorToken}`)
@@ -66,7 +72,7 @@ describe('Blog API & Post Creation Workflow', () => {
 
     const createdPostId = res.body.data.blog.post_id;
 
-    // 2. Fetch all blogs and verify the newly created blog is included
+    // 2. Lấy danh sách blog và xác nhận bài vừa tạo có mặt
     const allRes = await request(app).get('/api/blogs');
     expect(allRes.status).toBe(200);
     expect(allRes.body.success).toBe(true);
@@ -74,19 +80,19 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(foundInAll).toBeDefined();
     expect(foundInAll.title).toBe('Mẹo ăn chay thực tế cho người mới bắt đầu');
 
-    // 3. Fetch blog by ID
+    // 3. Lấy blog theo ID
     const getRes = await request(app).get(`/api/blogs/${createdPostId}`);
     expect(getRes.status).toBe(200);
     expect(getRes.body.data.blog.post_id).toBe(createdPostId);
 
-    // 4. Test ownership protection: another user should receive 403
+    // 4. Kiểm tra bảo vệ quyền sở hữu: người dùng khác phải nhận 403
     const forbiddenRes = await request(app)
       .put(`/api/blogs/${createdPostId}`)
       .set('Authorization', `Bearer ${otherUserToken}`)
       .send({ title: 'Hack sửa bài của người khác' });
     expect(forbiddenRes.status).toBe(403);
 
-    // 5. Author updates blog successfully
+    // 5. Tác giả cập nhật blog thành công
     const updateRes = await request(app)
       .put(`/api/blogs/${createdPostId}`)
       .set('Authorization', `Bearer ${authorToken}`)
@@ -104,7 +110,7 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(updateRes.body.data.blog.attachments).toHaveLength(1);
     expect(updateRes.body.data.blog.attachments[0].type).toBe('video');
 
-    // 6. Admin can also update blog post
+    // 6. Admin cũng được cập nhật bài blog
     const adminUpdateRes = await request(app)
       .put(`/api/blogs/${createdPostId}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -113,18 +119,18 @@ describe('Blog API & Post Creation Workflow', () => {
       });
     expect(adminUpdateRes.status).toBe(200);
 
-    // 7. Soft delete blog post by author
+    // 7. Tác giả xóa mềm bài blog
     const deleteRes = await request(app)
       .delete(`/api/blogs/${createdPostId}`)
       .set('Authorization', `Bearer ${authorToken}`);
     expect(deleteRes.status).toBe(200);
 
-    // 8. Verify blog is omitted from active blogs list
+    // 8. Xác nhận blog không còn trong danh sách đang hoạt động
     const afterDeleteRes = await request(app).get('/api/blogs');
     const stillPresent = afterDeleteRes.body.data.blogs.find((b) => b.post_id === createdPostId);
     expect(stillPresent).toBeUndefined();
 
-    // 9. Verify in database: soft-deleted according to 30-day retention policy
+    // 9. Kiểm tra trong DB: bài bị xóa mềm theo chính sách lưu giữ 30 ngày
     const postRecord = await prisma.post.findUnique({
       where: { post_id: createdPostId },
     });
@@ -136,6 +142,7 @@ describe('Blog API & Post Creation Workflow', () => {
     await postRepository.hardDeletePost(createdPostId);
   });
 
+  // URL đính kèm có path traversal phải bị từ chối.
   it('rejects blog creation with path traversal in attachment URL', async () => {
     const res = await request(app)
       .post('/api/blogs')
@@ -151,6 +158,7 @@ describe('Blog API & Post Creation Workflow', () => {
     expect(res.body.success).toBe(false);
   });
 
+  // Loại media viết hoa (IMAGE/VIDEO) được chấp nhận và chuẩn hóa về chữ thường khi tạo và sửa.
   it('accepts uppercase media types (IMAGE/VIDEO) and normalizes to lowercase', async () => {
     const res = await request(app)
       .post('/api/blogs')
@@ -185,6 +193,7 @@ describe('Blog API & Post Creation Workflow', () => {
     await postRepository.hardDeletePost(createdPostId);
   });
 
+  // Loại media không hỗ trợ (audio) bị 400.
   it('rejects unsupported media type with 400', async () => {
     const res = await request(app)
       .post('/api/blogs')

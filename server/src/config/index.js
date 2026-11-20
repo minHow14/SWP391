@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\config\index.js
+// Đối tượng cấu hình dùng chung toàn Back-end, dựng từ biến môi trường đã được kiểm tra.
 import env from './env.js';
 
 export const config = Object.freeze({
@@ -18,6 +19,7 @@ export const config = Object.freeze({
   jwt: {
     secret: env.JWT_SECRET,
     expiresIn: env.JWT_EXPIRES_IN,
+    // Không cấu hình secret riêng thì dẫn xuất từ JWT_SECRET để refresh token vẫn khác khoá với access token.
     refreshSecret: env.REFRESH_TOKEN_SECRET || `${env.JWT_SECRET}_refresh`,
     refreshExpiresIn: env.REFRESH_TOKEN_EXPIRES_IN,
   },

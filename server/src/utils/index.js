@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\utils\index.js
+// Gom và export lại các tiện ích dùng chung để import từ một nơi.
 export * from './apiError.js';
 export * from './apiResponse.js';
 export * from './jwt.js';

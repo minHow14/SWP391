@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/restaurants/utils/restaurantImageHelpers.js
+// Các hàm hỗ trợ hiển thị ảnh fallback của quán chay (phân loại, chữ cái đại diện, nhãn trợ năng).
 
 /**
  * Xác định phân loại hình ảnh fallback cho quán chay:

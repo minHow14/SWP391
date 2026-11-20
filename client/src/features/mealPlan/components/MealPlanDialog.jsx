@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/mealPlan/components/MealPlanDialog.jsx
+// Hộp thoại tạo thực đơn chay theo BMI bằng AI: form thông tin, tiến độ tạo, lỗi và kết quả.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import TagField from './TagField.jsx';
@@ -13,6 +14,7 @@ import {
   stagePercent, validateMealPlanValues,
 } from '../../../utils/aiHelpers.js';
 
+// Các lựa chọn của form (giá trị gửi API, nhãn hiển thị).
 const GOALS = [['weight_loss', 'Giảm cân'], ['maintenance', 'Duy trì'], ['muscle_gain', 'Tăng cơ']];
 const ACTIVITY = [
   ['sedentary', 'Ít vận động'], ['light', 'Nhẹ (1-3 buổi/tuần)'], ['moderate', 'Vừa (3-5 buổi/tuần)'],
@@ -24,8 +26,10 @@ const DIETS = [
 ];
 const GENDERS = [['', 'Chưa chọn'], ['male', 'Nam'], ['female', 'Nữ'], ['other', 'Khác']];
 const ALLERGY_HINTS = ['Đậu phộng', 'Đậu nành', 'Gluten', 'Sữa', 'Trứng', 'Nấm', 'Mè', 'Hạt cây'];
+// Component hộp thoại; initialPlan cho phép mở lại thực đơn đã có, onDone nhận thực đơn mới, onAsk chuyển thực đơn sang chatbot.
 export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan, onClose, onDone, onAsk }) {
   const defaults = useMemo(() => mealPlanDefaults({ user, ingredients: catalog?.ingredients, dietTypeId }), [user, catalog, dietTypeId]);
+  // Chỉ lưu các trường người dùng đã sửa, phần còn lại lấy từ hồ sơ để tự cập nhật khi hồ sơ thay đổi.
   const [overrides, setOverrides] = useState({});
   const values = { ...defaults, ...overrides };
   const [errors, setErrors] = useState({});
@@ -34,14 +38,19 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
   const [plan, setPlan] = useState(initialPlan ?? null);
   const [failure, setFailure] = useState(null);
   const controller = useRef(null);
+  // Khóa đồng bộ chặn gửi trùng trước khi state kịp cập nhật.
   const submitting = useRef(false);
+  // Hủy việc tạo thực đơn đang chạy khi đóng hộp thoại.
   useEffect(() => () => controller.current?.abort(), []);
+  // Người dùng đăng nhập phải có chiều cao, cân nặng trong hồ sơ mới tạo được thực đơn.
   const needsProfile = Boolean(user) && !hasBodyMeasurements(user.health_profile);
 
   const bmi = calcBmi(values.heightCm, values.weightKg);
+  // Tạo handler cập nhật một trường input hoặc danh sách tag.
   const set = (name) => (event) => setOverrides((previous) => ({ ...previous, [name]: event.target.value }));
   const setList = (name) => (list) => setOverrides((previous) => ({ ...previous, [name]: list }));
 
+  // Kiểm tra form, gọi AI tạo thực đơn và cập nhật tiến độ; bỏ qua mọi kết quả nếu người dùng đã hủy.
   async function submit(event) {
     event.preventDefault();
     if (needsProfile || submitting.current) return;
@@ -74,6 +83,7 @@ export default function MealPlanDialog({ catalog, user, dietTypeId, initialPlan,
     }
   }
 
+  // Hủy việc tạo thực đơn và quay lại form.
   function cancel() {
     controller.current?.abort();
     setPhase('form');

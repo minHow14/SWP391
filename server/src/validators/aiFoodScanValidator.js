@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/validators/aiFoodScanValidator.js
+// Schema cho tính năng quét ảnh món ăn/nhãn thành phần: dữ liệu vào từ client và kết quả trả về từ AI Service.
 import { z } from 'zod';
 import { MAX_FOOD_SCAN_BASE64_LENGTH, MAX_FOOD_SCAN_IMAGE_BYTES } from '../constants/foodScanner.js';
 
@@ -6,6 +7,9 @@ const MAX_DISH_NAME_LENGTH = 150;
 const MAX_ALLERGIES_COUNT = 50;
 const MAX_ALLERGY_LENGTH = 100;
 
+// Ảnh gửi dạng base64: kiểm tra đúng cú pháp base64 và dung lượng thực sau giải mã ≤ 10 MB
+// (kiểm tra cả độ dài chuỗi lẫn số byte để chặn sớm payload quá lớn). Chỉ nhận JPEG/PNG/WEBP.
+// dietTypeId bắt buộc vì kết quả đánh giá phụ thuộc chế độ ăn chay của người dùng.
 export const foodScanSchema = z.object({
   imageBase64: z.string().trim().min(1, 'Dữ liệu ảnh không được để trống')
     .max(MAX_FOOD_SCAN_BASE64_LENGTH, 'Ảnh không được vượt quá 10 MB.')
@@ -18,7 +22,10 @@ export const foodScanSchema = z.object({
   allergies: z.array(z.string().trim().min(1).max(MAX_ALLERGY_LENGTH)).max(MAX_ALLERGIES_COUNT).optional().default([]),
 }).strict();
 
+// Chuỗi văn bản không rỗng dùng cho các field kết quả AI.
 const scanText = z.string().trim().min(1);
+// Kiểm tra kết quả AI trả về trước khi tin dùng: layer 1–5 là tầng phân tích thành phần.
+// Không cho phép status 'clear' (phù hợp) mà vẫn chứa phát hiện mức 'violation' — tránh AI trả kết quả mâu thuẫn.
 export const foodScanResultSchema = z.object({
   dishName: scanText,
   detectedScanType: z.enum(['LABEL', 'DISH']),

@@ -1,8 +1,11 @@
 // D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/youtubeMessage.js
+// Nhận diện link video YouTube trong tin nhắn chatbot và chuẩn hóa về dạng watch?v=ID.
 const LINK_PATTERN = /https?:\/\/[^\s<>"'`]+|(?:www\.)?(?:youtube\.com|youtu\.be)\/[^\s<>"'`]+/gi;
 const HOSTS = new Set(['youtube.com', 'www.youtube.com', 'm.youtube.com', 'youtu.be', 'www.youtu.be']);
 const invalidLink = () => new Error('Vui lòng gửi một link video YouTube hợp lệ, không kèm playlist.');
 
+// Phân tích một link; trả null nếu không phải YouTube, ném lỗi nếu là link YouTube không hợp lệ
+// (không phải https, có thông tin đăng nhập/cổng, hoặc là playlist).
 function parseYoutubeLink(candidate) {
   const cleaned = candidate.replace(/[),.!?;:]+$/, '');
   const url = new URL(/^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`);
@@ -16,6 +19,7 @@ function parseYoutubeLink(candidate) {
   return { videoId, videoUrl: `https://www.youtube.com/watch?v=${videoId}` };
 }
 
+// Tìm link YouTube trong văn bản; chỉ cho phép một video mỗi tin nhắn (link trùng video được tính là một).
 export function detectYoutubeMessage(text) {
   const sources = new Map();
   for (const candidate of String(text).match(LINK_PATTERN) || []) {

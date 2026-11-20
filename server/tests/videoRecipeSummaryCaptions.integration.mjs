@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/videoRecipeSummaryCaptions.integration.mjs
+// Script kiểm thử thật (live) luồng tóm tắt video: lấy phụ đề YouTube thật qua AI Service cục bộ và DeepSeek,
+// ghi kết quả đã làm sạch vào docs. Yêu cầu DB _test cục bộ, AI Service chạy trên loopback và mạng Internet.
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -8,9 +10,11 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import request from 'supertest';
 
+// Chỉ chạy trên DB test cục bộ để không làm bẩn dữ liệu thật.
 const database = new URL(process.env.DATABASE_URL);
 assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(database.hostname) && database.pathname.endsWith('_test'),
   'Live verification requires an isolated local _test database.');
+// Lấy cấu hình AI thật từ .env của server (ghi đè .env.test) vì cần gọi AI Service thật.
 const local = dotenv.parse(readFileSync(new URL('../.env', import.meta.url)));
 for (const name of ['AI_SERVICE_URL', 'INTERNAL_API_KEY', 'YT_DLP_PATH']) {
   if (local[name]) process.env[name] = local[name];
@@ -19,6 +23,7 @@ process.env.AI_SERVICE_URL ||= 'http://127.0.0.1:8000';
 process.env.YT_DLP_PATH ||= fileURLToPath(new URL(`../../ai_service/venv/${process.platform === 'win32' ? 'Scripts/yt-dlp.exe' : 'bin/yt-dlp'}`, import.meta.url));
 assert.ok(['localhost', '127.0.0.1', '[::1]'].includes(new URL(process.env.AI_SERVICE_URL).hostname),
   'The AI service must be on loopback.');
+// Import động sau khi đã thiết lập biến môi trường để các module đọc đúng cấu hình.
 const [{ default: app }, { default: prisma }, { generateToken }, { videoRecipeSummaryJobRepository: jobs },
   { processVideoRecipeSummaryJob }, { runVideoRecipeSummaryWorker }, { videoRecipeSummaryConfig: config },
   { createVideoRecipeSummaryAiService }, { aiConfig }] = await Promise.all([
@@ -27,6 +32,7 @@ const [{ default: app }, { default: prisma }, { generateToken }, { videoRecipeSu
   import('../src/workers/videoRecipeSummaryWorker.js'), import('../src/config/videoRecipeSummaryConfig.js'),
   import('../src/services/videoRecipeSummaryAiService.js'), import('../src/config/aiConfig.js'),
 ]);
+// Video có phụ đề tiếng Việt, video không có phụ đề, và giới hạn thời gian chờ/poll của job.
 const JOBS = '/api/v1/video-recipe-summary-jobs';
 const RECIPE_URL = 'https://www.youtube.com/watch?v=mEZH98MSaLc';
 const NO_CAPTIONS_URL = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
@@ -35,17 +41,23 @@ const POLL_MS = 500;
 const results = [];
 let owner, authorization, controller, worker;
 
+// Gọi API với token của chủ job và timeout có giới hạn.
+// @param method phương thức HTTP (get/post...)
+// @param path đường dẫn API
+// @param body dữ liệu gửi (bỏ qua nếu undefined)
 function api(method, path, body) {
   const call = request(app)[method](path).set('Authorization', authorization).timeout({ response: 10_000, deadline: 15_000 });
   return body === undefined ? call : call.send(body);
 }
 
+// Khởi động worker thật với AI service cho trước (chỉ 1 lượt thử để thất bại nhanh).
 function startWorker(ai) {
   controller = new AbortController();
   worker = runVideoRecipeSummaryWorker({ signal: controller.signal, config: { ...config, maxAttempts: 1, pollMs: 250 },
     processJob: (job, options) => processVideoRecipeSummaryJob(job, { ...options, ai }) });
 }
 
+// Dừng worker và chờ vòng lặp kết thúc.
 async function stopWorker() {
   controller?.abort();
   await worker;
@@ -53,6 +65,9 @@ async function stopWorker() {
   controller = undefined;
 }
 
+// Poll trạng thái job đến khi FAILED/COMPLETED hoặc quá deadline.
+// @param jobId mã job
+// @returns dữ liệu job cuối cùng
 async function waitForJob(jobId) {
   const deadline = Date.now() + JOB_WAIT_MS;
   while (Date.now() < deadline) {
@@ -64,6 +79,7 @@ async function waitForJob(jobId) {
   throw new Error('Live video job exceeded its bounded verification deadline.');
 }
 
+// Kịch bản: khóa nội bộ sai làm job thất bại → không tạo job trùng → người dùng thử lại → hoàn tất với khóa đúng.
 async function verifyManualRetry() {
   const created = await api('post', JOBS, { videoUrl: RECIPE_URL });
   assert.equal(created.status, 202);
@@ -80,6 +96,8 @@ async function verifyManualRetry() {
   await verifyStoredRecipe(jobId, completed);
 }
 
+// Xác minh công thức đã lưu: transcript tiếng Việt, thời lượng khớp metadata và có ít nhất một bước.
+// Ghi kết quả FAIL kèm chi tiết đã làm sạch trước khi assert để báo cáo vẫn có dữ liệu.
 async function verifyStoredRecipe(jobId, completed) {
   const stored = await jobs.findOwnedInternal({ id: jobId, userId: owner.user_id });
   if (completed.status !== 'COMPLETED') {
@@ -97,6 +115,7 @@ async function verifyStoredRecipe(jobId, completed) {
   process.stdout.write('PASS: real internal-auth failure -> public retry -> Vietnamese captions -> DeepSeek -> persisted recipe.\n');
 }
 
+// Kịch bản: video không có phụ đề tiếng Việt phải thất bại rõ ràng, không lưu transcript hay bịa công thức.
 async function verifyMissingCaptions() {
   const created = await api('post', JOBS, { videoUrl: NO_CAPTIONS_URL });
   assert.equal(created.status, 202);
@@ -111,6 +130,7 @@ async function verifyMissingCaptions() {
   process.stdout.write('PASS: source without Vietnamese captions fails explicitly without a transcript or fabricated recipe.\n');
 }
 
+// Chạy một kịch bản, ghi nhận thất bại (không lộ chi tiết nhạy cảm) và đặt mã thoát 1 thay vì dừng cả script.
 async function runCase(check, name) {
   try { await check(); }
   catch (error) {
@@ -121,6 +141,7 @@ async function runCase(check, name) {
 }
 
 try {
+  // Yêu cầu hàng đợi trống để worker test không tranh job với worker khác.
   assert.equal(await prisma.videoRecipeSummaryJob.count({ where: { status: { in: ['PENDING', 'PROCESSING'] } } }), 0,
     'Stop other test workers and finish the existing test queue first.');
   owner = await prisma.user.create({ data: { email: `caption-integration-${randomUUID()}@example.invalid`,
@@ -130,9 +151,11 @@ try {
   await stopWorker();
   startWorker(createVideoRecipeSummaryAiService());
   await runCase(verifyMissingCaptions, 'real-video-without-vietnamese-captions');
+  // Ghi báo cáo kết quả live (đã làm sạch) vào docs.
   writeFileSync(new URL('../../docs/superpowers/2026-11-04-captions-live-results.json', import.meta.url),
     JSON.stringify({ verifiedAt: new Date().toISOString(), database: database.pathname.slice(1), results }, null, 2) + '\n');
 } finally {
+  // Luôn dừng worker, xóa user test và đóng DB.
   try { await stopWorker(); }
   finally {
     try { if (owner) await prisma.user.delete({ where: { user_id: owner.user_id } }); }

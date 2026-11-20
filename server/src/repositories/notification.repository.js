@@ -1,7 +1,9 @@
 // d:\Projects\FPT\SWP391\server\src\repositories\notification.repository.js
+// Repository truy cập bảng thông báo của người dùng.
 import prisma from '../config/prisma.js';
 
 export const notificationRepository = {
+  // Lấy thông báo của người dùng, mới nhất trước; is_read có thể đến từ query string nên chấp nhận cả 'true'.
   async findManyByUserId(userId, { skip = 0, take = 10, is_read = undefined } = {}, db = prisma) {
     const where = {
       user_id: Number(userId),
@@ -16,6 +18,7 @@ export const notificationRepository = {
     });
   },
 
+  // Đếm thông báo của người dùng (tùy chọn lọc theo đã đọc/chưa đọc).
   async countByUserId(userId, { is_read = undefined } = {}, db = prisma) {
     const where = {
       user_id: Number(userId),
@@ -25,6 +28,7 @@ export const notificationRepository = {
     return db.notification.count({ where });
   },
 
+  // Tạo thông báo mới (mặc định chưa đọc).
   async create({ user_id, content }, db = prisma) {
     return db.notification.create({
       data: {
@@ -35,12 +39,14 @@ export const notificationRepository = {
     });
   },
 
+  // Tìm thông báo theo ID.
   async findById(notificationId, db = prisma) {
     return db.notification.findUnique({
       where: { notification_id: Number(notificationId) },
     });
   },
 
+  // Đánh dấu đã đọc; lọc thêm user_id để người dùng không thao tác được thông báo của người khác.
   async markAsRead(notificationId, userId, db = prisma) {
     return db.notification.updateMany({
       where: {
@@ -51,6 +57,7 @@ export const notificationRepository = {
     });
   },
 
+  // Đánh dấu tất cả thông báo chưa đọc của người dùng là đã đọc.
   async markAllAsRead(userId, db = prisma) {
     return db.notification.updateMany({
       where: {
@@ -61,6 +68,7 @@ export const notificationRepository = {
     });
   },
 
+  // Xóa thông báo của chính người dùng (deleteMany để lọc kèm user_id).
   async delete(notificationId, userId, db = prisma) {
     return db.notification.deleteMany({
       where: {

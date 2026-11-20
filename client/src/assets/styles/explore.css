@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/assets/styles/explore.css */
+/* Giao diện các trang Công thức và Cộng đồng: thanh công cụ, bộ lọc, thẻ công thức, bảng tin và trạng thái rỗng. */
 .home-page .main-menu .nav-link.cx-nav-active {
   background: #159f48;
   color: #ffffff;
@@ -532,6 +533,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+/* Chỉ thêm hiệu ứng nâng thẻ khi người dùng không yêu cầu giảm chuyển động. */
 @media (prefers-reduced-motion: no-preference) {
   .cx-recipe-card {
     transition: transform 180ms ease;
@@ -540,6 +542,7 @@
     transform: translateY(-3px);
   }
 }
+/* Màn hình vừa: cho thanh công cụ xuống dòng, ô tìm kiếm chiếm toàn chiều rộng. */
 @media (max-width: 1199px) {
   .cx-community-toolbar {
     flex-wrap: wrap;
@@ -548,6 +551,7 @@
     width: 100%;
   }
 }
+/* Màn hình di động: thu nhỏ khoảng cách và cỡ chữ. */
 @media (max-width: 767px) {
   .cx-explore-shell {
     padding: 20px 16px 0;

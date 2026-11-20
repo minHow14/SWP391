@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\routes\places.route.js
+// Router tìm quán ăn/địa điểm (/api/v1/places) qua nhà cung cấp bản đồ ZIOMAP. Công khai, có giới hạn tần suất theo IP.
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { getNearby, searchPlaces } from '../controllers/places.controller.js';
@@ -22,7 +23,9 @@ router.use(
   })
 );
 
+// GET /places/nearby — [Công khai] Tìm quán ăn quanh tọa độ người dùng.
 router.get('/nearby', getNearby);
+// GET /places/search — [Công khai] Tìm địa điểm theo từ khóa.
 router.get('/search', searchPlaces);
 
 // Lỗi không lường trước: không lộ chi tiết nội bộ ra ngoài

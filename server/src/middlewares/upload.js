@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\middlewares\upload.js
+// Cấu hình Multer cho các loại tải file (ảnh đại diện, ảnh/media bài đăng, ảnh nhận diện) kèm kiểm tra định dạng và dung lượng.
 import multer from 'multer';
 import path from 'node:path';
 import fs from 'node:fs';
@@ -54,6 +55,7 @@ const createStorage = (subFolder = 'temp') => {
       cb(null, targetDir);
     },
     filename: (req, file, cb) => {
+      // Đặt tên file bằng UUID để tránh trùng tên và không dùng tên gốc do người dùng kiểm soát.
       const ext = path.extname(file.originalname).toLowerCase();
       const uuid = randomUUID();
       cb(null, `${uuid}${ext}`);
@@ -66,6 +68,7 @@ const createStorage = (subFolder = 'temp') => {
  */
 const fileFilter = (req, file, cb) => {
   const ext = path.extname(file.originalname).toLowerCase();
+  // Kiểm tra cả MIME type lẫn đuôi file để giảm nguy cơ tải lên file giả dạng ảnh.
   if (!ALLOWED_MIME_TYPES.has(file.mimetype) || !ALLOWED_EXTENSIONS.has(ext)) {
     return cb(
       ApiError.badRequest(

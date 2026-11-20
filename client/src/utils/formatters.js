@@ -1,10 +1,13 @@
 // client/src/utils/formatters.js
+// Các hàm định dạng thời lượng và ngày giờ hiển thị theo giờ Việt Nam.
+// Định dạng số giây thành chuỗi mm:ss.
 export function formatDuration(seconds) {
   return `${Math.floor(seconds / 60)
     .toString()
     .padStart(2, '0')}:${(seconds % 60).toString().padStart(2, '0')}`;
 }
 
+// Định dạng thời điểm tạo theo dạng HH:mm dd/MM giờ Việt Nam.
 export function formatCreatedAt(created_at) {
   return new Date(created_at).toLocaleString('vi-VN', {
     timeZone: 'Asia/Bangkok',
@@ -15,6 +18,7 @@ export function formatCreatedAt(created_at) {
   });
 }
 
+// Định dạng ngày ghi nhận; giá trị đúng 00:00:00 UTC được coi là ngày thuần (không có giờ) nên chỉ hiển thị ngày.
 export function formatRecordedDateTime(rawDate) {
   if (!rawDate) return 'N/A';
   const d = new Date(rawDate);

@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/videoRecipeSummaryAiService.js
+// Gọi AI Service để nhận dạng phụ đề (stream SSE) và tóm tắt công thức từ video, với kiểm tra chặt dữ liệu trả về.
 import { aiConfig } from '../config/aiConfig.js';
 import { videoRecipeSummaryConfig } from '../config/videoRecipeSummaryConfig.js';
 import { MAX_AI_RESPONSE_BYTES, MAX_VIDEO_DURATION_SECONDS } from '../constants/videoRecipeSummary.js';
@@ -6,9 +7,11 @@ import { videoRecipeSummaryError } from '../utils/videoRecipeSummaryError.js';
 import { createSseParser } from '../utils/sseParser.js';
 import { transcriptSchema } from '../validators/videoRecipeSummaryValidator.js';
 
+// Thứ tự các giai đoạn hợp lệ của luồng nhận dạng; dùng để phát hiện sự kiện progress sai thứ tự.
 const TRANSCRIPTION_STAGES = ['FETCHING_CAPTIONS'];
 const invalidOutput = () => videoRecipeSummaryError({ status: 502, code: 'VIDEO_AI_INVALID_OUTPUT', message: 'Dịch vụ AI trả về dữ liệu video không hợp lệ.' });
 const unavailable = () => videoRecipeSummaryError({ status: 503, code: 'VIDEO_AI_UNAVAILABLE', message: 'Dịch vụ xử lý video tạm thời không khả dụng.', retryable: true });
+// Ánh xạ mã lỗi nguồn video do AI Service trả về sang lỗi nghiệp vụ hiển thị cho người dùng.
 const SOURCE_ERRORS = Object.freeze({
   VIDEO_TOO_LONG: { message: 'Video cần có thời lượng không quá 11 phút.' },
   VIDEO_UNAVAILABLE: { message: 'Không thể truy cập video YouTube này.' },
@@ -18,6 +21,7 @@ const SOURCE_ERRORS = Object.freeze({
   VIDEO_NOT_RECIPE: { message: 'Không tìm thấy đủ hướng dẫn nấu ăn trong phụ đề video.' },
 });
 
+// Chuẩn hóa lỗi: ưu tiên lý do hủy có mã lỗi, hủy không rõ lý do coi là timeout (có thể thử lại).
 function normalizedFailure(error, signal) {
   if (signal?.aborted && signal.reason?.errorCode) return signal.reason;
   if (error.errorCode) return error;
@@ -25,12 +29,15 @@ function normalizedFailure(error, signal) {
   return unavailable();
 }
 
+// Đọc header Retry-After (số giây hoặc ngày giờ HTTP) thành số ms chờ.
 function retryDelay(header) {
   const delay = /^\d+$/.test(header || '') ? Number(header) * 1000 : Date.parse(header) - Date.now();
+  // Giá trị vượt giới hạn setTimeout (2^31-1 ms) bị coi là dữ liệu bất thường.
   if (delay > 2_147_483_647) throw invalidOutput();
   return Number.isFinite(delay) && delay > 0 ? delay : 0;
 }
 
+// Chuyển sự kiện 'error' trong stream thành lỗi nghiệp vụ; chỉ lỗi rate limit mang thời gian chờ thử lại.
 function streamFailure(data) {
   if (Object.hasOwn(SOURCE_ERRORS, data.errorCode)) return videoRecipeSummaryError({ code: data.errorCode, ...SOURCE_ERRORS[data.errorCode] });
   if (data.errorCode !== 'VIDEO_AI_RATE_LIMITED') return unavailable();
@@ -40,6 +47,7 @@ function streamFailure(data) {
     message: 'Dịch vụ AI đang hết hạn mức. Hệ thống sẽ thử lại sau.' });
 }
 
+// Ánh xạ mã HTTP lỗi từ AI Service: 429 thử lại sau, 401/403 lỗi cấu hình khóa, 404 chưa triển khai, 5xx tạm thời.
 function responseFailure(response) {
   if (response.status === 429) return videoRecipeSummaryError({ status: 429, code: 'VIDEO_AI_RATE_LIMITED',
     message: 'Dịch vụ AI đang hết hạn mức. Hệ thống sẽ thử lại sau.', retryable: true, retryAfterMs: retryDelay(response.headers.get('retry-after')) });
@@ -51,11 +59,13 @@ function responseFailure(response) {
   return videoRecipeSummaryError({ code: 'VIDEO_AI_REJECTED', message: 'Dịch vụ AI không xử lý được phụ đề hoặc nội dung video này.' });
 }
 
+// Đọc thân phản hồi theo chunk, giới hạn tổng byte và dừng ngay khi bị hủy; onChunk trả false để dừng sớm.
 async function consumeBody({ response, signal, onChunk }) {
   if (!response.body) throw invalidOutput();
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let bytes = 0;
+  // Khi bị hủy thì hủy reader để lệnh read() đang chờ kết thúc ngay.
   const cancel = () => { reader.cancel().catch(() => {}); };
   signal.addEventListener('abort', cancel, { once: true });
   try {
@@ -76,6 +86,7 @@ async function consumeBody({ response, signal, onChunk }) {
   }
 }
 
+// Đọc kết quả nhận dạng từ stream SSE; bắt buộc đi qua đủ các giai đoạn theo thứ tự trước sự kiện 'done'.
 async function transcriptionResult({ response, signal, onStage }) {
   if (!response.headers.get('content-type')?.includes('text/event-stream')) throw invalidOutput();
   let stageIndex = -1;
@@ -101,6 +112,7 @@ async function transcriptionResult({ response, signal, onStage }) {
   return transcript;
 }
 
+// Đọc kết quả tóm tắt dạng JSON và lấy ra công thức.
 async function summaryResult({ response, signal }) {
   if (!response.headers.get('content-type')?.includes('application/json')) throw invalidOutput();
   let body = '';
@@ -111,7 +123,9 @@ async function summaryResult({ response, signal }) {
   return result.data.recipe;
 }
 
+// Factory tạo service AI cho video; cho phép inject fetch/config/timeout khi test.
 export function createVideoRecipeSummaryAiService({ fetchImpl = globalThis.fetch, config = aiConfig, timeoutMs = videoRecipeSummaryConfig.aiTimeoutMs } = {}) {
+  // Gửi request tới AI Service với timeout và khóa nội bộ; redirect: 'error' để không gửi khóa sang host khác.
   async function request({ path, payload, signal, accept }) {
     if (!config.internalApiKey) throw videoRecipeSummaryError({ status: 503, code: 'AI_NOT_CONFIGURED', message: 'Chưa cấu hình kết nối AI Service.' });
     const activeSignal = signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs);
@@ -123,6 +137,7 @@ export function createVideoRecipeSummaryAiService({ fetchImpl = globalThis.fetch
     } catch (error) { throw normalizedFailure(error, activeSignal); }
   }
   return {
+    // Nhận dạng phụ đề video bằng tiếng Việt, báo tiến trình qua onStage.
     async transcribe({ job, metadata, onStage, signal }) {
       const context = await request({ path: '/api/video-recipe-transcriptions/stream', signal, accept: 'text/event-stream',
         payload: { jobId: job.id, videoId: job.videoId, videoUrl: job.videoUrl,
@@ -130,6 +145,7 @@ export function createVideoRecipeSummaryAiService({ fetchImpl = globalThis.fetch
       try { return await transcriptionResult({ ...context, onStage }); }
       catch (error) { throw normalizedFailure(error, context.signal); }
     },
+    // Tóm tắt transcript thành công thức nấu ăn.
     async summarize({ job, transcript, signal }) {
       const context = await request({ path: '/api/video-recipe-summaries', signal, accept: 'application/json',
         payload: { jobId: job.id, videoId: job.videoId, language: 'vi', transcript } });
@@ -139,4 +155,5 @@ export function createVideoRecipeSummaryAiService({ fetchImpl = globalThis.fetch
   };
 }
 
+// Instance mặc định dùng trong ứng dụng.
 export const videoRecipeSummaryAiService = createVideoRecipeSummaryAiService();

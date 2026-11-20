@@ -1,6 +1,7 @@
 // client/src/utils/recipeCalculator.js
+// Tính dinh dưỡng (calo, đạm, chất béo, tinh bột, chất xơ) của công thức dựa trên lượng và đơn vị nguyên liệu.
 /**
- * Calculate calories for a recipe ingredient based on unit and quantity
+ * Tính calo của một nguyên liệu trong công thức theo đơn vị và số lượng.
  */
 export function calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient || ingredient.calories_per_100g === null || ingredient.calories_per_100g === undefined) {
@@ -11,12 +12,12 @@ export function calculateIngredientCalories(recipeIngredient, ingredient, liquid
     const caloriesPer100g = ingredient.calories_per_100g;
 
     if (unit === 'gram' || unit === 'g') {
-        // Direct calculation: (quantity * calories_per_100g) / 100
+        // Tính trực tiếp: (số lượng * calo trên 100g) / 100
         return (quantity * caloriesPer100g) / 100;
     }
 
     if (unit === 'milliliter' || unit === 'ml') {
-        // Convert ml to grams using density from database
+        // Đổi ml sang gram bằng khối lượng riêng lấy từ cơ sở dữ liệu
         const densityRecord = liquidDensities.find(
             (ld) => ld.ingredient_id === ingredient.ingredient_id
         );
@@ -25,16 +26,16 @@ export function calculateIngredientCalories(recipeIngredient, ingredient, liquid
             const gramsFromMl = quantity * densityRecord.density;
             return (gramsFromMl * caloriesPer100g) / 100;
         }
-        // If density not found in database, return null
+        // Không có khối lượng riêng trong cơ sở dữ liệu thì trả về null
         return null;
     }
 
-    // For other units (piece, fruit, seed, etc.), return calories per 100g with disclaimer
+    // Đơn vị khác (cái, quả, hạt...) trả về calo trên 100g kèm ghi chú
     return caloriesPer100g;
 }
 
 /**
- * Format ingredient display with unit normalization
+ * Định dạng chuỗi hiển thị nguyên liệu kèm thông tin calo.
  */
 export function formatIngredientDisplay(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient) {
@@ -45,12 +46,12 @@ export function formatIngredientDisplay(recipeIngredient, ingredient, liquidDens
     const calories = calculateIngredientCalories(recipeIngredient, ingredient, liquidDensities);
     let displayText = `${quantity} ${unit} ${ingredient.name}`;
 
-    // Add calorie information
+    // Thêm thông tin calo
     if (calories !== null) {
         if (unit === 'gram' || unit === 'g' || unit === 'milliliter' || unit === 'ml') {
             displayText += ` (${calories.toFixed(1)} kcal)`;
         } else {
-            // For other units, add disclaimer
+            // Với đơn vị khác, thêm ghi chú là calo trên 100g
             displayText += ` (~${calories.toFixed(1)} kcal per 100g*)`;
         }
     }
@@ -59,7 +60,7 @@ export function formatIngredientDisplay(recipeIngredient, ingredient, liquidDens
 }
 
 /**
- * Calculate total calories for a recipe
+ * Tính tổng calo của công thức; không có danh sách nguyên liệu thì dùng total_calories có sẵn.
  */
 export function calculateTotalCalories(recipeWithIngredients, liquidDensities) {
     if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
@@ -73,7 +74,7 @@ export function calculateTotalCalories(recipeWithIngredients, liquidDensities) {
     }, 0);
 }
 /**
- * Calculate protein for a recipe ingredient based on unit and quantity
+ * Tính lượng đạm của một nguyên liệu trong công thức theo đơn vị và số lượng.
  */
 export function calculateIngredientProtein(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient || ingredient.protein_per_100g === null || ingredient.protein_per_100g === undefined) {
@@ -102,7 +103,7 @@ export function calculateIngredientProtein(recipeIngredient, ingredient, liquidD
 }
 
 /**
- * Calculate fat for a recipe ingredient based on unit and quantity
+ * Tính lượng chất béo của một nguyên liệu trong công thức theo đơn vị và số lượng.
  */
 export function calculateIngredientFat(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient || ingredient.fat_per_100g === null || ingredient.fat_per_100g === undefined) {
@@ -131,7 +132,7 @@ export function calculateIngredientFat(recipeIngredient, ingredient, liquidDensi
 }
 
 /**
- * Calculate carbs for a recipe ingredient based on unit and quantity
+ * Tính lượng tinh bột của một nguyên liệu trong công thức theo đơn vị và số lượng.
  */
 export function calculateIngredientCarbs(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient || ingredient.carbs_per_100g === null || ingredient.carbs_per_100g === undefined) {
@@ -160,7 +161,7 @@ export function calculateIngredientCarbs(recipeIngredient, ingredient, liquidDen
 }
 
 /**
- * Calculate fiber for a recipe ingredient based on unit and quantity
+ * Tính lượng chất xơ của một nguyên liệu trong công thức theo đơn vị và số lượng.
  */
 export function calculateIngredientFiber(recipeIngredient, ingredient, liquidDensities) {
     if (!ingredient || ingredient.fiber_per_100g === null || ingredient.fiber_per_100g === undefined) {
@@ -189,7 +190,7 @@ export function calculateIngredientFiber(recipeIngredient, ingredient, liquidDen
 }
 
 /**
- * Calculate total protein for a recipe
+ * Tính tổng lượng đạm của công thức.
  */
 export function calculateTotalProtein(recipeWithIngredients, liquidDensities) {
     if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
@@ -204,7 +205,7 @@ export function calculateTotalProtein(recipeWithIngredients, liquidDensities) {
 }
 
 /**
- * Calculate total fat for a recipe
+ * Tính tổng lượng chất béo của công thức.
  */
 export function calculateTotalFat(recipeWithIngredients, liquidDensities) {
     if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
@@ -219,7 +220,7 @@ export function calculateTotalFat(recipeWithIngredients, liquidDensities) {
 }
 
 /**
- * Calculate total carbs for a recipe
+ * Tính tổng lượng tinh bột của công thức.
  */
 export function calculateTotalCarbs(recipeWithIngredients, liquidDensities) {
     if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {
@@ -234,7 +235,7 @@ export function calculateTotalCarbs(recipeWithIngredients, liquidDensities) {
 }
 
 /**
- * Calculate total fiber for a recipe
+ * Tính tổng lượng chất xơ của công thức.
  */
 export function calculateTotalFiber(recipeWithIngredients, liquidDensities) {
     if (!recipeWithIngredients.recipeIngredients || recipeWithIngredients.recipeIngredients.length === 0) {

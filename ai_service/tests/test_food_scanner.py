@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_food_scanner.py
+# Kiểm thử API quét món ăn/nhãn thực phẩm bằng ảnh (/api/food-scanner/analyze): xác thực,
+# validate ảnh đầu vào, kiểm tra chặt output của LLM và lọc phát hiện theo chế độ ăn.
 import base64
 import json
 from contextlib import AbstractContextManager
@@ -12,17 +14,21 @@ from httpx import Response
 from core.config import settings
 from core.ratelimit import limiter
 
+# Ảnh PNG 1x1 hợp lệ tối thiểu, đủ để qua bước kiểm tra định dạng ảnh mà không cần file thật.
 IMAGE_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+# Giới hạn 10 MiB sau khi giải mã base64, khớp với giới hạn phía service.
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 INTERNAL_HEADERS = {"X-Internal-Api-Key": settings.INTERNAL_API_KEY}
 
 
+# Fixture tự động: reset bộ đếm rate limit giữa các test và đặt key provider giả.
 @pytest.fixture(autouse=True)
 def scanner_test_state(monkeypatch: pytest.MonkeyPatch) -> None:
     limiter._storage.reset()
     monkeypatch.setattr(settings, "DEEPSEEK_API_KEY", "scanner-test-provider-key")
 
 
+# Fixture: kết quả quét hợp lệ mẫu mà provider trả về (đúng schema, trạng thái clear).
 @pytest.fixture
 def scan_result() -> dict:
     return {
@@ -37,6 +43,7 @@ def scan_result() -> dict:
     }
 
 
+# Gửi request quét ảnh hợp lệ kèm khoá nội bộ; tham số changes ghi đè từng trường payload.
 def scan_request(client: TestClient, **changes: object) -> Response:
     payload = {"imageBase64": IMAGE_BASE64, "mimeType": "image/png", "dietTypeId": 1}
     return client.post(
@@ -46,6 +53,7 @@ def scan_request(client: TestClient, **changes: object) -> Response:
     )
 
 
+# Patch LLM để trả về nội dung tuỳ ý, dùng kiểm thử cách service xử lý output của provider.
 def provider_response(content: object) -> AbstractContextManager[Mock]:
     return patch(
         "agents.food_scanner_agent.get_llm_json",
@@ -55,6 +63,7 @@ def provider_response(content: object) -> AbstractContextManager[Mock]:
     )
 
 
+# Thiếu khoá nội bộ -> 401 UNAUTHORIZED_INTERNAL.
 def test_food_scanner_rejects_missing_internal_key(client: TestClient) -> None:
     response = client.post(
         "/api/food-scanner/analyze", json={"imageBase64": IMAGE_BASE64, "dietTypeId": 1}
@@ -63,6 +72,8 @@ def test_food_scanner_rejects_missing_internal_key(client: TestClient) -> None:
     assert response.json()["errorCode"] == "UNAUTHORIZED_INTERNAL"
 
 
+# Model không khả dụng thì phải trả 503, không bao giờ bịa kết quả thành công;
+# không lộ token provider hay dữ liệu ảnh trong response.
 @pytest.mark.parametrize("dish_name", ["Nấm đùi gà sốt cà chua", "Nhãn thực phẩm"])
 def test_unavailable_model_never_returns_fabricated_success(
     client: TestClient, dish_name: str
@@ -81,6 +92,7 @@ def test_unavailable_model_never_returns_fabricated_success(
     assert "imageBase64" not in response.text
 
 
+# Chưa cấu hình key provider -> 503 FOOD_SCAN_UNAVAILABLE.
 def test_missing_provider_configuration_returns_unavailable(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -94,6 +106,7 @@ def test_missing_provider_configuration_returns_unavailable(
     assert response.json()["errorCode"] == "FOOD_SCAN_UNAVAILABLE"
 
 
+# Provider từ chối ảnh -> 503 đã được làm sạch, không lộ thông điệp lỗi gốc.
 def test_image_rejection_from_provider_returns_sanitized_unavailable(
     client: TestClient,
 ) -> None:
@@ -107,6 +120,7 @@ def test_image_rejection_from_provider_returns_sanitized_unavailable(
     assert "secret" not in response.text
 
 
+# Output không phải JSON object hợp lệ -> 502, không dùng kết quả dự phòng giả.
 @pytest.mark.parametrize(
     "content", ["not JSON", "{}", "[]", "prefix {} suffix", "{broken}", None]
 )
@@ -121,6 +135,8 @@ def test_invalid_model_output_never_returns_fallback(
     assert "data" not in response.json()
 
 
+# Thành công: giữ nguyên nguyên liệu thực vật (vd 'Nấm đùi gà' chứa chữ 'gà') mà không bị regex
+# bắt nhầm thành vi phạm; nutritionEstimate là None khi provider không ước tính.
 def test_success_preserves_plant_ingredients_without_text_regex_false_positive(
     client: TestClient, scan_result: dict
 ) -> None:
@@ -136,6 +152,7 @@ def test_success_preserves_plant_ingredients_without_text_regex_false_positive(
     assert "requestId" in body["meta"]
 
 
+# Phát hiện mẫu về ngũ vị tân: chỉ là vi phạm với chế độ chay Phật giáo.
 ALLIUM_FINDING = {
     "ingredient": "Hành lá",
     "reason": "Thuộc ngũ vị tân.",
@@ -144,6 +161,7 @@ ALLIUM_FINDING = {
 }
 
 
+# Phát hiện ngũ vị tân chỉ được giữ lại cho chế độ chay Phật giáo (dietTypeId 5).
 @pytest.mark.parametrize(
     ("diet_type_id", "kept", "status"), [(1, 0, "clear"), (4, 0, "clear"), (5, 1, "clear")]
 )
@@ -158,6 +176,7 @@ def test_alliums_are_only_reported_for_the_buddhist_diet(
     assert data["status"] == status
 
 
+# Khi phát hiện bị lọc bỏ vì chế độ ăn cho phép, trạng thái warning do nó gây ra phải hạ về clear.
 def test_dropping_a_permitted_finding_downgrades_the_warning_it_caused(
     client: TestClient, scan_result: dict
 ) -> None:
@@ -168,6 +187,7 @@ def test_dropping_a_permitted_finding_downgrades_the_warning_it_caused(
     assert response.json()["data"]["findings"] == []
 
 
+# Vi phạm thật (thịt) vẫn được giữ sau khi lọc theo chế độ ăn.
 def test_real_violations_survive_the_diet_filter(
     client: TestClient, scan_result: dict
 ) -> None:
@@ -180,6 +200,7 @@ def test_real_violations_survive_the_diet_filter(
     assert [item["ingredient"] for item in data["findings"]] == ["Thịt heo"]
 
 
+# Giá trị dinh dưỡng hợp lệ (hoặc None) được trả về nguyên vẹn.
 @pytest.mark.parametrize(
     "nutrition", [None, {"calories": 125.5, "protein": 3, "carbs": 0, "fat": 0}]
 )
@@ -193,6 +214,7 @@ def test_success_keeps_explicit_nutrition_values(
     assert response.json()["data"]["nutritionEstimate"] == nutrition
 
 
+# Dinh dưỡng thiếu trường, âm, NaN/vô cực, kiểu bool/chuỗi -> 502; không tự điền 0 để tránh số liệu sai.
 @pytest.mark.parametrize(
     "nutrition",
     [
@@ -216,6 +238,7 @@ def test_invalid_nutrition_is_rejected_without_defaulting_zero(
     assert response.json()["errorCode"] == "FOOD_SCAN_INVALID_OUTPUT"
 
 
+# Output thiếu bất kỳ mảng kết quả bắt buộc nào -> 502.
 @pytest.mark.parametrize(
     "field",
     ["findings", "identifiedIngredients", "restaurantChecklist", "swapSuggestions"],
@@ -229,6 +252,7 @@ def test_model_output_requires_all_result_arrays(
     assert response.status_code == 502
 
 
+# Output rỗng, sai tầng phân loại, trạng thái lạ hoặc mâu thuẫn (clear nhưng có vi phạm) -> 502.
 @pytest.mark.parametrize(
     "change",
     [
@@ -268,6 +292,8 @@ def test_invalid_or_contradictory_result_returns_gateway_error(
     assert response.status_code == 502
 
 
+# Input không hợp lệ (MIME không hỗ trợ, base64 hỏng, nội dung không phải ảnh, MIME không khớp
+# chữ ký file, dietTypeId sai...) -> 422 và không được gọi LLM.
 @pytest.mark.parametrize(
     "change",
     [
@@ -293,6 +319,7 @@ def test_invalid_scan_input_returns_validation_error(
     assert response.json()["errorCode"] == "INVALID_INPUT"
 
 
+# Ảnh sau giải mã vượt 10 MiB -> 422, chặn trước khi gửi tới LLM để tránh tốn chi phí.
 def test_decoded_image_above_ten_mib_is_rejected(client: TestClient) -> None:
     image = base64.b64decode(IMAGE_BASE64)
     oversized = image + b"\x00" * (MAX_IMAGE_BYTES + 1 - len(image))

@@ -1,12 +1,16 @@
 // D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/videoRecipeHistory.js
+// Khôi phục lịch sử công thức video của người dùng từ server khi mở lại chatbot hoặc tải lại trang.
 import { getSession } from '../../../utils/session.js';
 import { videoRecipeSummaryApi } from '../../../services/videoRecipeSummaryApi.js';
 import { clearSavedVideoJob, savedVideoJob } from './videoRecipeJobs.js';
 
+// Thao tác còn hợp lệ khi chưa bị hủy và người dùng đăng nhập vẫn là chủ ngữ cảnh.
 function isActive(context, signal) {
   return !signal.aborted && getSession()?.user?.user_id === context.userId;
 }
 
+// Dựng tin nhắn từ một job đã kết thúc (tải bản tóm tắt nếu hoàn tất) và chèn/cập nhật vào danh sách,
+// không ghi đè tin nhắn đã có kết quả hoặc đang được theo dõi trực tiếp.
 async function restoreResult(context, job, signal) {
   const bubble = { id: context.nextId.current++, role: 'assistant', kind: 'videoRecipe', ownerId: context.userId,
     videoUrl: job.videoUrl, job, pending: false, preparing: false };
@@ -27,6 +31,8 @@ async function restoreResult(context, job, signal) {
   });
 }
 
+// Tải job đã lưu trong phiên và các job gần đây, hiển thị các job đã kết thúc theo thứ tự thời gian;
+// trả về job còn đang chạy (nếu có) để tiếp tục theo dõi.
 export async function discoverVideoHistory(context, signal) {
   const stored = savedVideoJob(context.userId);
   let saved = null;

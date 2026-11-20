@@ -1,13 +1,16 @@
 // client/src/components/recognition/MatchingRecipesList.jsx
+// Danh sách công thức chay gợi ý dựa trên nguyên liệu nhận diện từ ảnh, phân nhóm theo mức độ khớp.
 import { Card, Badge, Row, Col, Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Cấu hình nhãn/màu cho từng nhóm khớp: nấu được ngay, thiếu ít nguyên liệu, gợi ý thêm.
 const TIER_CONFIG = {
   READY_TO_COOK: { label: 'Nấu được ngay (100%)', bg: 'success', text: 'white' },
   MISSING_FEW: { label: 'Thiếu ít nguyên liệu', bg: 'info', text: 'dark' },
   INSPIRATION: { label: 'Gợi ý thêm', bg: 'secondary', text: 'white' },
 };
 
+// Component danh sách công thức; mỗi thẻ hiển thị % khớp, nguyên liệu đã có và còn thiếu.
 export default function MatchingRecipesList({ recipes = [] }) {
   if (!recipes || recipes.length === 0) {
     return (
@@ -30,6 +33,7 @@ export default function MatchingRecipesList({ recipes = [] }) {
 
       <Row className="g-3">
         {recipes.map((recipe) => {
+          // Nhóm không xác định được hiển thị như "Gợi ý thêm" để không làm vỡ giao diện.
           const tier = TIER_CONFIG[recipe.tier] || TIER_CONFIG.INSPIRATION;
 
           return (

@@ -1,8 +1,10 @@
 // C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/test/recipeFilters.test.js
+// Kiểm thử (node:test) filterRecipes: tìm kiếm không dấu theo tên/nguyên liệu, lọc theo danh mục và theo kiểu ăn.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { filterRecipes } from '../src/utils/recipeFilters.js';
 
+// Ba công thức mẫu với kiểu ăn tương thích khác nhau (thuần chay, có sữa, có trứng).
 const recipes = [
   {
     recipe_id: 1,
@@ -27,6 +29,7 @@ const recipes = [
   },
 ];
 
+// Tìm kiếm bỏ qua dấu và chữ hoa, và khớp cả theo nguyên liệu.
 test('recipe search ignores accents and matches ingredients', () => {
   assert.deepEqual(
     filterRecipes(recipes, { query: 'DAU HU' }).map((item) => item.recipe_id),
@@ -37,6 +40,7 @@ test('recipe search ignores accents and matches ingredients', () => {
     [1, 2]
   );
 });
+// Lọc tự động theo Thuần chay phải loại món có trứng và sữa.
 test('automatic vegan filter excludes eggs and dairy', () => {
   assert.deepEqual(
     filterRecipes(recipes, { matchDiet: true, diet_type_id: 1 }).map(
@@ -45,6 +49,7 @@ test('automatic vegan filter excludes eggs and dairy', () => {
     [1]
   );
 });
+// Các bộ lọc tìm kiếm, danh mục và kiểu ăn được kết hợp với nhau (điều kiện AND).
 test('search, category and diet filters combine', () => {
   assert.deepEqual(
     filterRecipes(recipes, {
@@ -64,6 +69,7 @@ test('search, category and diet filters combine', () => {
     0
   );
 });
+// Keto và Eat Clean không được bỏ qua phân loại; chỉ món được gắn đúng kiểu ăn mới hiện ra.
 test('Keto and Eat Clean do not bypass dietary classification', () => {
   assert.equal(
     filterRecipes(recipes, { matchDiet: true, diet_type_id: 6 }).length,

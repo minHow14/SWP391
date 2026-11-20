@@ -1,6 +1,8 @@
 // d:\Projects\FPT\SWP391\server\src/middlewares/validationMiddleware.js
+// Middleware kiểm tra dữ liệu request bằng schema Zod.
 import { ApiError } from '../utils/apiError.js';
 
+// Kiểm tra req[location] (body/query/params) theo schema; lỗi thì trả 400 kèm danh sách trường sai.
 export const validate = (schema, location = 'body') => (req, res, next) => {
   const result = schema.safeParse(req[location]);
   if (!result.success) {

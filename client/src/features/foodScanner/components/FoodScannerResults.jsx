@@ -1,17 +1,23 @@
 // D:/SWP391/SWP391/client/src/features/foodScanner/components/FoodScannerResults.jsx
+// Hiển thị kết quả kiểm tra món: kết quả AI từ ảnh và kết quả đối chiếu từ khóa từ văn bản.
 import { Alert, Badge, Button, Card, Col, Row } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Tiêu đề và màu cảnh báo theo trạng thái kết luận.
 const STATUS = {
   clear: { variant: 'success', title: 'PHÙ HỢP VỚI CHẾ ĐỘ ĂN CHAY' },
   warning: { variant: 'danger', title: 'KHÔNG PHÙ HỢP — PHÁT HIỆN THÀNH PHẦN VI PHẠM' },
 };
 // Lịch sử quét cũ có thể còn trạng thái đã bị gỡ; hiển thị trung tính thay vì khẳng định phù hợp hay không.
 const LEGACY_STATUS = { variant: 'secondary', title: 'KẾT QUẢ PHÂN TÍCH' };
+// Kết quả "warning" nhưng không có phát hiện mức vi phạm thì chỉ là cần kiểm tra thêm, không kết luận không phù hợp.
 const UNVERIFIED_STATUS = { variant: 'warning', title: 'CẦN KIỂM TRA THÊM VỀ CHẾ ĐỘ ĂN' };
+// Nhãn của từng tầng kiểm tra thành phần.
 const LAYER_LABELS = { 1: 'Thịt & hải sản', 2: 'Phụ phẩm động vật', 3: 'Sữa, trứng, mật ong', 4: 'Ngũ vị tân', 5: 'Dị ứng cá nhân' };
+// Các chỉ số dinh dưỡng ước tính hiển thị (nhãn, đơn vị).
 const NUTRIENTS = { calories: ['Năng lượng', 'kcal'], protein: ['Chất đạm', 'g'], carbs: ['Đường bột', 'g'], fat: ['Chất béo', 'g'] };
 
+// Component kết quả; onSave mở hộp lưu món vào nhật ký (chỉ khi món phù hợp).
 export default function FoodScannerResults({ result, textResult, onSave }) {
   const unverified = result?.status === 'warning' && !result.findings?.some((item) => item.severity === 'violation');
   const status = unverified ? UNVERIFIED_STATUS : STATUS[result?.status] || LEGACY_STATUS;

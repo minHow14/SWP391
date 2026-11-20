@@ -1,10 +1,12 @@
 // D:/SWP391/SWP391/server/src/services/notification.service.js
+// Nghiệp vụ thông báo của người dùng: tạo, liệt kê (phân loại theo nội dung), đánh dấu đã đọc và xóa.
 import { notificationRepository } from '../repositories/notification.repository.js';
 import { ApiError } from '../utils/apiError.js';
 
 export const notificationService = {
+  // Gửi thông báo cho tác giả khi admin xóa bài viết.
   async notifyPostRemoval({ userId, postId }, db) {
-    // Persist with the deletion transaction so a successful removal always has a notification.
+    // Lưu cùng transaction xóa bài để mỗi lần xóa thành công luôn có thông báo đi kèm.
     return notificationRepository.create({
       user_id: userId,
       content: `Bài đăng #${postId} của bạn đã bị quản trị viên xóa.`,
@@ -15,10 +17,12 @@ export const notificationService = {
    * Lấy danh sách thông báo của người dùng kèm phân trang và bóc tách metadata
    */
   async getUserNotifications(userId, { page = 1, limit = 10, is_read = undefined } = {}) {
+    // Giới hạn tối đa 50 mục mỗi trang để tránh truy vấn quá nặng.
     const numericPage = Math.max(1, Number(page) || 1);
     const numericLimit = Math.min(50, Math.max(1, Number(limit) || 10));
     const skip = (numericPage - 1) * numericLimit;
 
+    // Đếm riêng số chưa đọc (không phụ thuộc bộ lọc) để hiển thị huy hiệu trên chuông thông báo.
     const [total, unreadCount, rawNotifications] = await Promise.all([
       notificationRepository.countByUserId(userId, { is_read }),
       notificationRepository.countByUserId(userId, { is_read: false }),
@@ -30,6 +34,7 @@ export const notificationService = {
     ]);
 
     // Chuẩn hóa định dạng thông báo cho Front-end (title, type, message)
+    // Bảng thông báo chỉ lưu nội dung chữ nên loại/tiêu đề được suy ra từ từ khóa trong nội dung.
     const notifications = rawNotifications.map((n) => {
       let title = 'Thông báo hệ thống';
       let type = 'SYSTEM';
@@ -72,6 +77,7 @@ export const notificationService = {
 
     const notification = await notificationRepository.findById(id);
     if (!notification) throw ApiError.notFound('Không tìm thấy thông báo');
+    // Chỉ chủ sở hữu được thao tác thông báo của mình.
     if (notification.user_id !== Number(userId)) {
       throw ApiError.forbidden('Bạn không có quyền thao tác trên thông báo này');
     }

@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\utils\jwt.js
+// Tiện ích JWT (tạo/xác thực access token và refresh token) và băm/so sánh mật khẩu bằng bcrypt.
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import config from '../config/index.js';
@@ -9,6 +10,7 @@ import config from '../config/index.js';
  * @returns {string} token
  */
 export const generateToken = (payload) => {
+  // tokenVersion mặc định 0, payload truyền vào có thể ghi đè để hỗ trợ thu hồi phiên.
   return jwt.sign({ tokenVersion: 0, ...payload }, config.jwt.secret, {
     expiresIn: config.jwt.expiresIn,
   });
@@ -20,6 +22,7 @@ export const generateToken = (payload) => {
  * @returns {string}
  */
 export const generateRefreshToken = (payload) => {
+  // Dùng khoá riêng cho refresh token để access token không thể bị dùng thay refresh token.
   const refreshSecret = process.env.REFRESH_TOKEN_SECRET || `${config.jwt.secret}_refresh`;
   return jwt.sign({ tokenVersion: 0, ...payload }, refreshSecret, {
     expiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || '30d',

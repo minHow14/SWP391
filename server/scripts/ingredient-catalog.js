@@ -1,5 +1,6 @@
 // D:/SWP391/SWP391/server/scripts/ingredient-catalog.js
-// Seed content and photo sources. The cache path is used only when importing photos into PostgreSQL.
+// Nội dung seed và nguồn ảnh. Đường dẫn cache chỉ được dùng khi nạp ảnh vào PostgreSQL.
+// Mỗi dòng: [tên, phân loại, nguồn gốc, slug, tên file ảnh Wikimedia, mô tả, cách chế biến, tên gọi khác].
 const rows = [
   ['Đậu hũ non', 'protein', 'Thực vật', 'silken-tofu', 'Japanese SilkyTofu (Kinugoshi Tofu).JPG', 'Đậu hũ mềm làm từ đậu nành, có vị thanh và kết cấu mịn.', 'Dùng trong canh, hấp hoặc sốt; cho vào cuối quá trình nấu để hạn chế vỡ.', 'tofu silken tofu đậu phụ'],
   ['Đậu hũ chiên', 'protein', 'Thực vật', 'fried-tofu', 'Twice fried tofu.jpg', 'Đậu hũ được chiên tạo lớp vỏ vàng, bên trong vẫn mềm.', 'Dùng để kho, xào, nhồi rau củ hoặc nấu với sốt.', 'fried tofu đậu phụ chiên'],
@@ -31,6 +32,7 @@ const rows = [
   ['Bắp ngọt', 'vegetable', 'Thực vật', 'sweet-corn', 'VegCorn.jpg', 'Bắp có hạt màu vàng, vị ngọt và kết cấu giòn.', 'Luộc, hấp hoặc tách hạt để thêm vào canh, salad và món xào.', 'sweet corn ngô ngọt'],
 ];
 
+// Danh mục nguyên liệu chuẩn dùng cho seed, sửa dữ liệu và nạp ảnh; plant suy ra từ nguồn gốc (không phải động vật).
 export const ingredientCatalog = rows.map(([name, category, origin, slug, photoFile, description, cooking, aliases]) => ({
   name, category, origin, plant: origin !== 'Động vật', slug, photoFile, description, cooking, aliases,
   image_url: `/ingredient-assets/${slug}.${photoFile.split('.').at(-1).toLowerCase()}`,

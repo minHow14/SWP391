@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/components/layout/Header.jsx
+// Thanh điều hướng chính: menu tính năng, chọn chế độ ăn, thông báo, tài khoản và đăng xuất.
 import { useState } from 'react';
 import { Alert, Button, Container, Nav, Navbar, Spinner } from 'react-bootstrap';
 import { Link, NavLink } from 'react-router';
@@ -7,6 +8,7 @@ import { authService } from '../../services/authService.js';
 import { getSessionSnapshot } from '../../utils/session.js';
 import NotificationBell from './NotificationBell.jsx';
 
+// Danh sách mục menu chính (tên, icon Bootstrap, đường dẫn).
 const MENU_ITEMS = [
   { name: 'Kiểm Tra Món', icon: 'bi-shield-fill-check', path: '/kiem-tra-mon' },
   { name: 'Đổi Món Chay', icon: 'bi-magic', path: '/doi-mon-chay' },
@@ -17,12 +19,15 @@ const MENU_ITEMS = [
   { name: 'Nhật Ký', icon: 'bi-pie-chart-fill', path: '/nhat-ky' },
 ];
 
+// Component header; dietName là tên chế độ ăn hiện tại, onChangeDiet mở hộp chọn chế độ ăn.
 export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDiet }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [logoutState, setLogoutState] = useState({ pending: false, error: '' });
   const { user } = useDatabase();
   const closeMenu = () => setMenuOpen(false);
 
+  // Đăng xuất: phiên trên trình duyệt luôn bị xóa; nếu xóa phiên trên server lỗi thì chỉ báo lỗi
+  // khi danh tính chưa đổi (tránh hiện cảnh báo sai nếu người dùng đã đăng nhập tài khoản khác).
   async function signOut() {
     if (logoutState.pending) return;
     setLogoutState({ pending: true, error: '' }); closeMenu();
@@ -37,6 +42,7 @@ export default function Header({ dietName = 'Chọn chế độ ăn', onChangeDi
     }
   }
 
+  // role === 1 là quản trị viên: nút tài khoản dẫn tới trang admin thay vì hồ sơ cá nhân.
   return (
     <header className="cx-site-header">
       <a className="cx-skip-link" href="#main-content">Chuyển đến nội dung chính</a>

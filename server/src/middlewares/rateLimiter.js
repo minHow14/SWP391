@@ -1,7 +1,9 @@
 // d:\Projects\FPT\SWP391\server\src\middlewares\rateLimiter.js
+// Các bộ giới hạn tần suất request (rate limit) cho API chung và endpoint xác thực.
 import { rateLimit } from 'express-rate-limit';
 import { fail } from '../utils/apiResponse.js';
 
+// Bỏ qua giới hạn khi chạy test để các bộ test gửi nhiều request không bị chặn.
 const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.VITEST);
 
 /**

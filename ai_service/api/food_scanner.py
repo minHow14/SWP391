@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/api/food_scanner.py
+# Router quét ảnh món ăn/nhãn sản phẩm để kiểm tra phù hợp chế độ chay và dị ứng.
 import logging
 from typing import Annotated
 from uuid import uuid4
@@ -24,6 +25,7 @@ router = APIRouter(
 )
 
 
+# POST /api/food-scanner/analyze: phân tích ảnh; giới hạn cố định 30 request/phút vì gọi model thị giác tốn chi phí.
 @router.post("/analyze")
 @limiter.limit("30/minute")
 async def analyze_food(

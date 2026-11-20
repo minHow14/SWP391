@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminMembersTab.jsx
+// Tab "Quản lý thành viên": tìm kiếm, lọc, khóa/mở khóa, xóa mềm, khôi phục tài khoản và xem nội dung của thành viên.
 import { useEffect, useState, useCallback } from 'react';
 import AdminMemberContentModal from './AdminMemberContentModal.jsx';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
@@ -7,6 +8,7 @@ import AdminPagination from './AdminPagination.jsx';
 import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
+// Component tab quản lý thành viên cộng đồng.
 export default function AdminMembersTab() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -28,11 +30,21 @@ export default function AdminMembersTab() {
     return unsubscribe;
   }, [fetchUsers]);
 
+  // Submit form tìm kiếm: tải lại danh sách với từ khóa hiện tại.
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     fetchUsers();
   };
 
+  /**
+   * Thực thi một thao tác trên tài khoản và xử lý thông báo/đồng bộ chung.
+   * @param {object} params
+   * @param {Function} params.operation Hàm gọi API thực hiện thao tác.
+   * @param {number} params.userId Tài khoản đang được xử lý (dùng để hiện spinner trên đúng dòng).
+   * @param {string} params.message Thông báo khi thành công.
+   * @param {boolean} [params.syncContent] true khi thao tác ảnh hưởng bài viết/bình luận của người dùng
+   *   (xóa/khôi phục), để các tab nội dung cũng tải lại.
+   */
   const runAccountAction = async ({ operation, userId, message, syncContent = false }) => {
     setPendingUserId(userId);
     setActionMessage('');
@@ -53,6 +65,7 @@ export default function AdminMembersTab() {
     }
   };
 
+  // Khóa hoặc mở khóa tài khoản; chỉ áp dụng cho ACTIVE/LOCKED, tài khoản đã xóa phải dùng khôi phục.
   const handleToggleStatus = (user) => {
     if (!['ACTIVE', 'LOCKED'].includes(user.status)) return;
     const nextStatus = user.status === 'ACTIVE' ? 'LOCKED' : 'ACTIVE';
@@ -60,18 +73,21 @@ export default function AdminMembersTab() {
       message: `Đã ${nextStatus === 'LOCKED' ? 'khóa' : 'mở khóa'} tài khoản của ${user.full_name}` });
   };
 
+  // Xóa mềm tài khoản (chuyển sang trạng thái Đã xóa) sau khi xác nhận.
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Bạn có chắc chắn muốn chuyển tài khoản này sang trạng thái Đã xóa?')) return;
     await runAccountAction({ userId, operation: () => adminService.deleteUser(userId),
       message: 'Đã chuyển tài khoản sang trạng thái Đã xóa', syncContent: true });
   };
 
+  // Khôi phục tài khoản đã xóa cùng nội dung về trạng thái trước khi xóa.
   const handleRestoreUser = async (user) => {
     if (!window.confirm('Khôi phục tài khoản và nội dung về đúng trạng thái trước khi xóa? Nội dung thiếu trạng thái gốc vẫn được giữ ở trạng thái Đã xóa.')) return;
     await runAccountAction({ userId: user.user_id, operation: () => adminService.restoreUser(user.user_id),
       message: `Đã khôi phục tài khoản của ${user.full_name}`, syncContent: true });
   };
 
+  // Tải bài viết và bình luận của thành viên rồi mở modal xem nội dung.
   const handleViewContent = async (userId) => {
     setContentLoading(true);
     try {

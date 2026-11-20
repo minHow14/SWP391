@@ -1,6 +1,8 @@
 // D:/SWP391/SWP391/client/src/features/community/components/ModerationStatusPanel.jsx
+// Bảng hiển thị trạng thái kiểm duyệt (AI + Admin) các bài viết/bình luận của người dùng hiện tại, có phân trang.
 import { Alert, Badge, Button, Card, Spinner } from 'react-bootstrap';
 
+// Chuyển trạng thái job kiểm duyệt thành nhãn tiếng Việt; ưu tiên kiểm tra phiên bản cũ và nội dung đã gỡ trước.
 function statusLabel(job) {
   if (!job.isCurrent) return 'Phiên bản cũ';
   if (job.targetStatus === 'DELETED') return 'Nội dung đã gỡ';
@@ -11,6 +13,7 @@ function statusLabel(job) {
   return 'Đã kiểm tra';
 }
 
+// Component bảng kiểm duyệt; dữ liệu và hành động lấy từ hook useContentModeration.
 export default function ModerationStatusPanel({ moderation }) {
   const { items, loading, error, meta, page, setPage, refresh } = moderation;
   const pages = Math.max(1, Math.ceil(meta.total / meta.limit));

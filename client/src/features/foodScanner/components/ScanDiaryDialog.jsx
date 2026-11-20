@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/foodScanner/components/ScanDiaryDialog.jsx
+// Hộp thoại lưu món vừa quét vào nhật ký ăn uống, cho phép chỉnh dinh dưỡng theo khẩu phần thực tế.
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Button, Col, Form, Modal, Row, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
@@ -7,8 +8,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { workspaceService } from '../../../services/workspaceService.js';
 
+// Các chỉ số dinh dưỡng (nhãn, giá trị tối đa hợp lệ).
 const NUTRIENTS = { calories: ['Năng lượng (kcal)', 10000], protein: ['Chất đạm (g)', 1000],
   carbs: ['Đường bột (g)', 1000], fat: ['Chất béo (g)', 1000], fiber: ['Chất xơ (g)', 1000] };
+// Schema Zod cho form nhật ký: ngày phải là ngày có thật dạng YYYY-MM-DD, các chỉ số là số trong giới hạn.
 const requiredText = (max) => z.string().trim().min(1, 'Vui lòng điền thông tin.').max(max);
 const schema = z.object({
   name: requiredText(255), serving: requiredText(100),
@@ -17,13 +20,16 @@ const schema = z.object({
   ...Object.fromEntries(Object.entries(NUTRIENTS).map(([key, [, max]]) => [key, z.number({ error: 'Vui lòng nhập số hợp lệ.' }).min(0).max(max)])),
 });
 
+// Lấy ngày hôm nay theo múi giờ của trình duyệt dạng YYYY-MM-DD (bù offset vì toISOString luôn trả UTC).
 function localDate() {
   const today = new Date();
   return new Date(today.getTime() - today.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 }
 
+// Component hộp thoại; điền sẵn tên món và dinh dưỡng ước tính từ kết quả quét.
 export default function ScanDiaryDialog({ result, userId, onClose, onSaved }) {
   const [error, setError] = useState('');
+  // active tránh set state sau khi dialog đã đóng; saving chặn gửi trùng.
   const active = useRef(true);
   const saving = useRef(false);
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(schema), defaultValues: {
@@ -32,6 +38,7 @@ export default function ScanDiaryDialog({ result, userId, onClose, onSaved }) {
   } });
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
+  // Lưu mục nhật ký qua API rồi báo cho component cha.
   async function save(entry) {
     if (!userId || saving.current) return;
     saving.current = true; setError('');
@@ -43,6 +50,7 @@ export default function ScanDiaryDialog({ result, userId, onClose, onSaved }) {
     } finally { saving.current = false; }
   }
 
+  // Khi đang lưu thì không cho đóng dialog để tránh mất kết quả lưu.
   return <Modal show onHide={isSubmitting ? undefined : onClose} backdrop={isSubmitting ? 'static' : true} keyboard={!isSubmitting} aria-labelledby="scan-diary-title">
     <Modal.Header closeButton={!isSubmitting}><Modal.Title id="scan-diary-title">Lưu món ăn vào nhật ký</Modal.Title></Modal.Header>
     {!userId ? <Modal.Body><Alert variant="info">Vui lòng đăng nhập để lưu nhật ký.</Alert><Button as={Link} to="/dang-nhap">Đăng nhập</Button></Modal.Body> : <Form noValidate onSubmit={(event) => handleSubmit(save)(event)}>

@@ -1,7 +1,9 @@
 ﻿// client/src/components/layout/Footer.jsx
+// Chân trang của site: logo, liên kết nhanh và bản quyền.
 import { Container, Nav } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Component chân trang.
 export default function Footer() {
   return (
     <footer className="cx-site-footer">

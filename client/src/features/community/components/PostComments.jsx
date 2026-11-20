@@ -1,16 +1,20 @@
 // D:/SWP391/SWP391/client/src/features/community/components/PostComments.jsx
+// Modal xem danh sách bình luận của một bài viết, gửi bình luận mới và báo cáo bình luận vi phạm.
 import { useState } from 'react';
 import { Alert, Button, Form, Modal, Spinner } from 'react-bootstrap';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
+// Schema validate nội dung bình luận (bắt buộc, tối đa 5000 ký tự).
 const COMMENT_SCHEMA = z.object({ content: z.string().trim().min(1, 'Vui lòng nhập bình luận.').max(5000) });
 
+// Component modal bình luận; onComment trả về jobId khi bình luận cần chờ kiểm duyệt.
 export default function PostComments({ post, user, onClose, onComment, onReport, show = true }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({ resolver: zodResolver(COMMENT_SCHEMA) });
+  // Gửi bình luận; nếu server tạo job kiểm duyệt thì báo người dùng bình luận đang chờ duyệt.
   async function submit(values) {
     setError(''); setNotice('');
     try {

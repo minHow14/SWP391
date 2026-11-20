@@ -1,7 +1,9 @@
 // D:/SWP391/SWP391/server/tests/videoRecipeSummaryAi.test.js
+// Kiểm thử client gọi AI Service để lấy transcript (qua SSE) và tóm tắt công thức từ video.
 import { describe, expect, it, vi } from 'vitest';
 import { createVideoRecipeSummaryAiService } from '../src/services/videoRecipeSummaryAiService.js';
 
+// Dữ liệu mẫu: job, metadata, transcript, cấu hình; `events` dựng luồng SSE giả, `service` tạo client với fetch giả.
 const JOB = { id: 'job-fixture', videoId: 'AbCdEfGhI12', videoUrl: 'https://www.youtube.com/watch?v=AbCdEfGhI12' };
 const METADATA = { videoId: JOB.videoId, title: 'Video fixture', durationSeconds: 1 };
 const TRANSCRIPT = { language: 'vi', durationSeconds: 1, segments: [{ startSeconds: 0, endSeconds: 1, text: 'Xào nấm.' }] };
@@ -9,7 +11,9 @@ const CONFIG = { url: 'http://127.0.0.1:8000', internalApiKey: 'unit-test-intern
 const events = (items) => new Response(items.map(([name, data]) => `event: ${name}\ndata: ${JSON.stringify(data)}\n\n`).join(''), { headers: { 'Content-Type': 'text/event-stream' } });
 const service = (fetchImpl, extra = {}) => createVideoRecipeSummaryAiService({ fetchImpl, config: CONFIG, ...extra });
 
+// Nhóm test: giao tiếp nội bộ BE ↔ AI cho tóm tắt video.
 describe('video recipe internal AI transport', () => {
+  // Gửi thời lượng video đã xác minh (không chọn mô hình STT), kèm khóa nội bộ, cấm redirect và báo tiến độ lấy phụ đề.
   it('sends the verified video duration without an STT model and consumes caption progress', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(events([
       ['progress', { stage: 'FETCHING_CAPTIONS' }], ['done', { success: true, data: { transcript: TRANSCRIPT } }],
@@ -24,6 +28,7 @@ describe('video recipe internal AI transport', () => {
       durationSeconds: 1, language: 'vi', maxDurationSeconds: 660 });
     expect(onStage.mock.calls.map(([stage]) => stage)).toEqual(['FETCHING_CAPTIONS']);
   });
+  // Luồng thiếu sự kiện done, thiếu/sai giai đoạn hoặc có sự kiện lỗi upstream đều phải bị từ chối.
   it('rejects missing completion, missing stage, invalid stage and upstream error events', async () => {
     for (const items of [[], [['progress', { stage: 'SUMMARIZING' }]], [['progress', { stage: 'FETCHING_AUDIO' }]],
       [['progress', { stage: 'TRANSCRIBING' }]], [['done', { success: true, data: { transcript: TRANSCRIPT } }]],
@@ -31,6 +36,8 @@ describe('video recipe internal AI transport', () => {
       await expect(service(vi.fn().mockResolvedValue(events(items))).transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toHaveProperty('errorCode');
     }
   });
+  // Lỗi phụ đề an toàn (không có, bị chặn, quá thời gian) giữ mã lỗi và thông báo tiếng Việt thân thiện,
+  // không lộ chi tiết từ nhà cung cấp; chỉ timeout là có thể thử lại.
   it.each([
     ['VIDEO_CAPTIONS_UNAVAILABLE', 'Video chưa có phụ đề phù hợp', 422, false],
     ['VIDEO_CAPTIONS_BLOCKED', 'YouTube đang chặn truy cập phụ đề. Vui lòng thử lại sau.', 503, false],
@@ -43,12 +50,14 @@ describe('video recipe internal AI transport', () => {
       errorCode, message, statusCode, retryable,
     });
   });
+  // Tôn trọng header Retry-After khi bị giới hạn tốc độ và ẩn thông báo lỗi của nhà cung cấp.
   it('honors Retry-After and hides provider error messages', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(new Response('PRIVATE_PROVIDER_DETAIL', { status: 429, headers: { 'Retry-After': '60' } }));
     await expect(service(fetchImpl).summarize({ job: JOB, transcript: TRANSCRIPT })).rejects.toMatchObject({
       errorCode: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs: 60_000,
     });
   });
+  // Thời gian chờ (cooldown) báo trong luồng SSE sau khi đã bắt đầu cũng phải được giữ.
   it('preserves provider cooldown reported after a transcription stream starts', async () => {
     const client = service(vi.fn().mockResolvedValue(events([
       ['progress', { stage: 'FETCHING_CAPTIONS' }],
@@ -58,26 +67,31 @@ describe('video recipe internal AI transport', () => {
       errorCode: 'VIDEO_AI_RATE_LIMITED', retryable: true, retryAfterMs: 120_000,
     });
   });
+  // Cooldown không hợp lệ (âm, chuỗi, vượt giới hạn setTimeout) bị từ chối thay vì thử lại quá sớm.
   it.each([-1, '120000', 2_147_483_648])('rejects invalid streaming cooldown %s instead of retrying early', async (retryAfterMs) => {
     const client = service(vi.fn().mockResolvedValue(events([
       ['progress', { stage: 'FETCHING_CAPTIONS' }], ['error', { errorCode: 'VIDEO_AI_RATE_LIMITED', retryAfterMs }],
     ])));
     await expect(client.transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_INVALID_OUTPUT');
   });
+  // Endpoint nội bộ trả 401/403/404 được quy về lỗi dịch vụ 503 rõ ràng.
   it.each([401, 403, 404])('maps unavailable internal endpoint %s to an explicit service error', async (status) => {
     const client = service(vi.fn().mockResolvedValue(new Response('SECRET', { status })));
     await expect(client.summarize({ job: JOB, transcript: TRANSCRIPT })).rejects.toHaveProperty('statusCode', 503);
   });
+  // Giới hạn tổng kích thước phản hồi (tối đa 1MB) để chống cạn bộ nhớ.
   it('bounds total upstream response size', async () => {
     const response = new Response('x'.repeat(1_048_577), { headers: { 'Content-Type': 'application/json' } });
     await expect(service(vi.fn().mockResolvedValue(response)).summarize({ job: JOB, transcript: TRANSCRIPT })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_INVALID_OUTPUT');
   });
+  // Body bị treo phải bị hủy khi hết thời gian chờ.
   it('cancels a stalled response body on timeout', async () => {
     const cancel = vi.fn();
     const response = new Response(new ReadableStream({ cancel }), { headers: { 'Content-Type': 'application/json' } });
     await expect(service(vi.fn().mockResolvedValue(response), { timeoutMs: 20 }).summarize({ job: JOB, transcript: TRANSCRIPT })).rejects.toHaveProperty('errorCode', 'VIDEO_AI_TIMEOUT');
     expect(cancel).toHaveBeenCalled();
   });
+  // Nhận sự kiện done là kết thúc và hủy luồng ngay, không chờ server đóng kết nối.
   it('finishes and cancels the stream on done without waiting for the server to close it', async () => {
     const cancel = vi.fn();
     const wire = [
@@ -88,6 +102,7 @@ describe('video recipe internal AI transport', () => {
     await expect(service(vi.fn().mockResolvedValue(response), { timeoutMs: 40 }).transcribe({ job: JOB, metadata: METADATA, onStage: vi.fn() })).resolves.toEqual(TRANSCRIPT);
     expect(cancel).toHaveBeenCalled();
   });
+  // Thiếu khóa nội bộ thì không được gửi request ra ngoài.
   it('refuses outbound calls when the internal key is missing', async () => {
     const fetchImpl = vi.fn();
     const client = createVideoRecipeSummaryAiService({ fetchImpl, config: { ...CONFIG, internalApiKey: undefined } });

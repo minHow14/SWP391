@@ -1,4 +1,5 @@
 /* D:/SWP391/SWP391/client/src/features/restaurants/styles/restaurantImage.css */
+/* Style cho component RestaurantImage: khung ảnh thật, các biến thể kích thước và ảnh fallback theo loại quán. */
 
 .cx-rest-img-frame {
   position: relative;

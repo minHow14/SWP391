@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/comment.service.js
+// Nghiệp vụ bình luận bài viết: tạo (kèm kiểm duyệt AI và thông báo), liệt kê, sửa và xóa mềm.
 import { commentRepository } from '../repositories/comment.repository.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -9,6 +10,7 @@ import { notificationService } from './notification.service.js';
 import { contentModerationService } from './contentModerationService.js';
 import { contentModerationRepository } from '../repositories/contentModerationRepository.js';
 
+// Chỉ lấy ID và tên người bình luận, không lộ email/thông tin nhạy cảm khác.
 const COMMENT_AUTHOR_INCLUDE = { user: { select: { user_id: true, full_name: true } } };
 
 export const commentService = {
@@ -24,6 +26,7 @@ export const commentService = {
       throw ApiError.badRequest('Valid post_id, user_id, and content are required');
     }
 
+    // Chỉ cho bình luận vào bài đã đăng và chưa bị xóa.
     const targetPost = await postRepository.findPostById(numericPostId);
     if (!targetPost || targetPost.status !== POST_STATUS.PUBLISHED || targetPost.deleted_at) {
       throw ApiError.notFound('Target post not found or has been deleted');
@@ -34,6 +37,7 @@ export const commentService = {
       throw ApiError.notFound('Commenter user not found');
     }
 
+    // Tạo bình luận và đưa vào hàng đợi kiểm duyệt trong cùng transaction để không có bình luận nào lọt qua kiểm duyệt.
     const newComment = await contentModerationRepository.transaction(async (tx) => {
       const comment = await commentRepository.create({
         post_id: numericPostId,
@@ -47,6 +51,7 @@ export const commentService = {
     });
 
     // Gửi thông báo đến tác giả bài viết nếu người bình luận không phải chính tác giả
+    // Chỉ thông báo khi bình luận đang hiển thị (không chờ kiểm duyệt); gửi bất đồng bộ để lỗi thông báo không ảnh hưởng phản hồi.
     if (newComment.status === COMMENT_STATUS.ACTIVE && targetPost.author_id && targetPost.author_id !== numericUserId) {
       const commenterName = authorUser.full_name || 'Một thành viên';
       const snippet = content.trim().length > 40 ? `${content.trim().slice(0, 40)}...` : content.trim();
@@ -78,6 +83,7 @@ export const commentService = {
       status: COMMENT_STATUS.ACTIVE,
     };
 
+    // Có truyền page/limit thì trả dạng phân trang; không thì trả toàn bộ để tương thích client cũ. Tối đa 100 mục mỗi trang.
     const hasPagination = query.page !== undefined || query.limit !== undefined;
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
@@ -140,6 +146,7 @@ export const commentService = {
     }
 
     return contentModerationRepository.transaction(async (tx) => {
+      // Khóa dòng bình luận để hai lần sửa đồng thời không ghi đè nhau.
       await commentRepository.lockForUpdate(commentId, tx);
       const comment = await commentRepository.findById(commentId, COMMENT_AUTHOR_INCLUDE, tx);
       if (!comment || comment.deleted_at || ![COMMENT_STATUS.ACTIVE, COMMENT_STATUS.PENDING_MODERATION].includes(comment.status)) {
@@ -148,8 +155,10 @@ export const commentService = {
       if (currentUser && comment.user_id !== currentUser.user_id) {
         throw ApiError.forbidden('Bạn chỉ có thể chỉnh sửa bình luận của chính mình');
       }
+      // Nội dung không đổi thì không kiểm duyệt lại, tránh tốn lượt AI.
       if (comment.content === content.trim()) return comment;
       const updated = await commentRepository.update(commentId, { content: content.trim() }, COMMENT_AUTHOR_INCLUDE, tx);
+      // Sửa nội dung phải kiểm duyệt lại từ đầu.
       const moderation = await contentModerationService.queueComment({ comment: updated }, tx);
       return { ...updated, ...moderation };
     });
@@ -177,6 +186,7 @@ export const commentService = {
       throw ApiError.notFound('Comment not found');
     }
 
+    // currentUser rỗng nghĩa là lời gọi nội bộ của hệ thống, nên bỏ qua kiểm tra quyền.
     if (currentUser) {
       const isCommentAuthor = comment.user_id === currentUser.user_id;
       const isPostAuthor = comment.post?.author_id === currentUser.user_id;
@@ -187,6 +197,7 @@ export const commentService = {
       }
     }
 
+    // Xóa lại bình luận đã xóa được coi là thành công (idempotent).
     if (comment.status === COMMENT_STATUS.DELETED) {
       return { message: 'Comment is already deleted' };
     }

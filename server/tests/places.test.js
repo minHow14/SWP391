@@ -1,3 +1,4 @@
+// Kiểm thử API tìm quán chay gần đây và tìm theo món, kèm bổ sung kết quả từ ZIOMAP (Prisma và fetch được mock).
 import { test, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import assert from 'node:assert/strict';
 import request from 'supertest';
@@ -6,7 +7,7 @@ import placesRoutes from '../src/routes/places.route.js';
 import { clearZiomapCache, normalize, isVegetarianPlace } from '../src/services/places.service.js';
 import prisma from '../src/config/prisma.js';
 
-// Fixed records isolate route/search tests from the user's live database.
+// Dữ liệu cố định tách biệt test route/tìm kiếm khỏi database thật của người dùng.
 const fixtures=Array.from({length:7},(_,index)=>({restaurant_id:index+1,name:`Quán Chay Kiểm Thử ${index+1}`,address:'Quận 1, TP.HCM',latitude:10.7769+index*.002,longitude:106.7009,phone:null,rating:4.5,image_url:null,diet_type_id:1,diet_type:{name:'Vegan'},restaurant_recipes:([{recipe:{recipe_name:'Đậu hũ kho'}}]).concat([1,3,4,7].includes(index+1)?[{recipe:{recipe_name:'Salad Bơ'}}]:[])}));
 const app = express();
 app.use('/api/places', placesRoutes);
@@ -17,12 +18,14 @@ const TEST_KEY = 'test-ziomap-key';
 
 const originalFetch = globalThis.fetch;
 
+// Mỗi test dùng dữ liệu cố định, xóa cache và không có API key ZIOMAP trừ khi test tự đặt.
 beforeEach(() => {
   vi.spyOn(prisma.restaurant,'findMany').mockResolvedValue(fixtures);
   clearZiomapCache();
   delete process.env.ZIOMAP_API_KEY;
 });
 
+// Khôi phục mock, fetch gốc và xóa API key sau mỗi test.
 afterEach(() => {
   vi.restoreAllMocks();
   globalThis.fetch = originalFetch;
@@ -33,12 +36,15 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+// Tạo hàm fetch giả trả danh sách địa điểm từ ZIOMAP.
 const ziomapReply = (places) => async () => ({ ok: true, status: 200, json: async () => ({ places }) });
 
+// Chuẩn hóa chuỗi phải bỏ dấu tiếng Việt để tìm kiếm không dấu.
 test('normalize bỏ dấu tiếng Việt', () => {
   assert.equal(normalize('Phở Chay Đặc Biệt'), 'pho chay dac biet');
 });
 
+// Danh sách gần đây chỉ gồm quán trong bán kính, sắp xếp gần đến xa, đúng định dạng response chung kèm requestId.
 test('nearby trả quán trong bán kính, xếp từ gần đến xa, theo envelope chuẩn', async () => {
   const res = await request(app).get('/api/places/nearby').query({ ...DISTRICT_1, radius_km: 3, limit: 20 });
   assert.equal(res.status, 200);
@@ -55,6 +61,7 @@ test('nearby trả quán trong bán kính, xếp từ gần đến xa, theo enve
   assert.ok(places.every((p) => p.maps_url.startsWith('https://www.google.com/maps/search/')));
 });
 
+// Không gọi ZIOMAP khi DB đã đủ kết quả (tiết kiệm chi phí API).
 test('nearby không gọi ZIOMAP khi DB đã đủ kết quả', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   let calls = 0;
@@ -69,6 +76,7 @@ test('nearby không gọi ZIOMAP khi DB đã đủ kết quả', async () => {
   assert.equal(calls, 0);
 });
 
+// Thiếu hoặc sai tọa độ trả 400 INVALID_INPUT.
 test('nearby thiếu hoặc sai toạ độ trả 400 INVALID_INPUT', async () => {
   for (const query of [{}, { lat: 10.7 }, { lat: 'abc', lng: 106 }, { lat: 200, lng: 106 }]) {
     const res = await request(app).get('/api/places/nearby').query(query);
@@ -79,6 +87,7 @@ test('nearby thiếu hoặc sai toạ độ trả 400 INVALID_INPUT', async () =
   }
 });
 
+// Tìm theo tên món không dấu và sắp xếp theo khoảng cách.
 test('search tìm quán theo tên món không dấu và sắp xếp theo khoảng cách', async () => {
   const res = await request(app).get('/api/places/search').query({ q: 'salad', ...DISTRICT_1 });
   assert.equal(res.status, 200);
@@ -91,6 +100,7 @@ test('search tìm quán theo tên món không dấu và sắp xếp theo khoản
   assert.ok(places.every((p) => p.distance_m !== null));
 });
 
+// Bỏ từ chung "chay" khi tìm để chỉ trả quán thực sự có món.
 test('search bỏ từ chung "chay": chỉ trả quán thật sự có món', async () => {
   const res = await request(app).get('/api/places/search').query({ q: 'salad chay', ...DISTRICT_1 });
   assert.equal(res.status, 200);
@@ -99,12 +109,14 @@ test('search bỏ từ chung "chay": chỉ trả quán thật sự có món', as
   assert.ok(places.every((p) => p.matched_dishes.length > 0), JSON.stringify(places.map((p) => p.name)));
 });
 
+// Nếu chỉ có từ chung thì vẫn tìm theo tên quán.
 test('search chỉ có từ chung vẫn tìm theo tên quán', async () => {
   const res = await request(app).get('/api/places/search').query({ q: 'chay' });
   assert.equal(res.status, 200);
   assert.ok(res.body.data.places.length > 0);
 });
 
+// Tìm kiếm không bắt buộc vị trí; khi đó khoảng cách là null.
 test('search chỉ cần từ khoá, không bắt buộc vị trí', async () => {
   const res = await request(app).get('/api/places/search').query({ q: 'dau hu' });
   assert.equal(res.status, 200);
@@ -112,6 +124,7 @@ test('search chỉ cần từ khoá, không bắt buộc vị trí', async () =>
   assert.ok(res.body.data.places.every((p) => p.distance_m === null));
 });
 
+// Thiếu q hoặc chỉ có lat (thiếu lng) trả 400.
 test('search thiếu q hoặc chỉ có lat trả 400', async () => {
   assert.equal((await request(app).get('/api/places/search')).status, 400);
   const res = await request(app).get('/api/places/search').query({ q: 'chay', lat: 10.7 });
@@ -119,6 +132,7 @@ test('search thiếu q hoặc chỉ có lat trả 400', async () => {
   assert.equal(res.body.error.code, 'INVALID_INPUT');
 });
 
+// Bổ sung từ ZIOMAP khi DB không có quán gần; key gửi qua header, chỉ xin trường cần thiết và kết quả được cache.
 test('bổ sung từ ZIOMAP khi DB không có quán gần, kết quả được cache', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   let calls = 0;
@@ -157,6 +171,7 @@ test('bổ sung từ ZIOMAP khi DB không có quán gần, kết quả được 
   assert.equal(calls, 1);
 });
 
+// Chỉ xin ZIOMAP đúng số quán còn thiếu so với kết quả DB.
 test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   let requested;
@@ -172,6 +187,7 @@ test('chỉ xin ZIOMAP đúng số quán còn thiếu so với DB', async () => 
   assert.equal(Number(requested), 10 - local);
 });
 
+// Loại quán ZIOMAP ngoài bán kính vì locationBias chỉ ưu tiên chứ không giới hạn vùng.
 test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không giới hạn vùng)', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = ziomapReply([
@@ -191,6 +207,7 @@ test('nearby loại quán ZIOMAP nằm ngoài bán kính (locationBias không gi
   assert.deepEqual(res.body.data.places.map((p) => p.place_id), ['near']);
 });
 
+// Quán ZIOMAP thiếu hoặc sai tọa độ bị bỏ qua mà không làm hỏng response.
 test('quán ZIOMAP thiếu toạ độ bị bỏ qua, không làm hỏng response', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = ziomapReply([
@@ -203,6 +220,7 @@ test('quán ZIOMAP thiếu toạ độ bị bỏ qua, không làm hỏng respons
   assert.deepEqual(res.body.data.places.map((p) => p.place_id), ['ok']);
 });
 
+// ZIOMAP trả trang không phải JSON thì vẫn dùng kết quả DB.
 test('ZIOMAP trả trang không phải JSON thì vẫn dùng kết quả DB', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => ({
@@ -218,6 +236,7 @@ test('ZIOMAP trả trang không phải JSON thì vẫn dùng kết quả DB', as
   assert.ok(res.body.data.places.length > 0);
 });
 
+// ZIOMAP lỗi và DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR.
 test('ZIOMAP lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_ERROR', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => ({ ok: false, status: 403, json: async () => ({}) });
@@ -227,6 +246,7 @@ test('ZIOMAP lỗi mà DB không có kết quả thì trả 502 PLACES_PROVIDER_
   assert.ok(res.body.meta.requestId);
 });
 
+// ZIOMAP lỗi nhưng DB có kết quả thì vẫn trả 200 và báo unavailable.
 test('ZIOMAP lỗi nhưng DB có kết quả thì vẫn trả 200 và báo unavailable', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () => {
@@ -238,6 +258,7 @@ test('ZIOMAP lỗi nhưng DB có kết quả thì vẫn trả 200 và báo unava
   assert.ok(res.body.data.places.length > 0);
 });
 
+// Không tìm thấy trong DB thì hỏi ZIOMAP với từ khóa kèm "chay".
 test('search không có trong DB thì hỏi ZIOMAP kèm từ "chay"', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   let textQuery;
@@ -250,6 +271,7 @@ test('search không có trong DB thì hỏi ZIOMAP kèm từ "chay"', async () =
   assert.equal(textQuery, 'lẩu thái chay');
 });
 
+// Giữ nguyên X-Request-Id do client gửi.
 test('X-Request-Id của client được giữ nguyên', async () => {
   const res = await request(app)
     .get('/api/places/nearby')
@@ -258,6 +280,7 @@ test('X-Request-Id của client được giữ nguyên', async () => {
   assert.equal(res.body.meta.requestId, 'req_from_client');
 });
 
+// Truyền vị trí người dùng thì mỗi địa điểm có thêm khoảng cách tới người dùng.
 test('nearby hỗ trợ user_lat và user_lng để trả về user_distance_m cho từng địa điểm', async () => {
   const userPos = { user_lat: 10.7500, user_lng: 106.6500 };
   const res = await request(app)
@@ -271,6 +294,7 @@ test('nearby hỗ trợ user_lat và user_lng để trả về user_distance_m c
   assert.ok(places.every((p) => typeof p.user_distance_m === 'number' && p.user_distance_m > 0));
 });
 
+// Bán kính tùy chỉnh được tôn trọng.
 test('nearby hỗ trợ bán kính tìm kiếm tùy chỉnh radius_km', async () => {
   const resSmall = await request(app)
     .get('/api/places/nearby')
@@ -280,6 +304,7 @@ test('nearby hỗ trợ bán kính tìm kiếm tùy chỉnh radius_km', async ()
   assert.ok(placesSmall.every((p) => p.distance_m <= 500));
 });
 
+// Lọc theo chế độ ăn diet_type_id.
 test('nearby hỗ trợ lọc theo chế độ ăn diet_type_id', async () => {
   const res = await request(app)
     .get('/api/places/nearby')
@@ -289,6 +314,7 @@ test('nearby hỗ trợ lọc theo chế độ ăn diet_type_id', async () => {
   assert.ok(res.body.data.places.every((p) => p.diet_type_id === 1));
 });
 
+// Quán chưa có ảnh thật thì giữ ảnh null, không gán ảnh minh họa.
 test('nearby giữ ảnh trống khi quán chưa có ảnh thực tế', async () => {
   const res = await request(app)
     .get('/api/places/nearby')
@@ -299,6 +325,8 @@ test('nearby giữ ảnh trống khi quán chưa có ảnh thực tế', async (
   assert.ok(places.every((p) => p.image_url === null));
 });
 
+// Bộ lọc quán chay nhận đúng quán chay/cửa hàng chay và loại tiệm nail, spa, yoga, quán thịt
+// (kể cả tên chứa "mani"/"chạy" dễ nhầm).
 test('isVegetarianPlace lọc chính xác quán chay thật và loại bỏ tiệm nail, spa, yoga, quán thịt', () => {
   assert.equal(isVegetarianPlace({ name: 'Nhà Hàng Chay Hum Vegetarian', address: 'Quận 3' }), true);
   assert.equal(isVegetarianPlace({ name: 'Siêu Thị Thực Phẩm Chay Âu Lạc', isIngredientShop: true }), true);
@@ -325,6 +353,7 @@ test('isVegetarianPlace lọc chính xác quán chay thật và loại bỏ ti�
   assert.equal(isVegetarianPlace({ name: '36/59 nguyễn gia trí', address: '36/59 Nguyễn Gia Trí' }), false);
 });
 
+// Kết quả ZIOMAP tự động loại các địa điểm không phải quán chay.
 test('ZIOMAP tự động loại bỏ các địa điểm phi chay không phải quán chay', async () => {
   process.env.ZIOMAP_API_KEY = TEST_KEY;
   globalThis.fetch = async () =>

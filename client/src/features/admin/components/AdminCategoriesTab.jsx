@@ -1,4 +1,5 @@
 ﻿// client/src/features/admin/components/AdminCategoriesTab.jsx
+// Tab "Quản lý danh mục": liệt kê, lọc, tạo/sửa/xóa danh mục dùng chung cho công thức món ăn và blog.
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Table, Button, Form, Spinner, Alert, Row, Col, Nav } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -7,10 +8,13 @@ import AdminCategoryRow from './AdminCategoryRow.jsx';
 import AdminCategoryPreviewModal from './AdminCategoryPreviewModal.jsx';
 import AdminCategoryFormModal from './AdminCategoryFormModal.jsx';
 
+// Kiểm tra danh mục có đang được dùng cho loại nội dung (RECIPE hoặc BLOG) hay không.
+// Ưu tiên mảng quan hệ đầy đủ, nếu API chỉ trả `_count` thì dùng số đếm.
 const hasCategoryUsage = (cat, type) => type === 'RECIPE'
   ? (cat.recipes?.length ?? cat._count?.recipes ?? 0) > 0
   : (cat.post_categories?.length ?? cat._count?.post_categories ?? 0) > 0;
 
+// Component tab quản lý danh mục.
 export default function AdminCategoriesTab() {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,6 +31,7 @@ export default function AdminCategoriesTab() {
   const [categoryName, setCategoryName] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Tải toàn bộ danh mục từ server.
   const fetchCategories = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -44,11 +49,13 @@ export default function AdminCategoriesTab() {
     fetchCategories();
   }, [fetchCategories]);
 
+  // Tải lại khi danh mục bị thay đổi ở tab/cửa sổ khác.
   useEffect(() => {
     const unsubscribe = subscribeSyncEvent('CATEGORY_CHANGED', fetchCategories);
     return unsubscribe;
   }, [fetchCategories]);
 
+  // Mở/thu gọn dòng chi tiết của danh mục; tạo Set mới để React nhận ra state thay đổi.
   const toggleExpand = (catId) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -58,9 +65,11 @@ export default function AdminCategoriesTab() {
     });
   };
 
+  // Số danh mục đang dùng cho từng nhóm, hiển thị trên thanh chuyển nhóm.
   const recipeCount = useMemo(() => categories.filter((c) => hasCategoryUsage(c, 'RECIPE')).length, [categories]);
   const blogCount = useMemo(() => categories.filter((c) => hasCategoryUsage(c, 'BLOG')).length, [categories]);
 
+  // Lọc danh mục theo từ khóa (không phân biệt hoa thường) và theo nhóm đang chọn.
   const filteredCategories = useMemo(() => {
     return categories.filter((cat) => {
       const matchSearch = cat.name.toLowerCase().includes(search.trim().toLowerCase());
@@ -69,6 +78,7 @@ export default function AdminCategoriesTab() {
     });
   }, [categories, search, typeFilter]);
 
+  // Mở modal ở chế độ tạo mới.
   const handleOpenCreate = () => {
     setModalMode('CREATE');
     setActiveCategory(null);
@@ -76,6 +86,7 @@ export default function AdminCategoriesTab() {
     setShowModal(true);
   };
 
+  // Mở modal ở chế độ sửa, điền sẵn tên danh mục hiện tại.
   const handleOpenEdit = (cat) => {
     setModalMode('EDIT');
     setActiveCategory(cat);
@@ -83,6 +94,7 @@ export default function AdminCategoriesTab() {
     setShowModal(true);
   };
 
+  // Lưu danh mục (tạo hoặc cập nhật tùy chế độ modal) rồi phát sự kiện đồng bộ.
   const handleSave = async (e) => {
     e.preventDefault();
     if (!categoryName.trim()) return;
@@ -102,6 +114,7 @@ export default function AdminCategoriesTab() {
     }
   };
 
+  // Xóa danh mục sau khi Admin xác nhận.
   const handleDelete = async (cat) => {
     if (!window.confirm(`Bạn có chắc muốn xóa danh mục "${cat.name}"?`)) return;
     try {
@@ -114,6 +127,7 @@ export default function AdminCategoriesTab() {
     }
   };
 
+  // Mở modal xem nhanh công thức hoặc bài viết thuộc danh mục.
   const handlePreview = (item, type) => {
     setPreviewItem(item);
     setPreviewType(type);

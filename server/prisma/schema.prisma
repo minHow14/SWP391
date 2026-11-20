@@ -1,20 +1,28 @@
 // D:/SWP391/SWP391/server/prisma/schema.prisma
+// Lược đồ cơ sở dữ liệu PostgreSQL của Back-end (Prisma): định nghĩa toàn bộ model, enum, quan hệ và chỉ mục.
+// Lưu ý: một số model cũ dùng tên trường snake_case trực tiếp, các model mới dùng camelCase kèm @map.
+// Cấu hình sinh Prisma Client cho Node.js.
 generator client {
   provider = "prisma-client-js"
 }
 
+// Nguồn dữ liệu PostgreSQL, chuỗi kết nối đọc từ biến môi trường DATABASE_URL.
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
+// Người dùng hệ thống (khách hàng, quản trị viên...), là gốc của hầu hết quan hệ khác.
 model User {
   user_id          Int             @id @default(autoincrement())
   email            String          @unique @db.VarChar(255)
   password_hash    String          @db.VarChar(255)
+  // Tăng khi cần thu hồi phiên (ví dụ đổi mật khẩu) để vô hiệu hoá các JWT đã cấp trước đó.
   tokenVersion     Int             @default(0) @map("token_version")
   full_name        String          @db.VarChar(255)
+  // Mã vai trò dạng số (xem constants/roles.js); mặc định 2 là người dùng thường.
   role             Int             @default(2) @db.SmallInt
+  // Trạng thái tài khoản (ACTIVE, ...); dùng cùng deleted_at để hỗ trợ xoá mềm.
   status           String          @default("ACTIVE") @db.VarChar(20)
   deleted_at       DateTime?       @db.Timestamptz(6)
   created_at       DateTime?       @default(now()) @db.Timestamptz(6)
@@ -35,20 +43,27 @@ model User {
   passwordResetTokens PasswordResetToken[]
   passwordResetOtp PasswordResetOtp?
 
+  // Chỉ mục phục vụ lọc người dùng còn hoạt động / đã xoá mềm.
   @@index([email], map: "idx_users_email")
   @@index([status, deleted_at], map: "idx_users_deleted_at")
   @@map("users")
 }
 
 
+// Mã OTP đặt lại mật khẩu; mỗi người dùng chỉ có tối đa một OTP hiệu lực tại một thời điểm.
 model PasswordResetOtp {
   id           String    @id @default(uuid()) @db.Uuid
   userId       Int       @unique(map: "uq_password_reset_otps_user") @map("user_id")
+  // Chỉ lưu HMAC-SHA256 của OTP, không bao giờ lưu mã gốc.
   otpHash      String    @map("otp_hash") @db.VarChar(64)
+  // Chụp lại tokenVersion lúc cấp OTP để OTP tự mất hiệu lực nếu mật khẩu đã đổi bằng cách khác.
   tokenVersion Int       @map("token_version")
+  // Số lần nhập sai, dùng để khoá OTP khi vượt ngưỡng chống dò mã.
   attempts     Int       @default(0)
   expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
+  // Thời điểm gửi gần nhất, dùng để giới hạn tần suất gửi lại OTP.
   lastSentAt   DateTime  @map("last_sent_at") @db.Timestamptz(6)
+  // Khác null nghĩa là OTP đã được dùng, không cho dùng lại.
   consumedAt   DateTime? @map("consumed_at") @db.Timestamptz(6)
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -57,10 +72,13 @@ model PasswordResetOtp {
   @@map("password_reset_otps")
 }
 
+// Token (liên kết) đặt lại mật khẩu gửi qua email, dùng một lần.
 model PasswordResetToken {
   id           String    @id @default(uuid()) @db.Uuid
   userId       Int       @map("user_id")
+  // Chỉ lưu hash của token để lộ DB cũng không dùng được token.
   tokenHash    String    @unique(map: "uq_password_reset_tokens_hash") @map("token_hash") @db.VarChar(64)
+  // Chụp tokenVersion để token mất hiệu lực khi mật khẩu đổi trước khi token được dùng.
   tokenVersion Int       @map("token_version")
   expiresAt    DateTime  @map("expires_at") @db.Timestamptz(6)
   consumedAt   DateTime? @map("consumed_at") @db.Timestamptz(6)
@@ -68,10 +86,12 @@ model PasswordResetToken {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   user         User      @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
 
+  // Hỗ trợ tra cứu token còn hạn theo người dùng.
   @@index([userId, expiresAt], map: "idx_password_reset_tokens_user_expiry")
   @@map("password_reset_tokens")
 }
 
+// Trạng thái của job tóm tắt công thức từ video.
 enum VideoRecipeSummaryJobStatus {
   PENDING
   PROCESSING
@@ -79,6 +99,7 @@ enum VideoRecipeSummaryJobStatus {
   FAILED
 }
 
+// Bước đang xử lý trong pipeline tóm tắt video (dùng để hiển thị tiến độ cho người dùng).
 enum VideoRecipeSummaryJobStage {
   VALIDATING_VIDEO
   FETCHING_CAPTIONS
@@ -88,19 +109,27 @@ enum VideoRecipeSummaryJobStage {
   SAVING_RESULT
 }
 
+// Job nền tóm tắt công thức nấu ăn từ video YouTube (xử lý bởi videoRecipeSummaryWorker).
 model VideoRecipeSummaryJob {
   id             String                     @id @default(uuid()) @db.Uuid
   userId         Int                        @map("user_id")
+  // Chỉ có giá trị khi job đang chạy; unique để mỗi người dùng chỉ có một job hoạt động cùng lúc.
   activeUserId   Int?                       @unique(map: "uq_video_recipe_jobs_active_user") @map("active_user_id")
+  // ID video YouTube luôn dài 11 ký tự.
   videoId        String                     @map("video_id") @db.VarChar(11)
   videoUrl       String                     @map("video_url") @db.VarChar(255)
+  // Phiên bản pipeline; đổi phiên bản thì kết quả cũ không bị tái sử dụng.
   pipelineVersion String                    @map("pipeline_version") @db.VarChar(20)
   status         VideoRecipeSummaryJobStatus @default(PENDING)
   stage          VideoRecipeSummaryJobStage  @default(VALIDATING_VIDEO)
+  // Số lần đã thử xử lý, dùng cho cơ chế retry.
   attempt        Int                        @default(0)
+  // Thời điểm sớm nhất job được worker nhận (hỗ trợ trì hoãn khi retry).
   availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  // Cơ chế lease: worker giữ job bằng token, hết hạn lease thì worker khác có thể nhận lại (tránh job treo khi worker chết).
   leaseToken     String?                    @map("lease_token") @db.Uuid
   leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
+  // Dữ liệu trung gian/kết quả của pipeline (metadata video, transcript, công thức) lưu dạng JSON.
   metadata       Json?
   transcript     Json?
   recipe         Json?
@@ -111,25 +140,31 @@ model VideoRecipeSummaryJob {
   updatedAt      DateTime                   @updatedAt @map("updated_at") @db.Timestamptz(6)
   user           User                       @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
 
+  // Cache kết quả: cùng người dùng + video + phiên bản pipeline thì không tạo job mới.
   @@unique([userId, videoId, pipelineVersion], map: "uq_video_recipe_jobs_user_source_version")
+  // Chỉ mục cho truy vấn lấy job kế tiếp trong hàng đợi.
   @@index([status, availableAt, createdAt, id], map: "idx_video_recipe_jobs_queue")
+  // Chỉ mục cho việc thu hồi các job có lease đã hết hạn.
   @@index([status, leaseExpiresAt], map: "idx_video_recipe_jobs_expired_lease")
   @@index([userId, createdAt, id], map: "idx_video_recipe_jobs_user_created")
   @@map("video_recipe_summary_jobs")
 }
 
+// Trạng thái một lượt gọi AI.
 enum AiGenerationStatus {
   PROCESSING
   COMPLETED
   FAILED
 }
 
+// Loại tác vụ AI: chatbot, tạo thực đơn, quét món ăn.
 enum AiGenerationType {
   CHAT
   MEAL_PLAN
   FOOD_SCAN
 }
 
+// Nhật ký từng lượt gọi AI của người dùng (lưu request, prompt và response) phục vụ lịch sử và kiểm soát hạn mức.
 model AiGeneration {
   id              String             @id @default(uuid()) @db.Uuid
   userId          Int                @map("user_id")
@@ -137,6 +172,7 @@ model AiGeneration {
   status          AiGenerationStatus @default(PROCESSING)
   modelName       String             @map("model_name") @db.VarChar(100)
   requestPayload  Json               @map("request_payload")
+  // Danh sách message thực tế gửi cho mô hình, lưu lại để truy vết/kiểm tra kết quả.
   promptMessages  Json               @map("prompt_messages")
   responsePayload Json?              @map("response_payload")
   errorCode       String?            @map("error_code") @db.VarChar(100)
@@ -146,11 +182,13 @@ model AiGeneration {
   updatedAt       DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
   user            User               @relation(fields: [userId], references: [user_id], onDelete: Cascade, onUpdate: Cascade)
 
+  // Chỉ mục phục vụ phân trang lịch sử và đếm số lượt theo loại/trạng thái (hạn mức).
   @@index([userId, createdAt, id], map: "idx_ai_generations_user_created_at")
   @@index([userId, type, status, createdAt, id], map: "idx_ai_generations_user_type_status_created_at")
   @@map("ai_generations")
 }
 
+// Danh mục chế độ ăn (chay, thuần chay, ...), dùng chung cho hồ sơ sức khoẻ, công thức và nhà hàng.
 model DietType {
   diet_type_id    Int             @id @default(autoincrement()) @db.SmallInt
   name            String          @unique @db.VarChar(100)
@@ -162,6 +200,7 @@ model DietType {
   @@map("diet_types")
 }
 
+// Hồ sơ sức khoẻ 1-1 với người dùng: chỉ số cơ thể, mục tiêu và mục tiêu dinh dưỡng hằng ngày.
 model HealthProfile {
   profile_id   Int       @id @default(autoincrement())
   user_id      Int       @unique
@@ -170,7 +209,9 @@ model HealthProfile {
   weight       Float?    @db.Real
   dob          DateTime? @db.Date
   gender       String?   @db.VarChar(20)
+  // Mô tả mục tiêu sức khoẻ dạng tự do; trường goal bên dưới là mã mục tiêu chuẩn hoá.
   health_goal  String?   @db.VarChar(255)
+  // Mục tiêu calo/macro hằng ngày (kcal và gram).
   calorieGoal  Float?    @map("calorie_goal") @db.Real
   goal         String?   @db.VarChar(50)
   proteinGoal  Float?    @map("protein_goal") @db.Real
@@ -183,6 +224,7 @@ model HealthProfile {
   @@map("health_profiles")
 }
 
+// Lịch sử cân nặng/BMI theo thời gian để vẽ biểu đồ tiến trình.
 model HealthHistory {
   history_id    Int       @id @default(autoincrement())
   user_id       Int
@@ -194,6 +236,7 @@ model HealthHistory {
   @@map("health_histories")
 }
 
+// Bảng nối nhiều-nhiều: nguyên liệu mà người dùng bị dị ứng.
 model UserAllergy {
   user_id       Int
   ingredient_id Int
@@ -205,6 +248,7 @@ model UserAllergy {
   @@map("user_allergies")
 }
 
+// Danh mục bài viết/công thức.
 model Category {
   category_id     Int            @id @default(autoincrement())
   name            String         @unique @db.VarChar(100)
@@ -214,12 +258,17 @@ model Category {
   @@map("categories")
 }
 
+// Bài đăng cộng đồng (bảng cha); nội dung chi tiết nằm ở Blog hoặc Video theo post_type.
 model Post {
   post_id         Int            @id @default(autoincrement())
   author_id       Int
+  // Loại bài đăng (xem constants/postTypes.js).
   post_type       String         @db.VarChar(20)
+  // Trạng thái kiểm duyệt/hiển thị (PUBLISHED, PENDING_REVIEW, ...).
   status          String         @default("PUBLISHED") @db.VarChar(30)
+  // Lưu trạng thái trước khi tài khoản bị xoá để có thể khôi phục khi tài khoản được khôi phục.
   statusBeforeAccountDeletion String? @map("status_before_account_deletion") @db.VarChar(30)
+  // Tăng mỗi lần sửa nội dung; job kiểm duyệt chỉ áp kết quả nếu khớp phiên bản (tránh ghi đè bằng kết quả cũ).
   moderationVersion Int          @default(0) @map("moderation_version")
   contentModerationJobs ContentModerationJob[]
   deleted_at      DateTime?      @db.Timestamptz(6)
@@ -229,6 +278,7 @@ model Post {
   post_categories PostCategory[]
   post_votes      PostVote[]
   author          User           @relation(fields: [author_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
+  // Công thức được chia sẻ kèm bài đăng.
   recipe          Recipe[]
   reports         Report[]
   video           Video?
@@ -240,11 +290,13 @@ model Post {
   @@map("posts")
 }
 
+// Nội dung video của bài đăng (quan hệ 1-1, dùng chung khoá chính post_id).
 model Video {
   post_id           Int     @id
   title             String  @db.VarChar(255)
   video_url         String  @db.VarChar(500)
   thumbnail_url     String? @db.VarChar(500)
+  // Thời lượng video (giây).
   duration          Int?    @default(0)
   transcript        String?
   attached_in_blogs Blog[]
@@ -253,10 +305,12 @@ model Video {
   @@map("videos")
 }
 
+// Nội dung blog của bài đăng (quan hệ 1-1, dùng chung khoá chính post_id).
 model Blog {
   post_id           Int    @id
   title             String @db.VarChar(255)
   content           String
+  // Blog có thể đính kèm một video; xoá video thì chỉ gỡ liên kết (SetNull) chứ không xoá blog.
   attached_video_id Int?
   attached_video    Video? @relation(fields: [attached_video_id], references: [post_id], onDelete: SetNull, onUpdate: NoAction)
   post              Post   @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
@@ -264,6 +318,7 @@ model Blog {
   @@map("blogs")
 }
 
+// Bảng nối nhiều-nhiều giữa bài đăng và danh mục.
 model PostCategory {
   post_id     Int
   category_id Int
@@ -275,10 +330,12 @@ model PostCategory {
   @@map("post_categories")
 }
 
+// Tệp đính kèm (ảnh/video) của bài đăng.
 model PostAttachment {
   attachment_id Int       @id @default(autoincrement())
   post_id       Int
   file_url      String    @db.VarChar(500)
+  // Loại media, được chuẩn hoá về chữ thường (xem constants/postMedia.js).
   file_type     String    @db.VarChar(20)
   file_name     String?   @db.VarChar(255)
   created_at    DateTime? @default(now()) @db.Timestamptz(6)
@@ -288,14 +345,18 @@ model PostAttachment {
   @@map("post_attachments")
 }
 
+// Bình luận trên bài đăng, có kiểm duyệt nội dung bằng AI.
 model Comment {
   comment_id       Int       @id @default(autoincrement())
   post_id          Int
   user_id          Int
   content          String
+  // Cờ đánh dấu bình luận bị AI gắn nhãn vi phạm.
   is_flagged_by_ai Boolean?  @default(false)
   status           String    @default("ACTIVE") @db.VarChar(30)
+  // Lưu trạng thái trước khi tài khoản bị xoá để khôi phục lại khi cần.
   statusBeforeAccountDeletion String? @map("status_before_account_deletion") @db.VarChar(30)
+  // Phiên bản nội dung để đối chiếu với job kiểm duyệt (tránh áp kết quả cũ).
   moderationVersion Int      @default(0) @map("moderation_version")
   contentModerationJobs ContentModerationJob[]
   deleted_at       DateTime? @db.Timestamptz(6)
@@ -310,9 +371,11 @@ model Comment {
   @@map("comments")
 }
 
+// Lượt bình chọn của người dùng cho bài đăng; khoá chính kép nên mỗi người chỉ bình chọn một lần mỗi bài.
 model PostVote {
   user_id   Int
   post_id   Int
+  // Loại bình chọn (ví dụ UPVOTE/DOWNVOTE).
   vote_type String @db.VarChar(20)
   post      Post   @relation(fields: [post_id], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
   user      User   @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
@@ -321,6 +384,7 @@ model PostVote {
   @@map("post_votes")
 }
 
+// Trạng thái job tra cứu thông tin nguyên liệu bằng AI.
 enum IngredientLookupJobStatus {
   PENDING
   PROCESSING
@@ -328,16 +392,23 @@ enum IngredientLookupJobStatus {
   FAILED
 }
 
+// Job nền tra cứu/tạo thông tin nguyên liệu bằng AI (xử lý bởi ingredientLookupWorker).
 model IngredientLookupJob {
   id                String                    @id @default(uuid()) @db.Uuid
+  // Khoá định danh chủ sở hữu (hash 64 ký tự của người dùng hoặc khách), không lưu định danh thô.
   ownerKey          String                    @map("owner_key") @db.Char(64)
+  // Chỉ có giá trị khi job đang hoạt động; unique để chặn tạo trùng job cho cùng một yêu cầu.
   activeKey         String?                   @unique(map: "uq_ingredient_lookup_jobs_active") @map("active_key") @db.Char(64)
   ingredientName    String                    @map("ingredient_name") @db.VarChar(150)
   status            IngredientLookupJobStatus @default(PENDING)
+  // Nguyên liệu kết quả sau khi tra cứu thành công.
   ingredientId      Int?                      @map("ingredient_id")
+  // Ảnh người dùng gửi kèm (nhị phân), dùng làm đầu vào nhận diện.
   sourcePhoto       Bytes?                    @map("source_photo")
   sourceMimeType    String?                   @map("source_mime_type") @db.VarChar(50)
+  // Thông tin giữ chỗ hạn mức AI, dùng để hoàn trả hạn mức khi job thất bại.
   reservation       Json?
+  // Cơ chế lease để worker nhận job an toàn và thu hồi khi worker chết.
   leaseToken        String?                   @map("lease_token") @db.Uuid
   leaseExpiresAt    DateTime?                 @map("lease_expires_at") @db.Timestamptz(6)
   errorCode         String?                   @map("error_code") @db.VarChar(100)
@@ -347,6 +418,7 @@ model IngredientLookupJob {
   updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz(6)
   ingredient        Ingredient?               @relation(fields: [ingredientId], references: [ingredient_id], onDelete: SetNull, onUpdate: Cascade)
 
+  // Chỉ mục: lịch sử theo chủ sở hữu, hàng đợi, lease hết hạn và tra theo nguyên liệu.
   @@index([ownerKey, createdAt, id], map: "idx_ingredient_lookup_jobs_owner")
   @@index([status, createdAt, id], map: "idx_ingredient_lookup_jobs_queue")
   @@index([status, leaseExpiresAt], map: "idx_ingredient_lookup_jobs_expired")
@@ -354,7 +426,9 @@ model IngredientLookupJob {
   @@map("ingredient_lookup_jobs")
 }
 
+// Nguyên liệu và giá trị dinh dưỡng trên 100g.
 model Ingredient {
+  // Thông tin mở rộng (1-1): chi tiết mô tả, ảnh và các job tra cứu liên quan.
   lookupJobs IngredientLookupJob[]
   details IngredientDetails?
   image IngredientImage?
@@ -362,9 +436,11 @@ model Ingredient {
   name               String             @unique @db.VarChar(150)
   calories_per_100g  Float?             @default(0) @db.Real
   protein            Float?             @default(0) @db.Real
+  // Các giá trị macro tính theo gram trên 100g nguyên liệu.
   fat                Float?             @default(0) @db.Real
   carbs              Float?             @default(0) @db.Real
   fiber              Float?             @default(0) @db.Real
+  // Khối lượng riêng (g/ml), dùng quy đổi đơn vị thể tích sang khối lượng khi tính dinh dưỡng.
   density            Float?             @db.Real
   recipe_ingredients RecipeIngredient[]
   allergies          UserAllergy[]
@@ -372,6 +448,7 @@ model Ingredient {
   @@map("ingredients")
 }
 
+// Công thức nấu ăn, có thể gắn với bài đăng, danh mục và chế độ ăn.
 model Recipe {
   recipe_id          Int                @id @default(autoincrement())
   post_id            Int?
@@ -380,6 +457,7 @@ model Recipe {
   recipe_name        String             @db.VarChar(255)
   description        String?
   image_url          String?            @db.VarChar(500)
+  // Thời gian chuẩn bị (phút).
   prep_time          Int?               @default(0)
   total_calories     Float?             @default(0) @db.Real
   instructions       String?
@@ -388,6 +466,7 @@ model Recipe {
   recipe_ingredients RecipeIngredient[]
   categories         Category?          @relation(fields: [category_id], references: [category_id], onUpdate: NoAction)
   diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
+  // Xoá bài đăng thì công thức vẫn giữ lại, chỉ gỡ liên kết.
   post               Post?              @relation(fields: [post_id], references: [post_id], onDelete: SetNull, onUpdate: NoAction)
   restaurant_recipes RestaurantRecipe[]
 
@@ -397,6 +476,7 @@ model Recipe {
   @@map("recipes")
 }
 
+// Bảng nối công thức - nguyên liệu kèm định lượng.
 model RecipeIngredient {
   recipe_id     Int
   ingredient_id Int
@@ -410,9 +490,11 @@ model RecipeIngredient {
   @@map("recipe_ingredients")
 }
 
+// Thực đơn (kế hoạch bữa ăn) theo tuần của người dùng.
 model MealPlan {
   plan_id         Int              @id @default(autoincrement())
   user_id         Int
+  // Giá trị mặc định là tiêu đề hiển thị cho người dùng Việt Nam.
   title           String           @default("Thực đơn tuần") @db.VarChar(255)
   start_date      DateTime         @db.Date
   end_date        DateTime         @db.Date
@@ -420,16 +502,20 @@ model MealPlan {
   details         MealPlanDetail[]
   user            User             @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
+  // Chỉ mục tìm thực đơn theo người dùng và tuần.
   @@index([user_id, start_date], map: "idx_meal_plans_user_start_date")
   @@map("meal_plans")
 }
 
+// Một món trong thực đơn: theo ngày trong tuần và bữa ăn; có thể là công thức có sẵn hoặc món tự nhập.
 model MealPlanDetail {
   plan_detail_id Int      @id @default(autoincrement())
   plan_id        Int
   recipe_id      Int?
   meal_type      String   @db.VarChar(30)
+  // Ngày trong tuần dạng số.
   day_of_week    Int      @db.SmallInt
+  // Tên món tự nhập khi không dùng công thức có sẵn (recipe_id null).
   custom_food_name String? @db.VarChar(255)
   calories       Float?   @db.Real
   protein        Float?   @db.Real
@@ -442,12 +528,15 @@ model MealPlanDetail {
   @@map("meal_plan_details")
 }
 
+// Nhật ký ăn uống: các món người dùng đã ăn theo ngày và bữa.
 model FoodDiary {
   diary_id         Int       @id @default(autoincrement())
   user_id          Int
+  // Mặc định là ngày hiện tại phía DB.
   consumed_date    DateTime? @default(dbgenerated("CURRENT_DATE")) @db.Date
   meal_type        String    @db.VarChar(30)
   recipe_id        Int?
+  // Tên món tự nhập khi không chọn công thức có sẵn.
   custom_food_name String?   @db.VarChar(255)
   calories         Float?    @default(0) @db.Real
   serving          String?   @db.VarChar(100)
@@ -458,10 +547,12 @@ model FoodDiary {
   recipe           Recipe?   @relation(fields: [recipe_id], references: [recipe_id], onUpdate: NoAction)
   user             User      @relation(fields: [user_id], references: [user_id], onDelete: Cascade, onUpdate: NoAction)
 
+  // Chỉ mục tra nhật ký theo người dùng và ngày.
   @@index([user_id, consumed_date], map: "idx_food_diaries_user_date")
   @@map("food_diaries")
 }
 
+// Nhà hàng chay hoặc cửa hàng nguyên liệu, kèm toạ độ để tìm địa điểm gần đây.
 model Restaurant {
   reviews RestaurantReview[]
   restaurant_id      Int                @id @default(autoincrement())
@@ -469,23 +560,31 @@ model Restaurant {
   address            String             @db.VarChar(255)
   phone              String?            @db.VarChar(50)
   image_url          String?            @db.VarChar(500)
+  // Điểm đánh giá mặc định cho địa điểm mới khi chưa có đánh giá.
   rating             Float?             @default(4.5) @db.Real
+  // Toạ độ địa lý độ chính xác 7 chữ số thập phân (~1cm).
   latitude           Decimal?           @db.Decimal(10, 7)
   longitude          Decimal?           @db.Decimal(10, 7)
   diet_type_id       Int?               @db.SmallInt
+  // true nếu là cửa hàng bán nguyên liệu thay vì nhà hàng.
   isIngredientShop   Boolean            @default(false) @map("is_ingredient_shop")
   city               String?            @db.VarChar(100)
   hours              String?            @db.VarChar(100)
   priceRange         String?            @map("price_range") @db.VarChar(50)
+  // Có bếp riêng cho món chay (không dùng chung với món mặn).
   separateKitchen    Boolean            @default(false) @map("separate_kitchen")
+  // Nguồn dữ liệu: "local" (tự thêm) hoặc từ dịch vụ bản đồ bên ngoài.
   source             String             @default("local") @db.VarChar(20)
+  // Trạng thái duyệt địa điểm.
   status             String             @default("APPROVED") @db.VarChar(20)
+  // Mã địa điểm từ dịch vụ bản đồ bên ngoài; unique để tránh nhập trùng.
   place_id           String?            @unique(map: "uq_restaurants_place_id") @db.VarChar(100)
   created_at         DateTime?          @default(now()) @db.Timestamptz(6)
   updated_at         DateTime?          @updatedAt @db.Timestamptz(6)
   restaurant_recipes RestaurantRecipe[]
   diet_type          DietType?          @relation(fields: [diet_type_id], references: [diet_type_id], onUpdate: NoAction)
 
+  // Các chỉ mục toạ độ phục vụ truy vấn địa điểm lân cận, có lọc theo trạng thái/chế độ ăn.
   @@index([latitude, longitude], map: "idx_restaurants_coordinates")
   @@index([diet_type_id], map: "idx_restaurants_diet_type")
   @@index([status, latitude, longitude], map: "idx_restaurants_status_coords")
@@ -493,6 +592,7 @@ model Restaurant {
   @@map("restaurants")
 }
 
+// Bảng nối nhà hàng - công thức (món ăn) kèm giá bán.
 model RestaurantRecipe {
   restaurant_id Int
   recipe_id     Int
@@ -504,6 +604,7 @@ model RestaurantRecipe {
   @@map("restaurant_recipes")
 }
 
+// Trạng thái job kiểm duyệt nội dung bằng AI.
 enum ContentModerationJobStatus {
   PENDING
   PROCESSING
@@ -511,21 +612,27 @@ enum ContentModerationJobStatus {
   FAILED
 }
 
+// Job nền kiểm duyệt nội dung bài đăng/bình luận bằng AI (xử lý bởi contentModerationWorker).
 model ContentModerationJob {
   id             String                     @id @default(uuid()) @db.Uuid
   userId         Int                        @map("user_id")
+  // Chỉ một trong postId hoặc commentId có giá trị, tuỳ đối tượng được kiểm duyệt.
   postId         Int?                       @map("post_id")
   commentId      Int?                       @map("comment_id")
+  // Phiên bản nội dung tại thời điểm tạo job; chỉ áp kết quả nếu vẫn khớp phiên bản hiện tại.
   contentVersion Int                        @map("content_version")
+  // Ảnh chụp nội dung (snapshot) tại thời điểm gửi kiểm duyệt.
   title          String?                    @db.VarChar(255)
   content        String
   imageUrls      String[]                   @default([]) @map("image_urls")
   status         ContentModerationJobStatus  @default(PENDING)
   attempt        Int                        @default(0)
   availableAt    DateTime                   @default(now()) @map("available_at") @db.Timestamptz(6)
+  // Cơ chế lease để worker nhận job và thu hồi khi worker chết.
   leaseToken     String?                    @map("lease_token") @db.Uuid
   leaseExpiresAt DateTime?                  @map("lease_expires_at") @db.Timestamptz(6)
   result         Json?
+  // Đánh dấu kết quả đã được áp vào bài đăng/bình luận, tránh áp lặp.
   applied        Boolean                    @default(false)
   errorCode      String?                    @map("error_code") @db.VarChar(100)
   errorMessage   String?                    @map("error_message") @db.VarChar(500)
@@ -536,22 +643,26 @@ model ContentModerationJob {
   post           Post?                      @relation(fields: [postId], references: [post_id], onDelete: Cascade, onUpdate: NoAction)
   comment        Comment?                   @relation(fields: [commentId], references: [comment_id], onDelete: Cascade, onUpdate: NoAction)
 
+  // Mỗi phiên bản nội dung chỉ có một job kiểm duyệt.
   @@unique([postId, contentVersion], map: "uq_content_moderation_jobs_post_version")
   @@unique([commentId, contentVersion], map: "uq_content_moderation_jobs_comment_version")
   @@index([userId], map: "idx_content_moderation_jobs_user")
   @@index([postId], map: "idx_content_moderation_jobs_post")
   @@index([commentId], map: "idx_content_moderation_jobs_comment")
+  // Chỉ mục hàng đợi và thu hồi lease hết hạn.
   @@index([status, availableAt, createdAt, id], map: "idx_content_moderation_jobs_queue")
   @@index([status, leaseExpiresAt], map: "idx_content_moderation_jobs_lease")
   @@map("content_moderation_jobs")
 }
 
+// Báo cáo vi phạm do người dùng gửi cho bài đăng hoặc bình luận.
 model Report {
   report_id   Int       @id @default(autoincrement())
   reporter_id Int
   post_id     Int?
   comment_id  Int?
   reason      String
+  // Trạng thái xử lý báo cáo của quản trị viên.
   status      String    @default("PENDING") @db.VarChar(30)
   created_at  DateTime? @default(now()) @db.Timestamptz(6)
   comment     Comment?  @relation(fields: [comment_id], references: [comment_id], onDelete: Cascade, onUpdate: NoAction)
@@ -565,6 +676,7 @@ model Report {
   @@map("reports")
 }
 
+// Thông báo gửi tới người dùng.
 model Notification {
   notification_id Int       @id @default(autoincrement())
   user_id         Int
@@ -576,34 +688,41 @@ model Notification {
   @@map("notifications")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// Bảng này có ràng buộc CHECK và cần thiết lập thêm khi tạo migration. Xem https://pris.ly/d/check-constraints để biết thêm.
+// Nhật ký vận hành các lượt gọi AI (mô hình, hành động, trạng thái) phục vụ thống kê/giám sát.
 model AiLog {
   logId          Int       @id @default(autoincrement()) @map("log_id")
   modelName      String    @map("model_name") @db.VarChar(100)
   action         String    @db.VarChar(100)
   status         String    @db.VarChar(20)
+  // Nội dung lỗi/phản hồi khi lượt gọi AI thất bại.
   errorFeedback  String?   @map("error_feedback")
   createdAt      DateTime? @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@map("ai_logs")
 }
 
+// Thông tin chi tiết (1-1) của nguyên liệu: phân loại, nguồn gốc, cách chế biến.
 model IngredientDetails {
   ingredient_id Int @id
   category String @db.VarChar(30)
   origin String
+  // Nguyên liệu có nguồn gốc thực vật hay không; null nếu chưa xác định.
   plant Boolean?
   description String
   cooking String
+  // Các tên gọi khác của nguyên liệu, phục vụ tìm kiếm.
   aliases String @default("")
   image_url String?
   ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
   @@map("ingredient_details")
 }
+// Ảnh nguyên liệu lưu trực tiếp trong DB (nhị phân) kèm thông tin bản quyền/nguồn ảnh.
 model IngredientImage {
   ingredient_id Int @id
   mime_type String @db.VarChar(50)
   image_data Bytes
+  // Thông tin ghi công và giấy phép bắt buộc khi dùng ảnh từ nguồn mở.
   attribution String?
   source_url String?
   license String?
@@ -611,36 +730,45 @@ model IngredientImage {
   ingredient Ingredient @relation(fields:[ingredient_id],references:[ingredient_id],onDelete:Cascade,onUpdate:NoAction)
   @@map("ingredient_images")
 }
+// Gợi ý nguyên liệu thay thế (ví dụ thay nguyên liệu mặn bằng nguyên liệu chay).
 model IngredientAlternative {
+  // ID dạng chuỗi do dữ liệu nạp sẵn quy định.
   id String @id @db.VarChar(40)
   chip String
   emoji String
   original String
   role String
+  // Danh sách nguyên liệu thay thế lưu dạng JSONB.
   alternatives Json @db.JsonB
   description String
+  // Từ khoá phục vụ tìm kiếm gợi ý.
   keywords String
   @@map("ingredient_alternatives")
 }
+// Đánh giá của người dùng cho nhà hàng.
 model RestaurantReview {
   review_id Int @id @default(autoincrement())
   restaurant_id Int
   user_id Int
+  // Số sao đánh giá.
   stars Int @db.SmallInt
   content String
   created_at DateTime @default(now()) @db.Timestamptz(6)
   restaurant Restaurant @relation(fields:[restaurant_id],references:[restaurant_id],onDelete:Cascade,onUpdate:NoAction)
   user User @relation(fields:[user_id],references:[user_id],onDelete:Cascade,onUpdate:NoAction)
+  // Chỉ mục tra đánh giá theo nhà hàng và theo người dùng.
   @@index([restaurant_id],map:"restaurant_reviews_place_idx")
   @@index([user_id], map: "idx_restaurant_reviews_user")
   @@map("restaurant_reviews")
 }
 /// BE quản lý hạn mức dùng chung cho chatbot và tạo thực đơn.
 /// guest_id là X-Guest-Id hoặc ip:<địa chỉ>; quota_date tính theo giờ Việt Nam (+07:00).
+// Hạn mức dùng AI theo ngày cho khách (chưa đăng nhập), khoá chính kép guestId + ngày.
 model GuestQuota {
   guestId             String   @map("guest_id") @db.VarChar(100)
   quotaDate           DateTime @map("quota_date") @db.Date
   usedCount           Int      @default(0) @map("used_count")
+  // Tăng mỗi lần giữ chỗ/hoàn trả hạn mức để phát hiện cập nhật đồng thời (khoá lạc quan).
   reservationRevision Int      @default(0) @map("reservation_revision")
   updatedAt           DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
 

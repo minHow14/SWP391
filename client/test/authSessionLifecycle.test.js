@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/authSessionLifecycle.test.js
+// Kiểm thử (node:test) vòng đời phiên đăng nhập: ghi nhớ đăng nhập, đăng xuất, storage bị chặn và việc xoay vòng token khi đổi mật khẩu.
 import { afterEach, beforeEach, test } from 'node:test';
 import assert from 'node:assert/strict';
 import axios from 'axios';
@@ -6,15 +7,21 @@ import apiClient from '../src/services/apiClient.js';
 import { authService } from '../src/services/authService.js';
 import { getSession, getSessionSnapshot, setSession } from '../src/utils/session.js';
 
+// Khóa lưu phiên trong localStorage/sessionStorage.
 const SESSION_KEY = 'chayxanh-session';
 const originalAdapter = apiClient.defaults.adapter;
+// Lưu adapter và các biến toàn cục gốc để khôi phục sau mỗi test.
 const originals = Object.fromEntries(['window', 'sessionStorage', 'localStorage'].map((key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+// Bộ đếm để import lại module session như một lần tải lại trang mới.
 let sequence = 0;
+// Tạo storage giả dựa trên Map để đọc/ghi giá trị thật trong phạm vi test.
 function storage() {
   const values = new Map();
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
 }
+// Tạo response thành công theo envelope chuẩn.
 const success = (config, data) => ({ config, status: 200, statusText: 'OK', headers: {}, data: { success: true, data } });
+// Mỗi test bắt đầu với window giả, hai storage trống và chưa có phiên.
 beforeEach(() => {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: { dispatchEvent() {} } });
   for (const key of ['localStorage', 'sessionStorage']) Object.defineProperty(globalThis, key, { configurable: true, value: storage() });
@@ -29,10 +36,12 @@ afterEach(() => {
   }
 });
 
+// Phiên "ghi nhớ" lưu ở localStorage nên còn sau khi tải lại và sau khi refresh token; phiên theo tab chỉ lưu ở sessionStorage.
 test('remembered sessions survive reload and refresh while tab sessions do not persist locally', async () => {
   setSession({ token: 'login', user: { user_id: 7 } }, { remember: true });
   assert.equal(JSON.parse(localStorage.getItem(SESSION_KEY)).token, 'login');
   assert.equal(sessionStorage.getItem(SESSION_KEY), null);
+  // Import lại module với query khác để mô phỏng tải lại trang và đọc phiên từ storage.
   const reloaded = await import(`../src/utils/session.js?remember-case=${sequence++}`);
   assert.equal(reloaded.getSession().token, 'login');
   reloaded.setSession({ ...reloaded.getSession(), token: 'refreshed' });
@@ -43,6 +52,7 @@ test('remembered sessions survive reload and refresh while tab sessions do not p
   assert.equal(JSON.parse(sessionStorage.getItem(SESSION_KEY)).token, 'tab');
 });
 
+// Đăng xuất xóa phiên ở cả hai storage và tăng revision để các nơi đang theo dõi phiên biết đã thay đổi.
 test('logout clears both stores and updates the existing revision snapshot API', () => {
   localStorage.setItem(SESSION_KEY, JSON.stringify({ token: 'older' }));
   setSession({ token: 'active' }, { remember: false });
@@ -54,6 +64,7 @@ test('logout clears both stores and updates the existing revision snapshot API',
   assert.ok(getSessionSnapshot().revision > before.revision);
 });
 
+// Khi cả hai storage bị trình duyệt chặn, ghi nhớ đăng nhập vẫn hoạt động trong bộ nhớ.
 test('remember works in memory when both browser storages are blocked', () => {
   for (const key of ['localStorage', 'sessionStorage']) Object.defineProperty(globalThis, key, { configurable: true, get() { throw new Error('Blocked'); } });
   setSession({ token: 'memory' }, { remember: true });
@@ -62,11 +73,13 @@ test('remember works in memory when both browser storages are blocked', () => {
   assert.equal(getSession(), null);
 });
 
+// Đăng xuất xóa phiên cục bộ ngay, còn đăng nhập mới phải chờ response đăng xuất xong để cookie không bị ghi đè sai thứ tự.
 test('logout clears the local session immediately and login waits until its cookie response completes', async () => {
   let release;
   let started;
   const calls = [];
   const logoutStarted = new Promise((resolve) => { started = resolve; });
+  // Giữ request đăng xuất ở trạng thái chờ đến khi gọi release().
   apiClient.defaults.adapter = async (config) => {
     calls.push(config.url);
     if (config.url === '/auth/logout') {
@@ -86,6 +99,7 @@ test('logout clears the local session immediately and login waits until its cook
   assert.deepEqual(calls, ['/auth/logout', '/auth/login']);
 });
 
+// Đăng xuất lỗi mạng vẫn cho phép đăng ký tiếp và không làm sống lại phiên cũ.
 test('registration can proceed after a failed logout without resurrecting the old session', async () => {
   let reject;
   apiClient.defaults.adapter = async (config) => config.url === '/auth/logout'
@@ -101,6 +115,7 @@ test('registration can proceed after a failed logout without resurrecting the ol
   assert.equal(getSession(), null);
 });
 
+// Đổi mật khẩu thay token đã bị thu hồi bằng token mới, giữ nguyên thông tin hồ sơ và lựa chọn ghi nhớ đăng nhập.
 test('changing password replaces a revoked token and retains profile and remember preference', async () => {
   setSession({ token: 'before', user: { user_id: 7, full_name: 'Tên đã lưu' } }, { remember: true });
   apiClient.defaults.adapter = async (config) => success(config, { token: 'after' });
@@ -110,9 +125,11 @@ test('changing password replaces a revoked token and retains profile and remembe
   assert.equal(JSON.parse(localStorage.getItem(SESSION_KEY)).token, 'after');
 });
 
+// Response đổi mật khẩu đến muộn không được ghi đè trạng thái mới hơn: đã đăng xuất, đã đăng nhập người khác hoặc đăng nhập lại cùng người.
 for (const transition of ['logout', 'another user', 'new login to same user']) {
   test(`a late password-change response cannot replace ${transition}`, async () => {
     setSession({ token: 'before', user: { user_id: 7 } }, { remember: false });
+    // Thay đổi phiên ngay trong lúc request đổi mật khẩu đang chạy để mô phỏng response đến muộn.
     apiClient.defaults.adapter = async (config) => {
       if (transition === 'logout') setSession(null);
       else setSession({ token: 'newer', user: { user_id: transition === 'another user' ? 8 : 7 } }, { remember: true });
@@ -123,6 +140,7 @@ for (const transition of ['logout', 'another user', 'new login to same user']) {
   });
 }
 
+// Cập nhật hồ sơ trong cùng phiên trong lúc đổi mật khẩu vẫn phải nhận token mới và giữ thông tin hồ sơ mới.
 test('a password change still rotates its token after a same-session profile update', async () => {
   setSession({ token: 'before', user: { user_id: 7, full_name: 'Tên cũ' } }, { remember: true });
   apiClient.defaults.adapter = async (config) => {
@@ -134,6 +152,7 @@ test('a password change still rotates its token after a same-session profile upd
   assert.equal(getSession().user.full_name, 'Tên mới');
 });
 
+// Nếu phải refresh trước khi đổi mật khẩu, token vừa refresh bị backend thu hồi nên phải được thay bằng token sau khi đổi mật khẩu.
 test('a password change replaces the refreshed token that the backend just revoked', async () => {
   setSession({ token: 'expired', user: { user_id: 7 } }, { remember: true });
   apiClient.defaults.adapter = async (config) => {

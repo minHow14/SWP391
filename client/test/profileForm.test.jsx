@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/profileForm.test.jsx
+// Kiểm thử hook useProfileForm: lưu hồ sơ (kể cả khi phải refresh token), phát sự kiện cập nhật và bỏ qua kết quả lưu của phiên cũ.
 import axios from 'axios';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -7,18 +8,23 @@ import apiClient from '../src/services/apiClient.js';
 import { getSession, setSession } from '../src/utils/session.js';
 import { subscribeSyncEvent } from '../src/utils/syncEvents.js';
 
+// Hồ sơ ban đầu và hồ sơ sau khi lưu của cùng một người dùng.
 const ORIGINAL_USER = { user_id: 10, full_name: 'Profile regression fixture',
   health_profile: { height: 170, weight: 60, diet_type_id: 1 }, allergies: [] };
 const UPDATED_USER = { ...ORIGINAL_USER, full_name: 'Saved profile fixture',
   health_profile: { height: 172, weight: 65, diet_type_id: 5 }, allergies: [{ ingredient_id: 3 }] };
+// Lưu adapter gốc; changed theo dõi sự kiện USER_CHANGED, unsubscribe dùng để hủy đăng ký sau mỗi test.
 const ORIGINAL_ADAPTER = apiClient.defaults.adapter;
 let changed;
 let unsubscribe;
 
+// Tạo response thành công theo envelope chuẩn.
 const response = (config, data) => ({ config, status: 200, headers: {}, data: { success: true, data } });
+// Tạo lỗi 401 giống axios để kích hoạt luồng refresh token.
 const expired = (config) => new axios.AxiosError('Expired test access token', 'ERR_BAD_REQUEST', config,
   undefined, { status: 401, headers: {}, config, data: { success: false, message: 'Phiên hết hạn' } });
 
+// Render hook, chờ tải hồ sơ ban đầu rồi điền các giá trị mới vào form.
 async function loadForm() {
   const hook = renderHook(() => useProfileForm({ userId: ORIGINAL_USER.user_id }));
   await waitFor(() => expect(hook.result.current.values?.weight).toBe(60));
@@ -27,6 +33,7 @@ async function loadForm() {
   return hook;
 }
 
+// Giả lập lệnh lưu bị treo để test chủ động hoàn tất/thất bại, đồng thời đếm số lần ghi.
 function pendingSave() {
   let resolve;
   let reject;
@@ -44,6 +51,7 @@ function pendingSave() {
     fail: () => reject(new Error('Old save failed')) };
 }
 
+// Mỗi test bắt đầu với phiên sạch của người dùng ban đầu và đăng ký lắng nghe USER_CHANGED.
 beforeEach(() => {
   setSession(null);
   sessionStorage.clear(); localStorage.clear();
@@ -57,6 +65,7 @@ afterEach(() => {
   apiClient.defaults.adapter = ORIGINAL_ADAPTER;
 });
 
+// Lưu thành công (có hoặc không cần refresh token) phải cập nhật phiên, form, thông báo và phát sự kiện đúng một lần với payload đầy đủ.
 it.each([false, true])('applies the saved profile and broadcasts it with refresh=%s', async (refresh) => {
   const calls = [];
   apiClient.defaults.adapter = async (config) => {
@@ -82,6 +91,7 @@ it.each([false, true])('applies the saved profile and broadcasts it with refresh
     allergy_ids: [3] });
 });
 
+// Response lưu cũ đến sau khi đăng nhập mới (kể cả cùng giá trị token) thì bị bỏ qua, không ghi đè phiên và không phát sự kiện.
 it.each([11, 10])('ignores an old response after a new login for user %s, even with the same token value', async (userId) => {
   const pending = pendingSave();
   const { result } = await loadForm();
@@ -97,6 +107,7 @@ it.each([11, 10])('ignores an old response after a new login for user %s, even w
   expect(changed).not.toHaveBeenCalled();
 });
 
+// Lỗi lưu cũ đến sau khi người dùng đăng nhập lại thì không hiển thị lỗi.
 it('ignores an old save failure after the user signs in again', async () => {
   const pending = pendingSave();
   const { result } = await loadForm();
@@ -110,6 +121,7 @@ it('ignores an old save failure after the user signs in again', async () => {
   expect(changed).not.toHaveBeenCalled();
 });
 
+// Chặn lưu trùng khi đang chờ, và cho phép thử lại sau khi lưu thất bại trong phiên hiện tại.
 it('blocks duplicate saves and allows retry after a current-session failure', async () => {
   const pending = pendingSave();
   const { result } = await loadForm();

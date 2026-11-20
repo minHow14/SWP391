@@ -1,7 +1,9 @@
 ﻿// client/src/features/auth/components/AuthHeader.jsx
+// Phần đầu thẻ xác thực: logo, tên thương hiệu và tab chuyển giữa Đăng nhập / Đăng ký.
 import { Nav } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Header của trang xác thực; isRegister quyết định tab nào đang được đánh dấu là trang hiện tại.
 export default function AuthHeader({ isRegister }) {
   return (
     <header className="bg-success bg-gradient text-white text-center p-4">

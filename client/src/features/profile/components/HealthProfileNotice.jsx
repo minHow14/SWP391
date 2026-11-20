@@ -1,7 +1,9 @@
 ﻿// client/src/features/profile/components/HealthProfileNotice.jsx
+// Thông báo nhắc người dùng bổ sung chiều cao, cân nặng để dùng BMI và thực đơn cá nhân.
 import { Alert, Button } from 'react-bootstrap';
 import { Link } from 'react-router';
 
+// Component nhắc bổ sung hồ sơ sức khỏe; onContinue được gọi khi người dùng chuyển tới trang hồ sơ.
 export default function HealthProfileNotice({ onContinue }) {
   return (
     <Alert variant="info" className="mb-0">

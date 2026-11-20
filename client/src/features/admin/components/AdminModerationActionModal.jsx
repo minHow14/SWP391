@@ -1,6 +1,18 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminModerationActionModal.jsx
+// Modal xác nhận quyết định kiểm duyệt (cho phép hiển thị / gỡ nội dung) kèm ghi chú lưu vào nhật ký.
 import { Modal, Button, Form, Spinner, Alert } from 'react-bootstrap';
 
+/**
+ * Hộp thoại xác nhận kiểm duyệt.
+ * @param {object} props
+ * @param {{ action: 'APPROVE'|'REJECT', title: string }|null} props.actionItem Nội dung và hành động đang xác nhận.
+ * @param {string} props.notes Ghi chú của Admin.
+ * @param {Function} props.setNotes Cập nhật ghi chú.
+ * @param {Function} props.onClose Đóng modal.
+ * @param {Function} props.onConfirm Thực hiện quyết định.
+ * @param {boolean} [props.submitting] Đang gửi yêu cầu.
+ * @param {string} [props.error] Thông báo lỗi từ lần gửi trước.
+ */
 export default function AdminModerationActionModal({
   actionItem,
   notes,
@@ -13,6 +25,7 @@ export default function AdminModerationActionModal({
   if (!actionItem) return null;
   const isApprove = actionItem.action === 'APPROVE';
 
+  // Khóa việc đóng modal khi đang gửi để Admin không tưởng thao tác đã bị hủy giữa chừng.
   return (
     <Modal show={!!actionItem} onHide={submitting ? undefined : onClose} centered>
       <Modal.Header closeButton={!submitting}>

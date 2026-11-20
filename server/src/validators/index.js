@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\validators\index.js
+// Điểm export tập trung của các validator, kèm object `schemas` để route tham chiếu schema theo tên ngắn.
 export * from './common.validator.js';
 export * from './auth.validator.js';
 export * from './blog.validator.js';

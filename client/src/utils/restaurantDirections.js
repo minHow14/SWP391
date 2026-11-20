@@ -1,4 +1,6 @@
 // client/src/utils/restaurantDirections.js
+// Tạo đường dẫn chỉ đường Google Maps tới quán chay.
+// Kiểm tra địa điểm có tọa độ hợp lệ (vĩ độ ±90, kinh độ ±180); hỗ trợ cả latitude/longitude và lat/lng.
 export function hasCoordinates(place) {
   const lat = place?.latitude ?? place?.lat;
   const lng = place?.longitude ?? place?.lng;
@@ -6,6 +8,7 @@ export function hasCoordinates(place) {
     && Number.isFinite(lng) && Math.abs(lng) <= 180;
 }
 
+// Tạo URL chỉ đường; origin là vị trí xuất phát (tùy chọn).
 export function restaurantDirections(place, origin = null) {
   // Google Maps đổi tọa độ thành địa điểm gần nhất (có thể là quán khác cùng tòa nhà),
   // nên ưu tiên tên + địa chỉ; chỉ dùng tọa độ khi quán không có địa chỉ.

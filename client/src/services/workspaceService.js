@@ -1,4 +1,5 @@
 // client/src/services/workspaceService.js
+// Dịch vụ không gian làm việc của người dùng: catalog, nhật ký ăn uống, kế hoạch thực đơn và quán chay.
 import apiClient from './apiClient.js';
 
 export const workspaceService = {

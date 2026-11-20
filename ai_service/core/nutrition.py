@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/core/nutrition.py
+# Tính toán dinh dưỡng (BMI, BMR, TDEE, calo/protein mục tiêu) và kiểm tra thực đơn do LLM sinh
+# có vi phạm dị ứng, chế độ ăn chay hay dùng nguyên liệu sẵn có của người dùng hay không.
 import re
 import unicodedata
 from collections.abc import Iterable
@@ -7,6 +9,7 @@ from dataclasses import dataclass
 from rapidfuzz import fuzz
 from unidecode import unidecode
 
+# Hệ số vận động nhân với BMR để ra TDEE (các mức hệ số vận động tiêu chuẩn).
 ACTIVITY_FACTORS = {
     "sedentary": 1.2,      # ít vận động
     "light": 1.375,        # vận động nhẹ 1-3 buổi/tuần
@@ -33,6 +36,7 @@ GOAL_PROTEIN_PER_KG = {
 MIN_SAFE_CALORIES = {"male": 1500, "female": 1200, "other": 1200}
 
 
+# Kết quả chỉ số dinh dưỡng mục tiêu của một người dùng; frozen để không bị sửa sau khi tính.
 @dataclass(frozen=True)
 class NutritionTargets:
     bmi: float
@@ -45,11 +49,13 @@ class NutritionTargets:
     note: str | None = None
 
 
+# Tính BMI = cân nặng (kg) / chiều cao (m)^2, làm tròn 1 chữ số thập phân.
 def calculate_bmi(height_cm: float, weight_kg: float) -> float:
     height_m = height_cm / 100.0
     return round(weight_kg / (height_m * height_m), 1)
 
 
+# Dùng ngưỡng châu Á (23/25) thay vì WHO (25/30) vì phù hợp thể trạng người Việt.
 def bmi_category(bmi: float) -> str:
     """Phân loại BMI theo chuẩn châu Á - Thái Bình Dương."""
     if bmi < 18.5:
@@ -61,6 +67,7 @@ def bmi_category(bmi: float) -> str:
     return "Béo phì (Obese)"
 
 
+# Chuẩn hóa giới tính nhập tự do (tiếng Việt/Anh) về male/female/other.
 def _normalize_gender(gender: str | None) -> str:
     g = (gender or "").strip().lower()
     if g in ("male", "nam", "m"):
@@ -70,6 +77,7 @@ def _normalize_gender(gender: str | None) -> str:
     return "other"
 
 
+# Tính BMR theo công thức Mifflin-St Jeor; -78 là trung bình của +5 (nam) và -161 (nữ).
 def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: str | None) -> float:
     """Mifflin-St Jeor. Giới tính khác/không rõ dùng trung bình của nam và nữ."""
     base = 10 * weight_kg + 6.25 * height_cm - 5 * age
@@ -77,6 +85,7 @@ def calculate_bmr(weight_kg: float, height_cm: float, age: int, gender: str | No
     return base + offset
 
 
+# Tính bộ chỉ số mục tiêu dinh dưỡng từ thông tin cơ thể, mục tiêu và mức vận động.
 def calculate_targets(
     height_cm: float,
     weight_kg: float,
@@ -98,12 +107,14 @@ def calculate_targets(
     tdee = bmr * ACTIVITY_FACTORS.get(activity_level, ACTIVITY_FACTORS["light"])
 
     adjustment = GOAL_CALORIE_ADJUSTMENT.get(goal, 0.0)
+    # Người thiếu cân không được giảm calo dù chọn mục tiêu giảm cân, vì lý do an toàn sức khỏe.
     note = None
     if adjustment < 0 and bmi_value < 18.5:
         adjustment = 0.0
         note = "BMI thiếu cân nên không áp dụng thâm hụt calo, giữ ở mức duy trì."
 
     target = tdee * (1 + adjustment)
+    # Không bao giờ đề xuất dưới ngưỡng calo tối thiểu an toàn theo giới tính.
     floor = MIN_SAFE_CALORIES[_normalize_gender(gender)]
     if target < floor:
         target = floor
@@ -163,11 +174,13 @@ _ALLERGEN_GROUP_NAMES = {
 }
 
 
+# Chuẩn hóa văn bản để so khớp không dấu.
 def _norm(text: str) -> str:
     """Chữ thường, bỏ dấu, gộp khoảng trắng."""
     return re.sub(r"\s+", " ", unidecode(text).lower()).strip()
 
 
+# Chuẩn hóa văn bản để so khớp có dấu (dùng cho từ dễ trùng khi bỏ dấu).
 def _lower(text: str) -> str:
     """Chữ thường, GIỮ dấu (NFC), gộp khoảng trắng."""
     return re.sub(r"\s+", " ", unicodedata.normalize("NFC", text).lower()).strip()
@@ -201,6 +214,7 @@ _ENGLISH_PLANT_PREFIX = "".join(
     )
 )
 
+# Các từ chỉ sữa/trứng được phép có tiền tố nguồn thực vật tiếng Anh đứng trước.
 _PLANT_PREFIX_TERMS = {"milk", "cheese", "butter", "yogurt", "cream", "ghee", "egg", "mayonnaise"}
 
 # Ngoại lệ theo từng từ: "tương ớt", "tương cà", "tương dừa" (coconut aminos) không có đậu nành
@@ -210,6 +224,7 @@ _TERM_EXCEPTIONS = {"tương": r"(?!\s+(?:ớt|cà|dừa)(?!\w))"}
 _PLANT_NAMES = ["rau chân vịt", "chân vịt", "đậu gà", "bánh tai heo", "cỏ mực"]
 
 
+# Lấy danh sách từ khóa của nhóm dị ứng; nếu không nhận ra nhóm thì dùng chính tên người dùng nhập.
 def _allergen_terms(allergy: str) -> list[str]:
     """Từ khoá cần tìm cho một dị ứng người dùng nhập (chấp nhận số nhiều: peanuts, eggs...)."""
     key = _norm(allergy)
@@ -217,10 +232,12 @@ def _allergen_terms(allergy: str) -> list[str]:
     return ALLERGEN_ALIASES[group] if group else [key]
 
 
+# Kiểu dữ liệu một bữa ăn và một pattern từ khóa dùng trong các hàm kiểm tra.
 Meal = tuple[str, str, list[str]]  # (nhãn bữa, tên món, nguyên liệu)
 TermPattern = tuple[bool, re.Pattern]  # (so khớp giữ dấu?, pattern)
 
 
+# Biên dịch danh sách từ khóa thành regex so khớp nguyên từ, kèm các ngoại lệ đồ chay.
 def _term_patterns(
     terms: Iterable[str], plant_based_ok: bool = False, animal: bool = False
 ) -> list[TermPattern]:
@@ -233,6 +250,7 @@ def _term_patterns(
     patterns = []
     for term in terms:
         term = term.strip()
+        # Từ có dấu so khớp trên văn bản giữ dấu; từ không dấu so khớp trên văn bản đã bỏ dấu.
         accented = not term.isascii()
         word = r"\w" if accented else r"[a-z0-9]"
         use_prefix = not accented and (term in _PLANT_PREFIX_TERMS or animal)
@@ -252,8 +270,10 @@ def _term_patterns(
     return patterns
 
 
+# Tìm từ khóa vi phạm đầu tiên trong tên món và nguyên liệu của một bữa; None nếu không có.
 def _first_match(meal: Meal, patterns: list[TermPattern], strip_plant_names: bool = False) -> str | None:
     _, name, ingredients = meal
+    # Bỏ cụm phủ định trước để "không đậu phộng" không bị tính là có đậu phộng.
     accented_text = " ; ".join(_NEGATION.sub(" ", _lower(part)) for part in [name, *ingredients])
     if strip_plant_names:
         for plant in _PLANT_NAMES:
@@ -266,6 +286,7 @@ def _first_match(meal: Meal, patterns: list[TermPattern], strip_plant_names: boo
     return None
 
 
+# Liệt kê các món chứa nguyên liệu gây dị ứng theo danh sách dị ứng của người dùng.
 def find_allergen_violations(meals: Iterable[Meal], allergies: list[str]) -> list[str]:
     """
     Danh sách mô tả các món chứa nguyên liệu gây dị ứng (so khớp nguyên từ). Không chấp nhận
@@ -293,6 +314,7 @@ ANIMAL_TERMS = [
 ]
 HONEY_TERMS = ["honey", "mat ong"]
 
+# Nguyên liệu bị cấm theo từng chế độ ăn (ngoài nhóm thịt/cá áp dụng cho mọi chế độ).
 DIET_FORBIDDEN = {
     "vegan": ALLERGEN_ALIASES["egg"] + ALLERGEN_ALIASES["dairy"] + HONEY_TERMS,
     "lacto": ALLERGEN_ALIASES["egg"],   # có sữa, không trứng
@@ -305,12 +327,15 @@ DIET_FORBIDDEN = {
         "dau mo tinh luyen", "refined sugar", "white sugar", "refined oil",
     ],
 }
+# Ngũ vị tân (hành, tỏi, hẹ, kiệu, nén) bị cấm trong chay Phật giáo.
 ALLIUM_TERMS = [
     "hành", "tỏi", "hẹ", "kiệu", "nén", "hanh la", "hanh tim", "toi", "kieu", "hung cu",
     "onion", "garlic", "chive", "chives", "shallot", "leek", "scallion",
 ]
 
 
+# Chuẩn hóa mã chế độ ăn: giữ mã chuẩn, đồng thời ánh xạ các tên cũ (vegan/lacto/ovo) về mã chuẩn.
+# Mặc định lacto_ovo khi không xác định được, vì đó là chế độ chay ít hạn chế nhất.
 def diet_key(dietary_type: str | None) -> str:
     """Preserve canonical diet identities; retain legacy vegetarian aliases."""
     key = _norm(dietary_type or "").replace("-", "_").replace(" ", "_")
@@ -326,11 +351,13 @@ def diet_key(dietary_type: str | None) -> str:
     return "lacto_ovo"
 
 
+# Liệt kê các món vi phạm chế độ ăn; mỗi món chỉ báo lỗi đầu tiên tìm thấy.
 def find_diet_violations(meals: Iterable[Meal], dietary_type: str | None) -> list[str]:
     """Danh sách mô tả các món không hợp trường phái chay (thịt/cá, hoặc trứng/sữa/mật ong với vegan)."""
     diet = diet_key(dietary_type)
     checks = [
         (_term_patterns(ANIMAL_TERMS, plant_based_ok=True, animal=True), True, "không phải món chay"),
+        # Eat Clean không chấp nhận "bản thực vật" vì đường/dầu tinh luyện vẫn là tinh luyện dù gốc thực vật.
         (_term_patterns(DIET_FORBIDDEN[diet], plant_based_ok=diet != 'eat_clean'), False, f"không phù hợp chế độ '{diet}'"),
     ]
     if diet == 'buddhist':
@@ -345,9 +372,11 @@ def find_diet_violations(meals: Iterable[Meal], dietary_type: str | None) -> lis
     return violations
 
 
+# Ngưỡng điểm rapidfuzz (0-100) để coi một nguyên liệu sẵn có đã được dùng; 88 đủ chặt để tránh khớp nhầm.
 PANTRY_MATCH_THRESHOLD = 88
 
 
+# Lọc ra các nguyên liệu sẵn có của người dùng thực sự được dùng trong thực đơn.
 def find_used_ingredients(available: list[str], meals: Iterable[tuple[str, str, list[str]]]) -> list[str]:
     """
     Nguyên liệu sẵn có thực sự xuất hiện trong thực đơn, so khớp gần đúng (rapidfuzz) và bỏ dấu,
@@ -357,6 +386,7 @@ def find_used_ingredients(available: list[str], meals: Iterable[tuple[str, str, 
     used = []
     for item in available:
         needle = _norm(item)
+        # Bỏ qua chuỗi quá ngắn (dưới 3 ký tự) vì so khớp gần đúng sẽ khớp nhầm hầu hết mọi văn bản.
         if len(needle) < 3:
             continue
         if any(fuzz.partial_ratio(needle, text) >= PANTRY_MATCH_THRESHOLD for text in texts):

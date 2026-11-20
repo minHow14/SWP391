@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/contentModerationImages.test.js
+// Kiểm thử kiểm duyệt ảnh: nhận diện định dạng ảnh, đọc ảnh an toàn, chọn ảnh cần duyệt,
+// gộp kết quả văn bản + ảnh, gọi AI duyệt ảnh và quy tắc liên kết media của bài viết.
 import { mkdtemp, rm, truncate, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,6 +13,7 @@ import { createContentModerationAiService } from '../src/services/contentModerat
 import { createBlogSchema } from '../src/validators/blog.validator.js';
 import { createVideoSchema } from '../src/validators/video.validator.js';
 
+// Byte đầu file PNG/WEBP mẫu, cấu hình, job và các kết luận mẫu cho văn bản và ảnh; `finding` tạo kết quả duyệt một ảnh.
 const PNG_BYTES = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(16)]);
 const WEBP_BYTES = Buffer.concat([Buffer.from('RIFF'), Buffer.alloc(4), Buffer.from('WEBP'), Buffer.alloc(16)]);
 const config = { url: 'http://127.0.0.1:8000', internalApiKey: 'a'.repeat(32) };
@@ -26,6 +29,7 @@ const jsonResponse = (data) => new Response(JSON.stringify({ success: true, mess
   { headers: { 'Content-Type': 'application/json' } });
 let directory;
 
+// Tạo thư mục tạm chứa ảnh hợp lệ, file giả mạo đuôi .jpg và ảnh vượt 10MB để kiểm tra giới hạn kích thước.
 beforeAll(async () => {
   directory = await mkdtemp(path.join(os.tmpdir(), 'moderation-images-'));
   await writeFile(path.join(directory, 'dish.png'), PNG_BYTES);
@@ -34,9 +38,12 @@ beforeAll(async () => {
   await writeFile(path.join(directory, 'huge.png'), PNG_BYTES);
   await truncate(path.join(directory, 'huge.png'), 10 * 1024 * 1024 + 1);
 });
+// Xóa thư mục tạm sau khi chạy.
 afterAll(async () => { await rm(directory, { recursive: true, force: true }); });
 
+// Nhóm test: nhận diện định dạng ảnh theo chữ ký (magic bytes).
 describe('image signature', () => {
+  // Định dạng thật được xác định từ header file chứ không dựa vào đuôi file; dữ liệu không phải ảnh trả null.
   it('detects the real format from the file header', () => {
     expect(detectImageMimeType(PNG_BYTES)).toBe('image/png');
     expect(detectImageMimeType(WEBP_BYTES)).toBe('image/webp');
@@ -47,11 +54,15 @@ describe('image signature', () => {
   });
 });
 
+// Nhóm test: đọc ảnh để gửi kiểm duyệt.
 describe('moderation image loader', () => {
+  // Ảnh upload hợp lệ được trả về dạng base64 kèm MIME phát hiện được.
   it('returns base64 and the detected MIME type of an uploaded image', async () => {
     await expect(loadModerationImage('/uploads/posts/dish.webp', { directory }))
       .resolves.toEqual({ mimeType: 'image/webp', imageBase64: WEBP_BYTES.toString('base64') });
   });
+  // Path traversal, thư mục khác, URL ngoài, file thiếu, file giả, file quá lớn hoặc video đều bị đánh dấu không đọc được
+  // mà không truy cập ra ngoài thư mục upload.
   it.each([
     '/uploads/posts/../../.env', '/uploads/avatars/dish.png', 'https://example.com/dish.png',
     '/uploads/posts/missing.png', '/uploads/posts/fake.jpg', '/uploads/posts/huge.png', '/uploads/posts/clip.mp4',
@@ -60,13 +71,16 @@ describe('moderation image loader', () => {
   });
 });
 
+// Nhóm test: chọn ảnh cần kiểm duyệt.
 describe('moderation image selection', () => {
+  // Chỉ giữ ảnh upload, loại trùng và tối đa 7 ảnh để giới hạn chi phí AI.
   it('keeps uploaded images only, deduplicated and capped at seven', () => {
     const images = Array.from({ length: 9 }, (_, index) => `/uploads/posts/p${index}.jpg`);
     expect(moderationImageUrls(['/uploads/posts/a.png', '/uploads/posts/clip.mp4', '/uploads/posts/a.png',
       'https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg', '', null])).toEqual(['/uploads/posts/a.png']);
     expect(moderationImageUrls(images)).toHaveLength(7);
   });
+  // Phát hiện thêm/bớt/thay/đổi thứ tự ảnh để biết khi nào cần kiểm duyệt lại (video không tính).
   it('detects added, removed, replaced and reordered images', () => {
     expect(haveSameModerationImages(['/uploads/posts/a.png'], ['/uploads/posts/a.png', '/uploads/posts/clip.mp4'])).toBe(true);
     expect(haveSameModerationImages(['/uploads/posts/a.png'], ['/uploads/posts/b.png'])).toBe(false);
@@ -75,19 +89,24 @@ describe('moderation image selection', () => {
   });
 });
 
+// Nhóm test: gộp kết luận văn bản và ảnh.
 describe('merging text and image verdicts', () => {
+  // Không có ảnh thì giữ nguyên kết quả văn bản.
   it('keeps the original text result when the job had no images', () => {
     expect(mergeModerationResults(textAllowed, [])).toEqual(textAllowed);
   });
+  // Chỉ cho phép đăng khi văn bản và mọi ảnh đều ALLOW.
   it('allows the post only when the text and every image are allowed', () => {
     expect(mergeModerationResults(textAllowed, [finding(imageAllowed)]))
       .toEqual({ ...textAllowed, imageFindings: [finding(imageAllowed)] });
   });
+  // Chỉ một ảnh bị gắn cờ cũng phải ẩn bài và nêu rõ ảnh thứ mấy vi phạm.
   it('hides the post when an image alone is flagged and explains which image', () => {
     const findings = [finding(imageAllowed, '/uploads/posts/a.png'), finding(imageFlagged, '/uploads/posts/b.png')];
     expect(mergeModerationResults(textAllowed, findings)).toEqual({ ...textAllowed, decision: 'REVIEW',
       reason: 'Ảnh 2: Ảnh có đùi gà rán.', categories: ['ANIMAL_MEAT_PROMOTION'], imageFindings: findings });
   });
+  // Cả văn bản và ảnh đều bị gắn cờ thì giữ lý do văn bản và hợp các danh mục vi phạm.
   it('keeps the text reason and unions categories when both are flagged', () => {
     const textFlagged = { ...textAllowed, decision: 'REVIEW', reason: 'Lừa đảo.', categories: ['SCAM'], evidence: ['đậu nành'] };
     expect(mergeModerationResults(textFlagged, [finding(imageFlagged)]))
@@ -95,8 +114,10 @@ describe('merging text and image verdicts', () => {
   });
 });
 
+// Nhóm test: ranh giới gọi AI duyệt ảnh.
 describe('image moderation AI boundary', () => {
   const image = { mimeType: 'image/png', imageBase64: PNG_BYTES.toString('base64') };
+  // Gửi ảnh kèm nội dung bài làm ngữ cảnh tới endpoint duyệt ảnh nội bộ với khóa nội bộ.
   it('sends the image with the post text as context to the internal image endpoint', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(jsonResponse(imageFlagged));
     const ai = createContentModerationAiService({ fetchImpl, config });
@@ -107,6 +128,7 @@ describe('image moderation AI boundary', () => {
     expect(JSON.parse(options.body)).toEqual({ jobId: job.id, contentType: 'POST', contentVersion: 2, title: job.title,
       content: job.content, imageIndex: 1, mimeType: 'image/png', imageBase64: image.imageBase64 });
   });
+  // Kết luận ảnh mâu thuẫn (REVIEW thiếu quan sát/danh mục, ALLOW có danh mục, trường lạ, decision lạ) bị từ chối.
   it.each([
     { ...imageFlagged, observations: [] },
     { ...imageFlagged, categories: [] },
@@ -119,9 +141,11 @@ describe('image moderation AI boundary', () => {
   });
 });
 
+// Nhóm test: quy tắc liên kết media của bài viết.
 describe('post media link rules', () => {
   const blog = (url) => createBlogSchema.safeParse({ title: 'Món chay', content: 'Nội dung', attachments: [{ url }] }).success;
   const video = (fields) => createVideoSchema.safeParse({ title: 'Món chay', ...fields });
+  // Đính kèm chỉ chấp nhận file đã upload vào /uploads/posts (chặn URL ngoài, path traversal, SVG, query string).
   it('accepts only files uploaded to /uploads/posts as attachments', () => {
     expect(blog('/uploads/posts/7e34de09-c8e1-4d55-90ed-baa3b9f22692.jpg')).toBe(true);
     expect(blog('/uploads/posts/protein-thuc-vat.JPG')).toBe(true);
@@ -130,6 +154,7 @@ describe('post media link rules', () => {
       expect(blog(url)).toBe(false);
     }
   });
+  // Video chỉ chấp nhận link YouTube https và được lưu dưới dạng URL watch chuẩn.
   it('accepts only YouTube video links and stores the canonical watch URL', () => {
     expect(video({ video_url: 'https://youtu.be/3MySvzHeUyo' }).data.video_url).toBe('https://www.youtube.com/watch?v=3MySvzHeUyo');
     expect(video({ video_url: 'https://www.youtube.com/shorts/3MySvzHeUyo' }).data.video_url).toBe('https://www.youtube.com/watch?v=3MySvzHeUyo');
@@ -138,6 +163,7 @@ describe('post media link rules', () => {
       expect(video({ video_url: videoUrl }).success).toBe(false);
     }
   });
+  // Ảnh thumbnail chỉ chấp nhận ảnh upload hoặc ảnh YouTube https chính chủ (chặn tên miền giả mạo).
   it('accepts uploaded or YouTube thumbnails only', () => {
     const base = { video_url: 'https://www.youtube.com/watch?v=3MySvzHeUyo' };
     for (const thumbnail of [undefined, null, '', '/uploads/posts/cover.webp', 'https://i.ytimg.com/vi/3MySvzHeUyo/hqdefault.jpg',

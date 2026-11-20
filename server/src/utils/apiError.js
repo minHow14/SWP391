@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\utils\apiError.js
+// Lớp lỗi nghiệp vụ dùng chung, mang theo HTTP status và chi tiết lỗi để globalErrorHandler trả về đúng định dạng.
 import { HTTP_STATUS } from '../constants/httpStatus.js';
 
 /**
@@ -6,7 +7,7 @@ import { HTTP_STATUS } from '../constants/httpStatus.js';
  */
 export class ApiError extends Error {
   /**
-   * @param {number} statusCode - HTTP Status code (mặc định 500)
+   * @param {number} statusCode - Mã trạng thái HTTP (mặc định 500)
    * @param {string} message - Thông báo lỗi
    * @param {any} details - Chi tiết lỗi (tùy chọn)
    */
@@ -15,9 +16,11 @@ export class ApiError extends Error {
     this.name = 'ApiError';
     this.statusCode = statusCode;
     this.details = details;
+    // Giữ stack trace gọn, bắt đầu từ nơi tạo lỗi (chỉ có trên V8).
     Error.captureStackTrace?.(this, this.constructor);
   }
 
+  // Các hàm tạo nhanh lỗi theo mã HTTP phổ biến.
   static badRequest(message = 'Dữ liệu yêu cầu không hợp lệ', details = null) {
     return new ApiError(HTTP_STATUS.BAD_REQUEST, message, details);
   }

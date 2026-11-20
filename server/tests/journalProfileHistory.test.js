@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/tests/journalProfileHistory.test.js
+// Kiểm thử tích hợp (cần DB test) lịch sử cân nặng khi cập nhật hồ sơ từ trang nhật ký và trang tài khoản.
 import './loadTestEnvironment.js';
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,25 +9,30 @@ import prisma from '../src/config/prisma.js';
 import { generateToken } from '../src/utils/jwt.js';
 import { userRepository } from '../src/repositories/user.repository.js';
 
+// Thành viên test, header đăng nhập và các hàm gọi API lưu hồ sơ nhật ký / đọc lịch sử sức khỏe.
 let member;
 let authorization;
 const saveJournalProfile = (overrides = {}) => request(app).patch('/api/workspace/profile')
   .set('Authorization', authorization).send({ height: 175, weight: 70, calorieGoal: 2000, goal: 'Duy trì', ...overrides });
 const getHistory = () => request(app).get('/api/v1/auth/me/health-history').set('Authorization', authorization);
 
+// Tạo thành viên mới cho mỗi test.
 beforeEach(async () => {
   member = await prisma.user.create({ data: {
     email: `journal-history-${randomUUID()}@example.invalid`, full_name: 'Journal history regression', password_hash: 'unused-test-hash',
   } });
   authorization = `Bearer ${generateToken({ user_id: member.user_id, role: member.role })}`;
 });
+// Khôi phục spy và xóa thành viên sau mỗi test; đóng DB khi xong.
 afterEach(async () => {
   vi.restoreAllMocks();
   if (member) await prisma.user.delete({ where: { user_id: member.user_id } });
 });
 afterAll(() => prisma.$disconnect());
 
+// Nhóm test: lịch sử cân nặng từ hồ sơ nhật ký.
 describe('journal profile weight history', () => {
+  // Cân nặng ở hai biên hợp lệ (10 và 400 kg) phải được ghi vào lịch sử.
   it.each([10, 400])('records a profile weight of %s kg accepted by the profile endpoint', async (weight) => {
     expect((await saveJournalProfile({ weight })).status).toBe(200);
     const histories = (await getHistory()).body.data.histories;
@@ -34,6 +40,7 @@ describe('journal profile weight history', () => {
     expect(histories[0].weight).toBe(weight);
   });
 
+  // Lịch sử sức khỏe phải hiển thị cân nặng đã lưu, BMI tính sẵn và ngày ghi nhận hợp lệ.
   it('exposes the saved journal weight and calculated BMI in health history', async () => {
     expect((await saveJournalProfile()).status).toBe(200);
     const response = await getHistory();
@@ -44,6 +51,7 @@ describe('journal profile weight history', () => {
     expect(Number.isNaN(Date.parse(response.body.data.histories[0].recorded_date))).toBe(false);
   });
 
+  // Cân nặng không đổi (kể cả số thập phân) không tạo bản ghi trùng; cân nặng mới thì thêm bản ghi.
   it('records a changed weight without duplicating an unchanged decimal weight', async () => {
     expect((await saveJournalProfile({ weight: 62.7 })).status).toBe(200);
     expect((await saveJournalProfile({ weight: 62.7, calorieGoal: 2100 })).status).toBe(200);
@@ -54,6 +62,7 @@ describe('journal profile weight history', () => {
     expect(histories[0]).toMatchObject({ weight: 72, bmi: 22.2 });
   });
 
+  // So sánh theo độ chính xác đã lưu trong DB để số thập phân dài không bị coi là thay đổi.
   it('compares persisted precision when saving the same fractional measurements twice', async () => {
     const measurements = { weight: 62.7123456789, height: 175.123456789 };
     expect((await saveJournalProfile(measurements)).status).toBe(200);
@@ -63,6 +72,7 @@ describe('journal profile weight history', () => {
     expect(response.body.data.histories[0].weight).toBe(response.body.data.currentProfile.weight);
   });
 
+  // Bản ghi có ngày tương lai không làm hệ thống nhầm là cân nặng đã đổi và tạo bản ghi trùng liên tục.
   it('does not duplicate a journal weight when another measurement has a future recorded date', async () => {
     expect((await saveJournalProfile()).status).toBe(200);
     const future = await request(app).post('/api/v1/auth/me/weight').set('Authorization', authorization)
@@ -76,6 +86,7 @@ describe('journal profile weight history', () => {
     expect(histories.filter((history) => history.weight === 70)).toHaveLength(2);
   });
 
+  // Trang tài khoản và trang nhật ký dùng chung lịch sử; xóa cân nặng (null) không tạo bản ghi lịch sử.
   it('shares history with the auth profile endpoint and does not record a cleared weight', async () => {
     const updateAuth = (health_profile) => request(app).patch('/api/v1/auth/me')
       .set('Authorization', authorization).send({ health_profile });
@@ -88,6 +99,7 @@ describe('journal profile weight history', () => {
     expect(response.body.data.histories).toHaveLength(1);
   });
 
+  // Ghi lịch sử thất bại thì hồ sơ và mục tiêu calo phải được rollback để dữ liệu nhất quán.
   it('rolls profile and calorie preferences back when weight-history persistence fails', async () => {
     expect((await saveJournalProfile()).status).toBe(200);
     vi.spyOn(userRepository, 'addHealthHistory').mockRejectedValueOnce(new Error('Injected history persistence failure'));

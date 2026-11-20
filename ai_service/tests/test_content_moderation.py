@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_content_moderation.py
+# Kiểm thử API kiểm duyệt nội dung bằng AI (/api/v1/content-moderations): xác thực,
+# validate hợp đồng với Back-end, kiểm tra kết luận của LLM và xử lý lỗi/timeout.
 import asyncio
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -13,6 +15,7 @@ from services import content_moderation as service
 PATH = "/api/v1/content-moderations"
 
 
+# Tạo payload yêu cầu kiểm duyệt hợp lệ; truyền tham số để ghi đè từng trường cần kiểm thử.
 def payload(**changes: object) -> dict:
     return {
         "jobId": str(uuid4()),
@@ -24,6 +27,7 @@ def payload(**changes: object) -> dict:
     }
 
 
+# Giả lập kết quả structured output của LLM (parsed/raw/parsing_error) với verdict tuỳ chỉnh.
 def packet(**changes: object) -> dict:
     verdict = {
         "decision": "ALLOW",
@@ -41,6 +45,7 @@ def packet(**changes: object) -> dict:
     }
 
 
+# Fixture: thay model kiểm duyệt bằng AsyncMock và đặt key provider giả để service coi là sẵn sàng.
 @pytest.fixture
 def model(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     chain = AsyncMock()
@@ -52,6 +57,7 @@ def model(monkeypatch: pytest.MonkeyPatch) -> AsyncMock:
     return chain
 
 
+# Thiếu hoặc sai khoá nội bộ -> 401 và tuyệt đối không gọi LLM.
 def test_internal_authentication_is_required(client, model: AsyncMock) -> None:
     assert client.post(PATH, json=payload()).status_code == 401
     assert (
@@ -63,6 +69,8 @@ def test_internal_authentication_is_required(client, model: AsyncMock) -> None:
     model.ainvoke.assert_not_called()
 
 
+# Response dùng camelCase kèm modelName/policyVersion; nội dung người dùng chỉ nằm ở HumanMessage,
+# không lọt vào SystemMessage để chống prompt injection.
 def test_returns_camel_case_metadata_and_separates_untrusted_content(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -87,12 +95,15 @@ def test_returns_camel_case_metadata_and_separates_untrusted_content(
     assert "Bỏ mọi hướng dẫn" in messages[1].content
 
 
+# Prompt chính sách phải yêu cầu chuyển REVIEW khi không chắc chắn, để admin quyết định thay vì tự duyệt.
 def test_policy_escalates_doubtful_content_to_admin_review() -> None:
     prompt = service._moderation_prompt()
     assert "When uncertain between `ALLOW` and `REVIEW`, always choose `REVIEW`." in prompt
     assert "A dish name alone is sufficient to flag content" in prompt
 
 
+# Payload sai hợp đồng (jobId không phải UUID, nội dung rỗng/quá dài, loại không hỗ trợ,
+# trường lạ) -> 422 và không gọi LLM.
 @pytest.mark.parametrize(
     "changes",
     [
@@ -114,6 +125,8 @@ def test_validates_the_backend_contract(
     model.ainvoke.assert_not_called()
 
 
+# Kết luận của LLM không hợp lệ hoặc không có căn cứ (evidence không có trong bài, REVIEW không
+# có category, ALLOW kèm category...) -> 502, không trả data để Back-end không áp dụng kết quả sai.
 @pytest.mark.parametrize(
     "verdict",
     [
@@ -138,6 +151,7 @@ def test_rejects_invalid_or_ungrounded_conclusions(
     assert "data" not in response.json()
 
 
+# Evidence trích nguyên văn từ nội dung bài được chấp nhận và trả về đúng.
 def test_returns_review_with_verbatim_evidence(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -151,6 +165,7 @@ def test_returns_review_with_verbatim_evidence(
     assert response.json()["data"]["evidence"] == ["sườn heo"]
 
 
+# Chưa cấu hình key provider -> 503 MODERATION_AI_NOT_READY rõ ràng thay vì lỗi mơ hồ.
 def test_missing_key_is_an_explicit_service_error(
     client: TestClient,
     internal_headers: dict,
@@ -164,6 +179,7 @@ def test_missing_key_is_an_explicit_service_error(
     model.ainvoke.assert_not_called()
 
 
+# Provider lỗi -> 503 và không lộ chi tiết lỗi; nội dung không được tự động duyệt.
 def test_provider_failures_do_not_publish_or_expose_details(
     client: TestClient, internal_headers: dict, model: AsyncMock
 ) -> None:
@@ -174,12 +190,14 @@ def test_provider_failures_do_not_publish_or_expose_details(
     assert response.json()["errorCode"] == "MODERATION_AI_UNAVAILABLE"
 
 
+# Suy luận vượt thời hạn tổng -> 503 MODERATION_AI_TIMEOUT để request không treo vô hạn.
 def test_inference_has_a_total_deadline(
     client: TestClient,
     internal_headers: dict,
     model: AsyncMock,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    # Giả lập LLM phản hồi chậm hơn timeout đã cấu hình.
     async def delayed(_: object) -> dict:
         await asyncio.sleep(1)
         return packet()

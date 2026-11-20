@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\places.controller.js
+// Controller tìm quán ăn chay: ưu tiên dữ liệu trong DB, chỉ gọi ZIOMAP bổ sung khi thiếu
+// để tiết kiệm credit; mỗi lần gợi ý đều ghi nhật ký AI (lỗi ghi log không ảnh hưởng response).
 import { z } from 'zod';
 import { ok, fail } from '../utils/apiResponse.js';
 import { aiLogService } from '../services/aiLogService.js';
@@ -19,17 +21,21 @@ const optionalNumber = (min, max) =>
     z.coerce.number().min(min).max(max).optional()
   );
 
+// Số nguyên tùy chọn, chuỗi rỗng coi như không gửi.
 const optionalInteger = (min = 1) =>
   z.preprocess(
     (v) => (v === '' || v == null ? undefined : v),
     z.coerce.number().int().min(min).optional()
   );
 
+// Tọa độ tâm tìm kiếm, giới hạn theo phạm vi vĩ độ/kinh độ hợp lệ.
 const coordinates = {
   lat: optionalNumber(-90, 90),
   lng: optionalNumber(-180, 180),
 };
 
+// Query của /places/nearby: user_lat/user_lng là vị trí thật của người dùng (để tính khoảng cách),
+// có thể khác tâm tìm kiếm lat/lng; bán kính 0.1–50 km để tránh truy vấn quá rộng.
 const nearbySchema = z.object({
   ...coordinates,
   user_lat: optionalNumber(-90, 90),
@@ -39,6 +45,7 @@ const nearbySchema = z.object({
   diet_type_id: optionalInteger(1),
 });
 
+// Query của /places/search: từ khóa 1–100 ký tự, tối đa 20 kết quả để giới hạn chi phí ZIOMAP.
 const searchSchema = z.object({
   q: z.string().trim().min(1).max(100),
   ...coordinates,
@@ -46,6 +53,7 @@ const searchSchema = z.object({
   limit: optionalNumber(1, 20).default(10),
 });
 
+// Trả lỗi 400 kèm danh sách field không hợp lệ từ Zod.
 const invalid = (res, error) =>
   fail(res, 400, 'INVALID_INPUT', 'Dữ liệu đầu vào không hợp lệ.', error.issues.map((i) => ({
     field: i.path.join('.'),
@@ -69,6 +77,7 @@ async function withZiomap({ query, lat, lng, radiusKm, limit, userOrigin = null 
   return { places, ziomap, providerError };
 }
 
+// Mô tả nguồn ZIOMAP trong meta: unavailable (lỗi), not_configured (chưa cấu hình key), cached, used.
 const sourcesMeta = (ziomap, providerError) => ({
   ziomap: providerError
     ? 'unavailable'
@@ -79,6 +88,7 @@ const sourcesMeta = (ziomap, providerError) => ({
         : 'used',
 });
 
+// GET /places/nearby: tìm quán quanh tọa độ, bắt buộc có cả lat và lng.
 export async function getNearby(req, res) {
   const parsed = nearbySchema.safeParse(req.query);
   if (!parsed.success) return invalid(res, parsed.error);
@@ -130,6 +140,7 @@ export async function getNearby(req, res) {
   return ok(res, { places }, 200, sourcesMeta(ziomap, providerError));
 }
 
+// GET /places/search: tìm quán theo từ khóa; lat/lng tùy chọn nhưng phải đi cặp.
 export async function searchPlaces(req, res) {
   const parsed = searchSchema.safeParse(req.query);
   if (!parsed.success) return invalid(res, parsed.error);
@@ -149,6 +160,7 @@ export async function searchPlaces(req, res) {
     return ok(res, { places: local }, 200, { ziomap: 'not_needed' });
   }
 
+  // Thêm "chay" vào từ khóa để ZIOMAP chỉ trả quán chay.
   const query = normalize(q).includes('chay') ? q : `${q} chay`;
   const { places, ziomap, providerError } = await withZiomap(
     { query, lat, lng, radiusKm, limit },

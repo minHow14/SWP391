@@ -1,6 +1,8 @@
 // client/src/components/recognition/RecognizedItemsList.jsx
+// Danh sách nguyên liệu AI nhận diện từ ảnh kèm độ tươi, hạn dùng ước tính và mẹo bảo quản.
 import { Card, Badge, ProgressBar, Row, Col, Alert } from 'react-bootstrap';
 
+// Cấu hình nhãn, màu và icon cho từng mức độ tươi.
 const FRESHNESS_CONFIG = {
   FRESH: { label: 'Tươi mới', variant: 'success', icon: 'bi-check-circle-fill' },
   GOOD: { label: 'Dùng tốt', variant: 'primary', icon: 'bi-shield-check' },
@@ -8,6 +10,7 @@ const FRESHNESS_CONFIG = {
   SPOILED: { label: 'Có dấu hiệu hỏng', variant: 'danger', icon: 'bi-x-circle-fill' },
 };
 
+// Component danh sách nguyên liệu nhận diện; đếm số loại cần dùng sớm để nhắc người dùng.
 export default function RecognizedItemsList({ items = [] }) {
   if (!items || items.length === 0) {
     return (
@@ -37,6 +40,7 @@ export default function RecognizedItemsList({ items = [] }) {
 
       <Row className="g-3">
         {items.map((item, idx) => {
+          // Mức độ tươi không xác định được hiển thị như "Dùng tốt".
           const config = FRESHNESS_CONFIG[item.freshnessStatus] || FRESHNESS_CONFIG.GOOD;
 
           return (

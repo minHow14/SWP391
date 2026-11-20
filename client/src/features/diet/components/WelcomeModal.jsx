@@ -1,7 +1,9 @@
 // D:/SWP391/SWP391/client/src/features/diet/components/WelcomeModal.jsx
+// Hộp thoại bắt buộc chọn kiểu ăn chay trước khi vào ứng dụng (không thể đóng khi chưa xác nhận).
 import { useEffect, useRef, useState } from 'react';
 import { Alert, Spinner } from 'react-bootstrap';
 
+// Icon Bootstrap tương ứng với từng ID chế độ ăn.
 const icons = {
   1: 'leaf',
   2: 'cup-straw',
@@ -12,18 +14,21 @@ const icons = {
   7: 'heart-pulse',
 };
 
+// Component chọn chế độ ăn; onConfirm lưu lựa chọn và có thể ném lỗi để hiển thị cho người dùng.
 export default function WelcomeModal({ onConfirm, options: dietOptions, initialDietId = '' }) {
   const [selectedDiet, setSelectedDiet] = useState(initialDietId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // Khóa đồng bộ chặn gửi trùng khi người dùng bấm xác nhận liên tục (state cập nhật không kịp).
   const saveLock = useRef(false);
   const dialog = useRef(null);
 
+  // Mở dialog dạng modal khi mount, khóa cuộn trang và trả lại focus/overflow khi unmount.
   useEffect(() => {
     const element = dialog.current;
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
-    // Listen directly: native dialog cancellation must never dismiss this gate.
+    // Lắng nghe trực tiếp: thao tác hủy gốc của dialog (phím Esc) không bao giờ được đóng cổng chọn này.
     const preventCancel = (event) => event.preventDefault();
     element.addEventListener('cancel', preventCancel);
     element.showModal();
@@ -36,6 +41,7 @@ export default function WelcomeModal({ onConfirm, options: dietOptions, initialD
     };
   }, []);
 
+  // Xác nhận lựa chọn: tìm chế độ ăn đã chọn rồi gọi onConfirm, hiển thị lỗi nếu lưu thất bại.
   async function handleConfirm(event) {
     event.preventDefault();
     if (saveLock.current) return;

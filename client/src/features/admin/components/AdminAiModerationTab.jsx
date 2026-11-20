@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminAiModerationTab.jsx
+// Tab "Kiểm duyệt nội dung": hiển thị hàng chờ bài viết/bình luận AI gắn cờ
+// và cho Admin ra quyết định cuối cùng (cho phép hiển thị hoặc gỡ).
 import { useState } from 'react';
 import { Alert, Button, Spinner } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -7,6 +9,7 @@ import { useAiModeration } from '../hooks/useAiModeration.js';
 import AdminAiModerationTable from './AdminAiModerationTable.jsx';
 import AdminModerationActionModal from './AdminModerationActionModal.jsx';
 
+// Component tab kiểm duyệt nội dung bị AI gắn cờ.
 export default function AdminAiModerationTab() {
   const { data, loading, error, refresh } = useAiModeration();
   const [actionItem, setActionItem] = useState(null);
@@ -14,9 +17,12 @@ export default function AdminAiModerationTab() {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [message, setMessage] = useState('');
+  // Mở modal xác nhận cho một nội dung; reset ghi chú và lỗi của lần trước.
   const openAction = (item) => { setNotes(''); setActionError(''); setActionItem(item); };
   const closeAction = () => { if (!submitting) { setActionItem(null); setActionError(''); } };
 
+  // Gửi quyết định kiểm duyệt kèm contentVersion để server từ chối nếu nội dung đã bị sửa
+  // sau khi AI quét; khi lỗi vẫn refresh để Admin thấy trạng thái mới nhất.
   async function confirmAction() {
     if (!actionItem || submitting) return;
     setSubmitting(true); setActionError('');

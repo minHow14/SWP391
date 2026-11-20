@@ -1,10 +1,12 @@
 // D:/SWP391/SWP391/client/src/pages/FoodSwap.jsx
+// Trang Đổi món chay: tra cứu nguyên liệu mặn và gợi ý nguyên liệu chay thay thế, nhận ngữ cảnh từ trang Kiểm tra món.
 import { useRef, useState } from 'react';
 import { Alert } from 'react-bootstrap';
 import { useLocation } from 'react-router';
 import { useDatabase } from '../hooks/useDatabase.js';
 import { normalizeSearch } from '../utils/recipeFilters.js';
 
+// Component trang đổi món; đọc scanContext từ state điều hướng để điền sẵn từ khóa.
 export default function FoodSwap() {
   const {data}=useDatabase();
   const foodSwaps=data.swaps;
@@ -14,12 +16,14 @@ export default function FoodSwap() {
   const [category, setCategory] = useState(null);
   const input = useRef(null);
   const words = normalizeSearch(query.trim()).split(/\s+/).filter(Boolean);
+  // Chọn gợi ý nhanh thì lọc đúng nhóm đó; nếu không thì mọi từ khóa phải xuất hiện trong nội dung nhóm.
   const filtered = foodSwaps.filter((item) => {
     if (category) return item.id === category;
     const searchText = normalizeSearch(`${item.original} ${item.role} ${item.alternatives.join(' ')} ${item.keywords}`);
     return words.every((word) => searchText.includes(word));
   });
 
+  // Xóa từ khóa và gợi ý đang chọn, đưa focus về ô tìm kiếm.
   function clear() {
     setQuery('');
     setCategory(null);

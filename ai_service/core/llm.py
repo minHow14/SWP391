@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/core/llm.py
+# Khởi tạo client LLM DeepSeek (qua giao diện tương thích OpenAI của LangChain) cho văn bản,
+# JSON và đầu ra có cấu trúc, kèm cơ chế tự chuyển sang model dự phòng khi nhà cung cấp lỗi.
 
 import httpx
 import openai
@@ -7,6 +9,7 @@ from pydantic import BaseModel
 
 from core.config import settings
 
+# Địa chỉ API DeepSeek (tương thích OpenAI).
 DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 # Lỗi phía nhà cung cấp (model không tồn tại/quá tải, 4xx-5xx, mất kết nối, timeout) thì chuyển sang
@@ -18,11 +21,13 @@ TEXT_MAX_TOKENS = 4096
 JSON_MAX_TOKENS = 8192
 
 
+# Lấy tên model chính, mặc định "deepseek-chat" nếu cấu hình để trống.
 def get_json_model_name() -> str:
     """Tên model chính (ghi vào AILog)."""
     return settings.DEEPSEEK_MODEL or "deepseek-chat"
 
 
+# Tạo client ChatOpenAI trỏ tới DeepSeek với model, nhiệt độ, timeout và giới hạn token cho trước.
 def _client(
     model: str, temperature: float, timeout: float, thinking: bool = True, max_tokens: int = TEXT_MAX_TOKENS
 ) -> ChatOpenAI:
@@ -33,17 +38,19 @@ def _client(
         max_tokens=max_tokens,
         temperature=temperature,
         request_timeout=timeout,
-        # Disable fallback thinking because forced tool calls can be rejected in thinking mode.
+        # Tắt chế độ thinking ở model dự phòng vì lời gọi tool bắt buộc có thể bị từ chối khi bật thinking.
         extra_body=None if thinking else {"thinking": {"type": "disabled"}},
     )
 
 
+# Lấy tên model dự phòng nếu hợp lệ.
 def _fallback_model() -> str | None:
     """Model dự phòng (DEEPSEEK_FALLBACK_MODEL); None nếu để trống hoặc trùng model chính."""
     fallback = (settings.DEEPSEEK_FALLBACK_MODEL or "").strip()
     return fallback if fallback and fallback != get_json_model_name() else None
 
 
+# Bọc runnable chính với runnable dự phòng, chỉ kích hoạt khi gặp lỗi nhà cung cấp.
 def with_model_fallback(primary, fallback):
     """Gọi `primary`; nếu nhà cung cấp báo lỗi thì chạy lại bằng `fallback` (nếu có)."""
     if fallback is None:
@@ -51,6 +58,7 @@ def with_model_fallback(primary, fallback):
     return primary.with_fallbacks([fallback], exceptions_to_handle=PROVIDER_ERRORS)
 
 
+# Client cho hội thoại tự do; temperature 0.7 để câu trả lời tự nhiên hơn.
 def get_llm_text(timeout: float = 60.0):
     """Client DeepSeek cho hội thoại thường (chatbot), tự chuyển sang model dự phòng khi lỗi."""
     fallback_model = _fallback_model()
@@ -60,6 +68,7 @@ def get_llm_text(timeout: float = 60.0):
     )
 
 
+# Client cho đầu ra JSON dài như thực đơn tuần.
 def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
     """
     Client DeepSeek (model chính) cho câu trả lời JSON phức tạp: timeout dài (90s), temperature thấp
@@ -68,11 +77,13 @@ def get_llm_json(timeout: float = 90.0) -> ChatOpenAI:
     return _client(get_json_model_name(), 0.3, timeout, max_tokens=JSON_MAX_TOKENS)
 
 
+# Trả về runnable sinh đối tượng Pydantic theo schema, có model dự phòng.
 def get_structured_llm(schema: type[BaseModel], timeout: float = 90.0):
     """
     LLM trả về đối tượng Pydantic theo `schema`, tự chuyển sang model dự phòng khi nhà cung cấp lỗi.
     Dùng function calling vì DeepSeek từ chối response_format json_schema (HTTP 400).
     """
+    # Gắn đầu ra có cấu trúc theo schema bằng function calling cho một client.
     def structured(client: ChatOpenAI):
         return client.with_structured_output(schema, method="function_calling")
 

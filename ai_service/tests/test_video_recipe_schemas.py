@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_video_recipe_schemas.py
+# Kiểm thử schema Pydantic cho tính năng công thức từ video: hợp đồng camelCase với Back-end
+# và các ràng buộc chặt về nguồn video, thời lượng, transcript.
 from uuid import uuid4
 
 import pytest
@@ -10,9 +12,11 @@ from schemas.video_recipe import (
     VideoTranscriptionRequest,
 )
 
+# Mã video YouTube 11 ký tự hợp lệ dùng chung cho các test.
 VIDEO_ID = "AbCdEfGhI12"
 
 
+# Payload yêu cầu chép phụ đề hợp lệ (URL YouTube chuẩn khớp với videoId).
 def request_payload() -> dict:
     return {
         "jobId": str(uuid4()),
@@ -24,6 +28,7 @@ def request_payload() -> dict:
     }
 
 
+# Transcript hợp lệ mẫu gồm một đoạn nằm trong thời lượng video.
 def transcript_payload() -> dict:
     return {
         "language": "vi",
@@ -32,6 +37,7 @@ def transcript_payload() -> dict:
     }
 
 
+# Dump theo alias phải ra đúng payload camelCase mà Back-end gửi.
 def test_contract_matches_backend_camel_case() -> None:
     body = VideoTranscriptionRequest.model_validate(request_payload())
     assert body.model_dump(mode="json", by_alias=True) == request_payload() | {
@@ -40,6 +46,8 @@ def test_contract_matches_backend_camel_case() -> None:
     assert VideoTranscript.model_validate(transcript_payload()).duration_seconds == 60
 
 
+# Từ chối nguồn không chuẩn hoặc không hỗ trợ: domain giả mạo YouTube, videoId không khớp URL,
+# vượt thời lượng tối đa, ngôn ngữ/model không hỗ trợ, thời lượng không hợp lệ, trường lạ.
 @pytest.mark.parametrize(
     "patch",
     [
@@ -59,6 +67,7 @@ def test_rejects_noncanonical_or_unsupported_sources(patch: dict) -> None:
         VideoTranscriptionRequest.model_validate(request_payload() | patch)
 
 
+# Bắt buộc có thời lượng video đã xác minh để giới hạn chi phí xử lý.
 def test_caption_request_requires_verified_video_duration() -> None:
     payload = request_payload()
     del payload["durationSeconds"]
@@ -66,6 +75,7 @@ def test_caption_request_requires_verified_video_duration() -> None:
         VideoTranscriptionRequest.model_validate(payload)
 
 
+# Transcript không hợp lệ: quá thời lượng, rỗng, thời gian đảo ngược, vượt độ dài video, nội dung trắng.
 @pytest.mark.parametrize(
     "patch",
     [
@@ -81,6 +91,7 @@ def test_rejects_invalid_transcripts(patch: dict) -> None:
         VideoTranscript.model_validate(transcript_payload() | patch)
 
 
+# Yêu cầu tóm tắt không cho phép ghi đè cấu hình provider (vd apiKey) từ phía client.
 def test_summary_request_forbids_provider_and_owner_overrides() -> None:
     payload = {
         "jobId": str(uuid4()),

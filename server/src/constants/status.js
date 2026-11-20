@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/constants/status.js
+// Các trạng thái nghiệp vụ dùng chung: tài khoản, bài đăng, bình luận, báo cáo, phiên quét và độ tươi nguyên liệu.
 /**
  * Định nghĩa trạng thái tài khoản người dùng
  */

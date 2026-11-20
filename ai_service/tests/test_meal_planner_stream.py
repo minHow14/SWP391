@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_meal_planner_stream.py
+# Kiểm thử luồng SSE lập thực đơn (/api/meal-planner/generate/stream): sự kiện tiến độ, kết quả cuối,
+# sự kiện lỗi và metadata prompt gửi về cho Back-end.
 import json
 from unittest.mock import patch
 
@@ -16,6 +18,7 @@ INTERNAL_HEADERS = {"X-Internal-Api-Key": settings.INTERNAL_API_KEY}
 PAYLOAD = {"heightCm": 165, "weightKg": 55, "days": 1}
 
 
+# Phân tích văn bản SSE thành danh sách (tên sự kiện, payload JSON).
 def parse_sse(text: str) -> list[tuple[str, dict]]:
     events, name = [], None
     for line in text.splitlines():
@@ -27,6 +30,7 @@ def parse_sse(text: str) -> list[tuple[str, dict]]:
     return events
 
 
+# Tạo hàm generate_plan giả: phát lần lượt các giai đoạn tiến độ rồi trả về thực đơn cho trước.
 def fake_generate(plan, stages=("calculating", "generating", "validating")):
     async def generate(*args, on_progress=None, **kwargs):
         for stage in stages:
@@ -36,6 +40,7 @@ def fake_generate(plan, stages=("calculating", "generating", "validating")):
     return generate
 
 
+# Luồng thành công: các sự kiện progress theo đúng thứ tự, kết thúc bằng done chứa thực đơn đầy đủ và requestId.
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
 def test_stream_sends_progress_then_done_with_the_full_plan(mock_generate):
     mock_generate.side_effect = fake_generate(sample_meal_plan())
@@ -54,8 +59,10 @@ def test_stream_sends_progress_then_done_with_the_full_plan(mock_generate):
     assert done["data"]["weeklyPlan"]
 
 
+# Sinh thực đơn lỗi giữa chừng -> sự kiện error chuẩn hoá, không lộ chi tiết lỗi provider.
 @patch("api.meal_planner.meal_planner_agent.generate_plan")
 def test_stream_error_event_when_generation_fails(mock_generate):
+    # Giả lập agent báo tiến độ rồi ném lỗi provider.
     async def failing(*args, on_progress=None, **kwargs):
         await on_progress({"stage": "generating", "message": "Đang tạo thực đơn..."})
         raise RuntimeError("provider exploded")
@@ -70,6 +77,7 @@ def test_stream_error_event_when_generation_fails(mock_generate):
     assert "provider exploded" not in res.text
 
 
+# Input sai bị từ chối bằng 422 trước khi mở stream (client nhận lỗi HTTP bình thường).
 def test_stream_validation_error_before_stream():
     invalid = client.post(
         "/api/meal-planner/generate/stream",
@@ -79,11 +87,14 @@ def test_stream_validation_error_before_stream():
     assert invalid.status_code == 422
 
 
+# Agent báo từng giai đoạn kể cả lượt thử lại; metadata mỗi lượt chứa đúng các message đã gửi,
+# lượt sau có thêm message phản hồi vi phạm.
 @pytest.mark.asyncio
 async def test_agent_reports_each_stage_and_the_retry():
     events = []
     traces = []
 
+    # Thu thập tên giai đoạn và giữ lại các sự kiện metadata để kiểm tra.
     async def on_progress(event):
         events.append(event["stage"])
         if event["stage"] == "metadata":
@@ -107,6 +118,7 @@ async def test_agent_reports_each_stage_and_the_retry():
     assert "vi phạm" in traces[1]["messages"][-1]["content"]
 
 
+# Metadata gửi qua stream phải khớp chính xác prompt thực tế đã gửi cho LLM, và đến trước sự kiện done.
 def test_stream_forwards_actual_prompt_metadata_before_the_final_plan():
     patcher, structured = mock_llm([make_plan(1)])
     with patcher:

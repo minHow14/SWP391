@@ -1,9 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/foodScanner/components/FoodScannerInputs.jsx
+// Khu vực nhập liệu của trang Kiểm tra món: chọn chế độ ăn, quét ảnh bằng AI hoặc nhập danh sách thành phần.
 import { useRef, useState } from 'react';
 import { Alert, Button, Form, Image, Spinner } from 'react-bootstrap';
 
+// Các loại ảnh quét mà API phân tích hỗ trợ.
 const SCAN_TYPES = { AUTO: 'Tự động nhận diện', LABEL: 'Bao bì / Nhãn thành phần', DISH: 'Đĩa món ăn thực tế' };
 
+// Component nhập liệu; scanner là đối tượng trả về từ useFoodScanner, diet gồm id và onChange.
 export default function FoodScannerInputs({ scanner, dietOptions, diet }) {
   const input = useRef(null);
   const [tab, setTab] = useState('image');

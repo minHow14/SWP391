@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/frontendAuthIntegration.test.js
+// Kiểm thử tích hợp FE ↔ BE (cần DB test): dùng chính apiClient/authService của client gọi tới server thật
+// để xác minh luồng khôi phục mật khẩu OTP, tự refresh token và chống lẫn tài khoản giữa các tab.
 import './loadTestEnvironment.js';
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
@@ -12,6 +14,7 @@ import apiClient from '../../client/src/services/apiClient.js';
 import { authService } from '../../client/src/services/authService.js';
 import { getSession, setSession } from '../../client/src/utils/session.js';
 
+// Mock nodemailer để đọc mã OTP từ mail mà không gửi thật; lưu baseURL gốc để khôi phục sau test.
 vi.mock('nodemailer', () => ({ default: { createTransport: vi.fn() } }));
 const transport = { verify: vi.fn().mockResolvedValue(true), sendMail: vi.fn() };
 const originalBaseUrl = apiClient.defaults.baseURL;
@@ -21,19 +24,25 @@ let server;
 let accounts = [];
 let originalHash;
 
+// Đăng nhập qua authService và lưu phiên như trình duyệt.
+// @param account tài khoản test
+// @param password mật khẩu dùng để đăng nhập
+// @returns dữ liệu đăng nhập (token, refreshToken, user)
 async function login(account, password = ORIGINAL_PASSWORD) {
   const result = await authService.login({ email: account.email, password });
-  // Node has no browser cookie jar; emulate only the browser's transport behavior.
+  // Node không có cookie jar như trình duyệt; chỉ giả lập hành vi gửi cookie của trình duyệt.
   apiClient.defaults.headers.common.Cookie = `refreshToken=${result.data.refreshToken}`;
   setSession({ token: result.data.token, user: result.data.user }, { remember: false });
   return result.data;
 }
 
+// Thay access token trong phiên bằng token đã hết hạn để kích hoạt cơ chế tự refresh của client.
 function expireAccess(account) {
   const token = jwt.sign({ user_id: account.user_id, tokenVersion: account.tokenVersion }, process.env.JWT_SECRET, { expiresIn: -1 });
   setSession({ ...getSession(), token });
 }
 
+// Khởi động server thật trên cổng ngẫu nhiên và trỏ apiClient tới đó.
 beforeAll(async () => {
   originalHash = await hashPassword(ORIGINAL_PASSWORD);
   server = app.listen(0, '127.0.0.1');
@@ -41,6 +50,7 @@ beforeAll(async () => {
   apiClient.defaults.baseURL = `http://127.0.0.1:${server.address().port}/api`;
 });
 
+// Cấu hình SMTP giả và tạo hai tài khoản test mới cho mỗi test.
 beforeEach(async () => {
   vi.stubEnv('SMTP_HOST', 'smtp.integration.invalid');
   vi.stubEnv('SMTP_PORT', '587'); vi.stubEnv('SMTP_SECURE', 'false');
@@ -54,6 +64,7 @@ beforeEach(async () => {
   } })));
 });
 
+// Xóa phiên, cookie, tài khoản test và biến môi trường đã stub sau mỗi test.
 afterEach(async () => {
   setSession(null);
   delete apiClient.defaults.headers.common.Cookie;
@@ -62,12 +73,15 @@ afterEach(async () => {
   vi.unstubAllEnvs();
 });
 
+// Khôi phục baseURL, đóng server và kết nối DB.
 afterAll(async () => {
   apiClient.defaults.baseURL = originalBaseUrl;
   if (server) await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   await prisma.$disconnect();
 });
 
+// Luồng OTP đầy đủ qua HTTP: token reset không dùng lại được, access/refresh token cũ bị thu hồi,
+// mật khẩu cũ không còn đăng nhập được và mật khẩu mới hoạt động.
 it('completes OTP recovery over HTTP, rejects token reuse and revokes the old access and refresh tokens', async () => {
   const [account] = accounts;
   await login(account);
@@ -88,6 +102,7 @@ it('completes OTP recovery over HTTP, rejects token reuse and revokes the old ac
   expect((await apiClient.post('/auth/refresh')).data.userId).toBe(account.user_id);
 });
 
+// Access token hết hạn phải được refresh tự động rồi thử lại thao tác lưu hồ sơ trên đúng tài khoản.
 it('refreshes an expired client token and retries the profile write against the same database account', async () => {
   const [account] = accounts;
   await login(account);
@@ -99,6 +114,8 @@ it('refreshes an expired client token and retries the profile write against the 
   expect((await prisma.user.findUnique({ where: { user_id: account.user_id } })).full_name).toBe(changedName);
 });
 
+// Cookie refresh thuộc tài khoản tab khác phải bị từ chối (SESSION_IDENTITY_CHANGED) trước khi ghi hồ sơ,
+// tránh ghi dữ liệu nhầm sang tài khoản khác.
 it('rejects another tab account refresh cookie before a profile write reaches either account', async () => {
   const [first, second] = accounts;
   const firstSession = await login(first);

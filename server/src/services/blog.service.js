@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/blog.service.js
+// Nghiệp vụ bài viết dạng blog: tạo, liệt kê, xem chi tiết, cập nhật (kèm tệp đính kèm) và xóa, có kiểm duyệt nội dung tự động.
 import prisma from '../config/prisma.js';
 import { postRepository } from '../repositories/post.repository.js';
 import { userRepository } from '../repositories/user.repository.js';
@@ -8,6 +9,7 @@ import { ApiError } from '../utils/index.js';
 import { contentModerationService, haveSameModerationImages } from './contentModerationService.js';
 import { notificationService } from './notification.service.js';
 
+// Lấy danh sách URL tệp đính kèm để gửi kiểm duyệt ảnh.
 const attachmentUrls = (attachments = []) => attachments.map((attachment) => attachment.file_url);
 
 export const blogService = {
@@ -26,6 +28,7 @@ export const blogService = {
     attached_video_id,
     attachments = [],
   }) {
+    // Chấp nhận cả camelCase lẫn snake_case cho các trường đầu vào để tương thích client cũ.
     const rawAuthorId = author_id || authorId;
     const numericAuthorId = Number(rawAuthorId);
     if (!numericAuthorId || !title?.trim() || !content?.trim()) {
@@ -55,6 +58,7 @@ export const blogService = {
       }
     }
 
+    // Tạo post, blog, danh mục, tệp đính kèm và đưa vào hàng đợi kiểm duyệt trong một transaction để không có bài nửa vời.
     return await prisma.$transaction(async (tx) => {
       const newPost = await postRepository.createPost(
         {
@@ -145,6 +149,7 @@ export const blogService = {
       ];
     }
 
+    // Có page/limit thì trả dạng phân trang, không thì trả toàn bộ để tương thích client cũ; tối đa 100 mục mỗi trang.
     const hasPagination = query.page !== undefined || query.limit !== undefined;
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(query.limit) || 10));
@@ -180,6 +185,7 @@ export const blogService = {
       },
     };
 
+    // Làm phẳng post vào blog và chuẩn hóa tệp đính kèm cho FE.
     const formatBlog = (b) => {
       const { post, ...blogData } = b;
       const firstCat = post?.post_categories?.[0];
@@ -269,6 +275,7 @@ export const blogService = {
       throw ApiError.notFound('Blog post not found');
     }
 
+    // Bài chưa công khai chỉ tác giả hoặc admin xem trước được; người khác nhận 404 để không lộ sự tồn tại.
     const canPreview = currentUser && (currentUser.role === ROLES.ADMIN || currentUser.user_id === blog.post.author_id);
     if (blog.post.status !== POST_STATUS.PUBLISHED && !canPreview) throw ApiError.notFound('Blog post not found');
 
@@ -358,7 +365,7 @@ export const blogService = {
     }
 
     return await prisma.$transaction(async (tx) => {
-      // Serialize edits before comparing text so every job contains the version actually saved.
+      // Tuần tự hóa các lần sửa trước khi so sánh nội dung, để mỗi job kiểm duyệt chứa đúng phiên bản thực sự được lưu.
       await postRepository.lockBlog(postId, tx);
       const currentBlog = await postRepository.findBlogById(postId, { post: true }, tx);
       if (!currentBlog || currentBlog.post.status === POST_STATUS.DELETED) throw ApiError.notFound('Blog post not found');
@@ -398,6 +405,7 @@ export const blogService = {
 
       const previousAttachments = updatedBlog.post?.attachments || [];
       let currentAttachments = previousAttachments;
+      // Chỉ thay tệp đính kèm khi client gửi mảng; không gửi nghĩa là giữ nguyên.
       if (Array.isArray(attachments)) {
         const saved = await postRepository.setPostAttachments(postId, attachments, tx);
         currentAttachments = saved;
@@ -412,7 +420,7 @@ export const blogService = {
 
       const { post, ...blogData } = updatedBlog;
       const imageUrls = attachmentUrls(currentAttachments);
-      // Swapping only the pictures must not keep an approval granted to the old ones.
+      // Chỉ đổi ảnh cũng không được giữ lại kết quả duyệt đã cấp cho ảnh cũ.
       const imagesChanged = !haveSameModerationImages(attachmentUrls(previousAttachments), imageUrls);
       const moderation = textChanged || imagesChanged ? await contentModerationService.queuePost({
         post, title: updatedBlog.title, content: updatedBlog.content, imageUrls,
@@ -465,6 +473,7 @@ export const blogService = {
       return { message: 'Bài viết đã ở trạng thái đã xóa' };
     }
 
+    // Thực tế là xóa mềm: bài và bình luận chuyển sang DELETED cùng deleted_at, rồi được dọn vĩnh viễn sau thời gian lưu giữ.
     const now = new Date();
     await prisma.$transaction(async (tx) => {
       await tx.comment.updateMany({
@@ -475,6 +484,7 @@ export const blogService = {
         where: { post_id: postId },
         data: { status: POST_STATUS.DELETED, deleted_at: now },
       });
+      // Admin xóa bài của người khác thì thông báo cho tác giả.
       if (currentUser?.role === ROLES.ADMIN && currentUser.user_id !== post.author_id) {
         await notificationService.notifyPostRemoval({ userId: post.author_id, postId }, tx);
       }

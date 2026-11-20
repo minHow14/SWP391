@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/src/workers/videoRecipeSummaryWorker.js
+// Worker nền tóm tắt công thức từ video YouTube, có cơ chế heartbeat gia hạn lease khi job chạy lâu.
+// Có thể chạy cùng server hoặc chạy độc lập bằng lệnh worker:video-recipes.
 import { setTimeout as delay } from 'node:timers/promises';
 import { pathToFileURL } from 'node:url';
 import prisma from '../config/prisma.js';
@@ -8,12 +10,15 @@ import { videoRecipeSummaryJobRepository } from '../repositories/videoRecipeSumm
 import { processVideoRecipeSummaryJob } from '../services/videoRecipeSummaryProcessor.js';
 import { videoRecipeSummaryError } from '../utils/videoRecipeSummaryError.js';
 
+// Xử lý job đồng thời định kỳ gia hạn lease; gia hạn thất bại (mất lease) thì huỷ xử lý để không ghi đè kết quả.
 async function processWithHeartbeat(job, context) {
   const controller = new AbortController();
   const signal = AbortSignal.any([context.signal, controller.signal]);
   let renewing = false;
   let heartbeat = Promise.resolve();
+  // Gia hạn mỗi 1/3 thời gian lease để còn dư thời gian thử lại trước khi lease hết hạn.
   const timer = setInterval(() => {
+    // Bỏ qua nhịp nếu lần gia hạn trước chưa xong để tránh gửi chồng request.
     if (renewing) return;
     renewing = true;
     heartbeat = context.repository.renew({ job, leaseMs: context.config.leaseMs })
@@ -21,9 +26,11 @@ async function processWithHeartbeat(job, context) {
   }, Math.floor(context.config.leaseMs / 3));
   try {
     return await context.processJob(job, { repository: context.repository, config: context.config, signal });
+  // Luôn dừng heartbeat và chờ lần gia hạn cuối hoàn tất trước khi trả kết quả.
   } finally { clearInterval(timer); await heartbeat; }
 }
 
+// Vòng lặp worker: thu hồi lease hết hạn, nhận job và xử lý; các phụ thuộc có thể ghi đè qua options để test.
 export async function runVideoRecipeSummaryWorker(options = {}) {
   const context = { repository: videoRecipeSummaryJobRepository, config: videoRecipeSummaryConfig,
     logger: videoRecipeSummaryLogger, processJob: processVideoRecipeSummaryJob, signal: new AbortController().signal, ...options };
@@ -43,6 +50,7 @@ export async function runVideoRecipeSummaryWorker(options = {}) {
   context.logger.info('Video recipe worker stopped');
 }
 
+// Chạy worker độc lập: khi nhận tín hiệu dừng sẽ huỷ job đang chạy với lỗi có thể thử lại, để job được xử lý lại sau.
 async function main() {
   const controller = new AbortController();
   const stop = () => controller.abort(videoRecipeSummaryError({ status: 503, code: 'VIDEO_WORKER_SHUTDOWN',
@@ -53,6 +61,7 @@ async function main() {
   finally { process.off('SIGINT', stop); process.off('SIGTERM', stop); await prisma.$disconnect(); }
 }
 
+// Chỉ chạy main khi file được gọi trực tiếp bằng node.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   main().catch(() => { videoRecipeSummaryLogger.fatal('Video recipe worker stopped unexpectedly'); process.exitCode = 1; });
 }

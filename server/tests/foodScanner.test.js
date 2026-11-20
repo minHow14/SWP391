@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/foodScanner.test.js
+// Kiểm thử tích hợp (cần DB test) API quét món ăn bằng ảnh: giới hạn kích thước, validate kết quả AI,
+// hạn mức khách, lưu lịch sử thành viên và hoàn lượt khi lỗi.
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import app from '../src/app.js';
@@ -7,8 +9,10 @@ import { generateToken } from '../src/utils/jwt.js';
 import { ROLES } from '../src/constants/roles.js';
 import { createGuestSession } from './helpers/guestSession.js';
 
+// Ảnh PNG 1x1 mã hóa base64 dùng làm input hợp lệ tối thiểu.
 const DUMMY_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
+// Phiên khách, token thành viên, kết quả quét hợp lệ mẫu và hàm dựng phản hồi JSON từ AI giả.
 let guestSession;
 let guestId;
 const guestIds = [];
@@ -19,17 +23,20 @@ const validResult = { dishName: 'Món chay từ nấm', detectedScanType: 'DISH'
 const upstreamResult = (data = validResult) => new Response(JSON.stringify({ success: true, data, meta: { modelName: 'test-vision-model' } }),
   { headers: { 'Content-Type': 'application/json' } });
 
+// Tạo phiên khách mới cho mỗi test.
 beforeEach(async () => {
   guestSession = await createGuestSession(app);
   guestId = guestSession.guestId;
   guestIds.push(guestId);
 });
 
+// Khôi phục mock sau mỗi test.
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
+// Dọn hạn mức khách, lịch sử và log quét món, rồi đóng DB.
 afterAll(async () => {
   if (guestIds.length > 0) {
     await prisma.guestQuota.deleteMany({ where: { guestId: { in: guestIds } } });
@@ -39,7 +46,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+// Nhóm test: API gateway quét món ăn.
 describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
+  // Ảnh đúng 10 MiB (base64 lớn hơn ~33%) vẫn được chấp nhận trên cả route cũ và /api/v1.
   it.each(['/api/ai/food-scanner/analyze', '/api/v1/ai/food-scanner/analyze'])(
     'accepts an actual 10 MiB image with bounded base64 overhead on %s', async (path) => {
       vi.stubGlobal('fetch', vi.fn(async () => upstreamResult()));
@@ -47,6 +56,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
       expect(response.status).toBe(200);
       expect(response.body.data).toEqual(validResult);
     });
+  // Ảnh vượt 10 MiB một byte bị 422 trước khi gọi AI và không trừ hạn mức.
   it('rejects an image one decoded byte above 10 MiB before calling AI', async () => {
     const upstream = vi.fn(async () => upstreamResult());
     vi.stubGlobal('fetch', upstream);
@@ -57,11 +67,13 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     const quota = await prisma.guestQuota.findFirst({ where: { guestId } });
     expect(quota?.usedCount ?? 0).toBe(0);
   });
+  // Endpoint khác vẫn giữ giới hạn JSON thông thường và trả 413 có mã lỗi rõ ràng.
   it('keeps the normal JSON limit on other endpoints and returns a meaningful 413', async () => {
     const response = await guestSession.agent.post('/api/ai/chat/stream').send({ message: 'x'.repeat(1_100_000) });
     expect(response.status).toBe(413);
     expect(response.body.errorCode).toBe('PAYLOAD_TOO_LARGE');
   });
+  // Base64 sai định dạng bị từ chối trước khi gọi AI.
   it('rejects malformed base64 before calling AI', async () => {
     const upstream = vi.fn(async () => upstreamResult());
     vi.stubGlobal('fetch', upstream);
@@ -69,6 +81,8 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(response.status).toBe(422);
     expect(upstream).not.toHaveBeenCalled();
   });
+  // Kết quả AI thiếu trường, trạng thái lạ, dinh dưỡng âm hoặc mâu thuẫn (clear nhưng có vi phạm)
+  // không được lưu là hoàn tất (502, FAILED, không có payload).
   it.each([
     { dishName: 'Thiếu dữ liệu', status: 'clear' },
     { ...validResult, status: 'inconclusive' },
@@ -83,6 +97,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(generation.status).toBe('FAILED');
     expect(generation.responsePayload).toBeNull();
   });
+  // Thiếu imageBase64 bị 422 INVALID_INPUT.
   it('rejects invalid payload when imageBase64 is missing', async () => {
     const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
@@ -93,6 +108,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(res.body.errorCode).toBe('INVALID_INPUT');
   });
 
+  // dietTypeId không hợp lệ bị 422 INVALID_INPUT.
   it('rejects request with invalid dietTypeId', async () => {
     const res = await guestSession.agent
       .post('/api/ai/food-scanner/analyze')
@@ -103,6 +119,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(res.body.errorCode).toBe('INVALID_INPUT');
   });
 
+  // Khách quét thành công: trừ một lượt, trả số lượt còn lại và ghi log thành công.
   it('successfully analyzes food image for guest, consumes quota and creates audit log', async () => {
     const mockAiResponse = {
       success: true,
@@ -150,6 +167,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(log.status).toBe('SUCCESS');
   });
 
+  // Thành viên quét thành công thì có bản ghi ai_generations COMPLETED loại FOOD_SCAN.
   it('records ai_generations for authenticated user', async () => {
     const mockAiResponse = {
       success: true,
@@ -194,6 +212,7 @@ describe('POST /api/ai/food-scanner/analyze - Food Scanner Gateway API', () => {
     expect(generation.status).toBe('COMPLETED');
   });
 
+  // AI lỗi thì hoàn lượt khách và trả 502.
   it('refunds guest quota and marks FAILED when upstream AI fails', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({
       success: false,

@@ -1,10 +1,12 @@
 // d:\Projects\FPT\SWP391\server\scripts\repair-ingredients.js
+// Sửa/bổ sung chi tiết nguyên liệu (ingredient_details) theo catalog chuẩn mà không ghi đè dữ liệu người dùng đã nhập.
 import prisma from '../src/config/prisma.js';
 import { ingredientCatalog } from './ingredient-catalog.js';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { ingredientImageUrl } from '../src/services/workspace.service.js';
 
+// Duyệt catalog và upsert chi tiết cho từng nguyên liệu đã có trong DB; trả về số nguyên liệu đã xử lý.
 export async function repairIngredientDetails(db = prisma) {
   let repaired = 0;
   await db.$transaction(async (tx) => {
@@ -15,7 +17,7 @@ export async function repairIngredientDetails(db = prisma) {
       const { category, origin, plant, description, cooking, aliases } = entry;
       const image_url = ingredientImageUrl(ingredient.ingredient_id);
       const defaults = { category, origin, plant, description, cooking, aliases, image_url };
-      // Repair missing/generic seed fields; retain user-supplied photos and descriptions.
+      // Chỉ sửa các trường còn thiếu/mang giá trị seed chung chung; giữ lại ảnh và mô tả do người dùng cung cấp.
       const data = existing
         ? {
             ...(existing.category === 'other' ? { category } : {}),
@@ -37,6 +39,7 @@ export async function repairIngredientDetails(db = prisma) {
   return repaired;
 }
 
+// Chạy độc lập khi gọi trực tiếp bằng node.
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     console.log(`Đã cập nhật chi tiết cho ${await repairIngredientDetails()} nguyên liệu; giữ nguyên các dữ liệu khác.`);

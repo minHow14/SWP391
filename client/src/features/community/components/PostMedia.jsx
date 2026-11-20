@@ -1,6 +1,8 @@
 // client/src/features/community/components/PostMedia.jsx
+// Hiển thị danh sách ảnh/video đính kèm của bài viết; chế độ preview cho phép gỡ từng tệp khi soạn bài.
 import ContentImage from '../../../components/common/ContentImage.jsx';
 
+// Component media; trả về null khi không có tệp đính kèm nào.
 export default function PostMedia({ attachments, preview = false, onRemove }) {
   if (!attachments?.length) return null;
   return (

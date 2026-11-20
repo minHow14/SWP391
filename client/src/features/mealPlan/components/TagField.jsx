@@ -1,13 +1,17 @@
 ﻿// client/src/features/mealPlan/components/TagField.jsx
+// Ô nhập dạng tag (dị ứng, nguyên liệu có sẵn) kèm các gợi ý bấm nhanh.
 import { useState } from 'react';
 
+// Component nhập tag; onChange nhận danh sách tag mới.
 export default function TagField({ id, label, tags, onChange, hints = [], placeholder }) {
   const [text, setText] = useState('');
+  // Thêm tag nếu chưa có (không phân biệt hoa thường).
   const add = (value) => {
     const clean = value.trim();
     if (clean && !tags.some((tag) => tag.toLowerCase() === clean.toLowerCase())) onChange([...tags, clean]);
     setText('');
   };
+  // Enter hoặc dấu phẩy để thêm tag (bỏ qua khi đang gõ bộ gõ tiếng Việt), Backspace khi ô trống để xóa tag cuối.
   return (
     <div className="cx-mp-field cx-mp-wide">
       <label htmlFor={id}>{label}</label>

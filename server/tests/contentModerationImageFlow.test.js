@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/tests/contentModerationImageFlow.test.js
+// Kiểm thử đầu-cuối (cần DB test) kiểm duyệt ảnh: API → DB → worker → HTTP nội bộ tới AI giả,
+// bao gồm ảnh đính kèm blog và ảnh thumbnail video, đối chiếu với hợp đồng OpenAPI.
 import http from 'node:http';
 import path from 'node:path';
 import { once } from 'node:events';
@@ -6,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { rm, writeFile } from 'node:fs/promises';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// Bật kiểm duyệt trước khi import app (vi.hoisted chạy trước mọi import).
 vi.hoisted(() => { process.env.CONTENT_MODERATION_ENABLED = 'true'; });
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
@@ -16,6 +19,7 @@ import { processContentModerationJob } from '../src/services/contentModerationPr
 import { runContentModerationWorker } from '../src/workers/contentModerationWorker.js';
 import { moderationContract } from './helpers/openApiContract.js';
 
+// Khóa nội bộ, đường dẫn endpoint duyệt văn bản/ảnh, cấu hình worker, ảnh PNG mẫu và các kết luận mẫu.
 const INTERNAL_KEY = 'moderation-image-flow-key-32-characters';
 const TEXT_PATH = '/api/v1/content-moderations';
 const IMAGE_PATH = '/api/v1/image-moderations';
@@ -27,14 +31,18 @@ const imageAllowed = { decision: 'ALLOW', reason: 'Ảnh đĩa nấm xào.', cat
   modelName: 'integration-test-provider', policyVersion: 'integration-test-image-policy' };
 const imageFlagged = { ...imageAllowed, decision: 'REVIEW', reason: 'Ảnh có đĩa thịt heo quay.',
   categories: ['ANIMAL_MEAT_PROMOTION'], observations: ['Đĩa thịt heo quay da giòn'] };
+// Tên file ảnh ngẫu nhiên được ghi thật vào thư mục upload để loader đọc được.
 const fileName = `moderation-flow-${randomUUID()}.png`;
 const imageUrl = `/uploads/posts/${fileName}`;
+// Biến trạng thái dùng chung và các hàm tiện ích gọi API với tư cách chủ bài.
 let owner, ownerToken, endpoint, ai, verdicts, received;
 const auth = () => ({ Authorization: `Bearer ${ownerToken}` });
 const ownerJob = (id) => request(app).get(`/api/v1/content-moderation-jobs/${id}`).set(auth());
 const createBlog = (attachments) => request(app).post('/api/v1/blogs').set(auth())
   .send({ title: 'Nấm xào sả ớt', content: 'Món chay từ nấm.', attachments });
 
+// Xử lý request tới AI giả: ghi lại request, trả kết luận văn bản hoặc ảnh tùy endpoint
+// và kiểm tra cả request lẫn response khớp hợp đồng OpenAPI.
 async function respond(req, res) {
   let content = '';
   for await (const chunk of req) content += chunk;
@@ -48,6 +56,7 @@ async function respond(req, res) {
   res.end(JSON.stringify(body));
 }
 
+// Chạy worker thật đến khi job hoàn tất hoặc thất bại; watchdog 5 giây tránh test treo.
 async function finishQueuedWork() {
   const controller = new AbortController();
   const watchdog = setTimeout(() => controller.abort(), 5_000);
@@ -61,6 +70,7 @@ async function finishQueuedWork() {
   } finally { clearTimeout(watchdog); }
 }
 
+// Ghi file ảnh thật, tạo chủ bài và khởi động HTTP server giả làm AI Service.
 beforeAll(async () => {
   await writeFile(path.join(POST_UPLOAD_DIRECTORY, fileName), PNG_BYTES);
   owner = await prisma.user.create({ data: { email: `moderation-image-flow-${randomUUID()}@example.invalid`,
@@ -72,12 +82,14 @@ beforeAll(async () => {
   ai = createContentModerationAiService({ config: { url: `http://127.0.0.1:${endpoint.address().port}`, internalApiKey: INTERNAL_KEY }, timeoutMs: 1_000 });
 });
 
+// Đặt lại kết luận mặc định (đều ALLOW) và xóa bài của chủ trước mỗi test.
 beforeEach(async () => {
   received = [];
   verdicts = { text: textAllowed, image: imageAllowed };
   await prisma.post.deleteMany({ where: { author_id: owner.user_id } });
 });
 
+// Xóa file ảnh, đóng server giả, dọn user và đóng DB.
 afterAll(async () => {
   await rm(path.join(POST_UPLOAD_DIRECTORY, fileName), { force: true });
   if (endpoint) { endpoint.closeAllConnections(); await new Promise((resolve) => endpoint.close(resolve)); }
@@ -85,7 +97,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+// Nhóm test: kiểm duyệt ảnh qua API, DB, worker và HTTP nội bộ.
 describe('image moderation through APIs, database, worker and internal HTTP', () => {
+  // Văn bản vô hại nhưng ảnh upload bị gắn cờ thì bài vẫn bị ẩn; AI nhận đúng ảnh base64 kèm ngữ cảnh bài viết.
   it('hides a post whose text is harmless but whose uploaded image is flagged', async () => {
     verdicts.image = imageFlagged;
     const submitted = await createBlog([{ url: imageUrl, type: 'image', name: 'dish.png' }]);
@@ -104,6 +118,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
         imageIndex: 0, mimeType: 'image/png', imageBase64: PNG_BYTES.toString('base64') } });
   });
 
+  // Văn bản và mọi ảnh đều ALLOW thì bài được đăng; file video không bị gửi đi duyệt ảnh.
   it('publishes when the text and every image are allowed', async () => {
     const submitted = await createBlog([{ url: imageUrl, type: 'image' }, { url: '/uploads/posts/cooking.mp4', type: 'video' }]);
     await finishQueuedWork();
@@ -113,6 +128,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
     expect((await request(app).get(`/api/v1/blogs/${submitted.body.data.blog.post_id}`)).status).toBe(200);
   });
 
+  // Ảnh không đọc được được chuyển cho admin xem xét (REVIEW) mà không gọi mô hình duyệt ảnh.
   it('sends an unreadable image to an administrator without calling the image model', async () => {
     const missingUrl = `/uploads/posts/missing-${randomUUID()}.jpg`;
     const submitted = await createBlog([{ url: missingUrl, type: 'image' }]);
@@ -124,6 +140,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
     expect(received.map((call) => call.path)).toEqual([TEXT_PATH]);
   });
 
+  // Sửa bài chỉ đổi ảnh vẫn phải kiểm duyệt lại; sửa mà giữ nguyên ảnh thì không tạo job mới.
   it('re-moderates an edit that only swaps images and skips an edit that keeps them', async () => {
     const submitted = await createBlog([]);
     await finishQueuedWork();
@@ -141,6 +158,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
     expect(await prisma.contentModerationJob.count({ where: { postId } })).toBe(2);
   });
 
+  // Liên kết đính kèm bên ngoài và video không phải YouTube bị từ chối trước khi lưu.
   it('rejects outside attachment links and non-YouTube videos before saving', async () => {
     expect((await createBlog([{ url: 'https://example.com/meat.jpg', type: 'image' }])).status).toBe(400);
     const video = await request(app).post('/api/v1/videos').set(auth()).send({ title: 'Video', video_url: 'https://vimeo.com/123' });
@@ -148,6 +166,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
     expect(await prisma.post.count({ where: { author_id: owner.user_id } })).toBe(0);
   });
 
+  // Thumbnail video upload được đưa vào hàng đợi kiểm duyệt và trả biên nhận job.
   it('queues an uploaded video thumbnail and returns the job receipt', async () => {
     const submitted = await request(app).post('/api/v1/videos').set(auth())
       .send({ title: 'Sườn non chay', video_url: 'https://youtu.be/3MySvzHeUyo', thumbnail_url: imageUrl });
@@ -159,6 +178,7 @@ describe('image moderation through APIs, database, worker and internal HTTP', ()
     expect(queued.imageUrls).toEqual([imageUrl]);
   });
 
+  // Chỉ đổi thumbnail upload của video cũng phải kiểm duyệt lại; giữ nguyên thì không.
   it('re-moderates a video when only its uploaded thumbnail changes', async () => {
     const created = await request(app).post('/api/v1/videos').set(auth())
       .send({ title: 'Sườn non chay', video_url: 'https://www.youtube.com/watch?v=3MySvzHeUyo' });

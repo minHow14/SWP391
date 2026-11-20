@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/services/image_moderation.py
+# Dịch vụ kiểm duyệt ảnh bài viết bằng model thị giác: gửi ảnh kèm ngữ cảnh bài viết, validate kết luận
+# và cắt bớt số quan sát theo hợp đồng; lỗi luôn trả về lỗi an toàn, không bao giờ sinh kết luận giả.
 import asyncio
 import json
 import logging
@@ -20,11 +22,13 @@ from schemas.image_moderation import (
 )
 from services.content_moderation import moderation_failure
 
+# Phiên bản chính sách kiểm duyệt ảnh và giới hạn token đầu ra.
 IMAGE_MODERATION_POLICY_VERSION = "vegetarian-community-image-v1"
 IMAGE_MODERATION_MAX_TOKENS = 1_500
 logger = logging.getLogger(__name__)
 
 
+# Đọc prompt kiểm duyệt ảnh từ file một lần rồi cache.
 @lru_cache(maxsize=1)
 def _image_moderation_prompt() -> str:
     return (
@@ -32,6 +36,7 @@ def _image_moderation_prompt() -> str:
     ).read_text(encoding="utf-8")
 
 
+# Tạo model kiểm duyệt ảnh một lần: temperature 0 để kết luận ổn định; include_raw để lấy tên model thật.
 @lru_cache(maxsize=1)
 def _image_moderation_model() -> tuple[Runnable, str]:
     model = get_llm_json(
@@ -42,6 +47,7 @@ def _image_moderation_model() -> tuple[Runnable, str]:
     ), model.model_name
 
 
+# Khởi tạo khi service khởi động; không bắt buộc có khóa API để các tính năng khác vẫn chạy.
 def initialize_image_moderation() -> None:
     """Load the prompt and provider client once without requiring credentials for other features."""
     _image_moderation_prompt()
@@ -49,6 +55,7 @@ def initialize_image_moderation() -> None:
         _image_moderation_model()
 
 
+# Dựng message gửi model: ngữ cảnh bài viết dạng JSON và ảnh dạng data URI.
 def _messages(body: ImageModerationRequest) -> list[SystemMessage | HumanMessage]:
     context = {
         "contentType": body.content_type,
@@ -68,6 +75,7 @@ def _messages(body: ImageModerationRequest) -> list[SystemMessage | HumanMessage
     ]
 
 
+# Validate kết luận của model, cắt danh sách quan sát về mức tối đa của hợp đồng và gắn metadata.
 def _validated_result(
     packet: dict[str, Any], configured_model: str
 ) -> ImageModerationResult:
@@ -83,6 +91,7 @@ def _validated_result(
     )
 
 
+# Phân loại một ảnh bài viết bằng một lượt suy luận thật có giới hạn thời gian; lỗi không bao giờ tạo ra kết luận.
 async def moderate_image(body: ImageModerationRequest) -> ImageModerationResult:
     """Classify one post image with bounded real inference; failures never yield a verdict."""
     if not settings.DEEPSEEK_API_KEY:

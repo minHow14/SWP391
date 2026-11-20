@@ -1,5 +1,6 @@
 # D:/SWP391/SWP391/ai_service/api/admin_actions.py
 # ai_service/api/admin_actions.py
+# Router quản trị nội bộ: các thao tác bảo trì (xóa cache chatbot) chỉ Backend được gọi.
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
@@ -15,10 +16,12 @@ router = APIRouter(
 )
 
 
+# Dữ liệu trả về: số mục cache đã xóa.
 class CacheClearData(CamelModel):
     cleared: int
 
 
+# Response xóa cache theo API Contract.
 class CacheClearResponse(CamelModel):
     success: bool = True
     message: str = "Đã xóa bộ nhớ đệm chatbot."
@@ -26,6 +29,7 @@ class CacheClearResponse(CamelModel):
     meta: dict[str, Any]
 
 
+# POST /api/admin/chatbot-cache/clear: xóa cache câu trả lời chatbot, ví dụ sau khi cập nhật prompt.
 @router.post("/chatbot-cache/clear", response_model=CacheClearResponse)
 async def clear_chatbot_cache(request: Request):
     """

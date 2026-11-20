@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/agents/chatbot_agent.py
+# Agent chatbot tư vấn dinh dưỡng chay: dựng prompt theo chế độ ăn/thực đơn, gọi LLM, cache và streaming.
 from collections.abc import AsyncGenerator
 from pathlib import Path
 from typing import Any
@@ -9,25 +10,31 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from core.dietary import dietary_guidance
 from core.llm import get_llm_text
 
+# Đường dẫn file system prompt của chatbot.
 PROMPT_FILE = Path(__file__).resolve().parent.parent / "prompts" / "chatbot.md"
 
 
+# Agent chatbot dùng chung một thể hiện cho toàn service (để cache có tác dụng giữa các request).
 class ChatbotAgent:
     """
     Chatbot Agent hỗ trợ hội thoại đa lượt (multi-turn), nhận diện trường phái ăn chay,
     bộ nhớ đệm TTL Cache và streaming response.
     """
+    # Khởi tạo agent: prompt được nạp lười ở lần dùng đầu, cache TTL cho câu hỏi lặp lại.
     def __init__(self):
         self._prompt_content: str | None = None
         # Cache các câu hỏi tra cứu dinh dưỡng lặp lại trong 1 giờ (tối đa 150 câu)
         self._cache: TTLCache = TTLCache(maxsize=150, ttl=3600)
 
+    # Xóa toàn bộ cache câu trả lời.
     def clear_cache(self) -> int:
         """Xoá cache câu trả lời; trả về số câu đã xoá (Admin dùng khi đổi prompt hoặc model)."""
         count = len(self._cache)
         self._cache.clear()
         return count
 
+    # Dựng system prompt: nội dung gốc từ file (hoặc câu mặc định nếu thiếu file), nối thêm quy tắc
+    # chế độ ăn và thực đơn làm ngữ cảnh. Thực đơn được đánh dấu là dữ liệu để chống chèn chỉ thị (prompt injection).
     def load_prompt(self, dietary_type: str | None = None, menu_context: str | None = None) -> str:
         if self._prompt_content is None:
             if PROMPT_FILE.exists():
@@ -62,6 +69,7 @@ class ChatbotAgent:
             )
         return prompt
 
+    # Dựng danh sách message gửi LLM: system prompt, lịch sử hội thoại đã lọc và câu hỏi hiện tại.
     def build_messages(
         self,
         user_message: str,
@@ -80,6 +88,7 @@ class ChatbotAgent:
                 if not content or not str(content).strip():
                     continue
 
+                # Chỉ nhận role assistant/user; role khác (ví dụ system do client gửi) bị bỏ qua để không ghi đè system prompt.
                 if role == "assistant":
                     messages.append(AIMessage(content=str(content).strip()))
                 elif role == "user":
@@ -88,6 +97,7 @@ class ChatbotAgent:
         messages.append(HumanMessage(content=user_message.strip()))
         return messages
 
+    # Trả lời một lần, có cache cho câu hỏi độc lập.
     async def answer(
         self,
         user_message: str,
@@ -101,6 +111,7 @@ class ChatbotAgent:
         vì câu trả lời về thực đơn phụ thuộc vào từng người dùng).
         """
         clean_msg = user_message.strip()
+        # Khóa cache gồm câu hỏi (chữ thường) và chế độ ăn, vì cùng câu hỏi có câu trả lời khác nhau theo chế độ ăn.
         diet_key = (dietary_type or "").strip().lower()
         cache_key = (clean_msg.lower(), diet_key)
 
@@ -114,7 +125,7 @@ class ChatbotAgent:
         )
         llm = get_llm_text()
         
-        # Invoke LLM asynchronously
+        # Gọi LLM bất đồng bộ
         response = await llm.ainvoke(messages)
         result = str(response.content)
 
@@ -123,6 +134,7 @@ class ChatbotAgent:
 
         return result
 
+    # Trả lời theo từng token; dùng prepared_messages nếu router đã dựng sẵn để vết prompt khớp với lời gọi thật.
     async def answer_stream(
         self,
         user_message: str,
@@ -141,9 +153,11 @@ class ChatbotAgent:
         llm = get_llm_text()
 
         async for chunk in llm.astream(messages):
+            # Bỏ qua chunk rỗng (ví dụ chunk chỉ chứa metadata).
             if chunk.content:
                 yield str(chunk.content)
 
 
+# Thể hiện agent dùng chung toàn service.
 chatbot_agent = ChatbotAgent()
 

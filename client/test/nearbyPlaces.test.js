@@ -1,4 +1,5 @@
 // client/test/nearbyPlaces.test.js
+// Kiểm thử (node:test) tiện ích quán chay gần đây: danh sách thành phố/khu vực, giờ mở cửa, tham số API, định vị, ảnh quán và lọc quán chay.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -14,6 +15,7 @@ import {
 import { placeService } from '../src/services/placeService.js';
 import apiClient from '../src/services/apiClient.js';
 
+// CITY_HUBS phải có các thành phố lớn và khu vực với tọa độ GPS hợp lệ.
 test('CITY_HUBS contains major Vietnam cities and valid district hubs with GPS coordinates', () => {
   assert.ok(Array.isArray(CITY_HUBS));
   assert.ok(CITY_HUBS.length >= 4);
@@ -33,18 +35,20 @@ test('CITY_HUBS contains major Vietnam cities and valid district hubs with GPS c
     }
   }
 
-  // HCM_HUBS backward compatibility export
+  // HCM_HUBS vẫn được export để tương thích ngược với code cũ
   assert.equal(HCM_HUBS, CITY_HUBS[0].hubs);
 });
 
+// Các lựa chọn bán kính và kiểu ăn phải có giá trị như giao diện mong đợi (kể cả lựa chọn "tất cả" có id null).
 test('RADIUS_OPTIONS and DIET_OPTIONS have expected values', () => {
   assert.deepEqual(RADIUS_OPTIONS, [3, 5, 10]);
   assert.ok(Array.isArray(DIET_OPTIONS));
   assert.ok(DIET_OPTIONS.some((d) => d.id === null));
-  assert.ok(DIET_OPTIONS.some((d) => d.id === 1)); // Vegan
-  assert.ok(DIET_OPTIONS.some((d) => d.id === 5)); // Buddhist
+  assert.ok(DIET_OPTIONS.some((d) => d.id === 1)); // Thuần chay
+  assert.ok(DIET_OPTIONS.some((d) => d.id === 5)); // Chay Phật giáo
 });
 
+// checkIsOpenNow phải hiểu giờ mở cửa, kể cả khung giờ qua nửa đêm; giờ không rõ thì trả null.
 test('checkIsOpenNow parses operating hours accurately', () => {
   const midDay = new Date('2026-10-26T12:00:00+07:00');
   const earlyMorning = new Date('2026-10-26T05:00:00+07:00');
@@ -61,11 +65,13 @@ test('checkIsOpenNow parses operating hours accurately', () => {
   assert.equal(checkIsOpenNow(null, midDay), null);
 });
 
+// getNearbyPlaces phải tạo đúng tham số truy vấn snake_case gồm kiểu ăn và GPS của người dùng.
 test('placeService.getNearbyPlaces constructs correct query params including dietTypeId and user GPS', async () => {
   let capturedUrl = '';
   let capturedOptions = null;
   const originalGet = apiClient.get;
 
+  // Ghi đè tạm apiClient.get để bắt tham số và luôn khôi phục trong finally.
   try {
     apiClient.get = async (url, options) => {
       capturedUrl = url;
@@ -98,7 +104,9 @@ test('placeService.getNearbyPlaces constructs correct query params including die
   }
 });
 
+// getPosition trả về tọa độ khi định vị thành công.
 test('getPosition resolves with coordinates when geolocation succeeds', async () => {
+  // Navigator giả gọi callback thành công với tọa độ cố định.
   const mockNavigator = {
     geolocation: {
       getCurrentPosition: (success) => {
@@ -110,6 +118,7 @@ test('getPosition resolves with coordinates when geolocation succeeds', async ()
   assert.deepEqual(pos, { lat: 10.7769, lng: 106.7009 });
 });
 
+// Người dùng từ chối quyền vị trí thì báo lỗi thân thiện.
 test('getPosition rejects with user-friendly error when permission is denied', async () => {
   const mockNavigator = {
     geolocation: {
@@ -124,6 +133,7 @@ test('getPosition rejects with user-friendly error when permission is denied', a
   );
 });
 
+// Trình duyệt không hỗ trợ định vị thì báo lỗi.
 test('getPosition rejects when geolocation is unsupported', async () => {
   await assert.rejects(
     getPosition({}),
@@ -131,6 +141,7 @@ test('getPosition rejects when geolocation is unsupported', async () => {
   );
 });
 
+// Giữ ảnh thật của quán và không bao giờ thay bằng ảnh stock không liên quan; đường dẫn không hợp lệ/không an toàn trả null.
 test('resolveRestaurantPhoto preserves real photos and never substitutes unrelated stock photos', () => {
   const placeWithRealPhoto = { name: 'Quán Chay An Lạc', image_url: 'https://my-real-restaurant.com/photo.jpg' };
   assert.equal(resolveRestaurantPhoto(placeWithRealPhoto), 'https://my-real-restaurant.com/photo.jpg');
@@ -142,8 +153,9 @@ test('resolveRestaurantPhoto preserves real photos and never substitutes unrelat
   assert.equal(resolveRestaurantPhoto(null), null);
 });
 
+// isVegetarianPlace nhận đúng quán chay và loại các địa điểm không phải quán chay dù tên có chữ gần giống.
 test('isVegetarianPlace identifies true vegetarian places and rejects non-vegetarian names', () => {
-  // Accepted
+  // Được chấp nhận
   assert.equal(isVegetarianPlace({ name: 'Nhà Hàng Chay Hum Vegetarian' }), true);
   assert.equal(isVegetarianPlace({ name: 'Siêu Thị Thực Phẩm Chay Âu Lạc' }), true);
   assert.equal(isVegetarianPlace({ name: 'Quán Chay Bồ Đề' }), true);
@@ -152,27 +164,27 @@ test('isVegetarianPlace identifies true vegetarian places and rejects non-vegeta
   assert.equal(isVegetarianPlace({ name: 'Tiệm Ăn Chay', diet_type_id: 1 }), true);
   assert.equal(isVegetarianPlace({ name: 'Bếp Nhà', type: 'vegan' }), true);
 
-  // Rejected: Nail & Beauty
+  // Bị loại: tiệm nail và làm đẹp
   assert.equal(isVegetarianPlace({ name: 'UK MANI NAIL BAR' }), false);
   assert.equal(isVegetarianPlace({ name: 'Nhà Nàng Nails & Beauty - Bình Thạnh' }), false);
   assert.equal(isVegetarianPlace({ name: 'OnOn Nails Bar - Bến Thành' }), false);
 
-  // Rejected: Spa & Massage & Chuông xoay
+  // Bị loại: spa, massage và chuông xoay
   assert.equal(isVegetarianPlace({ name: 'Mani Mani Spa – Massage – マッサージ – 按摩 – 마사지' }), false);
   assert.equal(isVegetarianPlace({ name: 'ANNE SPA - Nails - Gội đầu - Foot Massage' }), false);
   assert.equal(isVegetarianPlace({ name: 'Mani House - Ngôi Nhà Chuông Xoay' }), false);
 
-  // Rejected: Yoga & Fitness
+  // Bị loại: yoga và thể hình
   assert.equal(isVegetarianPlace({ name: 'OM YOGA - YOGA BÌNH THẠNH' }), false);
   assert.equal(isVegetarianPlace({ name: 'Mani om yoga' }), false);
 
-  // Rejected: Beef, Thai, Meat, Tea
+  // Bị loại: quán bò, quán Thái, quán thịt, quán trà
   assert.equal(isVegetarianPlace({ name: 'Ushi Mania - Japanese Aging Beef & Bar' }), false);
   assert.equal(isVegetarianPlace({ name: 'Bánh Mì Chim Chạy Nguyễn Gia Trí' }), false);
   assert.equal(isVegetarianPlace({ name: 'GÓC THÁI | QUÁN THÁI NGON BÌNH THẠNH | MÓN THÁI BÌNH THẠNH' }), false);
   assert.equal(isVegetarianPlace({ name: 'CHAGEE NGUYỄN GIA TRÍ' }), false);
 
-  // Rejected: Pure house number addresses
+  // Bị loại: tên chỉ là số nhà/địa chỉ
   assert.equal(isVegetarianPlace({ name: '36/59 nguyễn gia trí', address: '36/59 Nguyễn Gia Trí' }), false);
   assert.equal(isVegetarianPlace({ name: '69/1/7, Nguyễn Gia Trí' }), false);
 });

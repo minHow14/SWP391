@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/admin.service.js
+// Nghiệp vụ trang quản trị: quản lý thành viên, bài viết, bình luận, danh mục, kiểm duyệt AI, giám sát AI, báo cáo vi phạm và dashboard thống kê.
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { USER_STATUS, POST_STATUS, COMMENT_STATUS, REPORT_STATUS } from '../constants/status.js';
@@ -20,12 +21,14 @@ import { blogService } from './blog.service.js';
 import { videoService } from './video.service.js';
 import { contentModerationRepository } from '../repositories/contentModerationRepository.js';
 
+// Tái tạo __dirname trong ES module để xác định thư mục uploads khi xóa tệp.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
  * FE-01: Quản lý thành viên (Users)
  */
+// Danh sách thành viên có phân trang, lọc theo trạng thái/vai trò và tìm theo tên hoặc email; kèm số bài, bình luận, báo cáo.
 export const getUsers = async ({ page = 1, limit = 10, search = '', status = '', role = null }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
@@ -69,6 +72,7 @@ export const getUsers = async ({ page = 1, limit = 10, search = '', status = '',
   return { users, total, page: Number(page), limit: Number(limit) };
 };
 
+// Lấy toàn bộ bài viết và bình luận của một thành viên (kể cả đã ẩn/xóa) để admin xem xét.
 export const getUserContent = async (userId) => {
   const targetId = Number(userId);
   const user = await userRepository.findById(targetId, {
@@ -108,14 +112,17 @@ export const getUserContent = async (userId) => {
   return { user, posts, comments };
 };
 
+// Khóa dòng tài khoản trong transaction; không tồn tại thì 404.
 async function getLockedAccount(userId, tx) {
   const user = await userRepository.lockAccount(userId, tx);
   if (!user) throw ApiError.notFound('Không tìm thấy người dùng');
   return user;
 }
 
+// Đổi trạng thái tài khoản (khóa/mở khóa); chuyển sang DELETED được xử lý bằng luồng xóa riêng.
 export const updateUserStatus = async ({ targetUserId, status, currentAdminId }) => {
   const id = Number(targetUserId);
+  // Không cho admin tự khóa/xóa chính mình để tránh mất quyền quản trị.
   if (id === currentAdminId) {
     throw ApiError.badRequest('Không thể tự thay đổi trạng thái của chính tài khoản đang đăng nhập');
   }
@@ -123,6 +130,7 @@ export const updateUserStatus = async ({ targetUserId, status, currentAdminId })
   if (status === USER_STATUS.DELETED) return deleteUser({ targetUserId: id, currentAdminId });
   return prisma.$transaction(async (tx) => {
     const user = await getLockedAccount(id, tx);
+    // Tài khoản đã xóa phải dùng chức năng khôi phục để nội dung đi kèm cũng được khôi phục đúng.
     if (user.status === USER_STATUS.DELETED) {
       const error = ApiError.conflict('Tài khoản đã xóa cần được khôi phục bằng chức năng khôi phục tài khoản.');
       error.errorCode = 'ACCOUNT_RESTORE_REQUIRED';
@@ -132,6 +140,7 @@ export const updateUserStatus = async ({ targetUserId, status, currentAdminId })
   });
 };
 
+// Xóa mềm tài khoản cùng toàn bộ bài viết và bình luận của họ (dùng chung một mốc deleted_at để khôi phục sau này).
 export const deleteUser = async ({ targetUserId, currentAdminId }) => {
   const id = Number(targetUserId);
   if (id === currentAdminId) {
@@ -140,6 +149,7 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
 
   return prisma.$transaction(async (tx) => {
     const user = await getLockedAccount(id, tx);
+    // Xóa lại tài khoản đã xóa được coi là thành công (idempotent).
     if (user.status === USER_STATUS.DELETED) return user;
     const deletedAt = new Date();
     await userRepository.softDeleteAccountContent(id, deletedAt, tx);
@@ -147,6 +157,7 @@ export const deleteUser = async ({ targetUserId, currentAdminId }) => {
   });
 };
 
+// Khôi phục tài khoản đã xóa và nội dung bị xóa cùng lúc với tài khoản; trả cảnh báo nếu có nội dung không khôi phục được.
 export const restoreUser = async (userId) => {
   const id = Number(userId);
   return prisma.$transaction(async (tx) => {
@@ -169,6 +180,7 @@ export const restoreUser = async (userId) => {
 /**
  * FE-02: Quản lý bài viết và video
  */
+// Danh sách bài viết/video cho admin, lọc theo loại, trạng thái và tìm theo tiêu đề hoặc tên tác giả.
 export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '', search = '' }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
@@ -202,6 +214,7 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
     }),
   ]);
 
+  // Chuẩn hóa loại tệp đính kèm về chữ thường, trả cả file_type lẫn type để tương thích FE.
   const formattedPosts = posts.map((p) => ({
     ...p,
     attachments: (p.attachments || []).map((a) => ({
@@ -214,6 +227,7 @@ export const getPosts = async ({ page = 1, limit = 10, postType = '', status = '
   return { posts: formattedPosts, total, page: Number(page), limit: Number(limit) };
 };
 
+// Đổi trạng thái bài viết; khi chuyển sang DELETED thì thông báo cho tác giả (chỉ lần đầu bị xóa).
 export const updatePostStatus = async ({ postId, status }) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({ where: { post_id: id } });
@@ -231,6 +245,7 @@ export const updatePostStatus = async ({ postId, status }) => {
   });
 };
 
+// Admin sửa bài viết: điều hướng sang blogService/videoService theo loại bài để dùng chung kiểm tra và kiểm duyệt lại.
 export const updatePost = async ({
   postId,
   title,
@@ -252,6 +267,7 @@ export const updatePost = async ({
   });
   if (!post) throw ApiError.notFound('Không tìm thấy bài đăng');
 
+  // Chấp nhận cả camelCase lẫn snake_case từ client.
   const resolvedCategoryId = categoryId !== undefined ? categoryId : category_id;
   const resolvedVideoUrl = videoUrl !== undefined ? videoUrl : video_url;
   const resolvedThumbnailUrl = thumbnailUrl !== undefined ? thumbnailUrl : thumbnail_url;
@@ -274,6 +290,7 @@ export const updatePost = async ({
         title,
         video_url: resolvedVideoUrl,
         thumbnail_url: resolvedThumbnailUrl,
+        // Video không có trường content riêng; nếu FE gửi content thì dùng làm transcript.
         transcript: transcript !== undefined ? transcript : content,
         categoryId: resolvedCategoryId,
       },
@@ -303,6 +320,7 @@ export const updatePost = async ({
   };
 };
 
+// Xóa bài viết: permanent = true xóa cứng khỏi DB và dọn tệp trên đĩa; ngược lại chỉ ẩn để có thể khôi phục.
 export const deletePost = async (postId, { permanent = false } = {}) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({
@@ -340,6 +358,7 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
       if (typeof fileUrl === 'string' && fileUrl.startsWith('/uploads/')) {
         const relativeFilePath = fileUrl.replace(/^\/uploads\/?/, '');
         const filePath = path.resolve(uploadsDir, relativeFilePath);
+        // Chỉ xóa tệp nằm trong thư mục uploads, chặn path traversal (vd. "../") xóa nhầm tệp hệ thống.
         if (filePath.startsWith(uploadsDir + path.sep)) {
           try {
             if (fs.existsSync(filePath)) {
@@ -371,6 +390,7 @@ export const deletePost = async (postId, { permanent = false } = {}) => {
   });
 };
 
+// Khôi phục bài viết đang ẩn hoặc đã xóa về trạng thái công khai.
 export const restorePost = async (postId) => {
   const id = Number(postId);
   const post = await prisma.post.findUnique({ where: { post_id: id } });
@@ -404,6 +424,7 @@ export const restorePost = async (postId) => {
 /**
  * FE-03: Quản lý bình luận
  */
+// Danh sách bình luận cho admin, lọc theo trạng thái, cờ AI và từ khóa.
 export const getComments = async ({ page = 1, limit = 10, status = '', isFlagged = null, search = '' }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
@@ -415,6 +436,7 @@ export const getComments = async ({ page = 1, limit = 10, status = '', isFlagged
     // Mặc định: loại bỏ các bình luận đã xóa vĩnh viễn (DELETED) khỏi bảng danh sách quản lý
     where.status = { not: COMMENT_STATUS.DELETED };
   }
+  // isFlagged có thể đến từ query string dạng chuỗi nên chấp nhận cả 'true'.
   if (isFlagged !== null && isFlagged !== undefined && isFlagged !== '') {
     where.is_flagged_by_ai = isFlagged === 'true' || isFlagged === true;
   }
@@ -447,6 +469,7 @@ export const getComments = async ({ page = 1, limit = 10, status = '', isFlagged
   return { comments, total, page: Number(page), limit: Number(limit) };
 };
 
+// Đổi trạng thái bình luận; chuyển sang DELETED thì ghi mốc thời gian xóa.
 export const updateCommentStatus = async ({ commentId, status }) => {
   const id = Number(commentId);
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
@@ -462,6 +485,7 @@ export const updateCommentStatus = async ({ commentId, status }) => {
   });
 };
 
+// Xóa bình luận ở góc độ admin (không xóa cứng khỏi DB).
 export const deleteComment = async (commentId, { permanent = false } = {}) => {
   const id = Number(commentId);
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
@@ -477,6 +501,7 @@ export const deleteComment = async (commentId, { permanent = false } = {}) => {
   return { ...updatedComment, permanent };
 };
 
+// Khôi phục bình luận đang ẩn hoặc đã xóa.
 export const restoreComment = async (commentId) => {
   const id = Number(commentId);
   const comment = await prisma.comment.findUnique({ where: { comment_id: id } });
@@ -495,6 +520,7 @@ export const restoreComment = async (commentId) => {
 /**
  * FE-04: Quản lý danh mục
  */
+// Lấy danh mục kèm công thức, bài viết liên kết và số lượng để admin quản lý.
 export const getCategories = async () => {
   return categoryRepository.findMany({
     orderBy: { category_id: 'asc' },
@@ -535,6 +561,7 @@ export const getCategories = async () => {
   });
 };
 
+// Tạo danh mục mới; tên phải duy nhất.
 export const createCategory = async ({ name }) => {
   const trimmed = name?.trim();
   if (!trimmed) throw ApiError.badRequest('Tên danh mục không được để trống');
@@ -545,6 +572,7 @@ export const createCategory = async ({ name }) => {
   return categoryRepository.create({ name: trimmed });
 };
 
+// Đổi tên danh mục; tên mới không được trùng danh mục khác.
 export const updateCategory = async ({ categoryId, name }) => {
   const id = Number(categoryId);
   const trimmed = name?.trim();
@@ -561,6 +589,7 @@ export const updateCategory = async ({ categoryId, name }) => {
   return categoryRepository.update(id, { name: trimmed });
 };
 
+// Xóa danh mục; chỉ cho xóa khi không còn bài viết hoặc công thức liên kết để không làm mồ côi dữ liệu.
 export const deleteCategory = async (categoryId) => {
   const id = Number(categoryId);
   const category = await categoryRepository.findById(id);
@@ -585,6 +614,7 @@ export const deleteCategory = async (categoryId) => {
 /**
  * FE-05: Kiểm duyệt nội dung gắn cờ tự động bởi AI
  */
+// Hàng chờ kiểm duyệt: bài viết/bình luận bị AI ẩn, đang chờ duyệt hoặc bị gắn cờ, kèm job kiểm duyệt ứng với phiên bản hiện tại.
 export const getAiFlaggedContent = async () => {
   const [flaggedPosts, flaggedComments] = await Promise.all([
     prisma.post.findMany({
@@ -616,6 +646,7 @@ export const getAiFlaggedContent = async () => {
     }),
   ]);
 
+  // Ghép job kiểm duyệt theo đúng phiên bản nội dung để admin thấy lý do AI của chính phiên bản đang xem.
   const targets = [...flaggedPosts.map((post) => ({ postId: post.post_id, contentVersion: post.moderationVersion })),
     ...flaggedComments.map((comment) => ({ commentId: comment.comment_id, contentVersion: comment.moderationVersion }))];
   const jobs = await contentModerationRepository.findForTargets(targets);
@@ -627,6 +658,7 @@ export const getAiFlaggedContent = async () => {
   };
 };
 
+// Kiểm tra phiên bản admin đang xem có khớp phiên bản hiện tại; nội dung đã bị sửa sau khi tải hàng chờ thì báo 409 để làm mới.
 function getModerationDecisionVersion(entity, contentVersion) {
   if ((entity.moderationVersion > 0 || contentVersion !== undefined) && entity.moderationVersion !== contentVersion) {
     throw ApiError.conflict('Nội dung đã thay đổi hoặc thiếu phiên bản. Vui lòng làm mới trước khi quyết định.');
@@ -634,6 +666,7 @@ function getModerationDecisionVersion(entity, contentVersion) {
   return contentVersion ?? entity.moderationVersion;
 }
 
+// Admin quyết định nội dung bị AI gắn cờ: APPROVE thì hiển thị lại, ngược lại gỡ bỏ (xóa mềm); luôn ghi log can thiệp thủ công.
 export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes = '', contentVersion }) => {
   const id = Number(entityId);
   const type = entityType?.toUpperCase();
@@ -724,6 +757,7 @@ export const resolveAiFlaggedItem = async ({ entityType, entityId, action, notes
 /**
  * FE-06 & FE-07: Giám sát mô hình AI, xem logs & metrics
  */
+// Tình trạng từng nhóm mô hình AI tính từ các log gần nhất (nhóm theo tiền tố action).
 export const getAiModelsStatus = async () => {
   const logs = await aiLogRepository.findRecent();
 
@@ -760,6 +794,7 @@ export const getAiModelsStatus = async () => {
 
     return {
       ...m,
+      // Ngưỡng: hơn 2 lỗi trong các log gần nhất thì đánh dấu DEGRADED.
       status: totalCalls === 0 ? 'UNKNOWN' : errorCalls > 2 ? 'DEGRADED' : 'HEALTHY',
       totalCalls,
       errorCalls,
@@ -769,6 +804,7 @@ export const getAiModelsStatus = async () => {
   });
 };
 
+// Danh sách log AI có phân trang; chỉ truyền các bộ lọc có giá trị.
 export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action = '', status = '', search = '', dateFrom, dateTo, feature }) => {
   const result = await aiLogService.listLogs({
     page, limit,
@@ -783,6 +819,7 @@ export const getAiLogs = async ({ page = 1, limit = 10, modelName = '', action =
   return { logs: result.items, total: result.total, page: result.page, limit: result.limit };
 };
 
+// Chỉ số tổng quan AI: tổng số request, thành công, lỗi, số bài đang bị AI ẩn và tỉ lệ thành công.
 export const getAiMetrics = async () => {
   const [total, successCount, errorCount, flaggedCount] = await Promise.all([
     aiLogRepository.count(),
@@ -791,6 +828,7 @@ export const getAiMetrics = async () => {
     prisma.post.count({ where: { status: POST_STATUS.HIDDEN_BY_AI } }),
   ]);
 
+  // Chưa có log nào thì mặc định 100% để không hiển thị cảnh báo sai.
   const accuracy = total > 0 ? Math.round((successCount / total) * 100) : 100;
 
   return {
@@ -820,6 +858,7 @@ export const resetGuestQuota = ({ guestId, adminId }) => guestQuotaAdminService.
 /**
  * Yêu cầu AI Microservice dọn dẹp bộ nhớ đệm chatbot
  */
+// Ghi log thao tác quản trị kèm ID admin để kiểm toán.
 export const clearChatbotCache = async (adminId) => {
   const cleared = await aiService.clearChatbotCache();
   await aiLogService.recordLog({
@@ -834,6 +873,7 @@ export const clearChatbotCache = async (adminId) => {
 /**
  * FE-08: Can thiệp thủ công kết quả AI
  */
+// Admin can thiệp kết quả AI: có logId thì đánh dấu log đó đã xử lý, không thì tạo log can thiệp mới.
 export const interveneAiAction = async ({ logId = null, modelName, action, correctionType, feedback }) => {
   if (logId) {
     const id = Number(logId);
@@ -854,6 +894,7 @@ export const interveneAiAction = async ({ logId = null, modelName, action, corre
 /**
  * FE-09: Quản lý báo cáo người dùng
  */
+// Danh sách báo cáo vi phạm có phân trang, kèm thông tin người báo cáo, bài viết và bình luận liên quan.
 export const getReports = async ({ page = 1, limit = 10, status = '' }) => {
   const skip = (Number(page) - 1) * Number(limit);
   const take = Number(limit);
@@ -895,6 +936,7 @@ export const getReports = async ({ page = 1, limit = 10, status = '' }) => {
   return { reports, total, page: Number(page), limit: Number(limit) };
 };
 
+// Xử lý báo cáo: cập nhật trạng thái, tùy chọn gỡ nội dung bị báo cáo, rồi thông báo kết quả cho người báo cáo.
 export const updateReportStatus = async ({ reportId, status, resolutionAction = 'NONE' }) => {
   const id = Number(reportId);
   const report = await reportRepository.findById(id, { post: true, comment: true });
@@ -933,6 +975,7 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
     return reportRepository.update(id, { status }, { reporter: { select: { full_name: true } } }, tx);
   });
 
+  // Gửi thông báo ngoài transaction và bỏ qua lỗi để việc xử lý báo cáo không thất bại vì thông báo.
   if (report.reporter_id) {
     const statusText = status === REPORT_STATUS.RESOLVED ? 'Đã giải quyết' : status === REPORT_STATUS.DISMISSED ? 'Đã bác bỏ' : status;
     notificationService.notify({
@@ -947,6 +990,7 @@ export const updateReportStatus = async ({ reportId, status, resolutionAction = 
 /**
  * FE-10: Dashboard thống kê toàn diện
  */
+// Thống kê tổng hợp cho dashboard admin: thành viên, nội dung, báo cáo và AI.
 export const getDashboardStats = async () => {
   const [
     totalUsers,

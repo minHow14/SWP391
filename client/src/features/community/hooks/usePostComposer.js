@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/community/hooks/usePostComposer.js
+// Hook logic trình soạn bài đăng cộng đồng: form (zod), đổi loại bài, upload video/ảnh bìa/tệp đính kèm và lưu bài.
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -6,6 +7,7 @@ import { z } from 'zod';
 import { validatePostAttachments } from '../../../utils/postAttachments.js';
 import { savePost, uploadPostMedia } from '../../../services/communityService.js';
 
+// Trích ID video YouTube (11 ký tự) từ các dạng link watch, youtu.be, embed, shorts; trả về null nếu không khớp.
 export function extractYouTubeId(url) {
   if (!url || typeof url !== 'string') return null;
   const match = url.match(
@@ -14,6 +16,7 @@ export function extractYouTubeId(url) {
   return match ? match[1] : null;
 }
 
+// Schema form soạn bài; Blog bắt buộc có nội dung, Video bắt buộc có link video.
 const COMPOSER_SCHEMA = z
   .object({
     postType: z.enum(['BLOG', 'VIDEO']).default('BLOG'),
@@ -26,6 +29,7 @@ const COMPOSER_SCHEMA = z
     videoUrl: z.string().max(500).optional(),
     thumbnailUrl: z.string().max(500).optional(),
     transcript: z.string().max(50000).optional(),
+    // Ô chọn chuyên mục trả về chuỗi rỗng khi không chọn -> chuyển thành null trước khi ép kiểu số.
     categoryId: z.preprocess((value) => value === '' ? null : value,
       z.coerce.number().int().positive().nullable().optional()),
   })
@@ -49,9 +53,11 @@ const COMPOSER_SCHEMA = z
     }
   });
 
+// Hook soạn bài; post rỗng là tạo mới, có post_id là chỉnh sửa.
 export function usePostComposer({ post = {}, onSaved }) {
   const initialPostType = post.post_type === 'VIDEO' || post.video_url || post.video ? 'VIDEO' : 'BLOG';
   const [postType, setPostType] = useState(initialPostType);
+  // Chuẩn hóa tệp đính kèm cũ (tên field có thể khác nhau giữa các API) và tạo id tạm nếu thiếu.
   const initialAttachments = (post.attachments || []).map((a) => ({
     id: a.attachment_id || a.id || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())),
     url: a.file_url || a.url,
@@ -77,6 +83,7 @@ export function usePostComposer({ post = {}, onSaved }) {
     },
   });
 
+  // Đổi loại bài (BLOG/VIDEO) và xóa lỗi validate của loại cũ.
   const changePostType = (type) => {
     setPostType(type);
     form.setValue('postType', type);
@@ -84,6 +91,7 @@ export function usePostComposer({ post = {}, onSaved }) {
     setError('');
   };
 
+  // Cập nhật link video; nếu là YouTube và chưa có ảnh bìa thì tự lấy ảnh bìa mặc định của YouTube.
   const handleVideoUrlChange = (e) => {
     const val = e.target.value;
     form.setValue('videoUrl', val, { shouldValidate: true });
@@ -94,6 +102,7 @@ export function usePostComposer({ post = {}, onSaved }) {
     }
   };
 
+  // Tải trực tiếp tệp video từ máy lên server (tối đa 50MB) và gán URL vào trường videoUrl.
   async function uploadDirectVideo(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -129,6 +138,7 @@ export function usePostComposer({ post = {}, onSaved }) {
     }
   }
 
+  // Tải ảnh bìa từ máy lên server (tối đa 10MB) và gán URL vào trường thumbnailUrl.
   async function uploadThumbnail(event) {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -164,6 +174,7 @@ export function usePostComposer({ post = {}, onSaved }) {
     }
   }
 
+  // Tải nhiều tệp đính kèm cho bài Blog sau khi kiểm tra số lượng, định dạng và dung lượng.
   async function selectFiles(event) {
     const files = Array.from(event.target.files || []);
     event.target.value = '';
@@ -202,11 +213,13 @@ export function usePostComposer({ post = {}, onSaved }) {
     }
   }
 
+  // Gỡ một tệp đính kèm khỏi danh sách (chưa xóa trên server cho tới khi lưu bài).
   function removeAttachment(attachment) {
     setAttachments((current) => current.filter((item) => item.id !== attachment.id));
     setError('');
   }
 
+  // Lưu bài viết; ref submitting chặn gửi trùng và không cho lưu khi còn tệp đang tải lên.
   async function submit(values) {
     if (submitting.current || uploading) return;
     submitting.current = true;

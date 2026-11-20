@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminAiMonitorTab.jsx
+// Tab "Giám sát AI": hiển thị trạng thái các mô hình AI và nhật ký hoạt động (ai_logs),
+// cho phép lọc theo trạng thái/chức năng và mở modal can thiệp thủ công.
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -8,6 +10,7 @@ import AdminPagination from './AdminPagination.jsx';
 import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import AdminAiModelCards from './AdminAiModelCards.jsx';
 
+// Component tab giám sát mô hình AI và nhật ký hoạt động.
 export default function AdminAiMonitorTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [featureFilter, setFeatureFilter] = useState('');
@@ -15,6 +18,7 @@ export default function AdminAiMonitorTab() {
   const [selectedLogForIntervene, setSelectedLogForIntervene] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
+  // Tải song song danh sách mô hình và một trang log để thẻ mô hình luôn khớp số liệu với bảng log.
   const fetchPage = useCallback(async (pagination) => {
     const [modelsRes, logsRes] = await Promise.all([adminService.getAiModels(), adminService.getAiLogs({ status: statusFilter, feature: featureFilter, ...pagination })]);
     return { ...logsRes, models: modelsRes.data };
@@ -31,6 +35,7 @@ export default function AdminAiMonitorTab() {
     return unsubscribe;
   }, [fetchData]);
 
+  // Mở modal can thiệp; truyền log cụ thể để điền sẵn, hoặc null để can thiệp chung.
   const handleOpenIntervene = (log = null) => {
     setSelectedLogForIntervene(log);
     setShowInterveneModal(true);
@@ -111,6 +116,7 @@ export default function AdminAiMonitorTab() {
                   </thead>
                   <tbody>
                     {logs.map((log) => {
+                      // So khớp theo tiền tố vì server ghi nhiều biến thể action (vd. CHAT_*, MEAL_PLANNER_*).
                       const actionLabel =
                         log.action === 'SPAM_DETECTION' ? 'Kiểm duyệt Spam' :
                         log.action?.startsWith('CHAT') ? 'Chatbot Tư vấn' :

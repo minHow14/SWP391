@@ -1,4 +1,6 @@
 // client/src/features/admin/components/AdminDashboardTab.jsx
+// Tab "Tổng quan" của trang quản trị: KPI thành viên/nội dung/AI/kiểm duyệt, việc cần xử lý gấp,
+// phím tắt, báo cáo và log AI gần đây cùng trạng thái hạ tầng.
 import { useEffect, useState } from 'react';
 import { Row, Col, Spinner, Alert, Button, Badge } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -10,12 +12,18 @@ import AdminRecentReports from './AdminRecentReports.jsx';
 import AdminRecentAiLogs from './AdminRecentAiLogs.jsx';
 import AdminSystemHealthBanner from './AdminSystemHealthBanner.jsx';
 
+/**
+ * Bảng điều khiển tổng quan.
+ * @param {object} props
+ * @param {Function} props.onNavigateTab Chuyển sang tab quản trị khác theo khóa tab.
+ */
 export default function AdminDashboardTab({ onNavigateTab }) {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastUpdated, setLastUpdated] = useState(null);
 
+  // Tải số liệu thống kê, hiển thị trạng thái loading toàn trang.
   const fetchStats = async () => {
     setLoading(true);
     setError('');
@@ -33,6 +41,8 @@ export default function AdminDashboardTab({ onNavigateTab }) {
   useEffect(() => {
     fetchStats();
 
+    // Mọi thay đổi trong hệ thống đều có thể ảnh hưởng số liệu, nên lắng nghe tất cả sự kiện ('*').
+    // Làm mới ngầm (không bật loading) và bỏ qua lỗi để không làm gián đoạn màn hình đang xem.
     const unsubscribe = subscribeSyncEvent('*', () => {
       adminService
         .getDashboardStats()
@@ -89,9 +99,11 @@ export default function AdminDashboardTab({ onNavigateTab }) {
   }
 
   // 4. Trạng thái Dữ liệu thật (Success state)
+  // Chưa có thành viên thì coi là 100% để thanh tiến độ không hiển thị như cảnh báo.
   const activePercent =
     stats.members.total > 0 ? Math.round((stats.members.active / stats.members.total) * 100) : 100;
 
+  // Số việc cần xử lý gấp = báo cáo chờ duyệt + nội dung bị AI ẩn.
   const urgentCount = stats.reports.pending + (stats.content.hiddenByAi || 0);
 
   return (
@@ -125,7 +137,7 @@ export default function AdminDashboardTab({ onNavigateTab }) {
         </div>
       </div>
 
-      {/* Signature Element: Sàn Xử Lý Khẩn Cấp (Triage Deck) */}
+      {/* Thành phần đặc trưng: Sàn Xử Lý Khẩn Cấp (Triage Deck) */}
       <AdminTriageDeck
         pendingReports={stats.reports.pending}
         flaggedItems={stats.content.hiddenByAi || 0}

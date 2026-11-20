@@ -1,7 +1,13 @@
 // client/src/features/admin/components/AdminRecentAiLogs.jsx
+// Khối "Nhật ký tác vụ AI gần nhất" trên dashboard: liệt kê các lượt gọi AI mới nhất và trạng thái.
 import { Col, Table, Badge, Button } from 'react-bootstrap';
 import { formatCreatedAt } from '../../../utils/formatters.js';
 
+/**
+ * Chuyển mã action của log AI thành nhãn tiếng Việt; so khớp tiền tố vì có nhiều biến thể action.
+ * @param {string} action Mã tác vụ AI.
+ * @returns {string} Nhãn hiển thị.
+ */
 function getActionLabel(action = '') {
   if (action === 'SPAM_DETECTION') return 'Kiểm duyệt bài viết';
   if (action.startsWith('CHAT')) return 'Tư vấn dinh dưỡng';
@@ -10,6 +16,12 @@ function getActionLabel(action = '') {
   return action || 'Tác vụ AI';
 }
 
+/**
+ * Danh sách log AI gần đây.
+ * @param {object} props
+ * @param {{ recentLogs: Array }} props.ai Khối số liệu AI từ API dashboard.
+ * @param {Function} props.onNavigateTab Chuyển sang tab giám sát AI khi bấm.
+ */
 export default function AdminRecentAiLogs({ ai, onNavigateTab }) {
   const recentLogs = ai?.recentLogs || [];
 
@@ -59,6 +71,7 @@ export default function AdminRecentAiLogs({ ai, onNavigateTab }) {
               </thead>
               <tbody>
                 {recentLogs.map((log) => {
+                  // Chấp nhận cả camelCase lẫn snake_case vì dữ liệu log có thể đến từ hai dạng response.
                   const logId = log.logId || log.log_id;
                   const modelName = log.modelName || log.model_name || 'deepseek';
                   const action = log.action || '';

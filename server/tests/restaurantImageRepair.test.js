@@ -1,12 +1,16 @@
 // D:/SWP391/SWP391/server/tests/restaurantImageRepair.test.js
+// Kiểm thử tích hợp (cần DB test) chức năng sửa ảnh nhà hàng theo lô trong placeRepository.
 import './loadTestEnvironment.js';
 import { randomUUID } from 'node:crypto';
 import { afterAll, expect, it } from 'vitest';
 import prisma from '../src/config/prisma.js';
 import { placeRepository } from '../src/repositories/place.repository.js';
 
+// Đóng kết nối Prisma sau khi chạy xong để tiến trình test thoát gọn.
 afterAll(() => prisma.$disconnect());
 
+// Chỉ cập nhật ảnh khi cả place_id và ảnh cũ còn khớp (tránh ghi đè ảnh vừa bị thay bởi tiến trình khác);
+// chạy lại lần hai không cập nhật gì (idempotent). Cố ý ném lỗi cuối transaction để rollback dữ liệu test.
 it('updates image fields in a batch only when both place identity and previous image still match', async () => {
   await expect(prisma.$transaction(async (db) => {
     const placeId = `photo-repair-${randomUUID()}`;

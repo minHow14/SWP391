@@ -1,7 +1,9 @@
 // D:/SWP391/SWP391/client/src/utils/chatReplies.js
+// Trả lời câu hỏi chatbot bằng cách tra cứu công thức trong catalog (không dùng AI).
 import { workspaceService } from '../services/workspaceService.js';
 import { normalizeSearch } from './recipeFilters.js';
 
+// Tìm tối đa 4 công thức có tên hoặc nguyên liệu chứa từ khóa trong câu hỏi; bỏ các từ ngắn ≤ 2 ký tự để giảm nhiễu.
 export async function getDatabaseReply(question) {
   const catalog = await workspaceService.getCatalog();
   const words = normalizeSearch(question).split(/\s+/).filter((w) => w.length > 2);

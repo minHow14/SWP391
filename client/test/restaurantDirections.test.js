@@ -1,8 +1,10 @@
 // client/test/restaurantDirections.test.js
+// Kiểm thử (node:test) tạo liên kết chỉ đường Google Maps cho quán và kiểm tra tọa độ hợp lệ.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hasCoordinates, restaurantDirections } from '../src/utils/restaurantDirections.js';
 
+// Chỉ đường ưu tiên tên và địa chỉ quán, kể cả khi có tọa độ.
 test('directions point at the named address even when coordinates exist', () => {
   const place = { name: 'Quán A', address: '123 Đường B', latitude: null, longitude: null };
   assert.equal(new URL(restaurantDirections(place)).searchParams.get('destination'), 'Quán A, 123 Đường B');
@@ -10,12 +12,14 @@ test('directions point at the named address even when coordinates exist', () => 
   assert.equal(new URL(restaurantDirections({ ...place, latitude: 10, longitude: 106 })).searchParams.get('destination'), 'Quán A, 123 Đường B');
 });
 
+// Chỉ dùng tọa độ khi quán không có địa chỉ.
 test('directions fall back to coordinates only when the place has no address', () => {
   const url = new URL(restaurantDirections({ name: 'Quán A', address: '', latitude: 10, longitude: 106 }));
   assert.equal(url.searchParams.get('destination'), '10,106');
   assert.equal(new URL(restaurantDirections({ address: '123 Đường B' })).searchParams.get('destination'), '123 Đường B');
 });
 
+// Tọa độ thiếu hoặc ngoài phạm vi bị từ chối, nhưng giá trị 0 vẫn hợp lệ.
 test('map and directions reject missing and out-of-range coordinates, but accept zero', () => {
   assert.equal(hasCoordinates({ latitude: 0, longitude: 0 }), true);
   for (const coordinates of [null, {}, { latitude: null, longitude: 106 }, { latitude: NaN, longitude: 106 }, { latitude: 91, longitude: 106 }, { latitude: 10, longitude: 181 }]) {
@@ -24,6 +28,7 @@ test('map and directions reject missing and out-of-range coordinates, but accept
   assert.equal(new URL(restaurantDirections({ name: 'Quán A', address: 'Đường B', latitude: 91, longitude: 106 })).searchParams.get('destination'), 'Quán A, Đường B');
 });
 
+// Có vị trí người dùng thì liên kết chỉ đường kèm điểm xuất phát.
 test('directions includes origin when user coordinates are provided', () => {
   const place = { name: 'Quán Chay A', latitude: 10.7765, longitude: 106.6918 };
   const userOrigin = { lat: 10.7500, lng: 106.6800 };

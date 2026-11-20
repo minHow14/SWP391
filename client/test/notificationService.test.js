@@ -1,15 +1,18 @@
 // client/test/notificationService.test.js
+// Kiểm thử (node:test) notificationService gửi đúng method, route và tham số cho các API thông báo.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { notificationService } from '../src/services/notificationService.js';
 import apiClient from '../src/services/apiClient.js';
 
+// Lưu adapter gốc của axios để khôi phục sau mỗi test.
 const originalAdapter = apiClient.defaults.adapter;
 
 afterEach(() => {
   apiClient.defaults.adapter = originalAdapter;
 });
 
+// notificationService phải có đủ các hàm mà chuông thông báo đang dùng.
 test('notificationService defines all required notification API methods', () => {
   assert.equal(typeof notificationService.getNotifications, 'function');
   assert.equal(typeof notificationService.markAsRead, 'function');
@@ -17,8 +20,10 @@ test('notificationService defines all required notification API methods', () => 
   assert.equal(typeof notificationService.deleteNotification, 'function');
 });
 
+// getNotifications gửi GET kèm tham số phân trang và bộ lọc chưa đọc.
 test('getNotifications sends GET request to /v1/notifications with pagination and filters', async () => {
   let capturedConfig = null;
+  // Thay adapter để bắt cấu hình request và trả response giả.
   apiClient.defaults.adapter = async (config) => {
     capturedConfig = config;
     return {
@@ -45,6 +50,7 @@ test('getNotifications sends GET request to /v1/notifications with pagination an
   assert.equal(result.meta.unreadCount, 1);
 });
 
+// markAsRead gửi PATCH đến route đánh dấu một thông báo đã đọc.
 test('markAsRead sends PATCH request to /v1/notifications/:id/read', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {
@@ -65,6 +71,7 @@ test('markAsRead sends PATCH request to /v1/notifications/:id/read', async () =>
   assert.equal(result.success, true);
 });
 
+// markAllAsRead gửi PATCH đến route đánh dấu tất cả đã đọc.
 test('markAllAsRead sends PATCH request to /v1/notifications/read-all', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {
@@ -85,6 +92,7 @@ test('markAllAsRead sends PATCH request to /v1/notifications/read-all', async ()
   assert.equal(result.success, true);
 });
 
+// deleteNotification gửi DELETE đến route của thông báo.
 test('deleteNotification sends DELETE request to /v1/notifications/:id', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {

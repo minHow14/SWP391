@@ -1,23 +1,28 @@
 // D:/SWP391/SWP391/client/test/authService.test.js
+// Kiểm thử (node:test) authService: đổi mật khẩu, ghi nhận cân nặng, lấy lịch sử sức khỏe và các hàm định dạng liên quan.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { authService } from '../src/services/authService.js';
 import apiClient from '../src/services/apiClient.js';
 
+// Lưu adapter gốc của axios để khôi phục sau mỗi test.
 const originalAdapter = apiClient.defaults.adapter;
 
 afterEach(() => {
   apiClient.defaults.adapter = originalAdapter;
 });
 
+// authService phải có đủ các hàm mà màn hình tài khoản và theo dõi cân nặng đang sử dụng.
 test('authService defines all required authentication and health history API methods', () => {
   assert.equal(typeof authService.changePassword, 'function');
   assert.equal(typeof authService.recordWeight, 'function');
   assert.equal(typeof authService.getHealthHistory, 'function');
 });
 
+// changePassword gửi POST đúng route; body kèm cả currentPassword và oldPassword để tương thích với backend.
 test('changePassword dispatches POST to /v1/auth/change-password with correct payload', async () => {
   let capturedConfig = null;
+  // Thay adapter để bắt cấu hình request và trả response giả.
   apiClient.defaults.adapter = async (config) => {
     capturedConfig = config;
     return {
@@ -43,6 +48,7 @@ test('changePassword dispatches POST to /v1/auth/change-password with correct pa
   assert.equal(result.message, 'Đổi mật khẩu thành công.');
 });
 
+// Mốc thời gian recordedAt do nơi gọi truyền vào phải được gửi dưới tên chuẩn recordedDate mà backend chấp nhận.
 test('recordWeight preserves a recordedAt caller timestamp through the backend recordedDate contract', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {
@@ -73,6 +79,7 @@ test('recordWeight preserves a recordedAt caller timestamp through the backend r
   assert.equal(result.data.history.weight, 68.5);
 });
 
+// Gửi một lần ghi nhận cân nặng qua adapter giả và trả về body đã gửi đi.
 async function submittedWeight(values) {
   let body;
   apiClient.defaults.adapter = async (config) => {
@@ -83,6 +90,7 @@ async function submittedWeight(values) {
   return body;
 }
 
+// Cả recordedDate và recorded_date đều phải được chuẩn hóa thành recordedDate để không bị backend validate loại bỏ.
 for (const field of ['recordedDate', 'recorded_date']) {
   test(`recordWeight sends ${field} input as canonical recordedDate without losing it in BE validation`, async () => {
     const timestamp = '2026-10-23T08:00:00Z';
@@ -91,16 +99,19 @@ for (const field of ['recordedDate', 'recorded_date']) {
   });
 }
 
+// Khi có nhiều tên trường thời gian, recordedDate (tên chuẩn) được ưu tiên hơn các tên cũ.
 test('recordWeight prefers canonical recordedDate over legacy timestamp aliases', async () => {
   const body = await submittedWeight({ weight: 68.5, recordedDate: '2026-11-03T08:00:00Z',
     recordedAt: '2026-10-23T08:00:00Z', recorded_date: '2026-10-22T08:00:00Z' });
   assert.deepEqual(body, { weight: 68.5, recordedDate: '2026-11-03T08:00:00Z' });
 });
 
+// Ghi nhận cho hôm nay thì không gửi mốc thời gian, để backend tự dùng thời điểm hiện tại.
 test('recordWeight omits the timestamp when the caller records today', async () => {
   assert.deepEqual(await submittedWeight({ weight: 68.5 }), { weight: 68.5 });
 });
 
+// getHealthHistory gửi GET đúng route kèm tham số phân trang.
 test('getHealthHistory dispatches GET to /v1/auth/me/health-history with params', async () => {
   let capturedConfig = null;
   apiClient.defaults.adapter = async (config) => {
@@ -128,6 +139,7 @@ test('getHealthHistory dispatches GET to /v1/auth/me/health-history with params'
   assert.equal(result.data.histories.length, 1);
 });
 
+// Bản sao logic tách mảng lịch sử từ nhiều dạng envelope khác nhau của WeightTracker để kiểm tra độc lập.
 test('WeightTracker extracts history array accurately from API response envelopes', () => {
   const envelopeWithHistories = {
     success: true,
@@ -156,6 +168,7 @@ test('WeightTracker extracts history array accurately from API response envelope
   assert.equal(extracted[0].weight, 58);
 });
 
+// formatRecordedDateTime hiển thị giờ địa phương cho timestamp thật, còn bản ghi chỉ có ngày thì không hiện giờ 07:00 giả.
 test('formatRecordedDateTime handles pure date and timestamp correctly without bogus 07:00', async () => {
   const { formatRecordedDateTime } = await import('../src/utils/formatters.js');
 

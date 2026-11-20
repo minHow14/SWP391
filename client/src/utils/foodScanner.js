@@ -1,11 +1,16 @@
 // D:/SWP391/SWP391/client/src/utils/foodScanner.js
+// Tiện ích cho tính năng kiểm tra món: lấy danh sách dị ứng của người dùng và phân tích thành phần theo từ khóa.
+// Trả về tên các nguyên liệu dị ứng (đã loại trùng) và cờ incomplete nếu có mục không tra được tên.
 export function resolveScannerAllergies(user, ingredients = []) {
   const catalog = new Map(ingredients.map((item) => [item.ingredient_id, item.name]));
   const names = (user?.allergies || []).map((item) => item.ingredient?.name || item.name || catalog.get(item.ingredient_id));
   return { names: [...new Set(names.filter(Boolean))], incomplete: names.some((name) => !name) };
 }
 
+// Bỏ dấu để so khớp từ khóa không phân biệt cách gõ.
 const normalize = (text) => text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+// Bộ luật từ khóa theo thứ tự ưu tiên: layer là mức cảnh báo, allowed là các chế độ ăn được phép,
+// only là chế độ ăn duy nhất áp dụng luật (ví dụ ngũ vị tân chỉ cấm với chay Phật giáo).
 const rules = [
   { pattern: /\bnuoc mam ca com\b/, reason: 'Chiết xuất từ cá biển.', layer: 1 },
   { pattern: /\bsa te tom\b/, reason: 'Chứa thành phần hoặc chiết xuất từ tôm biển.', layer: 1 },
@@ -20,13 +25,15 @@ const rules = [
   { pattern: /\b(hanh(?! nhan)|toi|he|kieu|nen|hung cu)\b/, reason: 'Ngũ vị tân cần được loại bỏ trong chế độ chay Phật giáo.', layer: 4, only: 5 },
 ];
 
-// A bounded text demo, not OCR or a certified ingredient database.
+// Bản demo phân tích văn bản có giới hạn, không phải OCR hay cơ sở dữ liệu nguyên liệu được chứng nhận.
+// Trả về status clear/warning/unknown cùng danh sách thành phần vi phạm.
 export function analyzeIngredients(ingredients, dietId) {
   if (![1, 2, 3, 4, 5].includes(dietId)) return { status: 'unknown', findings: [] };
   const findings = ingredients.split(/[,;\n]+/).flatMap((ingredient) => {
     const label = ingredient.trim();
     // "bò" (beef) và "bơ" (butter, avocado) chỉ phân biệt được khi còn dấu.
     const accented = label.toLowerCase().normalize('NFC').replace(/(sữa|nước dùng|bột) bò(?!\p{L})/gu, '$1');
+    // Loại bỏ các cụm từ chay hợp lệ (sữa đậu nành, nước mắm chay, nấm đùi gà...) để tránh cảnh báo nhầm.
     const text = normalize(label)
       .replace(/\btrung (ga|vit|cut)\b/g, 'trung')
       .replace(/\b(sua (dau nanh|hat|dua|hanh nhan|yen mach)|bo (thuc vat|dau phong)|nuoc mam chay|thit chay|cha chay)\b/g, '')

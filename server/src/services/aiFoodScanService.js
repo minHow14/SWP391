@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/server/src/services/aiFoodScanService.js
+// Phân tích ảnh món ăn bằng AI: giữ hạn mức khách, lưu lịch sử, validate kết quả và ghi log AI.
 import { aiConfig } from '../config/aiConfig.js';
 import { aiGatewayError, normalizeAiError } from '../utils/aiGatewayError.js';
 import { aiGenerationService } from './aiGenerationService.js';
@@ -6,6 +7,7 @@ import { guestQuotaService } from './guestQuotaService.js';
 import { assertAiConfigured, sendAiJson } from './aiTransportService.js';
 import { foodScanResultSchema } from '../validators/aiFoodScanValidator.js';
 
+// Dựng dữ liệu log AI; action ghi rõ người dùng hay khách để thống kê.
 function createLogPayload(context, status, error) {
   const actor = context.identity.userId ? `USER_${context.identity.userId}` : 'GUEST';
   return {
@@ -16,9 +18,11 @@ function createLogPayload(context, status, error) {
   };
 }
 
+// Gửi ảnh món ăn sang AI Service và trả về kết quả phân tích đã validate.
 export async function analyzeFoodScan({ payload, identity, requestId }) {
   assertAiConfigured();
 
+  // Tự hủy request khi quá thời gian để không giữ kết nối và lượt khách vô thời hạn.
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort(aiGatewayError({
@@ -41,6 +45,7 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
   };
 
   try {
+    // Chỉ khách bị trừ hạn mức; người dùng đăng nhập không giới hạn.
     if (!identity.userId) {
       context.reservation = await guestQuotaService.reserveTurn({ guestId: identity.guestId });
     }
@@ -64,6 +69,7 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
       });
     }
 
+    // Không tin dữ liệu AI: phải qua schema mới trả cho client.
     const scan = foodScanResultSchema.safeParse(response.data);
     if (!scan.success) throw aiGatewayError({ status: 502, code: 'AI_INVALID_OUTPUT',
       message: 'Kết quả phân tích hình ảnh không hợp lệ. Vui lòng thử lại.' });
@@ -86,12 +92,13 @@ export async function analyzeFoodScan({ payload, identity, requestId }) {
   } catch (rawError) {
     const error = normalizeAiError(rawError, context.signal);
     try {
+      // Hoàn lượt cho khách khi phân tích thất bại.
       if (context.reservation) {
         await guestQuotaService.releaseTurn(context.reservation);
       }
       await aiGenerationService.fail(context, error, createLogPayload(context, 'ERROR', error));
     } catch {
-      // Giữ nguyên lỗi gốc để gửi về cho client
+      // Giữ nguyên lỗi gốc để gửi về cho client (lỗi khi hoàn lượt/ghi log không được che lỗi chính).
     }
     throw error;
   } finally {

@@ -1,4 +1,5 @@
 // client/src/features/profile/components/ProfileForm.jsx
+// Trang hồ sơ cá nhân: thông tin tài khoản, thông tin sức khỏe, nguyên liệu dị ứng, theo dõi cân nặng và đổi mật khẩu.
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, Spinner } from 'react-bootstrap';
@@ -8,10 +9,12 @@ import { useProfileForm } from '../hooks/useProfileForm.js';
 import ChangePasswordModal from './ChangePasswordModal.jsx';
 import WeightTracker from './WeightTracker.jsx';
 
+// Component form hồ sơ; dữ liệu và thao tác lưu lấy từ hook useProfileForm.
 export default function ProfileForm({ userId, catalog }) {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const { account, values, setValues, error, notice, setNotice, busy, setRetry, search, setSearch, change, save } = useProfileForm({ userId });
 
+  // Chưa tải xong hồ sơ: hiển thị trạng thái đang tải hoặc lỗi kèm nút thử lại.
   if (!values) {
     return (
       <main className="cx-profile-page">
@@ -28,6 +31,7 @@ export default function ProfileForm({ userId, catalog }) {
     );
   }
 
+  // Lọc danh sách nguyên liệu theo từ khóa (bỏ dấu tiếng Việt) để chọn dị ứng nhanh hơn.
   const ingredients = (catalog?.ingredients || []).filter((ingredient) =>
     normalizeSearch(ingredient.name).includes(normalizeSearch(search.trim()))
   );

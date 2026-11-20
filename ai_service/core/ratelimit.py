@@ -1,4 +1,5 @@
 # D:/SWP391/SWP391/ai_service/core/ratelimit.py
+# Cấu hình giới hạn tần suất request (slowapi) theo địa chỉ IP client.
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 

@@ -1,4 +1,6 @@
 // server/src/routes/index.js
+// Router gốc của API: gắn toàn bộ router con dưới /v1 và giữ các đường dẫn cũ (không /v1)
+// để client phiên bản trước không bị gãy.
 import express from 'express';
 import authRoutes from './auth.route.js';
 import blogRoutes from './blog.route.js';
@@ -31,6 +33,7 @@ const router = express.Router();
 const v1Router = express.Router();
 
 v1Router.use('/auth', authRoutes);
+// Quên/đặt lại mật khẩu dùng chung tiền tố /auth với router xác thực.
 v1Router.use('/auth', passwordResetRoutes);
 v1Router.use('/blogs', blogRoutes);
 v1Router.use('/videos', videoRoutes);
@@ -76,6 +79,7 @@ router.use('/reports', reportRoutes);
 router.use('/ai', aiRoutes);
 router.use('/ingredients', ingredientRoutes);
 
+// Gắn lặp lại để giữ tương thích với cách mount cũ của ai-generations.
 router.use('/v1/ai-generations', aiGenerationRoutes);
 
 router.use('/notifications', notificationRoutes);

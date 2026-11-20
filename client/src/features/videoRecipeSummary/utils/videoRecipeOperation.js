@@ -1,8 +1,10 @@
 // D:/SWP391/SWP391/client/src/features/videoRecipeSummary/utils/videoRecipeOperation.js
+// Lớp đại diện một thao tác xử lý video: tạo/lấy job, theo dõi tiến độ và cập nhật tin nhắn trong chatbot.
 import { getSession } from '../../../utils/session.js';
 import { videoRecipeSummaryApi } from '../../../services/videoRecipeSummaryApi.js';
 import { clearSavedVideoJob, observeVideoRecipeJob, saveVideoJob } from './videoRecipeJobs.js';
 
+// Mỗi thao tác có AbortController riêng và một tin nhắn trả lời cố định (replyId) để cập nhật.
 export class VideoRecipeOperation {
   constructor(context) {
     this.context = context;
@@ -11,13 +13,16 @@ export class VideoRecipeOperation {
     this.job = null;
   }
 
+  // Thao tác còn hiệu lực khi chưa bị dừng, vẫn là thao tác hiện tại và người dùng chưa đổi.
   active() {
     return !this.controller.signal.aborted && this.context.operation.current === this
       && getSession()?.user?.user_id === this.context.userId;
   }
 
+  // Dừng thao tác (hủy mọi request đang chạy).
   stop() { this.controller.abort(); }
 
+  // Mở tin nhắn trả lời ở trạng thái chờ; nếu đã có tin nhắn của cùng job thì thay thế thay vì thêm mới.
   open(request) {
     this.job = request.job || null;
     const bubble = { id: this.replyId, role: 'assistant', kind: 'videoRecipe', ownerId: this.context.userId,
@@ -29,11 +34,13 @@ export class VideoRecipeOperation {
     });
   }
 
+  // Cập nhật các trường của tin nhắn trả lời khi thao tác còn hiệu lực.
   patch(fields) {
     if (!this.active()) return;
     this.context.setMessages((previous) => previous.map((item) => item.id === this.replyId ? { ...item, ...fields } : item));
   }
 
+  // Lấy job: thử lại job lỗi, tải job có sẵn, hoặc tạo job mới; nếu tạo lỗi (ví dụ trùng video) thì dùng job gần nhất của video đó.
   async loadJob(request) {
     const api = videoRecipeSummaryApi;
     const signal = this.controller.signal;
@@ -48,6 +55,7 @@ export class VideoRecipeOperation {
     }
   }
 
+  // Theo dõi job tới khi kết thúc rồi xóa job đã lưu.
   async watch() {
     await observeVideoRecipeJob({ api: videoRecipeSummaryApi, job: this.job, signal: this.controller.signal,
       onJob: (job) => { this.job = job; this.patch({ job, preparing: false }); },
@@ -58,6 +66,7 @@ export class VideoRecipeOperation {
     this.patch({ pending: false, preparing: false });
   }
 
+  // Chạy toàn bộ thao tác và luôn trả lại trạng thái rảnh khi kết thúc.
   async run(request) {
     this.context.setBusy(true);
     this.open(request);

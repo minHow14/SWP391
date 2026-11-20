@@ -1,13 +1,18 @@
 // D:/SWP391/SWP391/client/src/services/apiClient.js
+// Axios client dùng chung cho mọi API Back-end: gắn token, tự làm mới phiên khi 401 và chuẩn hóa lỗi.
 import axios from 'axios';
 import { getSession, getSessionSnapshot, setSession } from '../utils/session.js';
 const apiClient = axios.create({
   baseURL: '/api', timeout: 15000, withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 });
+// Các request xác thực không được kích hoạt làm mới token để tránh vòng lặp vô hạn.
 const isAuthHandshake = (url = '') => /(?:^|\/)auth\/(login|register|refresh|logout)\/?$/.test(url);
+// refreshFlight gom các yêu cầu làm mới đồng thời thành một; lastRefresh nhớ lần làm mới gần nhất
+// để request đến muộn biết phiên đã được làm mới thay vì bị coi là phiên khác.
 let refreshFlight = null;
 let lastRefresh = null;
+// Chuẩn hóa lỗi Axios thành Error có message tiếng Việt, status, mã lỗi, requestId và chi tiết lỗi.
 function normalizeApiError(error) {
   const data = error.response?.data;
   const firstDetail = Array.isArray(data?.errors) ? data.errors[0]?.message : null;
@@ -19,6 +24,8 @@ function normalizeApiError(error) {
     errorCode: data?.errorCode, requestId: data?.meta?.requestId, details: data?.errors,
   });
 }
+// Gọi /auth/refresh để lấy access token mới; bỏ qua kết quả nếu phiên đã đổi trong lúc chờ,
+// và xóa phiên nếu refresh token thuộc tài khoản khác (đăng nhập tài khoản khác ở tab khác).
 async function performRefresh(snapshot) {
   try {
     const result = await apiClient.post('/auth/refresh', undefined, { skipAuthRefresh: true });
@@ -38,6 +45,7 @@ async function performRefresh(snapshot) {
     throw error;
   }
 }
+// Làm mới phiên cho snapshot đã cho; trả về snapshot mới hoặc null nếu không thể làm mới.
 export function refreshSession(snapshot = getSessionSnapshot()) {
   const current = getSessionSnapshot();
   if (!snapshot.token) return Promise.resolve(null);
@@ -53,6 +61,7 @@ export function refreshSession(snapshot = getSessionSnapshot()) {
   refreshFlight = flight;
   return flight.promise;
 }
+// Gắn token hiện tại vào mỗi request và lưu snapshot phiên để biết request được gửi với phiên nào.
 apiClient.interceptors.request.use((config) => {
   const snapshot = getSessionSnapshot();
   config.sessionSnapshot = snapshot;
@@ -60,6 +69,8 @@ apiClient.interceptors.request.use((config) => {
   else delete config.headers.Authorization;
   return config;
 });
+// Trả về response.data; khi 401 trên API cần đăng nhập thì làm mới phiên và thử lại đúng một lần,
+// nếu vẫn 401 với cùng phiên thì xóa phiên để người dùng đăng nhập lại.
 apiClient.interceptors.response.use((response) => response.data, async (error) => {
   if (axios.isCancel(error)) throw error;
   const config = error.config;

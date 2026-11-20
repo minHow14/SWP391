@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/client/src/context/DatabaseProvider.jsx
+// Provider cung cấp dữ liệu dùng chung toàn ứng dụng: catalog từ server, người dùng đăng nhập
+// và trạng thái tải hồ sơ; tự đồng bộ lại khi có sự kiện thay đổi dữ liệu hoặc phiên đăng nhập.
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { workspaceService } from '../services/workspaceService.js';
 import { authService } from '../services/authService.js';
@@ -6,14 +8,18 @@ import { getSession, getSessionSnapshot, setSession } from '../utils/session.js'
 import { DatabaseContext } from './databaseContext.js';
 import { subscribeSyncEvent } from '../utils/syncEvents.js';
 
+// Component Provider: giữ state catalog, lỗi, người dùng và cung cấp qua DatabaseContext.
 export function DatabaseProvider({ children }) {
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
   const [user, setUser] = useState(() => getSession()?.user || null);
   const [profileState, setProfileState] = useState(null);
+  // identityRevision tăng mỗi khi danh tính phiên thay đổi; dùng để bỏ qua kết quả tải hồ sơ đã lỗi thời.
   const identityRevision = getSessionSnapshot().identityRevision;
+  // Đếm số lần đọc hồ sơ để chỉ chấp nhận phản hồi của lần gọi mới nhất.
   const profileRead = useRef(0);
 
+  // Tải lại catalog theo yêu cầu; ném lỗi ra ngoài để nơi gọi tự xử lý.
   const reload = useCallback(async () => {
     try {
       const catalog = await workspaceService.getCatalog();
@@ -26,6 +32,7 @@ export function DatabaseProvider({ children }) {
     }
   }, []);
 
+  // Tải catalog lần đầu khi mount; hủy request khi unmount để không set state trên component đã gỡ.
   useEffect(() => {
     const controller = new AbortController();
     workspaceService
@@ -53,7 +60,7 @@ export function DatabaseProvider({ children }) {
       const current = getSession();
       if (read !== profileRead.current || getSessionSnapshot().identityRevision !== snapshot.identityRevision) return;
       if (!fetchedUser || fetchedUser.user_id !== current?.user?.user_id) throw new Error('Không thể xác minh hồ sơ tài khoản.');
-      // A delayed read must not overwrite a profile saved after this request started.
+      // Một lần đọc trễ không được ghi đè hồ sơ đã được lưu sau khi request này bắt đầu.
       if (JSON.stringify(current.user) === JSON.stringify(session.user)) setSession({ ...current, user: fetchedUser });
       setProfileState({ identityRevision: snapshot.identityRevision, loading: false, error: '' });
     } catch (failure) {
@@ -64,14 +71,17 @@ export function DatabaseProvider({ children }) {
     }
   }, []);
 
+  // Cập nhật user khi phiên đăng nhập thay đổi (đăng nhập/đăng xuất ở chỗ khác phát sự kiện chayxanh-session).
   useEffect(() => {
     const sync = () => setUser(getSession()?.user || null);
     window.addEventListener('chayxanh-session', sync);
     return () => window.removeEventListener('chayxanh-session', sync);
   }, []);
 
+  // Tải lại hồ sơ mỗi khi danh tính phiên thay đổi.
   useEffect(() => { refreshUser(); }, [refreshUser, identityRevision]);
 
+  // Tải lại hồ sơ khi nơi khác báo người dùng đã thay đổi.
   useEffect(() => subscribeSyncEvent('USER_CHANGED', refreshUser), [refreshUser]);
 
   // Lắng nghe sự kiện đồng bộ để tự động cập nhật catalog ngay khi có thay đổi (cross-tab / cross-component)
@@ -86,6 +96,7 @@ export function DatabaseProvider({ children }) {
     return unsubscribe;
   }, [reload]);
 
+  // userLoading đúng khi hồ sơ chưa được xác minh cho đúng phiên hiện tại; userError chỉ áp dụng cho phiên hiện tại.
   return (
     <DatabaseContext.Provider value={{ data, error, user, reload, refreshUser,
       userLoading: Boolean(user && (profileState?.identityRevision !== identityRevision || profileState.loading)),

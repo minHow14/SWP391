@@ -1,4 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src\controllers\upload.controller.js
+// Controller xử lý file đã được multer lưu: kiểm tra định dạng thực bằng magic bytes,
+// xóa file không hợp lệ và trả đường dẫn tương đối để lưu vào DB.
 import fs from 'node:fs';
 import { asyncHandler } from '../middlewares/asyncMiddleware.js';
 import { sendCreated } from '../utils/apiResponse.js';
@@ -8,6 +10,8 @@ import { detectImageMimeType, IMAGE_SIGNATURE_BYTES } from '../utils/imageSignat
 /**
  * Kiểm tra Magic Bytes đầu file để xác thực định dạng ảnh thực sự
  */
+// Không tin MIME type/đuôi file do client gửi vì có thể giả mạo; đọc byte đầu file để xác định thật.
+// Lỗi đọc file coi như không hợp lệ.
 const isValidImageMagicBytes = (filePath) => {
   try {
     const buffer = Buffer.alloc(IMAGE_SIGNATURE_BYTES);
@@ -20,6 +24,7 @@ const isValidImageMagicBytes = (filePath) => {
   }
 };
 
+// Xóa file an toàn, không ném lỗi để không che mất lỗi gốc trả về client.
 const safeUnlink = (filePath) => {
   try {
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -28,6 +33,7 @@ const safeUnlink = (filePath) => {
   }
 };
 
+// Xử lý upload ảnh đại diện: bắt buộc có file và phải là ảnh thật.
 export const uploadAvatarHandler = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw ApiError.badRequest('Vui lòng chọn một tệp hình ảnh để tải lên');
@@ -48,6 +54,7 @@ export const uploadAvatarHandler = asyncHandler(async (req, res) => {
   });
 });
 
+// Xử lý upload một ảnh cho bài viết.
 export const uploadPostImageHandler = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw ApiError.badRequest('Vui lòng chọn một tệp hình ảnh để tải lên');
@@ -68,6 +75,8 @@ export const uploadPostImageHandler = asyncHandler(async (req, res) => {
   });
 });
 
+// Xử lý upload nhiều file đính kèm bài viết: video tối đa 50MB, ảnh tối đa 10MB và phải là ảnh thật.
+// Chỉ một file lỗi là hủy cả lô để không để lại file mồ côi trên đĩa.
 export const uploadPostMediaHandler = asyncHandler(async (req, res) => {
   if (!req.files || req.files.length === 0) {
     throw ApiError.badRequest('Vui lòng chọn ít nhất một tệp để tải lên');

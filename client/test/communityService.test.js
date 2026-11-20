@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/communityService.test.js
+// Kiểm thử (node:test) communityService: lưu/xóa bài viết và video, tải media, bình chọn, báo cáo và lấy trạng thái kiểm duyệt.
 import { test, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -13,11 +14,13 @@ import {
 } from '../src/services/communityService.js';
 import apiClient from '../src/services/apiClient.js';
 
+// Lưu các hàm gốc của apiClient vì các test ghi đè trực tiếp chúng; afterEach sẽ khôi phục lại.
 const originalRequest = apiClient.request;
 const originalGet = apiClient.get;
 const originalPost = apiClient.post;
 const originalDelete = apiClient.delete;
 
+// savePost phải giữ lại thông tin kiểm duyệt (jobId, moderationStatus) trả kèm bên cạnh bài viết.
 test('savePost preserves the moderation receipt returned beside a blog', async () => {
   apiClient.request = async () => ({ data: { blog: { post_id: 7, status: 'PENDING_MODERATION' }, jobId: 'pending-job', moderationStatus: 'PENDING' } });
   const result = await savePost({ values: { title: 'Sườn chay', content: 'Làm từ nấm.' } });
@@ -26,6 +29,7 @@ test('savePost preserves the moderation receipt returned beside a blog', async (
   assert.equal(result.status, 'PENDING_MODERATION');
 });
 
+// getContentModerationJobs gọi API có phân trang và truyền AbortSignal để có thể hủy request.
 test('getContentModerationJobs uses paginated authenticated API and accepts cancellation', async () => {
   const controller = new AbortController();
   apiClient.get = async (url, options) => {
@@ -37,6 +41,7 @@ test('getContentModerationJobs uses paginated authenticated API and accepts canc
   assert.deepEqual((await getContentModerationJobs({ page: 2, limit: 5 }, controller.signal)).data.items, []);
 });
 
+// Khôi phục các hàm gốc của apiClient sau mỗi test.
 afterEach(() => {
   apiClient.request = originalRequest;
   apiClient.get = originalGet;
@@ -44,6 +49,7 @@ afterEach(() => {
   apiClient.delete = originalDelete;
 });
 
+// communityService phải export đủ các hàm mà trang cộng đồng đang dùng.
 test('communityService exports all required functions', () => {
   assert.equal(typeof getMyPosts, 'function');
   assert.equal(typeof savePost, 'function');
@@ -54,6 +60,7 @@ test('communityService exports all required functions', () => {
   assert.equal(typeof createReport, 'function');
 });
 
+// uploadPostMedia gửi FormData đến endpoint tải media và trả về danh sách file đã tải.
 test('uploadPostMedia sends FormData to /upload/post-media', async () => {
   let capturedUrl = null;
   let capturedData = null;
@@ -80,6 +87,7 @@ test('uploadPostMedia sends FormData to /upload/post-media', async () => {
   assert.equal(uploaded[0].url, '/uploads/posts/salad.jpg');
 });
 
+// Tạo bài mới gửi JSON sạch: categoryId chuyển sang số và kèm danh sách đính kèm.
 test('savePost sends clean JSON payload to create a new post with attachments', async () => {
   let capturedConfig = null;
   apiClient.request = async (config) => {
@@ -124,6 +132,7 @@ test('savePost sends clean JSON payload to create a new post with attachments', 
   assert.equal(result.attachments.length, 1);
 });
 
+// Có postId thì savePost chuyển sang cập nhật bằng PUT /blogs/:id.
 test('savePost sends clean JSON payload to update an existing post', async () => {
   let capturedConfig = null;
   apiClient.request = async (config) => {
@@ -153,6 +162,7 @@ test('savePost sends clean JSON payload to update an existing post', async () =>
   assert.equal(result.post_id, 101);
 });
 
+// Xóa bài blog gọi DELETE /blogs/:id.
 test('deletePost calls DELETE /blogs/:id', async () => {
   let capturedUrl = null;
   apiClient.delete = async (url) => {
@@ -165,6 +175,7 @@ test('deletePost calls DELETE /blogs/:id', async () => {
   assert.equal(res.success, true);
 });
 
+// Bài loại VIDEO được gửi đến /videos với các trường video tương ứng.
 test('savePost sends clean JSON payload to create a new video post', async () => {
   let capturedConfig = null;
   apiClient.request = async (config) => {
@@ -208,6 +219,7 @@ test('savePost sends clean JSON payload to create a new video post', async () =>
   assert.equal(result.title, 'Video nấu phở nấm');
 });
 
+// Xóa bài loại VIDEO gọi DELETE /videos/:id.
 test('deletePost calls DELETE /videos/:id when postType is VIDEO', async () => {
   let capturedUrl = null;
   apiClient.delete = async (url) => {
@@ -220,6 +232,7 @@ test('deletePost calls DELETE /videos/:id when postType is VIDEO', async () => {
   assert.equal(res.success, true);
 });
 
+// Chưa bình chọn thì gửi UPVOTE, đã bình chọn thì gọi DELETE để hủy bình chọn.
 test('togglePostVote handles upvote and cancel vote', async () => {
   let postUrl = null;
   let postData = null;
@@ -236,16 +249,17 @@ test('togglePostVote handles upvote and cancel vote', async () => {
     return { success: true };
   };
 
-  // Upvote
+  // Bình chọn
   await togglePostVote({ postId: 7, hasVote: false });
   assert.equal(postUrl, '/votes');
   assert.deepEqual(postData, { post_id: 7, vote_type: 'UPVOTE' });
 
-  // Cancel vote
+  // Hủy bình chọn
   await togglePostVote({ postId: 7, hasVote: true });
   assert.equal(deleteUrl, '/votes/post/7');
 });
 
+// createReport gửi payload gồm đối tượng bị báo cáo (bài viết hoặc bình luận) và lý do.
 test('createReport formats payload with post or comment target', async () => {
   let capturedData = null;
   apiClient.post = async (url, data) => {

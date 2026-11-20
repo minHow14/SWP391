@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/aiHistory/components/AiGenerationHistory.jsx
+// Danh sách lịch sử các lần dùng AI (hỏi đáp, thực đơn, quét món) của người dùng, có lọc theo loại và phân trang.
 import { useEffect, useId, useRef, useState } from 'react';
 import { Alert, Badge, Button, Form, ListGroup, Spinner } from 'react-bootstrap';
 import { aiGenerationApi } from '../../../services/aiGenerationApi.js';
@@ -7,26 +8,31 @@ const PAGE_SIZE = 10;
 const TYPE_LABELS = { CHAT: 'Hỏi đáp', MEAL_PLAN: 'Thực đơn', FOOD_SCAN: 'Quét món ăn' };
 const STATUS_LABELS = { COMPLETED: 'Hoàn tất', FAILED: 'Thất bại', PROCESSING: 'Đang xử lý' };
 
+// Chọn tiêu đề hiển thị cho một bản ghi: câu hỏi, tiêu đề thực đơn, tên món hoặc nhãn loại.
 function title(record) {
   return record.requestPayload?.message || record.responsePayload?.title || record.responsePayload?.dishName || TYPE_LABELS[record.type];
 }
 
+// Component lịch sử AI; type cố định loại lịch sử (ẩn bộ lọc), onSelect nhận chi tiết bản ghi được chọn.
 export default function AiGenerationHistory({ userId, type, onSelect }) {
   const [filter, setFilter] = useState(type || 'CHAT');
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
+  // ownerId ghi lại dữ liệu thuộc về user nào để không hiển thị lịch sử của tài khoản trước khi đổi tài khoản.
   const [state, setState] = useState({ loading: true, items: [], meta: null, error: '', ownerId: userId });
   const [selection, setSelection] = useState({ id: null, error: '' });
   const detailRequest = useRef(null);
   const controlId = useId();
   const activeType = type || filter;
 
+  // Đổi người dùng hoặc loại lịch sử thì quay về trang 1 và hủy request xem chi tiết đang chạy.
   useEffect(() => {
     setPage(1);
     setSelection({ id: null, error: '' });
     return () => detailRequest.current?.abort();
   }, [userId, activeType]);
 
+  // Tải danh sách theo trang; hủy request cũ khi tham số thay đổi để tránh kết quả về sai thứ tự.
   useEffect(() => {
     if (!userId) return undefined;
     const request = new AbortController();
@@ -39,6 +45,7 @@ export default function AiGenerationHistory({ userId, type, onSelect }) {
     return () => request.abort();
   }, [userId, activeType, page, reload]);
 
+  // Tải chi tiết một bản ghi rồi chuyển cho component cha; chỉ giữ request mới nhất.
   async function select(record) {
     detailRequest.current?.abort();
     const request = new AbortController();
@@ -54,6 +61,7 @@ export default function AiGenerationHistory({ userId, type, onSelect }) {
     }
   }
 
+  // Bộ lọc loại không hiển thị FOOD_SCAN vì lịch sử quét món đã có ở trang Kiểm tra món.
   if (!userId) return <p>Đăng nhập để xem lịch sử AI.</p>;
   const owned = state.ownerId === userId;
   return <section aria-label="Lịch sử AI" className="p-3 border-top">

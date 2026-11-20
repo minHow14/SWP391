@@ -1,4 +1,6 @@
 // D:/SWP391/SWP391/server/scripts/sync-ingredient-assets.js
+// Đồng bộ ảnh nguyên liệu từ Wikimedia Commons về client/public/ingredient-assets,
+// kèm sources.json (metadata), ATTRIBUTION.md (ghi công) và toàn văn giấy phép GFDL khi cần.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { ingredientCatalog } from './ingredient-catalog.js';
 
@@ -6,13 +8,16 @@ const directory = new URL(
   '../../client/public/ingredient-assets/',
   import.meta.url
 );
+// Ảnh SVG là minh hoạ tự vẽ của dự án nên không cần lấy từ Wikimedia.
 await mkdir(directory, { recursive: true });
 const photos = ingredientCatalog.filter(
   (entry) => !entry.image_url.endsWith('.svg')
+// Dùng lại sources.json đã cache để chỉ gọi API khi còn thiếu metadata.
 );
 const pages = await readFile(new URL('sources.json', directory), 'utf8')
   .then(JSON.parse)
   .catch(() => []);
+// Truy vấn theo lô 5 ảnh mỗi request để giảm số lần gọi API.
 for (
   let offset = 0;
   pages.length < photos.length && offset < photos.length;
@@ -44,7 +49,9 @@ await writeFile(
   new URL('sources.json', directory),
   JSON.stringify(pages, null, 2)
 );
+// Chuẩn hoá tên file để so khớp với tiêu đề trang Wikimedia.
 const normalize = (value) => value.replaceAll('_', ' ').toLowerCase();
+// Chuyển HTML trong metadata thành văn bản thuần; thay | để không làm vỡ bảng Markdown.
 const plain = (value) =>
   (value || '')
     .replace(/<[^>]*>/g, '')
@@ -52,6 +59,7 @@ const plain = (value) =>
     .replace(/\s+/g, ' ')
     .trim()
     .replaceAll('|', '/');
+// Nội dung file ghi công ảnh (Markdown) sinh ra cho thư mục ảnh.
 const credits = [
   '# Ingredient image attribution',
   '',
@@ -68,6 +76,7 @@ for (const entry of photos) {
   const info = page?.imageinfo?.[0];
   if (!info) throw new Error(`Missing image information: ${entry.photoFile}`);
   const meta = info.extmetadata;
+  // Chỉ chấp nhận ảnh có giấy phép tự do (CC, public domain, GFDL) để được phép phân phối lại.
   const license = plain(meta?.LicenseShortName?.value);
   if (
     meta?.Copyrighted?.value !== 'False' &&
@@ -75,6 +84,7 @@ for (const entry of photos) {
   )
     throw new Error(`Unsupported license: ${entry.photoFile}`);
   const filename = entry.image_url.split('/').at(-1);
+  // Chỉ tải ảnh khi file local chưa có hoặc rỗng.
   const target = new URL(filename, directory);
   if (!(await readFile(target).catch(() => null))?.length) {
     const image = await fetch(info.thumburl || info.url, {
@@ -88,6 +98,7 @@ for (const entry of photos) {
     `| ${filename} | [${entry.name}](${info.descriptionurl}) | ${plain(meta?.Artist?.value)} | [${license}](${meta?.LicenseUrl?.value || info.descriptionurl}) |`
   );
 }
+// Ảnh dùng giấy phép GFDL bắt buộc phải kèm toàn văn giấy phép.
 if (
   photos.some((entry) => {
     const page = pages.find(

@@ -1,6 +1,14 @@
 // client/src/features/admin/components/AdminCommentTable.jsx
+// Bảng hiển thị danh sách bình luận cho Admin với trạng thái, cờ AI và các nút ẩn/khôi phục/xóa vĩnh viễn.
 import { Table, Button } from 'react-bootstrap';
 
+/**
+ * Bảng bình luận.
+ * @param {object} props
+ * @param {Array} props.comments Danh sách bình luận.
+ * @param {Function} props.onRestore Khôi phục bình luận theo `comment_id`.
+ * @param {Function} props.onDeleteClick Mở modal xác nhận với `{ comment, permanent }`.
+ */
 export default function AdminCommentTable({ comments, onRestore, onDeleteClick }) {
   return (
     <div className="admin-card overflow-hidden">
@@ -17,6 +25,7 @@ export default function AdminCommentTable({ comments, onRestore, onDeleteClick }
         </thead>
         <tbody>
           {comments.map((c) => {
+            // DELETED cũng tính là "ẩn" để làm mờ dòng và không hiện nút ẩn lần nữa.
             const isHidden = c.status === 'HIDDEN' || c.status === 'DELETED';
             const isPermanentDeleted = c.status === 'DELETED';
 

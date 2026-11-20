@@ -1,6 +1,8 @@
 /* D:/Projects/FPT/SWP391/client/src/features/admin/styles/admin.css */
 /* Giao diện Quản trị ChayXanh - Tinh giản, Hiện đại, Khoảng cách thoáng đãng & Hover mượt mà */
+/* Style toàn bộ khu vực quản trị: shell, header, sidebar, bảng, badge, form và các khối dashboard. */
 
+/* Biến thiết kế dùng chung (màu, bóng, hiệu ứng) để các khối admin đồng bộ giao diện */
 :root {
   --cx-admin-font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --cx-admin-bg: #f8fafc;
@@ -24,7 +26,7 @@
 }
 
 /* ==========================================================================
-   1. SHELL TỔNG THỂ & TYPOGRAPHY
+   1. KHUNG TỔNG THỂ (SHELL) & KIỂU CHỮ
    ========================================================================== */
 
 .admin-portal-shell {
@@ -88,6 +90,7 @@
   box-shadow: var(--cx-admin-shadow);
 }
 
+/* Hiệu ứng mờ dần nhẹ khi chuyển tab, giúp người dùng nhận biết nội dung đã đổi */
 .admin-tab-content-fade {
   animation: adminTabFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -104,9 +107,10 @@
 }
 
 /* ==========================================================================
-   2. TOP HEADER BAR & BREADCRUMBS (MARGIN RÕ RÀNG GIỮA CÁC PHẦN TỬ)
+   2. THANH TIÊU ĐỀ & ĐƯỜNG DẪN ĐIỀU HƯỚNG (MARGIN RÕ RÀNG GIỮA CÁC PHẦN TỬ)
    ========================================================================== */
 
+/* Dùng !important để ghi đè các lớp tiện ích padding/margin của Bootstrap gắn trên phần tử */
 .admin-header-bar {
   background: var(--cx-admin-surface);
   border: 1px solid var(--cx-admin-border);
@@ -155,6 +159,7 @@
   margin-right: 0.5rem !important;
 }
 
+/* Chữ số cùng độ rộng (tabular-nums) để đồng hồ không bị rung khi đổi giây */
 .admin-clock-text {
   font-variant-numeric: tabular-nums;
   font-size: 0.78rem;
@@ -178,6 +183,7 @@
   gap: 0.65rem !important;
 }
 
+/* Nút trên header: transition-delay khi hover giúp tránh nhấp nháy khi lướt chuột nhanh */
 .admin-header-btn {
   font-size: 0.84rem;
   font-weight: 500;
@@ -229,9 +235,10 @@
 }
 
 /* ==========================================================================
-   3. SIDEBAR NAVIGATION & PHÂN NHÓM (MARGIN RỘNG RÃI & RÕ RÀNG)
+   3. THANH ĐIỀU HƯỚNG BÊN (SIDEBAR) & PHÂN NHÓM (MARGIN RỘNG RÃI & RÕ RÀNG)
    ========================================================================== */
 
+/* Sidebar dính (sticky) khi cuộn trang, giới hạn chiều cao để danh sách tab tự cuộn bên trong */
 .admin-sidebar-wrapper {
   background: var(--cx-admin-surface);
   border: 1px solid var(--cx-admin-border);
@@ -248,7 +255,7 @@
   width: 100%;
 }
 
-/* Brand Header - Khoảng cách thoáng đãng, lề trên dưới rõ ràng */
+/* Phần thương hiệu - Khoảng cách thoáng đãng, lề trên dưới rõ ràng */
 .admin-sidebar-brand {
   margin-bottom: 1.35rem !important;
   padding-bottom: 1.25rem !important;
@@ -295,7 +302,7 @@
   margin-top: 0.35rem !important;
 }
 
-/* Tìm kiếm chức năng - Margin thoáng đãng cách biệt Brand Header */
+/* Tìm kiếm chức năng - Margin thoáng đãng cách biệt phần thương hiệu */
 .admin-sidebar-search {
   position: relative;
   margin-top: 0.35rem !important;
@@ -381,7 +388,7 @@
   margin-bottom: 0.25rem;
 }
 
-/* Nav Item - Thiết kế cố định tọa độ chữ & icon tuyệt đối chống giật/nhảy chữ */
+/* Mục điều hướng - Thiết kế cố định tọa độ chữ & icon tuyệt đối chống giật/nhảy chữ */
 .admin-nav-item {
   border-radius: 8px;
   color: var(--cx-admin-ink-secondary) !important;
@@ -400,7 +407,7 @@
   background: transparent;
   text-decoration: none;
   cursor: pointer;
-  /* Transition mượt mà có delay chống giật khi lướt chuột ngang qua */
+  /* Hiệu ứng chuyển mượt mà có delay chống giật khi lướt chuột ngang qua */
   transition: background-color 0.24s cubic-bezier(0.16, 1, 0.3, 1),
               color 0.24s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.24s cubic-bezier(0.16, 1, 0.3, 1);
@@ -481,7 +488,7 @@
   font-weight: 600;
 }
 
-/* Footer Sidebar: Margin rộng rãi giữa Thẻ User và Nút Trang người dùng */
+/* Chân sidebar: Margin rộng rãi giữa Thẻ User và Nút Trang người dùng */
 .admin-sidebar-footer {
   padding-top: 1.25rem !important;
   margin-top: 1.25rem !important;
@@ -555,7 +562,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
-/* Mobile Drawer Overlay */
+/* Màn hình nhỏ: sidebar trượt ra từ cạnh trái dạng ngăn kéo, kèm lớp phủ nền tối phía sau */
 @media (max-width: 991.98px) {
   .admin-sidebar-wrapper {
     position: fixed;
@@ -586,7 +593,7 @@
 }
 
 /* ==========================================================================
-   4. BẢNG DỮ LIỆU QUẢN TRỊ (TABLES - FONT RÕ NÉT & HOVER MƯỢT)
+   4. BẢNG DỮ LIỆU QUẢN TRỊ (FONT RÕ NÉT & HOVER MƯỢT)
    ========================================================================== */
 
 .admin-table {
@@ -629,7 +636,7 @@
   font-size: 0.85rem;
 }
 
-/* Table action buttons */
+/* Nút thao tác trong bảng */
 .admin-table .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
@@ -642,7 +649,7 @@
 }
 
 /* ==========================================================================
-   5. BADGES & STATUS PILLS
+   5. NHÃN TRẠNG THÁI (BADGE & PILL)
    ========================================================================== */
 
 .cx-badge {
@@ -658,6 +665,7 @@
   transition: var(--cx-admin-transition);
 }
 
+/* Biến thể màu theo trạng thái: hoạt động (xanh), bị khóa/ẩn (vàng), nguy hiểm (đỏ), thông tin (lam), trung tính (xám) */
 .cx-badge-active {
   background-color: #f0fdf4;
   color: #166534;
@@ -689,7 +697,7 @@
 }
 
 /* ==========================================================================
-   6. BỘ LỌC, FORMS & INPUTS
+   6. BỘ LỌC, FORM & Ô NHẬP LIỆU
    ========================================================================== */
 
 .admin-portal-shell .form-control,
@@ -714,7 +722,7 @@
   font-size: 0.84rem;
 }
 
-/* Segmented nav lọc */
+/* Thanh lọc dạng phân đoạn (segmented) */
 .admin-segmented-nav {
   background: #f1f5f9;
   border-radius: 8px;
@@ -775,6 +783,7 @@
   transition: transform 0.18s ease;
 }
 
+/* Xoay mũi tên 90 độ khi dòng chi tiết đang mở */
 .admin-stt-arrow.is-rotated {
   transform: rotate(90deg);
   color: var(--cx-admin-green);
@@ -785,7 +794,7 @@
 }
 
 /* ==========================================================================
-   7. DASHBOARD KPIS, TRIAGE DECK & TELEMETRY
+   7. DASHBOARD: CHỈ SỐ KPI, SÀN XỬ LÝ KHẨN CẤP & GIÁM SÁT
    ========================================================================== */
 
 .admin-dashboard-wrapper {
@@ -810,6 +819,7 @@
   background: #f8fafc;
 }
 
+/* Màu xanh khi hệ thống an toàn, màu hồng đỏ khi có việc cần xử lý gấp */
 .cx-triage-deck-calm {
   background: #f0fdf4;
   border-color: #bbf7d0;
@@ -853,7 +863,7 @@
   line-height: 1.45;
 }
 
-/* Metric KPI Card */
+/* Thẻ chỉ số KPI */
 .cx-metric-card {
   background: #ffffff;
   border: 1px solid var(--cx-admin-border);
@@ -924,6 +934,7 @@
   flex-shrink: 0;
 }
 
+/* Biến thể màu icon KPI theo colorClass truyền từ AdminKpiCard */
 .cx-metric-icon-green {
   background: #dcfce7;
   color: #15803d;
@@ -944,7 +955,7 @@
   color: #e11d48;
 }
 
-/* Launchpad Phím tắt */
+/* Khối phím tắt điều hành nhanh */
 .cx-action-launchpad {
   background: #ffffff;
   border: 1px solid var(--cx-admin-border);
@@ -985,7 +996,7 @@
   font-weight: 600;
 }
 
-/* Feed Cards & Tables */
+/* Thẻ và bảng danh sách hoạt động gần đây (báo cáo, log AI) */
 .cx-feed-card {
   background: #ffffff;
   border: 1px solid var(--cx-admin-border);
@@ -1127,6 +1138,7 @@
   flex-shrink: 0;
 }
 
+/* Màu chấm trạng thái kết nối: UP (xanh), DOWN (đỏ), UNKNOWN (xám) */
 .cx-pulse-dot.is-up {
   background-color: #16a34a;
 }
@@ -1143,7 +1155,7 @@
   min-height: 32px;
 }
 
-/* Alert dismissible Close button */
+/* Căn giữa theo chiều dọc nút đóng của Alert có thể tắt, để thẳng hàng với nội dung một dòng */
 .admin-portal-shell .alert-dismissible .btn-close,
 .alert-dismissible .btn-close {
   top: 50%;

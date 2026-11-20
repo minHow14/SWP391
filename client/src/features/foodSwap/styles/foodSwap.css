@@ -1,4 +1,5 @@
 /* C:/Users/TRUONGPHU/Desktop/chayxnah/SWP391/client/src/features/foodSwap/styles/foodSwap.css */
+/* Giao diện trang Đổi món chay: ô tìm kiếm, gợi ý nhanh và bảng nguyên liệu thay thế. */
 .cx-swap-page { background: #f8fafc; padding: 30px 28px 120px; }
 .cx-swap-card { max-width: 1380px; margin: 0 auto; padding: 32px 36px; background: #fff; border: 1px solid #f0f4f8; border-radius: 26px; }
 .cx-swap-badge { display: inline-flex; align-items: center; gap: 8px; margin-bottom: 13px; padding: 5px 13px; border: 1px solid #fde6a0; border-radius: 999px; background: #fffbeb; color: #b66515; font-size: 13px; font-weight: 700; }
@@ -38,6 +39,7 @@
 .cx-swap-empty h2 { margin: 0 0 8px; color: #43536a; font-size: 20px; font-weight: 700; }
 .cx-swap-empty p { margin: 0 0 18px; font-size: 13px; }
 .cx-swap-empty button { padding: 9px 16px; border: 1px solid #bbefcd; border-radius: 999px; background: #effcf5; color: #15803d; font-size: 13px; font-weight: 650; }
+/* Trên di động bảng chuyển thành dạng thẻ: ẩn tiêu đề cột và thêm nhãn cho cột gợi ý bằng ::before. */
 @media (max-width: 767px) {
   .cx-swap-page { padding: 22px 14px 80px; }
   .cx-swap-card { padding: 22px 18px; border-radius: 20px; }

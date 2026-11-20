@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/communityOwnPosts.test.jsx
+// Kiểm thử bài viết của chính người dùng (chờ duyệt, bị AI ẩn, nháp): giữ ảnh đính kèm và tác giả bình luận khi xem và chỉnh sửa.
 import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -8,11 +9,14 @@ import PostComposer from '../src/features/community/components/PostComposer.jsx'
 import PostComments from '../src/features/community/components/PostComments.jsx';
 import apiClient from '../src/services/apiClient.js';
 
+// Người dùng hiện tại (id 7) chính là tác giả bài viết; hoist để vi.mock dùng chung.
 const database = vi.hoisted(() => ({ data: { posts: [], categories: [] }, user: { user_id: 7, full_name: 'Chủ bài viết' }, reload: vi.fn() }));
+// Mock useDatabase, apiClient và hook kiểm duyệt nội dung để không gọi API thật.
 vi.mock('../src/hooks/useDatabase.js', () => ({ useDatabase: () => database }));
 vi.mock('../src/services/apiClient.js', () => ({ default: { get: vi.fn(), request: vi.fn() } }));
 vi.mock('../src/features/community/hooks/useContentModeration.js', () => ({ useContentModeration: () => ({ refresh: vi.fn() }) }));
 
+// Tạo bài viết riêng tư với trạng thái truyền vào, gồm cả dữ liệu đã chuẩn hóa và dữ liệu gốc từ API.
 function privatePost(status) {
   const attachments = [
     { id: 11, url: '/uploads/posts/meal.jpg', type: 'image', name: 'meal.jpg' },
@@ -25,6 +29,7 @@ function privatePost(status) {
       comments: [{ comment_id: 3, content: 'Cảm ơn chia sẻ', user: { full_name: 'Người bình luận' } }] } };
 }
 
+// Component ghép danh sách bài của tôi với hộp bình luận và trình soạn bài để mô phỏng trang cộng đồng.
 function OwnPosts() {
   const community = useCommunity();
   const [editing, setEditing] = useState(null);
@@ -36,9 +41,11 @@ function OwnPosts() {
   {editing && <PostComposer post={editing} user={community.user} onClose={() => setEditing(null)} onSaved={() => setEditing(null)} />}</>;
 }
 
+// Mặc định lưu bài viết thành công.
 beforeEach(() => { vi.clearAllMocks(); apiClient.request.mockResolvedValue({ data: { blog: { post_id: 9 } } }); });
 afterEach(cleanup);
 
+// Bài riêng tư ở mọi trạng thái vẫn hiển thị ảnh và tác giả bình luận; gỡ một ảnh khi sửa thì chỉ gửi lại ảnh còn lại.
 it.each(['PENDING_MODERATION', 'HIDDEN_BY_AI', 'DRAFT'])('keeps normalized media and comment authors on an own %s post', async (status) => {
   apiClient.get.mockResolvedValue({ data: [privatePost(status)] });
   render(<OwnPosts />);

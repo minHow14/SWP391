@@ -1,11 +1,14 @@
 // D:/SWP391/SWP391/client/src/features/videoRecipeSummary/components/VideoRecipeMessage.jsx
+// Tin nhắn chatbot hiển thị tiến độ và kết quả tóm tắt công thức từ video YouTube.
 import { Alert, Button, Spinner } from 'react-bootstrap';
 import { Link } from 'react-router';
 import '../styles/videoRecipeSummary.css';
 
+// Nhãn tiến độ cho từng giai đoạn xử lý video phía server.
 const STAGE_LABELS = { VALIDATING_VIDEO: 'Đang kiểm tra video và thời lượng…', FETCHING_CAPTIONS: 'Đang lấy phụ đề tiếng Việt…', FETCHING_AUDIO: 'Đang lấy âm thanh…',
   TRANSCRIBING: 'Đang chuyển giọng nói thành văn bản…', SUMMARIZING: 'Đang tạo công thức…', SAVING_RESULT: 'Đang hoàn tất công thức…' };
 
+// Chọn nhãn trạng thái phù hợp; job PENDING do hết hạn mức AI được báo riêng là đang chờ thử lại.
 function statusLabel(message) {
   if (message.preparing) return 'Đang gửi yêu cầu xử lý video…';
   if (message.job?.status === 'PENDING') return message.job.errorCode === 'VIDEO_AI_RATE_LIMITED'
@@ -14,6 +17,7 @@ function statusLabel(message) {
   return STAGE_LABELS[message.job?.stage] || 'Đang theo dõi xử lý video…';
 }
 
+// Hiển thị công thức đã trích xuất: tiêu đề, nguyên liệu (kèm định lượng nếu có) và các bước nấu.
 function RecipeContent({ recipe }) {
   return <>
     <h3 className="cx-video-recipe-title">{recipe.title || 'Công thức từ video'}</h3>
@@ -27,6 +31,7 @@ function RecipeContent({ recipe }) {
   </>;
 }
 
+// Component tin nhắn; busy khóa nút thử lại khi đang có thao tác khác, onRetry xử lý thử lại theo ngữ cảnh lỗi.
 export default function VideoRecipeMessage({ message, busy, onRetry }) {
   const failure = message.observationError || (message.job?.status === 'FAILED' && message.job.errorMessage);
   return <div className="cx-video-recipe">

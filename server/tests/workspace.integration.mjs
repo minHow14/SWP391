@@ -1,16 +1,21 @@
 // D:/SWP391/SWP391/server/tests/workspace.integration.mjs
+// Script tích hợp đầu-cuối (chạy bằng node, cần DB test có seed) cho workspace: catalog, xác thực, hồ sơ,
+// CRUD cộng đồng, nhật ký riêng tư, kế hoạch bữa ăn, đánh giá quán và đề xuất quán mới.
 import './loadTestEnvironment.js';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import request from 'supertest';
 import {PrismaClient} from '@prisma/client';
+// Import app động sau khi đã nạp môi trường test để app đọc đúng DATABASE_URL.
 const {default:app}=await import('../src/app.js');
 const db=new PrismaClient({log:[]});
+// Hậu tố ngẫu nhiên cho email/tên quán để dữ liệu test không trùng và dễ dọn ở khối finally.
 const suffix=randomUUID();
 const emails=[`integration-${suffix}@chayxanh.local`,`other-${suffix}@chayxanh.local`];
 const password='Integration@12345';
 const proposedRestaurantNames = [];
 try{
+  // Catalog công khai phải khớp số liệu trong DB, chỉ chứa bài đã đăng và không lộ password_hash.
   const catalog=await request(app).get('/api/workspace/catalog');assert.equal(catalog.status,200);
   const expectedRecipes=await db.recipe.count({where:{OR:[{post_id:null},{post:{status:'PUBLISHED'}}]}});
   assert.equal(catalog.body.data.recipes.length,expectedRecipes);
@@ -22,12 +27,14 @@ try{
   assert.ok(catalog.body.data.restaurants.every(p=>Array.isArray(p.reviews)));
   assert.ok(catalog.body.data.posts.every(p=>p.status==='PUBLISHED'));
   assert.ok(!JSON.stringify(catalog.body).includes('password_hash'));
+  // Nhật ký yêu cầu đăng nhập; đăng ký + đăng nhập rồi kiểm tra /me trả đúng người dùng.
   assert.equal((await request(app).get('/api/workspace/journal')).status,401);
   const register=await request(app).post('/api/auth/register').send({email:emails[0],password,full_name:'Integration Test'});assert.equal(register.status,201);
   const login=await request(app).post('/api/auth/login').send({email:emails[0],password});assert.equal(login.status,200);const token=login.body.token;
   const auth=req=>req.set('Authorization',`Bearer ${token}`);
   const me=await auth(request(app).get('/api/auth/me'));assert.equal(me.body.user.email,emails[0]);
   assert.equal((await request(app).patch('/api/auth/me').send({full_name:'Forbidden'})).status,401);
+  // Cập nhật hồ sơ sức khỏe và dị ứng phải lưu đúng, không lộ password_hash.
   const ingredientId=catalog.body.data.ingredients[0].ingredient_id;
   const dietId=catalog.body.data.diets[0].diet_type_id;
   const profileUpdate={full_name:'Updated Profile',health_profile:{height:172.5,weight:63,dob:'2000-03-12',gender:'Khác',health_goal:'Theo dõi sức khỏe',diet_type_id:dietId},allergy_ids:[ingredientId]};
@@ -36,6 +43,8 @@ try{
   assert.deepEqual(savedProfile.body.user.allergies.map(a=>a.ingredient_id),[ingredientId]);
   assert.ok(!JSON.stringify(savedProfile.body).includes('password_hash'));
   const reloadedProfile=await auth(request(app).get('/api/auth/me'));assert.equal(reloadedProfile.body.user.health_profile.dob.slice(0,10),'2000-03-12');
+  // Chặn mass-assignment (role, user_id), ngày sinh không hợp lệ/tương lai, diet_type_id không tồn tại;
+  // dị ứng không tồn tại phải rollback cả thay đổi tên; dị ứng trùng lặp bị từ chối.
   assert.equal((await auth(request(app).patch('/api/auth/me')).send({role:1})).status,400);
   assert.equal((await auth(request(app).patch('/api/auth/me')).send({user_id:999})).status,400);
   assert.equal((await auth(request(app).patch('/api/auth/me')).send({health_profile:{dob:'2026-02-31'}})).status,400);
@@ -44,8 +53,10 @@ try{
   assert.equal((await auth(request(app).patch('/api/auth/me')).send({full_name:'Must roll back',allergy_ids:[2147483647]})).status,400);
   assert.equal((await auth(request(app).get('/api/auth/me'))).body.user.full_name,'Updated Profile');
   assert.equal((await auth(request(app).patch('/api/auth/me')).send({allergy_ids:[ingredientId,ingredientId]})).status,400);
+  // Cho phép xóa trắng hồ sơ sức khỏe (null) và danh sách dị ứng.
   const clearedProfile=await auth(request(app).patch('/api/auth/me')).send({health_profile:{height:null,weight:null,dob:null,gender:null,health_goal:null,diet_type_id:null},allergy_ids:[]});
   assert.equal(clearedProfile.status,200);assert.equal(clearedProfile.body.user.health_profile.height,null);assert.deepEqual(clearedProfile.body.user.allergies,[]);
+  // CRUD blog, bình luận, vote phải phản ánh đúng trên catalog; bài đã xóa không còn xuất hiện.
   const blog=await auth(request(app).post('/api/blogs')).send({title:'Integration recipe discussion',content:`Test post ${suffix}`});assert.equal(blog.status,201);
   const postId=blog.body.blog.post_id;assert.ok(postId);
   assert.equal((await auth(request(app).put(`/api/blogs/${postId}`)).send({title:'Updated integration discussion'})).status,200);
@@ -57,25 +68,31 @@ try{
   assert.equal((await auth(request(app).delete(`/api/votes/post/${postId}`))).status,200);
   assert.equal((await auth(request(app).delete(`/api/blogs/${postId}`))).status,200);
   const afterDelete=await request(app).get('/api/workspace/catalog');assert.ok(!afterDelete.body.data.posts.some(p=>p.post_id===postId));
+  // Hồ sơ nhật ký và ghi món ăn vào nhật ký; dữ liệu dinh dưỡng phải được lưu chính xác.
   assert.equal((await auth(request(app).patch('/api/workspace/profile')).send({height:168,weight:60,calorieGoal:1850,goal:'Theo dõi'})).status,200);
   const before=await auth(request(app).get('/api/workspace/journal'));assert.deepEqual(before.body.data.days,{});assert.equal(before.body.data.profile.weight,60);
   const record=await auth(request(app).post('/api/workspace/diary')).send({date:'2026-10-11',group:'SNACK',name:'Integration food',serving:'1 phần',calories:100,protein:2,carbs:10,fat:1,fiber:2});assert.equal(record.status,200);const diaryId=record.body.data.diary_id;
   const journal=await auth(request(app).get('/api/workspace/journal'));assert.equal(journal.body.data.days['2026-10-11'][0].calories,100);assert.equal(journal.body.data.days['2026-10-11'][0].protein,2);
+  // Tài khoản khác có hồ sơ riêng trống và không được xóa nhật ký của người khác (404).
   const other=await request(app).post('/api/auth/register').send({email:emails[1],password,full_name:'Other Integration'});assert.equal(other.status,201);
   const otherProfile=await request(app).get('/api/auth/me').set('Authorization',`Bearer ${other.body.token}`);
   assert.equal(otherProfile.body.user.full_name,'Other Integration');assert.equal(otherProfile.body.user.health_profile,null);assert.deepEqual(otherProfile.body.user.allergies,[]);
   assert.equal((await request(app).delete(`/api/workspace/diary/${diaryId}`).set('Authorization',`Bearer ${other.body.token}`)).status,404);
   assert.equal((await auth(request(app).delete(`/api/workspace/diary/${diaryId}`))).status,200);
+  // Kế hoạch bữa ăn: lên kế hoạch rồi ghi vào nhật ký đúng một lần (lần hai 409).
   const recipe=catalog.body.data.recipes[0];assert.ok(recipe,'Database needs a recipe for plan integration tests');
   assert.equal((await auth(request(app).put('/api/workspace/plan')).send({date:'2026-10-12',group:'BREAKFAST',recipe_id:recipe.recipe_id})).status,200);
   assert.equal((await auth(request(app).post('/api/workspace/plan/record')).send({date:'2026-10-12'})).status,200);
   assert.equal((await auth(request(app).post('/api/workspace/plan/record')).send({date:'2026-10-12'})).status,409);
+  // Đánh giá quán (nếu có dữ liệu quán): khôi phục rating cũ và xóa đánh giá test trong finally để không làm bẩn DB.
   const place=catalog.body.data.restaurants[0];
   if(place){
     const priorRating=await db.restaurant.findUnique({where:{restaurant_id:place.id},select:{rating:true}});
     try{assert.equal((await auth(request(app).post(`/api/workspace/restaurants/${place.id}/reviews`)).send({stars:4,text:`Integration review ${suffix}`})).status,200);const again=await request(app).get('/api/workspace/catalog');assert.ok(again.body.data.restaurants.find(p=>p.id===place.id).reviews.some(r=>r.text===`Integration review ${suffix}`));}finally{await db.$executeRaw`DELETE FROM restaurant_reviews WHERE content=${`Integration review ${suffix}`}`;await db.restaurant.update({where:{restaurant_id:place.id},data:priorRating});}
   }
+  // Ngày không hợp lệ và calo âm phải bị từ chối.
   assert.equal((await auth(request(app).post('/api/workspace/diary')).send({date:'2026-02-31',group:'SNACK',name:'Invalid',serving:'1',calories:-1,protein:0,carbs:0,fat:0,fiber:0})).status,400);
+  // Đề xuất quán mới: ảnh thiếu hoặc ảnh stock bị bỏ (null), chỉ ảnh upload cục bộ được giữ — tránh hiển thị ảnh sai.
   const photoCases = [
     { label: 'missing', input: undefined, expected: null },
     { label: 'stock', input: 'https://images.unsplash.com/photo-1540420773420-3366772f4999', expected: null },
@@ -98,6 +115,7 @@ try{
   }
   console.log('PASS: database catalog, authentication, community CRUD/comments/votes, private journals, persisted nutrition, ownership, weekly plans, review persistence and input validation.');
 } finally {
+  // Luôn dọn quán đề xuất và user test, rồi đóng kết nối DB.
   try {
     await db.$transaction([
       db.restaurant.deleteMany({ where: { name: { in: proposedRestaurantNames } } }),

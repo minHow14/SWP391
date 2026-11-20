@@ -1,4 +1,5 @@
 // d:\Projects\FPT\SWP391\server\src\repositories\index.js
+// Điểm export tập trung các repository (tầng truy cập dữ liệu Prisma) để service import gọn từ một chỗ.
 export * from './user.repository.js';
 export * from './post.repository.js';
 export * from './comment.repository.js';

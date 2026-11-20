@@ -1,4 +1,5 @@
 /* D:/SWP391/SWP391/client/src/features/foodScanner/styles/foodScanner.css */
+/* Giao diện trang Kiểm tra món: thẻ nhập liệu, vùng tải ảnh, xem trước và hộp kết quả. */
 .cx-scanner-page { padding: 48px 28px 110px; background: #f8fafc; }
 .cx-scanner-card { max-width: 1240px; margin: 0 auto; padding: 32px; border: 1px solid #f0f4f8; border-radius: 26px; background: #fff; }
 .cx-scanner-card h1 { display: flex; align-items: center; gap: 9px; margin: 0 0 7px; color: #233244; font-size: 26px; font-weight: 800; letter-spacing: -.6px; }
@@ -25,9 +26,11 @@
 .cx-scan-choose:hover { background: #047857; }
 .cx-scan-preview { width: min(100%, 470px); margin: 16px auto 0; padding: 6px; border: 2px solid transparent; border-radius: 16px; transition: border-color .2s, box-shadow .2s, transform .2s; }
 .cx-scan-preview img { display: block; width: 100%; height: auto; max-height: 420px; object-fit: contain; }
+/* Chỉ nâng ảnh xem trước khi thiết bị có chuột, tránh hiệu ứng dính trên màn hình cảm ứng. */
 @media (hover: hover) {
   .cx-scan-preview:hover { border-color: #059669; box-shadow: 0 12px 28px #05966926; transform: translateY(-3px); }
 }
+/* Tôn trọng thiết lập giảm chuyển động của người dùng. */
 @media (prefers-reduced-motion: reduce) {
   .cx-scan-preview { transition: none; }
   .cx-scan-preview:hover { transform: none; }
@@ -52,6 +55,7 @@
 .cx-scan-result.is-clear h2 .bi { color: #16a34a; }
 .cx-scan-result.is-unknown { background: #fffaf0; border-color: #fde6b4; color: #92400e; }
 .cx-scan-result.is-unknown h2 .bi { color: #d97706; }
+/* Bố cục di động: một cột, giảm khoảng cách và bo góc. */
 @media (max-width: 767px) {
   .cx-scanner-page { padding: 24px 14px 80px; }
   .cx-scanner-card { padding: 22px 18px; border-radius: 20px; }

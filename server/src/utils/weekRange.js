@@ -1,4 +1,5 @@
 // server/src/utils/weekRange.js
+// Tính khoảng tuần (Thứ Hai → Chủ Nhật) cho thực đơn tuần.
 const DAYS_IN_WEEK = 7;
 
 /** Tuần ISO (Thứ Hai → Chủ Nhật) chứa ngày `YYYY-MM-DD`, tính theo UTC giống cột `@db.Date`. */

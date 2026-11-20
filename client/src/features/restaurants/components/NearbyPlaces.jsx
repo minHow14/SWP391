@@ -1,4 +1,5 @@
 // d:/Projects/FPT/SWP391/client/src/features/restaurants/components/NearbyPlaces.jsx
+// Khối tìm quán chay gần người dùng (GPS) hoặc theo khu vực trọng điểm của các tỉnh/thành, kèm bộ lọc bán kính và chế độ ăn.
 import { useEffect, useRef, useState } from 'react';
 import { placeService } from '../../../services/placeService.js';
 import { formatDistance } from '../../../utils/aiHelpers.js';
@@ -38,6 +39,7 @@ export default function NearbyPlaces({
   });
 
   const request = useRef(null);
+  // Hủy request tìm kiếm đang chạy khi component unmount.
   useEffect(() => () => request.current?.abort(), []);
 
   // Tự động kiểm tra quyền vị trí nếu người dùng đã cho phép trước đó
@@ -67,6 +69,7 @@ export default function NearbyPlaces({
     currentUserLoc = userLocation,
     targetDiet = selectedDiet
   ) {
+    // Hủy request trước đó để kết quả cũ (chậm hơn) không ghi đè kết quả của lần tìm mới.
     request.current?.abort();
     const current = new AbortController();
     request.current = current;
@@ -83,6 +86,7 @@ export default function NearbyPlaces({
           userLat: currentUserLoc?.lat,
           userLng: currentUserLoc?.lng,
           radiusKm: targetRadius,
+          // Bán kính càng lớn thì lấy càng nhiều quán để bản đồ không bị thưa, nhưng vẫn giới hạn để tránh tải quá nặng.
           limit: targetRadius <= 3 ? 20 : targetRadius <= 5 ? 40 : 80,
           dietTypeId: targetDiet,
         },
@@ -97,6 +101,7 @@ export default function NearbyPlaces({
           ? result
           : [];
 
+      // Lọc bỏ địa điểm không phải quán chay (nail, spa, quán thịt...) từ nguồn bản đồ bên ngoài, rồi chuẩn hóa dữ liệu hiển thị.
       const places = rawPlaces.filter(isVegetarianPlace).map((place) => {
         const isExternal = place.source === 'ziomap';
         const photo = resolveRestaurantPhoto(place);
@@ -105,8 +110,10 @@ export default function NearbyPlaces({
           id:
             place.id ||
             (place.restaurant_id ? `local_${place.restaurant_id}` : `place_${Math.random()}`),
+          // Nguồn dữ liệu có thể thiếu tên thành phố nên suy ra từ địa chỉ.
           city: place.city || (place.address?.includes('Hà Nội') ? 'Hà Nội' : 'Hồ Chí Minh'),
           hours: place.hours || 'Chưa cập nhật',
+          // Phân loại để chọn màu marker / ảnh fallback: diet_type_id 5 = chay Phật giáo, 1 = thuần chay, còn lại = bếp chay riêng.
           type: isExternal
             ? 'external'
             : place.diet_type_id === 5
@@ -136,6 +143,7 @@ export default function NearbyPlaces({
         }
       } else {
         note = `Chưa tìm thấy quán chay${dietSuffix} nào trong bán kính ${targetRadius} km quanh khu vực này.`;
+        // Thông báo rõ khi backend chưa cấu hình API key ZIOMAP để dễ chẩn đoán vì sao không có kết quả.
         if (response?.meta?.ziomap === 'not_configured') {
           note += ' (Dịch vụ bản đồ ZIOMAP chưa cấu hình API key).';
         }
@@ -217,6 +225,7 @@ export default function NearbyPlaces({
   }
 
   const { status, places, message } = state;
+  // Thông tin thành phố đang chọn để hiển thị danh sách khu vực tương ứng.
   const currentCityObj = CITY_HUBS.find((item) => item.id === selectedCity) || CITY_HUBS[0];
 
   return (
@@ -389,6 +398,7 @@ export default function NearbyPlaces({
           ) : (
             <ul className="cx-nearby-list">
               {places.map((place) => {
+                // Tính link chỉ đường và trạng thái mở cửa cho từng quán ngay khi render.
                 const directionsUrl = restaurantDirections(place, userLocation);
                 const isOpen = checkIsOpenNow(place.hours);
                 return (

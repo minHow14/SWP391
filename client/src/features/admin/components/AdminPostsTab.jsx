@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminPostsTab.jsx
+// Tab "Quản lý bài viết & video": lọc, duyệt xuất bản, chỉnh sửa nội dung vi phạm và xóa vĩnh viễn bài đăng.
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -8,6 +9,7 @@ import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js'
 import { useDatabase } from '../../../hooks/useDatabase.js';
 import PostComposer from '../../community/components/PostComposer.jsx';
 
+// Component tab quản lý bài viết blog và video nấu ăn.
 export default function AdminPostsTab() {
   const { user } = useDatabase();
   const [categories, setCategories] = useState([]);
@@ -17,6 +19,7 @@ export default function AdminPostsTab() {
   const [editingPost, setEditingPost] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
 
+  // Tải một trang bài đăng theo loại, trạng thái và từ khóa.
   const fetchPage = useCallback(
     (pagination) =>
       adminService.getPosts({
@@ -56,6 +59,7 @@ export default function AdminPostsTab() {
     return unsubscribe;
   }, [fetchPosts]);
 
+  // Cập nhật trạng thái bài đăng (vd. duyệt xuất bản) và báo cho các tab khác.
   const handleUpdateStatus = async (postId, status) => {
     try {
       await adminService.updatePostStatus(postId, status);
@@ -67,6 +71,8 @@ export default function AdminPostsTab() {
     }
   };
 
+  // Xóa vĩnh viễn bài đăng; chấp nhận cả object bài đăng lẫn id để lấy tiêu đề hiển thị trong hộp xác nhận.
+  // Phát thêm COMMENT_CHANGED vì bình luận của bài đăng cũng bị xóa theo.
   const handleDeletePost = async (post) => {
     const postId = typeof post === 'object' ? post.post_id : post;
     const currentPost = typeof post === 'object' ? post : posts.find((item) => item.post_id === postId);
@@ -87,6 +93,7 @@ export default function AdminPostsTab() {
     }
   };
 
+  // Mở PostComposer (dùng chung với phía người dùng) để Admin sửa nội dung vi phạm.
   const handleStartEdit = (post) => {
     setEditingPost(post);
   };

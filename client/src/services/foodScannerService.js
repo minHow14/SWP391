@@ -1,7 +1,8 @@
 // D:/SWP391/SWP391/client/src/services/foodScannerService.js
+// Dịch vụ quét món ăn/bao bì bằng AI: đọc ảnh thành Base64 và gửi tới API phân tích.
 import apiClient from './apiClient.js';
 
-// Give the gateway's default 180-second budget time to return a persisted outcome.
+// Cho gateway đủ ngân sách mặc định 180 giây để trả về kết quả đã được lưu.
 const FOOD_SCAN_TIMEOUT_MS = 190_000;
 
 /**

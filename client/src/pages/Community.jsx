@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/pages/Community.jsx
+// Trang Cộng đồng: bảng tin và bài viết của tôi, tìm kiếm/lọc blog-video, đăng bài, bình luận và báo cáo vi phạm.
 import { useState, useMemo } from 'react';
 import { Alert, Button, Container, Spinner } from 'react-bootstrap';
 import { Link, useSearchParams } from 'react-router';
@@ -13,9 +14,11 @@ import ModerationStatusPanel from '../features/community/components/ModerationSt
 import { normalizeSearch } from '../utils/recipeFilters.js';
 import '../features/community/styles/community.css';
 
+// Component trang cộng đồng; dữ liệu và thao tác lấy từ hook useCommunity.
 export default function Community() {
   const community = useCommunity();
   const [searchParams, setSearchParams] = useSearchParams();
+  // Từ khóa tìm kiếm khởi tạo từ tham số ?q= để có thể chia sẻ link kết quả tìm kiếm.
   const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || '');
   const [view, setView] = useState('feed');
   const [filterType, setFilterType] = useState('ALL');
@@ -27,6 +30,7 @@ export default function Community() {
 
   const normalizedQuery = normalizeSearch(searchQuery.trim());
 
+  // Lọc bài theo từ khóa trong tiêu đề, nội dung, transcript, tác giả và chuyên mục (không phân biệt dấu).
   const searchedPosts = useMemo(() => {
     if (!normalizedQuery) return allPosts;
     return allPosts.filter((p) => {
@@ -37,11 +41,13 @@ export default function Community() {
     });
   }, [allPosts, normalizedQuery]);
 
+  // Lọc theo loại nội dung; bài có video_url cũng được tính là video.
   const posts = useMemo(() => {
     if (filterType === 'ALL') return searchedPosts;
     return searchedPosts.filter((p) => p.post_type === filterType || (filterType === 'VIDEO' && p.video_url));
   }, [searchedPosts, filterType]);
 
+  // Đếm số bài blog/video trong kết quả tìm kiếm để hiển thị trên thanh lọc.
   const blogCount = useMemo(
     () => searchedPosts.filter((p) => p.post_type === 'BLOG' && !p.video_url).length,
     [searchedPosts]
@@ -51,6 +57,7 @@ export default function Community() {
     [searchedPosts]
   );
 
+  // Cập nhật từ khóa và đồng bộ lên URL (replace để không làm đầy lịch sử trình duyệt).
   const handleSearchChange = (query) => {
     setSearchQuery(query);
     const params = new URLSearchParams(searchParams);
@@ -68,10 +75,12 @@ export default function Community() {
 
   const loading = !community.data || (view === 'mine' && community.mineLoading);
   const error = community.error || (view === 'mine' ? community.mineError : '');
+  // Tìm bài đang mở bình luận ở cả bảng tin lẫn bài của tôi.
   const commenting =
     community.data?.posts.find((post) => post.post_id === commentId) ||
     allPosts.find((post) => post.post_id === commentId);
 
+  // Thử tải lại dữ liệu sau lỗi.
   const retry = () => {
     if (view === 'mine') community.retryMine();
     community.reload().catch(() => {});

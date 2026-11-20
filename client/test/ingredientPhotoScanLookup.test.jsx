@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/test/ingredientPhotoScanLookup.test.jsx
+// Kiểm thử tra cứu nguyên liệu mới bằng ảnh trên trang từ điển: tạo job, polling, làm mới danh mục và hủy khi người dùng rời đi.
 import { useState } from 'react';
 import { MemoryRouter } from 'react-router';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -9,15 +10,20 @@ import apiClient from '../src/services/apiClient.js';
 import { workspaceService } from '../src/services/workspaceService.js';
 import * as scannerService from '../src/services/foodScannerService.js';
 
+// Nguyên liệu đã lưu sau khi job tra cứu hoàn tất.
 const ingredient = { id: '42', name: 'Rau muống', category: 'vegetable', plant: true, origin: 'Thực vật',
   description: 'Mô tả nguyên liệu từ kết quả AI trong kiểm thử.', cooking: 'Gợi ý sử dụng đã lưu trong kiểm thử.',
   aliases: '', image: '/api/workspace/ingredients/42/image' };
+// Mã job tra cứu dạng UUID như backend trả về.
 const jobId = 'c73d67b2-a177-49eb-a049-bc09161f5849';
+// Tạo biên nhận job với trạng thái và nguyên liệu đã lưu (nếu có).
 const receipt = (status, saved = null) => ({ success: true, data: {
   jobId, status, ingredient: saved, errorCode: null, errorMessage: null,
 } });
+// Tạo file ảnh PNG giả của nguyên liệu.
 const photo = () => new File([new Uint8Array([1, 2, 3])], 'rau-muong.png', { type: 'image/png' });
 
+// Host bọc trang từ điển trong DatabaseContext có hàm reload thật gọi workspaceService.getCatalog.
 function DictionaryHost() {
   const [data, setData] = useState({ ingredients: [] });
   async function reload() {
@@ -30,6 +36,7 @@ function DictionaryHost() {
   </DatabaseContext.Provider></MemoryRouter>;
 }
 
+// Giả lập URL/dialog vì jsdom không hỗ trợ; mặc định AI nhận diện "Rau muống" và catalog trả về nguyên liệu đó.
 beforeEach(() => {
   URL.createObjectURL = vi.fn(() => 'blob:ingredient-photo');
   URL.revokeObjectURL = vi.fn();
@@ -41,12 +48,14 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
+// Render trang, chọn ảnh và trả về nút tra cứu nguyên liệu vừa nhận diện.
 async function recognize() {
   render(<DictionaryHost />);
   fireEvent.change(screen.getByLabelText('Chọn ảnh nguyên liệu'), { target: { files: [photo()] } });
   return screen.findByRole('button', { name: 'Tìm “Rau muống”' });
 }
 
+// Tạo job với ảnh đã tải, polling đến khi hoàn tất, rồi làm mới danh mục và mở chi tiết nguyên liệu đã lưu.
 it('creates and polls a lookup with the uploaded photo, then refreshes the grid and opens saved details', async () => {
   const post = vi.spyOn(apiClient, 'post').mockResolvedValue(receipt('PENDING'));
   const get = vi.spyOn(apiClient, 'get').mockResolvedValue(receipt('COMPLETED', ingredient));
@@ -62,6 +71,7 @@ it('creates and polls a lookup with the uploaded photo, then refreshes the grid 
   expect(get).toHaveBeenCalledWith(`/v1/ingredient-lookup-jobs/${jobId}`, expect.objectContaining({ signal: expect.any(AbortSignal) }));
 });
 
+// Nguyên liệu đã lưu thành công nhưng tải danh mục lỗi thì nút thử lại chỉ tải lại danh mục, không tạo job mới.
 it('retries only the catalog refresh when the ingredient was already saved successfully', async () => {
   const post = vi.spyOn(apiClient, 'post').mockResolvedValue(receipt('COMPLETED', ingredient));
   const get = vi.spyOn(apiClient, 'get');
@@ -74,6 +84,7 @@ it('retries only the catalog refresh when the ingredient was already saved succe
   expect(get).not.toHaveBeenCalled();
 });
 
+// Job thất bại thì hiển thị lỗi, không đổi từ điển, và cho phép tạo lần thử mới.
 it('shows a failed job and allows a fresh attempt without changing the dictionary first', async () => {
   const post = vi.spyOn(apiClient, 'post').mockResolvedValueOnce(receipt('PENDING'))
     .mockResolvedValueOnce(receipt('COMPLETED', ingredient));
@@ -89,6 +100,7 @@ it('shows a failed job and allows a fresh attempt without changing the dictionar
   expect(post).toHaveBeenCalledTimes(2);
 });
 
+// Biên nhận "hoàn tất" nhưng thiếu nguyên liệu thì báo không hợp lệ, không hiển thị dữ liệu bịa ra.
 it('rejects an invalid completed receipt instead of displaying fabricated ingredient details', async () => {
   vi.spyOn(apiClient, 'post').mockResolvedValue(receipt('COMPLETED'));
   fireEvent.click(await recognize());
@@ -96,6 +108,7 @@ it('rejects an invalid completed receipt instead of displaying fabricated ingred
   expect(workspaceService.getCatalog).not.toHaveBeenCalled();
 });
 
+// Bỏ qua bấm trùng; xóa ảnh phải hủy request tạo job và bỏ qua response đến muộn.
 it('ignores duplicate clicks and a late create response after the photo is cleared', async () => {
   let finish;
   const post = vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
@@ -112,6 +125,7 @@ it('ignores duplicate clicks and a late create response after the photo is clear
   expect(screen.queryByText('rau-muong.png')).toBeNull();
 });
 
+// Unmount phải hủy polling và bỏ qua kết quả job hoàn tất muộn.
 it('cancels polling on unmount and ignores late job completion', async () => {
   let finish;
   vi.spyOn(apiClient, 'post').mockResolvedValue(receipt('PENDING'));

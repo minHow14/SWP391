@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/services/video_recipe.py
+# Dịch vụ tóm tắt công thức nấu ăn từ bản chép lời video bằng LLM có đầu ra cấu trúc,
+# đảm bảo mọi nguyên liệu/bước đều dẫn chứng đúng đoạn phụ đề có thật.
 import json
 from functools import lru_cache
 from pathlib import Path
@@ -15,6 +17,7 @@ from schemas.video_recipe import VideoRecipe, VideoRecipeExtraction, VideoSummar
 from services.video_provider import provider_rate_limit
 
 
+# Đọc prompt trích xuất công thức từ file một lần rồi cache.
 @lru_cache(maxsize=1)
 def _recipe_prompt() -> str:
     return (
@@ -22,6 +25,7 @@ def _recipe_prompt() -> str:
     ).read_text(encoding="utf-8")
 
 
+# Từ chối khi video không phải công thức, hoặc khi LLM tham chiếu chỉ số đoạn phụ đề không tồn tại (dấu hiệu bịa).
 def _validated_recipe(
     extraction: VideoRecipeExtraction, body: VideoSummaryRequest
 ) -> VideoRecipe:
@@ -43,6 +47,7 @@ def _validated_recipe(
     return extraction.recipe
 
 
+# Dựng message gửi LLM: các đoạn phụ đề kèm chỉ số để LLM trích dẫn nguồn.
 def _recipe_messages(body: VideoSummaryRequest) -> list[SystemMessage | HumanMessage]:
     source = [
         {"index": index, "text": segment.text}
@@ -54,6 +59,7 @@ def _recipe_messages(body: VideoSummaryRequest) -> list[SystemMessage | HumanMes
     ]
 
 
+# Trích xuất công thức có căn cứ chỉ từ bản chép lời đầy đủ đã đánh chỉ số.
 async def summarize_video(body: VideoSummaryRequest) -> VideoRecipe:
     """Extract a grounded recipe from complete indexed transcript data only."""
     if not settings.DEEPSEEK_API_KEY:
@@ -67,6 +73,7 @@ async def summarize_video(body: VideoSummaryRequest) -> VideoRecipe:
     try:
         extraction = await model.ainvoke(_recipe_messages(body))
         return _validated_recipe(VideoRecipeExtraction.model_validate(extraction), body)
+    # Lỗi hạn mức trả 429 kèm Retry-After; đầu ra sai trả 502; lỗi API khác trả 503.
     except openai.RateLimitError as failure:
         raise provider_rate_limit(failure.response.headers) from failure
     except (ValidationError, ValueError, TypeError) as failure:

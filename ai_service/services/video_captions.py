@@ -1,4 +1,6 @@
 # D:/SWP391/SWP391/ai_service/services/video_captions.py
+# Dịch vụ lấy phụ đề tiếng Việt có sẵn của video YouTube: giới hạn host, thời gian và dung lượng tải,
+# chuẩn hóa các đoạn phụ đề thành dòng thời gian hợp lệ và ánh xạ lỗi thư viện sang VideoRecipeError an toàn.
 import asyncio
 import math
 import threading
@@ -37,6 +39,7 @@ from schemas.video_recipe import (
     VideoTranscriptionRequest,
 )
 
+# Các lỗi phía nguồn YouTube (không có phụ đề, bị chặn, video không xem được...) cần ánh xạ sang thông báo riêng.
 SOURCE_FAILURES = (
     NoTranscriptFound,
     TranscriptsDisabled,
@@ -49,12 +52,14 @@ SOURCE_FAILURES = (
 )
 
 
+# Lỗi 422: video không có phụ đề phù hợp.
 def missing_captions() -> VideoRecipeError:
     return VideoRecipeError(
         "VIDEO_CAPTIONS_UNAVAILABLE", "Video chưa có phụ đề phù hợp"
     )
 
 
+# Lỗi 502: phụ đề sai định dạng hoặc vượt giới hạn.
 def invalid_captions() -> VideoRecipeError:
     return VideoRecipeError(
         "VIDEO_AI_INVALID_OUTPUT",
@@ -63,15 +68,19 @@ def invalid_captions() -> VideoRecipeError:
     )
 
 
+# Lỗi 504: lấy phụ đề quá thời gian chờ.
 def caption_timeout() -> VideoRecipeError:
     return VideoRecipeError(
         "VIDEO_CAPTIONS_TIMEOUT", "Lấy phụ đề video đã quá thời gian chờ.", status=504
     )
 
 
+# Session HTTP giới hạn công việc chặn (blocking) của thư viện phụ đề và tự quản lý việc dọn dẹp.
+# Thư viện chạy trong thread riêng nên không thể hủy trực tiếp; session tự kiểm tra cờ hủy và hạn chót.
 class CaptionSession(requests.Session):
     """Bound the transcript library's blocking HTTP work and own its cleanup."""
 
+    # Khởi tạo với cờ hủy dùng chung và hạn chót tổng; gắn hook để đọc body có giới hạn.
     def __init__(self, cancelled: threading.Event) -> None:
         super().__init__()
         self.cancelled = cancelled
@@ -80,6 +89,7 @@ class CaptionSession(requests.Session):
         )
         self.hooks["response"].append(self._bounded_response)
 
+    # Ném lỗi nếu đã bị hủy hoặc hết hạn; trả về timeout cho lần đọc tiếp theo (không vượt thời gian còn lại).
     def check_active(self) -> float:
         if self.cancelled.is_set():
             raise asyncio.CancelledError
@@ -88,6 +98,8 @@ class CaptionSession(requests.Session):
             raise caption_timeout()
         return min(CAPTION_READ_TIMEOUT_SECONDS, remaining)
 
+    # Chỉ cho phép gửi request tới host YouTube qua HTTPS cổng chuẩn, không kèm thông tin đăng nhập,
+    # để chặn chuyển hướng tới địa chỉ tùy ý (SSRF); luôn stream để kiểm soát kích thước body.
     def send(
         self, request: requests.PreparedRequest, **kwargs: Any
     ) -> requests.Response:
@@ -105,18 +117,20 @@ class CaptionSession(requests.Session):
         kwargs["stream"] = True
         return super().send(request, **kwargs)
 
+    # Hook response: đọc body có giới hạn rồi đóng kết nối ngay.
     def _bounded_response(
         self, response: requests.Response, **kwargs: Any
     ) -> requests.Response:
         try:
             self.check_active()
-            # Response hooks run before Requests can consume bodies while redirecting.
+            # Hook response chạy trước khi Requests kịp đọc body trong lúc xử lý chuyển hướng.
             response._content = self._read_response(response)
             response._content_consumed = True
             return response
         finally:
             response.close()
 
+    # Đọc body theo từng khối 64 KiB, dừng ngay khi vượt dung lượng tối đa hoặc bị hủy/hết hạn.
     def _read_response(self, response: requests.Response) -> bytes:
         chunks, size = [], 0
         while True:
@@ -132,6 +146,8 @@ class CaptionSession(requests.Session):
         return b"".join(chunks)
 
 
+# Chuyển một đoạn phụ đề thành VideoSegment: loại giá trị vô hạn/ngoài thời lượng, cắt thời điểm kết thúc
+# theo thời lượng video và gộp khoảng trắng thừa.
 def _caption_segment(
     snippet: FetchedTranscriptSnippet, duration: float
 ) -> VideoSegment:
@@ -149,6 +165,8 @@ def _caption_segment(
     )
 
 
+# Thêm đoạn vào danh sách theo thứ tự thời gian: gộp các đoạn cùng thời điểm bắt đầu,
+# và cắt đoạn trước để không chồng lấn với đoạn mới.
 def _append_caption(segments: list[VideoSegment], segment: VideoSegment) -> None:
     if not segments:
         segments.append(segment)
@@ -167,6 +185,7 @@ def _append_caption(segments: list[VideoSegment], segment: VideoSegment) -> None
     segments.append(segment)
 
 
+# Kiểm tra phụ đề đúng video và ngôn ngữ yêu cầu, giới hạn số đoạn, rồi chuẩn hóa thành VideoTranscript.
 def _normalize_captions(
     fetched: FetchedTranscript, body: VideoTranscriptionRequest
 ) -> VideoTranscript:
@@ -183,6 +202,7 @@ def _normalize_captions(
     return VideoTranscript(duration_seconds=body.duration_seconds, segments=segments)
 
 
+# Ánh xạ lỗi nguồn YouTube sang VideoRecipeError thân thiện tương ứng.
 def _source_failure(failure: Exception) -> VideoRecipeError:
     if isinstance(failure, (NoTranscriptFound, TranscriptsDisabled)):
         return missing_captions()
@@ -197,6 +217,7 @@ def _source_failure(failure: Exception) -> VideoRecipeError:
     )
 
 
+# Ưu tiên phụ đề do người tạo video soạn, sau đó mới tới phụ đề tự động; phụ đề rỗng thì thử nguồn kế tiếp.
 def _read_caption_tracks(
     api: YouTubeTranscriptApi, body: VideoTranscriptionRequest
 ) -> VideoTranscript:
@@ -216,6 +237,7 @@ def _read_caption_tracks(
     raise missing_captions()
 
 
+# Lấy phụ đề (chạy đồng bộ trong thread) và ánh xạ mọi loại lỗi thư viện/mạng sang VideoRecipeError.
 def _fetch_captions(
     body: VideoTranscriptionRequest, cancelled: threading.Event
 ) -> VideoTranscript:
@@ -238,11 +260,13 @@ def _fetch_captions(
         raise invalid_captions() from failure
 
 
+# Lấy phụ đề tiếng Việt ngoài event loop; khi bị hủy thì báo cho thread dừng và chờ nó kết thúc hẳn.
 async def fetch_video_captions(body: VideoTranscriptionRequest) -> VideoTranscript:
     """Retrieve Vietnamese captions off-loop and drain owned work on cancellation."""
     cancelled = threading.Event()
     worker = asyncio.create_task(asyncio.to_thread(_fetch_captions, body, cancelled))
     try:
+        # shield giữ task thread không bị hủy đột ngột để có thể dọn dẹp có kiểm soát.
         return await asyncio.shield(worker)
     except asyncio.CancelledError:
         cancelled.set()

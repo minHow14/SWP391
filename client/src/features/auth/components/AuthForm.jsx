@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/auth/components/AuthForm.jsx
+// Form đăng nhập / đăng ký dùng chung: validate bằng zod, gọi authService và lưu phiên đăng nhập.
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -10,9 +11,11 @@ import { getSessionSnapshot, setSession } from '../../../utils/session.js';
 import { getAuthDestination } from '../utils/authRedirect.js';
 import { loginSchema, registrationSchema } from '../utils/authValidation.js';
 
+// Component form xác thực; isRegister = true thì hiển thị chế độ đăng ký (thêm họ tên + đồng ý điều khoản).
 export default function AuthForm({ isRegister = false }) {
   const [showPassword, setShowPassword] = useState(false);
   const [message, setMessage] = useState('');
+  // Ref chặn gửi trùng khi người dùng bấm submit liên tục trước khi state isSubmitting kịp cập nhật.
   const inFlight = useRef(false);
   const navigate = useNavigate();
   const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm({
@@ -20,9 +23,11 @@ export default function AuthForm({ isRegister = false }) {
     defaultValues: { email: '', password: '', full_name: '', remember: false, agreement: false },
   });
 
+  // Gửi thông tin đăng nhập/đăng ký lên server, lưu token + user rồi điều hướng theo vai trò.
   async function submit(values) {
     if (inFlight.current) return;
     inFlight.current = true; setMessage('');
+    // Chụp lại phiên hiện tại để phát hiện người dùng đã đăng nhập/đăng xuất ở tab khác trong lúc chờ API.
     const snapshot = getSessionSnapshot();
     try {
       const payload = { email: values.email, password: values.password,
@@ -30,6 +35,7 @@ export default function AuthForm({ isRegister = false }) {
       const result = isRegister ? await authService.register(payload) : await authService.login(payload);
       const user = result?.user || result?.data?.user;
       const token = result?.token || result?.data?.token;
+      // Phiên đã đổi ở nơi khác trong lúc chờ phản hồi -> bỏ qua kết quả để không ghi đè phiên mới.
       if (snapshot.identityRevision !== getSessionSnapshot().identityRevision) return;
       if (!token || !user) throw new Error('Phản hồi đăng nhập không hợp lệ. Vui lòng thử lại.');
       setSession({ token, user }, { remember: Boolean(values.remember) });

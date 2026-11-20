@@ -1,16 +1,20 @@
 // D:/SWP391/SWP391/client/test/restaurantPriceSort.test.jsx
+// Kiểm thử sắp xếp danh sách quán theo giá món thật trên trang Restaurants.
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, expect, it, vi } from 'vitest';
 import Restaurants from '../src/pages/Restaurants.jsx';
 
+// Mock dữ liệu ba quán: giá cao, chưa có giá và giá thấp; giá hiển thị dạng khoảng giống nhau để chứng minh không dùng khoảng giá văn bản.
 vi.mock('../src/hooks/useDatabase.js', () => ({ useDatabase: () => ({ data: { restaurants: [
   { id: 1, name: 'Quán giá cao', price: '20.000 - 80.000', menu: [{ price: 90000 }], reviews: [], rating: 5 },
   { id: 2, name: 'Quán chưa có giá', price: '', menu: [{ price: null }], reviews: [], rating: 4 },
   { id: 3, name: 'Quán giá thấp', price: '20.000 - 80.000', menu: [{ price: 20000 }], reviews: [], rating: 3 },
 ].map((place) => ({ type: 'vegan', city: 'Hồ Chí Minh', address: '', dishes: '', hours: '', latitude: null, longitude: null, ...place })) }, user: null }) }));
+// Ẩn phần quán gần đây vì không liên quan đến sắp xếp.
 vi.mock('../src/features/restaurants/components/NearbyPlaces.jsx', () => ({ default: () => null }));
 afterEach(cleanup);
 
+// Sắp xếp theo giá món thấp nhất trong thực đơn, quán chưa có giá luôn ở cuối.
 it('orders restaurant cards by the selected genuine menu price with unknown prices last', () => {
   render(<Restaurants />);
   fireEvent.change(screen.getByLabelText('Sắp xếp quán'), { target: { value: 'price' } });

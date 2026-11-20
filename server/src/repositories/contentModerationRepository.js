@@ -1,19 +1,24 @@
 // D:/SWP391/SWP391/server/src/repositories/contentModerationRepository.js
+// Repository hàng đợi job kiểm duyệt nội dung và cập nhật trạng thái hiển thị của bài viết/bình luận theo kết quả kiểm duyệt.
 import { randomUUID } from 'node:crypto';
 import prisma from '../config/prisma.js';
 import { ApiError } from '../utils/apiError.js';
 import { MODERATION_PENDING_STATUS, MODERATION_RELEASED_LEASE } from '../constants/contentModeration.js';
 import { POST_STATUS, COMMENT_STATUS } from '../constants/status.js';
 
+// Cột công khai của job kiểm duyệt.
 const PUBLIC_SELECT = { id: true, postId: true, commentId: true, contentVersion: true, status: true,
   result: true, applied: true, errorCode: true, errorMessage: true, completedAt: true, createdAt: true, updatedAt: true };
+// Cột nội bộ cho worker: nội dung cần kiểm duyệt và thông tin lease.
 const INTERNAL_SELECT = { ...PUBLIC_SELECT, userId: true, title: true, content: true, imageUrls: true,
   attempt: true, availableAt: true, leaseToken: true, leaseExpiresAt: true };
 
+// Lỗi khi worker mất quyền xử lý job (lease hết hạn hoặc bị worker khác nhận).
 export function moderationLeaseLost() {
   return Object.assign(ApiError.conflict('Quyền xử lý tác vụ kiểm duyệt đã hết hạn.'), { errorCode: 'MODERATION_LEASE_LOST' });
 }
 
+// Đổi lỗi P2025 (không tìm thấy bản ghi khớp điều kiện) thành 409 dễ hiểu khi admin duyệt nội dung đã thay đổi.
 function guardedDecision(work) {
   return work.catch((error) => {
     if (error.code === 'P2025') throw ApiError.conflict('Nội dung đã thay đổi hoặc không còn trong hàng chờ. Vui lòng làm mới.');
@@ -22,22 +27,28 @@ function guardedDecision(work) {
 }
 
 export const contentModerationRepository = {
+  // Admin quyết định bài viết đang bị AI ẩn/chờ duyệt; nếu truyền contentVersion thì chỉ áp khi phiên bản còn khớp.
   resolvePost({ id, contentVersion, data }, db = prisma) {
     return guardedDecision(db.post.update({ where: { post_id: id, deleted_at: null,
       status: { in: [POST_STATUS.HIDDEN_BY_AI, MODERATION_PENDING_STATUS] },
       ...(contentVersion !== undefined && { moderationVersion: contentVersion }) }, data }));
   },
+  // Admin quyết định bình luận bị AI ẩn/chờ duyệt hoặc đang hiển thị nhưng bị AI gắn cờ.
   resolveComment({ id, contentVersion, data }, db = prisma) {
     return guardedDecision(db.comment.update({ where: { comment_id: id, deleted_at: null,
       OR: [{ status: { in: [COMMENT_STATUS.HIDDEN_BY_AI, MODERATION_PENDING_STATUS] } },
         { status: COMMENT_STATUS.ACTIVE, is_flagged_by_ai: true }],
       ...(contentVersion !== undefined && { moderationVersion: contentVersion }) }, data }));
   },
+  // Chạy thao tác trong transaction.
   transaction(work, db = prisma) { return db.$transaction(work); },
+  // Tạo job kiểm duyệt.
   create(data, db = prisma) { return db.contentModerationJob.create({ data, select: INTERNAL_SELECT }); },
+  // Lấy job; admin không bị giới hạn theo userId.
   findOwned({ id, userId, isAdmin = false }, db = prisma) {
     return db.contentModerationJob.findFirst({ where: { id, ...(!isAdmin && { userId }) }, select: PUBLIC_SELECT });
   },
+  // Liệt kê job của người dùng kèm trạng thái hiện tại của nội dung.
   listOwned({ userId, page, limit }, db = prisma) {
     return db.contentModerationJob.findMany({ where: { userId },
       select: { ...PUBLIC_SELECT, title: true, content: true,
@@ -45,33 +56,40 @@ export const contentModerationRepository = {
         comment: { select: { status: true, moderationVersion: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (page - 1) * limit, take: limit });
   },
+  // Đếm job của người dùng; `pending` chỉ đếm job đang chờ hoặc đang xử lý.
   countOwned({ userId, pending = false }, db = prisma) {
     return db.contentModerationJob.count({ where: { userId, ...(pending && { status: { in: ['PENDING', 'PROCESSING'] } }) } });
   },
+  // Lấy các job theo danh sách đối tượng (bài viết/bình luận).
   findForTargets(targets, db = prisma) {
     if (!targets.length) return Promise.resolve([]);
     return db.contentModerationJob.findMany({ where: { OR: targets }, select: PUBLIC_SELECT });
   },
+  // Chuyển bài viết sang trạng thái chờ duyệt và tăng phiên bản kiểm duyệt.
   stagePost(postId, db = prisma) {
     return db.post.update({ where: { post_id: postId, deleted_at: null,
       status: { in: ['PUBLISHED', MODERATION_PENDING_STATUS] } },
     data: { status: MODERATION_PENDING_STATUS, moderationVersion: { increment: 1 } },
     select: { post_id: true, author_id: true, moderationVersion: true } });
   },
+  // Chuyển bình luận sang chờ duyệt, xóa cờ AI cũ và tăng phiên bản kiểm duyệt.
   stageComment(commentId, db = prisma) {
     return db.comment.update({ where: { comment_id: commentId, deleted_at: null,
       status: { in: ['ACTIVE', MODERATION_PENDING_STATUS] } },
     data: { status: MODERATION_PENDING_STATUS, is_flagged_by_ai: false, moderationVersion: { increment: 1 } },
     select: { comment_id: true, user_id: true, content: true, moderationVersion: true } });
   },
+  // Chỉ tăng phiên bản để vô hiệu kết quả của job đang chạy (khi không cần kiểm duyệt lại).
   invalidatePost(postId, db = prisma) {
     return db.post.update({ where: { post_id: postId }, data: { moderationVersion: { increment: 1 } },
       select: { moderationVersion: true } });
   },
+  // Tăng phiên bản kiểm duyệt bình luận để vô hiệu job đang chạy.
   invalidateComment(commentId, db = prisma) {
     return db.comment.update({ where: { comment_id: commentId }, data: { moderationVersion: { increment: 1 } },
       select: { moderationVersion: true } });
   },
+  // Nhận một job PENDING đến hạn; FOR UPDATE SKIP LOCKED để nhiều worker không nhận trùng job.
   claim({ leaseMs, maxAttempts }, db = prisma) {
     return db.$transaction(async (tx) => {
       const [candidate] = await tx.$queryRaw`SELECT id FROM content_moderation_jobs
@@ -83,23 +101,27 @@ export const contentModerationRepository = {
           leaseExpiresAt: new Date(Date.now() + leaseMs) } });
     });
   },
+  // Cập nhật job khi còn giữ lease hợp lệ; ngược lại ném lỗi mất lease.
   async updateLeased({ job, data }, db = prisma) {
     const updated = await db.contentModerationJob.updateMany({ where: { id: job.id, leaseToken: job.leaseToken,
       status: 'PROCESSING', leaseExpiresAt: { gt: new Date() } }, data });
     if (updated.count !== 1) throw moderationLeaseLost();
   },
+  // Áp quyết định AI lên nội dung chỉ khi phiên bản còn khớp và vẫn đang chờ duyệt; REVIEW -> ẩn, ALLOW -> hiển thị.
   async applyResult({ job, result }, db = prisma) {
     const where = { moderationVersion: job.contentVersion, status: MODERATION_PENDING_STATUS, deleted_at: null };
     const flagged = result.decision === 'REVIEW';
     if (job.postId) return db.post.updateMany({ where: { ...where, post_id: job.postId },
       data: { status: flagged ? 'HIDDEN_BY_AI' : 'PUBLISHED' } });
-    // Parent visibility is enforced by public reads; its pending scan must not discard this decision.
+    // Quyền hiển thị của bài cha được kiểm soát ở các truy vấn công khai; việc bài cha đang chờ quét không được làm mất quyết định này.
     return db.comment.updateMany({ where: { ...where, comment_id: job.commentId },
     data: { status: flagged ? 'HIDDEN_BY_AI' : 'ACTIVE', is_flagged_by_ai: flagged } });
   },
+  // Ghi nhận kết quả có được áp dụng lên nội dung hay không.
   markApplied({ id, applied }, db = prisma) {
     return db.contentModerationJob.update({ where: { id }, data: { applied }, select: PUBLIC_SELECT });
   },
+  // Khôi phục job: hết lượt thử thì FAILED; hết hạn lease mà còn lượt thì đưa về PENDING.
   async recoverExpired({ maxAttempts, retryMs }, db = prisma) {
     const expired = { status: 'PROCESSING', leaseExpiresAt: { lte: new Date() } };
     await db.contentModerationJob.updateMany({ where: { attempt: { gte: maxAttempts },

@@ -1,15 +1,20 @@
 // D:/SWP391/SWP391/client/test/adminHealth.test.jsx
+// Kiểm thử banner trạng thái hệ thống của admin: không được báo "hoạt động bình thường" khi chưa có dữ liệu thực.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import AdminSystemHealthBanner from '../src/features/admin/components/AdminSystemHealthBanner.jsx';
 import { adminService } from '../src/services/adminService.js';
 
+// Mock adminService.getSystemHealth để điều khiển kết quả kiểm tra kết nối trong từng kịch bản.
 vi.mock('../src/services/adminService.js', () => ({ adminService: { getSystemHealth: vi.fn() } }));
+// Tạo response kiểm tra sức khỏe với danh sách dịch vụ truyền vào.
 const response = (services) => ({ data: { checkedAt: '2026-10-30T01:30:00Z', services } });
 beforeEach(() => { adminService.getSystemHealth.mockReset(); });
 afterEach(cleanup);
 
+// Trong lúc request chưa xong phải hiển thị "đang kiểm tra" thay vì khẳng định các dịch vụ đang chạy.
 it('shows checking state instead of claiming services are online before the request finishes', () => {
+  // Promise không bao giờ resolve để giữ component ở trạng thái đang tải.
   adminService.getSystemHealth.mockReturnValue(new Promise(() => {}));
   render(<AdminSystemHealthBanner />);
   expect(screen.getByText('Đang kiểm tra kết nối…')).toBeTruthy();
@@ -17,6 +22,7 @@ it('shows checking state instead of claiming services are online before the requ
   expect(adminService.getSystemHealth).toHaveBeenCalledTimes(1);
 });
 
+// Hiển thị đúng từng dịch vụ: DB kết nối được, AI không kết nối được, và không báo tất cả đều sẵn sàng.
 it('renders actual database UP and AI DOWN without claiming inference is healthy', async () => {
   adminService.getSystemHealth.mockResolvedValue(response([{ id: 'database', status: 'UP' }, { id: 'aiService', status: 'DOWN' }]));
   render(<AdminSystemHealthBanner />);
@@ -26,6 +32,7 @@ it('renders actual database UP and AI DOWN without claiming inference is healthy
   expect(screen.queryByText('Tất cả kết nối đều sẵn sàng')).toBeNull();
 });
 
+// Request lỗi phải hiển thị alert, và bấm "Kiểm tra lại" thành công thì alert biến mất.
 it('reports request failures and recovers on an explicit retry', async () => {
   adminService.getSystemHealth.mockRejectedValueOnce(new Error('Không thể tải trạng thái kết nối.'))
     .mockResolvedValue(response([{ id: 'database', status: 'UP' }, { id: 'aiService', status: 'UP' }]));
@@ -36,12 +43,14 @@ it('reports request failures and recovers on an explicit retry', async () => {
   expect(screen.queryByRole('alert')).toBeNull();
 });
 
+// Danh sách dịch vụ rỗng phải được thông báo rõ ràng thay vì để trống.
 it('shows empty results explicitly', async () => {
   adminService.getSystemHealth.mockResolvedValue(response([]));
   render(<AdminSystemHealthBanner />);
   await screen.findByText('Chưa có kết quả kiểm tra kết nối.');
 });
 
+// Response thiếu dịch vụ (chỉ có DB) không được hiểu là mọi dịch vụ đều chạy; dịch vụ thiếu hiển thị "Chưa xác định".
 it('does not treat a partial response as all services being online', async () => {
   adminService.getSystemHealth.mockResolvedValue(response([{ id: 'database', status: 'UP' }]));
   render(<AdminSystemHealthBanner />);
@@ -49,6 +58,7 @@ it('does not treat a partial response as all services being online', async () =>
   expect(within(screen.getByRole('group', { name: 'Dịch vụ AI' })).getByText('Chưa xác định')).toBeTruthy();
 });
 
+// Khi unmount phải hủy request (AbortSignal) và bỏ qua response đến muộn để tránh cập nhật state trên component đã gỡ.
 it('cancels on unmount and ignores responses after the screen has closed', async () => {
   let resolve;
   adminService.getSystemHealth.mockReturnValue(new Promise((done) => { resolve = done; }));
@@ -60,6 +70,7 @@ it('cancels on unmount and ignores responses after the screen has closed', async
   await act(async () => resolve(response([{ id: 'database', status: 'UP' }])));
 });
 
+// Lần kiểm tra sau thất bại phải xóa kết quả "kết nối được" cũ, tránh hiển thị số liệu đã lỗi thời.
 it('clears old online measurements if a later check fails', async () => {
   adminService.getSystemHealth.mockResolvedValueOnce(response([{ id: 'database', status: 'UP' }, { id: 'aiService', status: 'UP' }]))
     .mockRejectedValueOnce(new Error('Kết nối đã mất.'));

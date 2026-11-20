@@ -1,2 +1,3 @@
 # D:/SWP391/SWP391/server/requirements-tools.txt
+# Công cụ Python dùng bởi Back-end: yt-dlp để lấy metadata video YouTube cho tính năng tóm tắt công thức.
 yt-dlp[default]==2026.10.21

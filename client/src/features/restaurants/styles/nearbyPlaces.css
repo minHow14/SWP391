@@ -1,5 +1,6 @@
 /* client/src/features/restaurants/styles/nearbyPlaces.css */
 /* Khối "Quán chay quanh bạn" trên trang Quán Chay */
+/* Gồm thanh hành động, bộ lọc bán kính/chế độ ăn, chọn khu vực, danh sách quán và marker vị trí người dùng trên bản đồ. */
 .cx-nearby { max-width: 1380px; margin: 18px auto 0; padding: 16px 20px; border: 1px solid #d9e8e0; border-radius: 20px; background: #f4fbf7; }
 .cx-nearby-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .cx-nearby-head h2 { margin: 0; font-size: 16px; font-weight: 800; color: #065f46; display: flex; align-items: center; gap: 6px; }
@@ -8,10 +9,12 @@
 .cx-nearby-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .cx-nearby-actions > button { border: 1px solid transparent; border-radius: 12px; padding: 9px 16px; background: #15803d; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease-in-out; }
 .cx-nearby-actions > button:hover:not(:disabled) { filter: brightness(1.08); }
+/* Nút thứ hai ("Tìm theo tỉnh / thành") dùng màu phụ để phân biệt với nút chính "Quán gần tôi". */
 .cx-nearby-actions > button:nth-child(2) { background: #e0f0e6; color: #047857; border-color: #bfe3d0; }
 .cx-nearby-actions > button:nth-child(2):hover:not(:disabled) { background: #d0ebd8; }
 .cx-nearby-actions > button.is-active { box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.35); }
 .cx-nearby-actions > button:disabled { opacity: 0.6; cursor: not-allowed; }
+/* Dùng !important để ghi đè style chung của .cx-nearby-actions > button. */
 .cx-btn-refresh-gps { border: 1px solid #c2e2d1 !important; border-radius: 12px; padding: 9px 14px; background: #fff !important; color: #059669 !important; font-size: 12px !important; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; }
 .cx-btn-refresh-gps:hover:not(:disabled) { background: #effcf5 !important; }
 

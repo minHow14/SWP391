@@ -1,8 +1,17 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminCategoryPreviewModal.jsx
+// Modal xem nhanh chi tiết một công thức món ăn hoặc bài viết blog thuộc danh mục.
 import { Modal, Button, Badge } from 'react-bootstrap';
 import { Link } from 'react-router';
 import RecipeInstructions from '../../../components/common/RecipeInstructions.jsx';
 
+/**
+ * Hiển thị chi tiết công thức hoặc bài viết.
+ * @param {object} props
+ * @param {boolean} props.show Hiển thị modal hay không.
+ * @param {Function} props.onHide Đóng modal.
+ * @param {object|null} props.item Công thức hoặc bài viết cần xem; null thì không render.
+ * @param {'RECIPE'|'POST'} props.itemType Loại nội dung để chọn bố cục hiển thị.
+ */
 export default function AdminCategoryPreviewModal({ show, onHide, item, itemType }) {
   if (!item) return null;
 

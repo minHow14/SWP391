@@ -1,4 +1,5 @@
 // client/src/services/searchService.js
+// Dịch vụ tìm kiếm toàn cục nội dung (video, blog) và gợi ý theo từ khóa.
 import apiClient from './apiClient.js';
 
 export const searchService = {

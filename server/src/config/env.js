@@ -1,10 +1,12 @@
 // d:\Projects\FPT\SWP391\server\src\config\env.js
+// Đọc và kiểm tra (bằng Zod) toàn bộ biến môi trường cốt lõi của Back-end; dừng khởi động nếu cấu hình sai.
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
 // Tải biến môi trường
 dotenv.config();
 
+// Schema biến môi trường kèm giá trị mặc định cho môi trường phát triển.
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -22,6 +24,7 @@ const envSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15),
   PLACES_RATE_LIMIT: z.coerce.number().int().positive().default(60),
+// Ở production bắt buộc JWT_SECRET đủ dài để chống dò khoá.
 }).refine(
   (data) => {
     if (data.NODE_ENV === 'production' && data.JWT_SECRET.length < 32) {
@@ -34,6 +37,7 @@ const envSchema = z.object({
 
 const parsed = envSchema.safeParse(process.env);
 
+// Ném lỗi ngay khi khởi động thay vì để server chạy với cấu hình sai.
 if (!parsed.success) {
   const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')}: ${i.message}`).join('\n');
   console.error(`❌ Biến môi trường không hợp lệ:\n${issues}`);

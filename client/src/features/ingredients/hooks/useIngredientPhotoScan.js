@@ -1,8 +1,10 @@
 // D:/SWP391/SWP391/client/src/features/ingredients/hooks/useIngredientPhotoScan.js
+// Hook quét ảnh nguyên liệu bằng AI Vision và ghép kết quả với từ điển nguyên liệu.
 import { useEffect, useRef, useState } from 'react';
 import { analyzeFoodImage, fileToBase64 } from '../../../services/foodScannerService.js';
 import { matchIngredients } from '../utils/matchIngredients.js';
 
+// Giới hạn ảnh giống phía server: tối đa 10 MB, chỉ JPG/PNG/WebP.
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const IDLE = Object.freeze({ photo: null, status: 'idle', names: [], matches: [], error: '' });
@@ -11,10 +13,12 @@ const IDLE = Object.freeze({ photo: null, status: 'idle', names: [], matches: []
 export function useIngredientPhotoScan({ ingredients, dietId }) {
   const [state, setState] = useState(IDLE);
   const request = useRef(null);
+  // Thu hồi URL xem trước khi đổi ảnh hoặc unmount; hủy request khi unmount.
   const photoUrl = state.photo?.url;
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
   useEffect(() => () => request.current?.abort(), []);
 
+  // Quét một tệp ảnh; trả về danh sách nguyên liệu khớp (rỗng nếu lỗi hoặc bị hủy).
   async function scan(file) {
     if (!file) return [];
     request.current?.abort();
@@ -35,6 +39,7 @@ export function useIngredientPhotoScan({ ingredients, dietId }) {
       if (controller.signal.aborted) return [];
       if (!response?.success || !response.data) throw new Error(response?.message || 'Không thể nhận diện nguyên liệu.');
       const { identifiedIngredients, dishName } = response.data;
+      // Ghép cả tên món AI nhận ra vì đôi khi ảnh chỉ chứa một nguyên liệu được nhận là "món".
       const matches = matchIngredients([...identifiedIngredients, dishName], ingredients);
       setState((previous) => ({ ...previous, status: 'done', names: identifiedIngredients, matches }));
       return matches;
@@ -44,6 +49,7 @@ export function useIngredientPhotoScan({ ingredients, dietId }) {
     }
   }
 
+  // Hủy quét đang chạy và xóa trạng thái.
   function clear() {
     request.current?.abort();
     setState(IDLE);

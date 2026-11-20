@@ -1,9 +1,12 @@
 // d:/Projects/FPT/SWP391/server/tests/placePhotoResolution.test.js
+// Kiểm thử việc lấy ảnh địa điểm từ nhà cung cấp bản đồ (Ziomap): bảo mật API key, deadline và giới hạn đồng thời.
 import { afterEach, expect, it, vi } from 'vitest';
 import { clearZiomapCache, resolvePlacePhoto, searchZiomap } from '../src/services/places.service.js';
 
+// Gỡ stub, khôi phục mock và xóa cache sau mỗi test để kết quả không rò sang test khác.
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); clearZiomapCache(); });
 
+// API key phải gửi qua header x-api-key, không đặt trong URL (tránh lộ key qua log/proxy).
 it('resolves a Google photo name using the configured provider without exposing its key in the URL', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ photoUri: 'https://lh3.googleusercontent.com/place-photo' }) });
@@ -15,6 +18,7 @@ it('resolves a Google photo name using the configured provider without exposing 
   vi.unstubAllEnvs();
 });
 
+// Khi deadline dùng chung đã hết thì không được mở thêm request ảnh.
 it('does not start a photo request after the shared deadline has expired', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   const fetch = vi.fn();
@@ -24,6 +28,7 @@ it('does not start a photo request after the shared deadline has expired', async
   expect(fetch).not.toHaveBeenCalled();
 });
 
+// Nhiều ảnh chậm được xử lý song song nhưng tối đa 2 kết nối cùng lúc để không quá tải nhà cung cấp.
 it('resolves multiple slow photos concurrently while limiting network connections to two', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   let active = 0, peak = 0;
@@ -43,6 +48,7 @@ it('resolves multiple slow photos concurrently while limiting network connection
   expect(result.places.every((place) => place.image_url === null)).toBe(true);
 });
 
+// Không mượn ảnh của địa điểm khác (photo name không khớp placeId) và không bịa ảnh khi nhà cung cấp lỗi.
 it('does not borrow another place photo or invent a photo when the provider fails', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   const fetch = vi.fn().mockRejectedValue(new Error('Offline'));
@@ -53,6 +59,7 @@ it('does not borrow another place photo or invent a photo when the provider fail
   vi.unstubAllEnvs();
 });
 
+// Khi request ảnh bị treo, vẫn trả danh sách nhà hàng trong một deadline chung (ảnh = null) thay vì chờ vô hạn.
 it('returns valid restaurants within one shared photo deadline when photo requests hang', async () => {
   vi.stubEnv('ZIOMAP_API_KEY', 'photo-test-key');
   let photoRequests = 0;

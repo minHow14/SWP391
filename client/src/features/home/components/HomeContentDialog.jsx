@@ -1,10 +1,12 @@
 // D:/SWP391/SWP391/client/src/features/home/components/HomeContentDialog.jsx
+// Hộp thoại xem chi tiết nội dung ở trang chủ: công thức, video hoặc bài viết cộng đồng.
 import { Modal } from 'react-bootstrap';
 import RecipeImage from '../../../components/common/RecipeImage.jsx';
 import ContentVideo from '../../../components/common/ContentVideo.jsx';
 import PostMedia from '../../community/components/PostMedia.jsx';
 import RecipeInstructions from '../../../components/common/RecipeInstructions.jsx';
 
+// Component chi tiết; detail gồm kind (recipe | video | article) và item cần hiển thị.
 export default function HomeContentDialog({ detail, onClose }) {
   const { kind, item } = detail;
   const title = item.recipe_name || item.title;

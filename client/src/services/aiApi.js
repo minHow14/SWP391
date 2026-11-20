@@ -1,13 +1,17 @@
 // D:/SWP391/SWP391/client/src/services/aiApi.js
 // client/src/services/aiApi.js
+// Lớp gọi các API AI qua Backend Gateway bằng fetch: chuẩn hóa lỗi, gắn token/mã khách,
+// tự làm mới phiên khi 401 và đọc luồng Server-Sent Events cho chatbot và tạo thực đơn.
 import { getSession, getSessionSnapshot, setSession } from '../utils/session.js';
 import { refreshSession } from './apiClient.js';
 
 // Toàn bộ cuộc gọi AI đi qua Backend Gateway API (/api)
 const AI_BASE = (import.meta.env?.VITE_API_URL || '/api').replace(/\/$/, '');
+// Khóa localStorage lưu mã khách để server áp hạn mức cho người chưa đăng nhập.
 const GUEST_KEY = 'chayxanh-guest-id';
 let memoryGuestId;
 
+// Lỗi chuẩn của tầng AI: mang status HTTP, mã lỗi, chi tiết, requestId và thời điểm reset hạn mức.
 export class AiApiError extends Error {
   constructor({ status = 0, code = 'NETWORK_ERROR', message, details, requestId, resetAt, cause } = {}) {
     super(message || 'Không thể kết nối tới dịch vụ AI. Vui lòng thử lại sau.', { cause });
@@ -29,12 +33,14 @@ export function getGuestId() {
       memoryGuestId = crypto.randomUUID();
       localStorage.setItem(GUEST_KEY, memoryGuestId);
     }
+  // localStorage có thể bị chặn (chế độ riêng tư) nên dùng mã tạm trong bộ nhớ cho phiên hiện tại.
   } catch {
     memoryGuestId ??= crypto.randomUUID();
   }
   return memoryGuestId;
 }
 
+// Tạo header cho request AI: Content-Type khi có body, mã khách và token Bearer nếu đã đăng nhập.
 function headers(hasBody) {
   const token = getSession()?.token;
   return {
@@ -44,6 +50,7 @@ function headers(hasBody) {
   };
 }
 
+// Chuyển response lỗi thành AiApiError; đọc message/mã lỗi theo cả envelope mới lẫn định dạng cũ.
 async function toError(response) {
   const result = await response.json().catch(() => null);
   const message =
@@ -61,6 +68,7 @@ async function toError(response) {
   });
 }
 
+// Gửi request kèm cookie (refresh token) và header hiện tại.
 function sendWithToken(path, { method, body, signal }) {
   return fetch(`${AI_BASE}${path}`, {
     method, signal, credentials: 'include', headers: headers(body !== undefined),
@@ -68,6 +76,8 @@ function sendWithToken(path, { method, body, signal }) {
   });
 }
 
+// Gửi request; nếu 401 thì thử làm mới phiên một lần rồi gửi lại, chỉ khi phiên chưa bị thay đổi ở nơi khác.
+// Lỗi mạng được bọc thành AiApiError, riêng lỗi do hủy request thì ném nguyên để nơi gọi bỏ qua.
 async function send(path, { method = 'GET', body, signal } = {}) {
   const snapshot = getSessionSnapshot();
   const options = { method, body, signal };
@@ -102,6 +112,7 @@ async function aiEnvelope(path, options = {}) {
   return result;
 }
 
+// Gọi API AI và chỉ trả về phần data.
 export async function aiRequest(path, options = {}) {
   return (await aiEnvelope(path, options)).data;
 }
@@ -172,6 +183,7 @@ async function postStream(path, body, { signal, onEvent }) {
   }
 }
 
+// Tạo AiApiError từ payload của sự kiện SSE "error".
 function errorFromEvent(payload) {
   const error = payload?.error;
   return new AiApiError({
@@ -183,6 +195,7 @@ function errorFromEvent(payload) {
   });
 }
 
+// Lấy số lượt chat AI còn lại của người dùng/khách.
 export const getChatUsage = (signal) => aiRequest('/ai/chat/usage', { signal });
 
 /** Hỏi chatbot và nhận câu trả lời dần dần. Trả về { remaining } khi xong. */
@@ -208,6 +221,7 @@ export async function streamChat({ message, history, dietaryType, menuContext, s
     }
   );
   if (failure) throw failure;
+  // Không nhận được sự kiện "done" nghĩa là luồng bị ngắt giữa chừng nên coi là lỗi.
   if (!completed) throw new AiApiError({ code: 'AI_STREAM_INTERRUPTED', message: 'Kết nối AI kết thúc trước khi trả lời hoàn tất.' });
   return { remaining };
 }
@@ -230,6 +244,7 @@ export async function streamMealPlan({ request, signal, onProgress }) {
 }
 
 // ----- Quản trị (Gọi Backend API Gateway tập trung) -----
+// Dựng query string, bỏ qua các tham số rỗng.
 const query = (params) => {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params || {})) {
@@ -238,13 +253,18 @@ const query = (params) => {
   const text = search.toString();
   return text ? `?${text}` : '';
 };
+// Lấy danh sách log AI kèm thông tin phân trang.
 export const adminListLogs = async (params, signal) => {
   const result = await aiEnvelope(`/v1/ai-logs${query(params)}`, { signal });
   return { items: result.data, ...result.meta };
 };
+// Thống kê log AI theo bộ lọc.
 export const adminLogStats = (params, signal) => aiRequest(`/v1/ai-logs/stats${query(params)}`, { signal });
+// Xem hạn mức của một mã khách.
 export const adminGetGuestQuota = (guestId, signal) =>
   aiRequest(`/v1/guest-quotas/${encodeURIComponent(guestId)}`, { signal });
+// Đặt lại hạn mức của một mã khách.
 export const adminResetGuestQuota = (guestId) =>
   aiRequest(`/v1/guest-quotas/${encodeURIComponent(guestId)}`, { method: 'DELETE' });
+// Xóa cache câu trả lời của chatbot.
 export const adminClearChatCache = () => aiRequest('/admin/ai/chatbot-cache/clear', { method: 'POST' });

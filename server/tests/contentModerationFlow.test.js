@@ -1,9 +1,12 @@
 // D:/SWP391/SWP391/server/tests/contentModerationFlow.test.js
+// Kiểm thử đầu-cuối (cần DB test) luồng kiểm duyệt: API → DB → worker → HTTP nội bộ thật tới AI giả,
+// đồng thời đối chiếu dữ liệu với hợp đồng OpenAPI kiểm duyệt.
 import http from 'node:http';
 import { once } from 'node:events';
 import { randomUUID } from 'node:crypto';
 import request from 'supertest';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+// Bật kiểm duyệt trước khi import app (vi.hoisted chạy trước mọi import).
 vi.hoisted(() => { process.env.CONTENT_MODERATION_ENABLED = 'true'; });
 import app from '../src/app.js';
 import prisma from '../src/config/prisma.js';
@@ -14,6 +17,7 @@ import { runContentModerationWorker } from '../src/workers/contentModerationWork
 import { createBlogSchema, updateBlogSchema } from '../src/validators/blog.validator.js';
 import { moderationContract } from './helpers/openApiContract.js';
 
+// Khóa nội bộ, cấu hình worker, kết quả ALLOW mẫu và các biến trạng thái dùng chung giữa các test.
 const INTERNAL_KEY = 'moderation-flow-test-key-32-characters';
 const config = { enabled: true, leaseMs: 60_000, maxAttempts: 2, retryMs: 1, pollMs: 1 };
 const allowed = { decision: 'ALLOW', reason: 'Nguyên liệu được mô tả là thực vật.', categories: [],
@@ -22,6 +26,8 @@ let owner, admin, ownerToken, adminToken, parent, endpoint, ai, upstream, receiv
 const auth = (token) => ({ Authorization: `Bearer ${token}` });
 const contract = moderationContract;
 
+// Xử lý request tới AI giả: ghi lại đường dẫn/khóa/body nhận được và trả phản hồi theo `upstream`;
+// phản hồi thành công được kiểm tra khớp hợp đồng ModerationResponse.
 async function respondToWorker(req, res) {
   let content = '';
   for await (const chunk of req) content += chunk;
@@ -33,6 +39,7 @@ async function respondToWorker(req, res) {
   res.end(JSON.stringify(body));
 }
 
+// Chạy worker thật cho đến khi job hoàn tất hoặc thất bại; watchdog 5 giây tránh test treo.
 async function finishQueuedWork() {
   const controller = new AbortController();
   const watchdog = setTimeout(() => controller.abort(), 5_000);
@@ -47,6 +54,7 @@ async function finishQueuedWork() {
   } finally { clearTimeout(watchdog); }
 }
 
+// Tạo chủ bài, admin, bài viết cha công khai và HTTP server giả làm AI Service kiểm duyệt.
 beforeAll(async () => {
   const user = (role) => ({ email: `moderation-flow-${randomUUID()}@example.invalid`,
     full_name: 'Moderation flow test', password_hash: 'unused-test-hash', role });
@@ -62,6 +70,7 @@ beforeAll(async () => {
   ai = createContentModerationAiService({ config: { url: `http://127.0.0.1:${endpoint.address().port}`, internalApiKey: INTERNAL_KEY }, timeoutMs: 1_000 });
 });
 
+// Đặt lại phản hồi AI giả và xóa bài/bình luận của chủ trước mỗi test.
 beforeEach(async () => {
   received = [];
   upstream = { status: 200, data: allowed };
@@ -69,17 +78,21 @@ beforeEach(async () => {
   await prisma.comment.deleteMany({ where: { user_id: owner.user_id } });
 });
 
+// Đóng server giả, dọn user và đóng DB.
 afterAll(async () => {
   if (endpoint) { endpoint.closeAllConnections(); await new Promise((resolve) => endpoint.close(resolve)); }
   await prisma.user.deleteMany({ where: { user_id: { in: [owner?.user_id, admin?.user_id].filter(Boolean) } } });
   await prisma.$disconnect();
 });
 
+// Hàm tạo blog với tư cách chủ và đọc job kiểm duyệt theo ID.
 const createBlog = () => request(app).post('/api/v1/blogs').set(auth(ownerToken))
   .send({ title: 'Sườn chay từ nấm', content: 'Sườn chay làm từ nấm và đậu nành.' });
 const ownerJob = (id) => request(app).get(`/api/v1/content-moderation-jobs/${id}`).set(auth(ownerToken));
 
+// Nhóm test: kiểm duyệt qua API, DB, worker và HTTP nội bộ thật.
 describe('moderation through APIs, database, worker and real internal HTTP transport', () => {
+  // Kiểu đính kèm mặc định "image" phải giống nhau ở validator tạo/sửa và khớp tài liệu OpenAPI.
   it('documents the attachment type default accepted by both create and edit validators', () => {
     const body = { title: 'Sườn chay', content: 'Món chay từ nấm.', attachments: [{ url: '/uploads/posts/attachment-contract.webp' }] };
     expect(createBlogSchema.parse(body).attachments[0].type).toBe('image');
@@ -87,6 +100,8 @@ describe('moderation through APIs, database, worker and real internal HTTP trans
     expect(updateBlogSchema.parse(body).attachments[0].type).toBe('image');
     contract('BlogUpdate').parse(body);
   });
+  // Tạo blog trả 202 trước khi xử lý (bài chưa công khai); sau khi worker chạy, bài được đăng và chủ xem lại được kết quả;
+  // AI chỉ nhận đúng snapshot nội dung kèm khóa nội bộ.
   it('returns 202 before processing, then publishes and restores the saved result for the owner', async () => {
     const submitted = await createBlog();
     expect(submitted.status).toBe(202);
@@ -105,6 +120,7 @@ describe('moderation through APIs, database, worker and real internal HTTP trans
       body: { jobId, contentType: 'POST', contentVersion: 1, title: blog.title, content: blog.content } }]);
   });
 
+  // Bình luận bị gắn cờ được giữ riêng tư tới khi admin duyệt, bài cha vẫn công khai.
   it('keeps a flagged comment private until Admin approval without hiding its published parent', async () => {
     upstream.data = { ...allowed, decision: 'REVIEW', reason: 'Nội dung quảng bá món từ thịt.',
       categories: ['ANIMAL_MEAT_PROMOTION'], evidence: ['sườn heo'] };
@@ -127,6 +143,8 @@ describe('moderation through APIs, database, worker and real internal HTTP trans
     expect((await prisma.post.findUnique({ where: { post_id: parent.post_id } })).status).toBe('PUBLISHED');
   });
 
+  // AI lỗi 401 (không retry) hoặc 503 (retry hết lượt) thì nội dung vẫn ẩn, lỗi trả về đã làm sạch;
+  // chỉ admin thấy trong hàng đợi gắn cờ.
   it.each([[401, 1, 'MODERATION_AI_AUTH_FAILED'], [503, 2, 'MODERATION_AI_UNAVAILABLE']])(
     'keeps content private after HTTP %s and exposes a sanitized actionable failure', async (status, attempts, errorCode) => {
       upstream.status = status;

@@ -1,4 +1,5 @@
 // client/src/services/placeService.js
+// Dịch vụ tìm quán chay theo vị trí và từ khóa.
 import apiClient from './apiClient.js';
 
 export const placeService = {

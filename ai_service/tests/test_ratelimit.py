@@ -1,5 +1,6 @@
 # D:/SWP391/SWP391/ai_service/tests/test_ratelimit.py
 # ai_service/tests/test_ratelimit.py
+# Kiểm thử giới hạn tần suất request (rate limit) theo IP của AI Service.
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -10,6 +11,7 @@ from main import app
 client = TestClient(app)
 
 
+# Vượt giới hạn -> 429 RATE_LIMIT_EXCEEDED theo envelope chuẩn; IP khác vẫn được phục vụ bình thường.
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
 def test_too_many_requests_from_one_ip_get_429_envelope(mock_answer, monkeypatch):
     mock_answer.return_value = "ok"
@@ -38,11 +40,13 @@ def test_too_many_requests_from_one_ip_get_429_envelope(mock_answer, monkeypatch
     assert client.post("/api/chat", json={"message": "hi"}, headers=other).status_code == 200
 
 
+# Client không thuộc proxy tin cậy không thể đổi X-Forwarded-For để lách rate limit.
 @patch("api.chat.chatbot_agent.answer", new_callable=AsyncMock)
 def test_spoofed_forwarded_for_from_untrusted_client_does_not_bypass_limit(mock_answer, monkeypatch):
     mock_answer.return_value = "ok"
     monkeypatch.setattr(settings, "RATE_LIMIT", "2/minute")
     
+    # Giả lập client kết nối trực tiếp từ một IP không nằm trong TRUSTED_PROXIES.
     direct = TestClient(app, client=("198.51.100.20", 40000))
     codes = [
         direct.post(

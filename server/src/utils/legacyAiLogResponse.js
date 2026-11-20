@@ -1,5 +1,6 @@
 // d:\Projects\FPT\SWP391\server\src/utils/legacyAiLogResponse.js
 // API admin cũ giữ hợp đồng hiện tại cho đến khi FE chuyển sang endpoint v1 dùng camelCase.
+// Ánh xạ bản ghi AiLog (camelCase) sang định dạng snake_case của API cũ.
 export const legacyAiLogResponse = (log) => ({
   log_id: log.logId,
   model_name: log.modelName,

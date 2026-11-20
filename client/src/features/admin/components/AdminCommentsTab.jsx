@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/src/features/admin/components/AdminCommentsTab.jsx
+// Tab "Quản lý bình luận": lọc theo trạng thái/cờ AI/từ khóa, ẩn, khôi phục và xóa bình luận vi phạm.
 import { useEffect, useState, useCallback } from 'react';
 import { Table, Button, Form, Row, Col, Spinner, Alert } from 'react-bootstrap';
 import { adminService } from '../../../services/adminService.js';
@@ -6,12 +7,14 @@ import AdminPagination from './AdminPagination.jsx';
 import { useAdminPagination } from '../hooks/useAdminPagination.js';
 import { emitSyncEvent, subscribeSyncEvent } from '../../../utils/syncEvents.js';
 
+// Component tab quản lý bình luận cộng đồng.
 export default function AdminCommentsTab() {
   const [statusFilter, setStatusFilter] = useState('');
   const [flagFilter, setFlagFilter] = useState('');
   const [search, setSearch] = useState('');
   const [actionMsg, setActionMsg] = useState('');
 
+  // Hàm tải một trang bình luận theo bộ lọc hiện tại; filterKey đổi sẽ đưa phân trang về trang 1.
   const fetchPage = useCallback((pagination) => adminService.getComments({ status: statusFilter, isFlagged: flagFilter, search, ...pagination }), [statusFilter, flagFilter, search]);
   const pagination = useAdminPagination({ fetchPage, filterKey: JSON.stringify([statusFilter, flagFilter, search]), limit: 50, errorMessage: 'Không thể tải danh sách bình luận' });
   const { data: comments, loading, error, setError, refresh: fetchComments } = pagination;
@@ -27,6 +30,7 @@ export default function AdminCommentsTab() {
     return unsubscribe;
   }, [fetchComments]);
 
+  // Đổi trạng thái hiển thị của bình luận (ẩn/khôi phục) và báo cho các tab khác.
   const handleUpdateStatus = async (commentId, status) => {
     try {
       await adminService.updateCommentStatus(commentId, status);
@@ -38,6 +42,7 @@ export default function AdminCommentsTab() {
     }
   };
 
+  // Xóa bình luận vi phạm sau khi Admin xác nhận.
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm('Bạn có chắc muốn xóa bình luận vi phạm này?')) return;
     try {

@@ -1,8 +1,16 @@
 // client/src/features/admin/components/AdminCategoryDetailRow.jsx
+// Dòng mở rộng trong bảng danh mục: liệt kê các công thức và bài viết blog đang liên kết với danh mục.
 import { Row, Col, Badge, Button } from 'react-bootstrap';
 
+/**
+ * Dòng chi tiết của một danh mục.
+ * @param {object} props
+ * @param {object} props.cat Danh mục kèm quan hệ `recipes` và `post_categories`.
+ * @param {Function} props.onPreview Gọi `(item, 'RECIPE' | 'POST')` để mở modal xem nhanh.
+ */
 export default function AdminCategoryDetailRow({ cat, onPreview }) {
   const recipes = cat?.recipes || [];
+  // post_categories là bảng trung gian; lấy ra bài viết bên trong, nếu API đã làm phẳng thì dùng luôn phần tử.
   const posts = (cat?.post_categories || []).map((pc) => pc.post || pc).filter(Boolean);
 
   return (

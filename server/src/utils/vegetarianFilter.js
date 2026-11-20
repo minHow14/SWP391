@@ -1,8 +1,11 @@
 // d:/Projects/FPT/SWP391/server/src/utils/vegetarianFilter.js
+// Bộ lọc nhận diện địa điểm có thực sự là quán/cửa hàng chay hay không (dùng cho dữ liệu địa điểm từ nguồn bên ngoài).
 
+// Từ khoá cho thấy địa điểm không phải quán chay (spa, nail, quán thịt, trà sữa...).
 export const NON_VEGETARIAN_NAME_REGEX =
   /\b(nail|nails|spa|spas|massage|eyelash|waxing|beauty|clinic|yoga|fitness|gym|beef|steak|bbq|chagee)\b|gội đầu|nối mi|uốn mi|thẩm mỹ|chuông xoay|chim chạy|món thái|quán thái|trà sữa|công ty tnhh|cù lao/i;
 
+// Từ khoá cho thấy địa điểm là quán chay.
 export const VEGETARIAN_NAME_REGEX =
   /\b(chay|vegan|vegetarian|plant-based|plant based)\b|âu lạc|thực dưỡng|bồ đề/i;
 

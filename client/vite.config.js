@@ -1,4 +1,5 @@
 // D:/SWP391/SWP391/client/vite.config.js
+// Cấu hình Vite cho client: plugin React và proxy /api, /uploads sang Back-end ở cổng 5000.
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 
@@ -8,7 +9,7 @@ const proxy = {
   '/uploads': { target: 'http://127.0.0.1:5000', changeOrigin: true },
 };
 
-// https://vite.dev/config/
+// Tài liệu cấu hình: https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: { proxy },
